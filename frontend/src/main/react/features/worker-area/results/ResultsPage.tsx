@@ -6,6 +6,8 @@ import {
   LineChart, Line, PieChart, Pie, Cell
 } from 'recharts';
 import AppHeader from '@/apps/app/AppHeader';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 
 export default function ResultsPage() {
   const { sessionId } = useParams();
@@ -67,13 +69,265 @@ export default function ResultsPage() {
       default: return 'bg-gray-100 text-gray-800';
     }
   };
+  
+  
+  const convertChartsToImages = async () => {
+    const charts = document.querySelectorAll('.recharts-wrapper');
+    const promises = Array.from(charts).map(async (chart) => {
+      try {
+        const canvas = await html2canvas(chart.parentNode, {
+          backgroundColor: '#ffffff',
+          scale: 2,
+          useCORS: true,
+          allowTaint: true,
+          logging: false
+        });
+      const imgData = canvas.toDataURL('image/png');
+      
+      const img = document.createElement('img');
+      img.src = imgData;
+      img.style.width = chart.parentNode.offsetWidth + 'px';
+      img.style.height = chart.parentNode.offsetHeight + 'px';
+      img.style.display = 'block';
+      
+      chart.style.display = 'none';
+      chart.parentNode.appendChild(img);
+    
+    return { chart, img };
+    } catch (error) {
+      console.error('Chart conversion error:', error);
+      return null;
+    }    
+  });
+  
+  const results = await Promise.all(promises);
+  return results.filter(result => result !== null);
+};
+
+
+
+const exportToExcel = () => {
+  const excelButton = document.getElementById('excel-btn');
+  if (excelButton) {
+    excelButton.disabled = true;
+    excelButton.textContent = 'Excel generieren...';
+  }
+
+  try {
+    const data = [
+      ['Sicherheitsbereich', 'Aktueller Score', 'Max Score', 'Kategorie'],
+      ...securityData.map(item => [item.subject, item.score, item.maxScore, item.category]),
+      [],
+      ['Empfehlungen'],
+      ['Priorität', 'Bereich', 'Maßnahme', 'Aufwand', 'Zeitrahmen'],
+      ...recommendations.map(rec => [rec.priority, rec.area, rec.action, rec.effort, rec.timeline])
+    ];
+    
+    const csvContent = data.map(row => row.join(',')).join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `Security_Assessment_${sessionId}_${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+  } finally {
+    setTimeout(() => {
+      if (excelButton) {
+        excelButton.disabled = false;
+        excelButton.textContent = 'Als Excel exportieren';
+      }
+    }, 1000);
+  }
+};
+
+const convertSVGToImage = (svg) => {
+  return new Promise((resolve) => {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const img = new Image();
+    
+    const svgData = new XMLSerializer().serializeToString(svg);
+    const svgBlob = new Blob([svgData], {type: 'image/svg+xml;charset=utf-8'});
+    const url = URL.createObjectURL(svgBlob);
+    
+    img.onload = () => {
+      canvas.width = svg.getBoundingClientRect().width;
+      canvas.height = svg.getBoundingClientRect().height;
+      ctx.drawImage(img, 0, 0);
+      URL.revokeObjectURL(url);
+      
+      canvas.toBlob((blob) => {
+        const imgElement = document.createElement('img');
+        imgElement.src = URL.createObjectURL(blob);
+        imgElement.style.width = canvas.width + 'px';
+        imgElement.style.height = canvas.height + 'px';
+        resolve(imgElement);
+      });
+    };
+    
+    img.src = url;
+  });
+};
+
+
+
+const exportToPNG = async () => {
+  const element = document.getElementById('results-content');
+  if (!element) return;
+
+  try {
+    const pngButton = document.getElementById('png-btn');
+    if (pngButton) {
+      pngButton.disabled = true;
+      pngButton.textContent = 'PNG generieren...';
+    }
+
+    window.scrollTo(0, 0);
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    const canvas = await html2canvas(document.body, {
+      scale: 1,
+      useCORS: true,
+      allowTaint: true,
+      backgroundColor: '#ffffff',
+      x: element.offsetLeft,
+      y: element.offsetTop,
+      width: element.scrollWidth,
+      height: element.scrollHeight
+    });
+
+    const link = document.createElement('a');
+    link.download = `Security_Assessment_${sessionId}_${new Date().toISOString().split('T')[0]}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+    
+  } catch (error) {
+    console.error('PNG export error:', error);
+  } finally {
+    const pngButton = document.getElementById('png-btn');
+    if (pngButton) {
+      pngButton.disabled = false;
+      pngButton.textContent = 'Als PNG exportieren';
+    }
+  }
+};
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  const exportToPDF = async () => {
+  const element = document.getElementById('results-content');
+  if (!element) return;
+
+  try {
+    const exportButton = document.getElementById('export-btn');
+    if (exportButton) {
+      exportButton.disabled = true;
+      exportButton.textContent = 'PDF generieren...';
+    }
+
+    const canvas = await html2canvas(element, {
+      scale: 1,
+      useCORS: true,
+      allowTaint: true,
+      backgroundColor: '#ffffff',
+      width: element.scrollWidth,
+      height: element.scrollHeight
+    });
+
+    const imgData = canvas.toDataURL('image/png');
+    
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = pdf.internal.pageSize.getHeight();
+    
+    const imgWidth = pdfWidth;
+    const imgHeight = (canvas.height * pdfWidth) / canvas.width;
+    
+    let heightLeft = imgHeight;
+    let position = 0;
+
+    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+    heightLeft -= pdfHeight;
+
+    while (heightLeft >= 0) {
+      position = heightLeft - imgHeight;
+      pdf.addPage();
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pdfHeight;
+    }
+
+    const filename = `Security_Assessment_${sessionId || 'Report'}_${new Date().toISOString().split('T')[0]}.pdf`;
+    pdf.save(filename);
+
+  } catch (error) {
+    console.error('PDF export error:', error);
+    alert('PDF error.');
+  } finally {
+    const exportButton = document.getElementById('export-btn');
+    if (exportButton) {
+      exportButton.disabled = false;
+      exportButton.textContent = 'Als PDF exportieren';
+    }
+  }
+};
 
   return (
     <>
       <AppHeader />
       <div className="wrapper p-6 bg-gray-50 min-h-screen">
-        <h1 className="text-2xl font-bold text-gray-900 mb-1">Ergebnisse</h1>
-        <p className="text-gray-500 mb-6">Session: <strong>{sessionId ?? '—'}</strong></p>
+        
+        
+        <div className="flex justify-between items-center mb-6">
+  <div>
+    <h1 className="text-2xl font-bold text-gray-900 mb-1">Ergebnisse</h1>
+    <p className="text-gray-500">Session: <strong>{sessionId ?? '—'}</strong></p>
+  </div>
+  <div className="flex gap-2">
+  <button
+    id="export-btn"
+    onClick={exportToPDF}
+    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow-md transition-colors duration-200 flex items-center gap-2"
+  >
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"> <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+    </svg>
+    Als PDF exportieren
+  </button>
+  
+  <button 
+    id="excel-btn"
+    onClick={exportToExcel} 
+    className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg shadow-md transition-colors duration-200 flex items-center gap-2"
+  >
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+    </svg>
+    Als Excel exportieren
+  </button>
+  
+  <button 
+    id="png-btn"
+    onClick={exportToPNG} 
+    className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg shadow-md transition-colors duration-200 flex items-center gap-2"
+  >
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+    </svg>
+    Als PNG exportieren
+  </button>
+</div>
+</div>
+
+        
+        <div id="results-content" className="space-y-8">
+        
 
         {/* Gesamtpunktzahl - Full Width */}
         <div className="mb-8 w-full">
@@ -299,6 +553,9 @@ export default function ResultsPage() {
             </div>
           </div>
         </div>
+      </div>
+      
+      
       </div>
     </>
   );
