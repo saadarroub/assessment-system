@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Ebene_2" data-name="Ebene 2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 62.29 62.52">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: #e3b960;
+        stroke-width: 0px;
+      }
+    </style>
+  </defs>
+  <g id="Logo_cap_consulting_RGB_White" data-name="Logo cap consulting RGB White">
+    <g>
+      <rect class="cls-1" x="13.05" width="12.71" height="12.71" rx="1.44" ry="1.44"/>
+      <rect class="cls-1" y="25.65" width="11" height="11" rx="1.44" ry="1.44"/>
+      <rect class="cls-1" x="51.29" y="36.87" width="11" height="11" rx="1.44" ry="1.44"/>
+      <rect class="cls-1" x="23.35" y="52.09" width="10.43" height="10.43" rx="1.44" ry="1.44"/>
+      <path class="cls-1" d="M62.29,1.44c0-.79-.65-1.44-1.44-1.44h-27.65c-.79,0-1.44.65-1.44,1.44v21.02c0,.79-.65,1.44-1.44,1.44h-10.25c-.79,0-1.44.65-1.44,1.44v16.77c0,.79.65,1.44,1.44,1.44h16.77c.79,0,1.44-.65,1.44-1.44v-10.13c0-.79.65-1.44,1.44-1.44h21.13c.79,0,1.44-.65,1.44-1.44,0,0,0-27.66,0-27.66Z"/>
+    </g>
+  </g>
+</svg>
