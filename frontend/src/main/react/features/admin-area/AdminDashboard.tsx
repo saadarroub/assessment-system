@@ -1,17 +1,17 @@
 // src/main/react/features/admin-area/AdminDashboard.tsx
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, NavLink, useNavigate } from 'react-router-dom';
 import '@/styles/admin.css';
 import AdminLayout from '@/apps/app/AdminLayout'; // ⬅️ ggf. anpassen auf "@/layouts/AdminLayout"
 
 import myLogo from '@/assets/Zero-6-icons-05.webp';
 import { Plus, ArrowRight, MinusSquare } from 'lucide-react';
 
-type Stat = { label: string; value: string; badge?: string; tone?: 'positive' | 'neutral' };
+type Stat = { label: string; value: string;tone?: 'positive' | 'neutral' };
 const STATS: Stat[] = [
-  { label: 'Themenschwerpunkte', value: '4',   badge: '+12%', tone: 'positive' },
-  { label: 'Gesamtfragen',        value: '250', badge: '+8%',  tone: 'positive' },
-  { label: 'Aktive Nutzer',       value: '89',  badge: '+23%', tone: 'positive' },
-  { label: 'Letzte Änderung',     value: 'Heute', badge: '2 Std.', tone: 'neutral' },
+  { label: 'Themenschwerpunkte', value: '4', tone: 'positive' },
+  { label: 'Gesamtfragen',        value: '250', tone: 'positive' },
+  { label: 'Aktive Nutzer',       value: '89', tone: 'positive' },
+  { label: 'Letzte Änderung',     value: 'Heute', tone: 'neutral' },
 ];
 
 type Topic = {
@@ -91,7 +91,7 @@ export default function AdminDashboard() {
         </div>
 
         <div className="header-actions">
-          <button className="btn btn-primary" onClick={() => navigate('/app/dashboard')}>
+          <button className="btn btn-primary" onClick={() => navigate('/admin/adminPanel')}>
             <MinusSquare size={16} />
             <span>Admin-Panal</span>
           </button>
@@ -110,7 +110,6 @@ export default function AdminDashboard() {
                     <p className="stat-label">{s.label}</p>
                     <p className="stat-value">{s.value}</p>
                   </div>
-                  {s.badge && <div className={`stat-badge ${s.tone ?? 'neutral'}`}>{s.badge}</div>}
                 </div>
               </div>
             ))}
@@ -142,7 +141,7 @@ export default function AdminDashboard() {
                 </ul>
                 <div className="topic-footer">
                   <div className="topic-details">
-                    <span className="topic-catalog">{t.catalog}</span>
+                    <span className="topic-catalog">{t.catalog}</span>{' '}
                     <span className="topic-questions">
                       Fragen: <strong>{t.questions}</strong>
                     </span>
