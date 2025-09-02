@@ -1,109 +1,159 @@
-// src/main/react/layouts/AdminLayout.tsx
-import { useState, type ReactNode } from 'react';
+import React, { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { NavLink } from 'react-router-dom';
-import '@/styles/admin.css';
+
+import '@/styles/Test.css';    // NEUE Sidebar-/Nav-Styles
+
 import capLogo from '@/assets/Logo_cap_consulting_RGB_Darkblue.svg';
 import {
   Settings, BarChart3, FileText, ShoppingCart, Building2,
   ChevronRight, ChevronLeft
 } from 'lucide-react';
 
-type AdminLayoutProps = {
-  children?: ReactNode; // <-- NEU
-};
+type AdminLayoutProps = { children?: ReactNode };
+
+/* ===== Helper ===== */
+function cx(...classes: Array<string | false | null | undefined>) {
+  return classes.filter(Boolean).join(' ');
+}
+
+type NavId =
+  | 'overview'
+  | 'catalog'
+  | 'enterprise'
+  | 'operating'
+  | 'sourcing'
+  | 'project';
+
+const NAV_PRIMARY: Array<{ id: NavId; label: string; Icon: React.FC<any> }> = [
+  { id: 'overview', label: 'Übersicht',         Icon: BarChart3 },
+  { id: 'catalog',  label: 'Katalog zuweisen',  Icon: FileText  },
+];
+
+const NAV_THEMES: Array<{ id: NavId; label: string; sub: string; Icon: React.FC<any> }> = [
+  { id: 'operating',  label: 'IT Operating Model',               sub: 'Organisationsstrukturen und Prozesse',       Icon: Building2 },
+  { id: 'enterprise', label: 'Enterprise Architecture Management', sub: 'Strategische IT-Planung und -Ausrichtung', Icon: BarChart3 },
+  { id: 'sourcing',   label: 'IT Sourcing',                       sub: 'Beschaffung & Lieferantenmanagement',       Icon: ShoppingCart },
+  { id: 'project',    label: 'IT Project Management',             sub: 'Projektplanung und -durchführung',          Icon: FileText },
+];
 
 export default function AdminLayout({ children }: AdminLayoutProps) {
+  // collapsible Sidebar
   const [collapsed, setCollapsed] = useState(false);
-  const sidebarCn = `sidebar${collapsed ? ' collapsed' : ''}`;
-  const mainCn    = `main-content${collapsed ? ' collapsed' : ''}`;
+  // aktive Auswahl (nur lokal, fürs visuelle Highlight)
+  const [active, setActive] = useState<NavId>('overview');
+
+  // Sidebar + Active-Tab aus localStorage wiederherstellen
+  useEffect(() => {
+    const savedCollapsed = localStorage.getItem('sidebarCollapsed');
+    if (savedCollapsed != null) setCollapsed(savedCollapsed === 'true');
+
+    const savedActive = localStorage.getItem('activeNav');
+    const allowed: string[] = ['overview','catalog','enterprise','operating','sourcing','project'];
+    if (savedActive && allowed.includes(savedActive)) {
+      setActive(savedActive as NavId);
+    }
+  }, []);
+
+  useEffect(() => { localStorage.setItem('sidebarCollapsed', String(collapsed)); }, [collapsed]);
+  useEffect(() => { localStorage.setItem('activeNav', active); }, [active]);
+
+  const showChevron = useMemo(() => !collapsed, [collapsed]);
+
+  // Behalte deine ursprüngliche Main-Class-Logik bei
+  const mainCn = `main-content${collapsed ? ' collapsed' : ''}`;
 
   return (
-    <div className="admin-container">
-      {/* Sidebar */}
-      <aside className={sidebarCn}>
+    <div className="admin-container fk-admin admin-shell">
+      {/* ===== Neue Sidebar (ersetzt alten Slider-Teil) ===== */}
+      <aside aria-label="Admin Sidebar" className={cx('sidebar', collapsed && 'collapsed')}>
+        {/* Header */}
         <div className="sidebar-header">
-          <div className="sidebar-brand">
-            <div className="brand-icon"><Settings size={18} /></div>
+          <div className="brand" aria-hidden={collapsed}>
+            <div className="logo-tile"><Settings className="icon" /></div>
             <div className="brand-text">
-              <h2>Fragenkatalog</h2>
-              <p>Administrator</p>
+              <h2 className="brand-title">Fragenkatalog</h2>
+              <p className="brand-sub">Administrator</p>
             </div>
           </div>
+
           <button
-            className="sidebar-toggle"
+            aria-label={collapsed ? 'Sidebar erweitern' : 'Sidebar einklappen'}
+            className="icon-btn toggle-btn"
             onClick={() => setCollapsed(v => !v)}
-            aria-label={collapsed ? 'Seitenleiste öffnen' : 'Seitenleiste schließen'}
-            title={collapsed ? 'Öffnen' : 'Schließen'}
+            type="button"
           >
-            {collapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+            {collapsed ? <ChevronRight className="icon" /> : <ChevronLeft className="icon" />}
           </button>
         </div>
 
+        {/* Inhalt */}
         <div className="sidebar-content">
-          <div className="nav-section">
-            <h3 className="nav-title">Navigation</h3>
-            <nav className="nav-menu">
-              <NavLink to="/admin" end className={({isActive}) => `nav-item${isActive ? ' active' : ''}`}>
-                <BarChart3 size={16} />
-                <span className="nav-text">Übersicht</span>
-              </NavLink>
-              <NavLink to="/admin/catalogs" className={({isActive}) => `nav-item${isActive ? ' active' : ''}`}>
-                <FileText size={16} />
-                <span className="nav-text">Katalog zuweisen</span>
-              </NavLink>
+          {/* Navigation */}
+          <div>
+            <h3 className="section-title">Navigation</h3>
+            <nav className="nav-list">
+              {NAV_PRIMARY.map(({ id, label, Icon }) => {
+                const isActive = active === id;
+                return (
+                  <button
+                    key={id}
+                    onClick={() => setActive(id)}
+                    className={cx('nav-btn', isActive && 'is-active')}
+                    type="button"
+                  >
+                    <Icon className="icon" />
+                    <span className="label">{label}</span>
+                    {showChevron && isActive && <ChevronRight className="chevron icon" />}
+                  </button>
+                );
+              })}
             </nav>
           </div>
 
-          <div className="nav-section">
-            <h3 className="nav-title">Themenschwerpunkte</h3>
-            <nav className="nav-menu">
-              <button className="nav-item theme-item">
-                <div className="theme-icon business"><Building2 size={12} /></div>
-                <div className="theme-content">
-                  <div className="theme-label">IT Operating Model</div>
-                  <div className="theme-subtitle">Organisationsstrukturen und Prozesse</div>
-                </div>
-              </button>
-              <button className="nav-item theme-item">
-                <div className="theme-icon strategy"><BarChart3 size={12} /></div>
-                <div className="theme-content">
-                  <div className="theme-label">Enterprise Architecture Management</div>
-                  <div className="theme-subtitle">Strategische IT-Planung und -Ausrichtung</div>
-                </div>
-              </button>
-              <button className="nav-item theme-item">
-                <div className="theme-icon sourcing"><ShoppingCart size={12} /></div>
-                <div className="theme-content">
-                  <div className="theme-label">IT Sourcing</div>
-                  <div className="theme-subtitle">Beschaffung & Lieferanten</div>
-                </div>
-              </button>
-              <button className="nav-item theme-item">
-                <div className="theme-icon project"><FileText size={12} /></div>
-                <div className="theme-content">
-                  <div className="theme-label">IT Project Management</div>
-                  <div className="theme-subtitle">Projektplanung und -durchführung</div>
-                </div>
-              </button>
+          {/* Themen */}
+          <div>
+            <h3 className="section-title">Themenschwerpunkte</h3>
+            <nav className="nav-list">
+              {NAV_THEMES.map(({ id, label, sub, Icon }) => {
+                const isActive = active === id;
+                return (
+                  <button
+                    key={id}
+                    onClick={() => setActive(id)}
+                    className={cx('nav-btn theme', `theme--${id}`, isActive && 'is-active')}
+                    type="button"
+                  >
+                    <div className="theme-dot"><Icon className="icon" /></div>
+                    <div className="text">
+                      <div className="label">{label}</div>
+                      <div className="sub">{sub}</div>
+                    </div>
+                    {showChevron && isActive && <ChevronRight className="chevron icon" />}
+                  </button>
+                );
+              })}
             </nav>
           </div>
 
+          {/* Footer */}
           <div className="sidebar-footer">
-            <div className="footer-text">
-              <div>Fragenkatalog</div>
-              <div>Admin</div>
-            </div>
+            <div>Fragenkatalog</div>
+            <div>Admin</div>
           </div>
         </div>
       </aside>
 
-      {/* Main + Top-Nav */}
+      {/* ===== Main + Top-Nav (unverändert) ===== */}
       <main className={mainCn}>
         <div className="admin-topnav">
           <div className="topnav-container">
             <div className="topnav-left">
               <ul className="topnav-links">
-                <li><NavLink to="/admin" end className={({isActive}) => `topnav-link${isActive ? ' topnav-link-active' : ''}`}>Start</NavLink></li>
+                <li>
+                  <NavLink to="/admin" end className={({isActive}) => `topnav-link${isActive ? ' topnav-link-active' : ''}`}>
+                    Start
+                  </NavLink>
+                </li>
                 <li><NavLink to="/admin/catalogs" className="topnav-link">Kataloge</NavLink></li>
               </ul>
             </div>
@@ -127,8 +177,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           </div>
         </div>
 
-        {/* HIER kommt der Seiteninhalt rein */}
-        {children} {/* <-- statt <Outlet /> */}
+        {children}
       </main>
     </div>
   );

@@ -13,6 +13,7 @@ import CompaniesList from '@/features/admin-panel/companies/CompanyList';
 import CompanyDetails from '@/features/admin-panel/companies/CompanyDetail';
 import AuditPage from '@/features/admin-panel/audit/AuditLogTable';
 
+import TestSliderNav from '@/apps/app/TestSliderNav';
 // ⬇️ Topic-Seiten
 import EamPage from '@/features/admin-area/topics/eam/EamPage';
 import OperatingModelPage from '@/features/admin-area/topics/operating-model/OperatingModelPage';
@@ -31,6 +32,14 @@ export default function AppRoutes() {
         element={
           <ProtectedRoute>
             <WorkerDashboard />
+          </ProtectedRoute>
+        }
+      />
+       <Route
+        path="/demo"
+        element={
+          <ProtectedRoute>
+            <TestSliderNav />
           </ProtectedRoute>
         }
       />

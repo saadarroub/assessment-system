@@ -4,7 +4,7 @@
 /* ===== Palette ===== */
 :root{
   /* >>> Diese drei Werte bestimmen die Sidebar-Farben <<< */
-  --cap-dark:  #264555;     /* dunkler Hintergrund oben/unten */
+  --cap-dark:  #264555;     /* dunkler Hintergrund oben/unten */ 
   --cap-mid:   #56768f;     /* Mittelton (Highlights) */
   --cap-gold:  #E3BB62;     /* Akzent (linke Linie, Hover-Glanz) */
 

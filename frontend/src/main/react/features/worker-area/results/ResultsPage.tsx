@@ -42,7 +42,7 @@ export default function ResultsPage() {
     { name: 'Kritisch', value: 5, color: '#DC2626' }
   ];
 
-  const getMaturityLevel = (score) => {
+  const getMaturityLevel = (score: number) => {
     if (score >= 90) return { level: 'Optimiert', color: '#10B981', desc: 'Exzellente Sicherheitsstandards' };
     if (score >= 80) return { level: 'Verwaltet', color: '#3B82F6', desc: 'Gute Sicherheitsmaßnahmen' };
     if (score >= 70) return { level: 'Definiert', color: '#F59E0B', desc: 'Grundlegende Sicherheit vorhanden' };
@@ -59,7 +59,7 @@ export default function ResultsPage() {
     { priority: 'Mittel', area: 'Mitarbeitersicherheit', action: 'Security Awareness Training', effort: 'Niedrig', timeline: '1-2 Monate' }
   ];
 
-  const getPriorityColor = (priority) => {
+  const getPriorityColor = (priority: string) => {
     switch (priority) {
       case 'Hoch': return 'bg-red-100 text-red-800';
       case 'Mittel': return 'bg-yellow-100 text-yellow-800';
