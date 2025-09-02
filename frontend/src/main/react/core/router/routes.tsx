@@ -7,6 +7,10 @@ import AdminDashboard from '@/features/admin-area/AdminDashboard';
 import ProtectedRoute from './ProtectedRoute';
 import ResultsPage from '@/features/worker-area/results/ResultsPage';
 
+
+
+
+
 // ⬇️ Topic-Seiten
 import EamPage from '@/features/admin-area/topics/eam/EamPage';
 import OperatingModelPage from '@/features/admin-area/topics/operating-model/OperatingModelPage';
@@ -40,9 +44,9 @@ export default function AppRoutes() {
       <Route
         path="/admin"
         element={
-          <ProtectedRoute permission="admin:dashboard:view">
+          
             <AdminDashboard />
-          </ProtectedRoute>
+        
         }
       />
 
@@ -50,33 +54,33 @@ export default function AppRoutes() {
       <Route
         path="/admin/topics/eam"
         element={
-          <ProtectedRoute permission="admin:dashboard:view">
+         
             <EamPage />
-          </ProtectedRoute>
+          
         }
       />
       <Route
         path="/admin/topics/operating-model"
         element={
-          <ProtectedRoute permission="admin:dashboard:view">
+        
             <OperatingModelPage />
-          </ProtectedRoute>
+          
         }
       />
       <Route
         path="/admin/topics/sourcing"
         element={
-          <ProtectedRoute permission="admin:dashboard:view">
+    
             <SourcingPage />
-          </ProtectedRoute>
+        
         }
       />
       <Route
         path="/admin/topics/project-management"
         element={
-          <ProtectedRoute permission="admin:dashboard:view">
+         
             <ProjectManagementPage />
-          </ProtectedRoute>
+         
         }
       />
 
