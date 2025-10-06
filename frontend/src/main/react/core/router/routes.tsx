@@ -6,6 +6,7 @@ import WorkerDashboard from '@/features/worker-area/WorkerDashboard';
 import AdminDashboard from '@/features/admin-area/AdminDashboard';
 import ProtectedRoute from './ProtectedRoute';
 import ResultsPage from '@/features/worker-area/results/ResultsPage';
+import TotalResultsPage from '@/features/worker-area/results/TotalResultsPage';
 
 // ⬇️ Topic-Seiten
 import EamPage from '@/features/admin-area/topics/eam/EamPage';
@@ -32,6 +33,14 @@ export default function AppRoutes() {
         element={
           <ProtectedRoute>
             <ResultsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/app/totalresults/:sessionId"
+        element={
+          <ProtectedRoute>
+            <TotalResultsPage />
           </ProtectedRoute>
         }
       />
