@@ -1,30 +1,27 @@
 /* ========= Tokens nur für diese Seite (.fk-admin) ========= */
-.fk-admin{
-  /* Sidebar-Basis #334155 ≈ HSL(210, 25%, 27%) */
+.fk-admin {
   --sidebar-h: 210;
   --sidebar-s: 25%;
   --sidebar-l: 27%;
-
   --primary: 215 84% 56%;
 
-  /* === Themenfarben === */
-  --theme-enterprise: #56768f; /* Enterprise Architecture Management */
-  --theme-sourcing:   #264555; /* IT Sourcing */
-  --theme-operating:  #808080; /* IT Operating Model */
-  --theme-project:    #d2c9b9; /* Project Management */
+  /* Themenfarben */
+  --theme-enterprise: #56768f;
+  --theme-sourcing: #264555;
+  --theme-operating: #808080;
+  --theme-project: #d2c9b9;
 
   --background: 0 0% 100%;
-  /* WICHTIG: keine globale --foreground hier setzen -> sonst weiße Schrift */
 
   --admin-sidebar: var(--sidebar-h) var(--sidebar-s) var(--sidebar-l);
   --admin-sidebar-strong: var(--sidebar-h) var(--sidebar-s) calc(var(--sidebar-l) + 2%);
-  --admin-sidebar-weak:   var(--sidebar-h) var(--sidebar-s) calc(var(--sidebar-l) + 4%);
+  --admin-sidebar-weak: var(--sidebar-h) var(--sidebar-s) calc(var(--sidebar-l) + 4%);
   --admin-sidebar-foreground: 210 40% 96%;
-  --admin-sidebar-muted:      210 16% 80%;
-  --admin-sidebar-border:     var(--sidebar-h) 14% calc(var(--sidebar-l) + 10%);
+  --admin-sidebar-muted: 210 16% 80%;
+  --admin-sidebar-border: var(--sidebar-h) 14% calc(var(--sidebar-l) + 10%);
 
-  --active-bg: hsla(0,0%,0%,.22);
-  --hover-bg:  hsla(0,0%,100%,.06);
+  --active-bg: hsla(0, 0%, 0%, .22);
+  --hover-bg: hsla(0, 0%, 100%, .06);
 
   --ring: 215 90% 62%;
   --radius-lg: 14px;
@@ -33,233 +30,418 @@
   --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(215 100% 70%));
 
   /* Layout-Maße */
-  --sidebar-open: 20rem;   /* offene Sidebar-Breite */
-  --sidebar-closed: 5rem;  /* eingeklappte Sidebar-Breite */
-  --header-height: 64px;   /* Top-Nav Höhe */
+  --sidebar-open: 20rem;
+  --sidebar-closed: 5rem;
+  --header-height: 64px;
+  --sidebar-header-height: 64px;
+  /* konstante Sidebar-Headerhöhe */
+  --nav-row-h: 64px;
+  /* Zielhöhe je Zeile (wie bei Übersicht) */
+  --tile-size: 38px;
+  /* Kachelgröße links */
+  --tile-radius: 12px;
+  --row-gap: .9rem;
+  /* Abstand Icon <-> Text */
+  --row-pad-x: 1rem;
+  --row-pad-y: .75rem;
+
 }
 
 /* ===== App shell ===== */
-.admin-container{ min-height: 100vh; }
-.fk-admin.admin-shell{
+.admin-container {
+  min-height: 100vh;
+}
+
+.fk-admin.admin-shell {
   min-height: 100vh;
   background: hsl(var(--background));
-  /* keine globale color hier -> Main behält dunklen Text */
 }
 
 /* ===== Sidebar ===== */
-.fk-admin .sidebar{
+.fk-admin .sidebar {
   position: fixed;
-  left: 0; top: 0; bottom: 0;
+  left: 0;
+  top: 0;
+  bottom: 0;
   height: 100vh;
   width: var(--sidebar-open);
   background: hsl(var(--admin-sidebar));
   border-right: 1px solid hsl(var(--admin-sidebar-border));
   border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
-  box-shadow: 8px 0 32px -18px rgba(0,0,0,.35);
+  box-shadow: 8px 0 32px -18px rgba(0, 0, 0, .35);
   transition: width .3s ease;
-  display: flex; flex-direction: column;
-  color: hsl(var(--admin-sidebar-foreground)); /* Sidebar-Text bewusst hell */
+  display: flex;
+  flex-direction: column;
+  color: hsl(var(--admin-sidebar-foreground));
+  overflow: hidden;
+  /* WICHTIG: verhindert Text-Overflow beim Zuklappen */
 }
-.fk-admin .sidebar.collapsed{
+
+.fk-admin .sidebar.collapsed {
   width: var(--sidebar-closed);
   border-radius: var(--radius-lg);
 }
 
-/* ===== Header in Sidebar ===== */
-.fk-admin .sidebar-header{
-  display:flex; align-items:center; justify-content:space-between;
-  padding:.85rem .9rem;
-  border-bottom:1px solid hsl(var(--admin-sidebar-border));
-  background:hsl(var(--admin-sidebar));
+/* ===== Sidebar Header ===== */
+.fk-admin .sidebar-header {
+  height: var(--sidebar-header-height);
+  padding: 0 .9rem;
+  /* identisch in beiden Zuständen */
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid hsl(var(--admin-sidebar-border));
+  background: hsl(var(--admin-sidebar));
   border-top-left-radius: 0;
   border-top-right-radius: var(--radius-lg);
 }
-.fk-admin .sidebar.collapsed .sidebar-header{
-  justify-content: center;
-  border-top-left-radius: var(--radius-lg);
-}
-.fk-admin .brand{ display:flex; align-items:center; gap:.75rem; transition:opacity .2s ease; }
-.fk-admin .sidebar.collapsed .brand{ display:none; }
 
-.fk-admin .logo-tile{
-  width:2.2rem; height:2.2rem; border-radius:.8rem;
-  display:grid; place-items:center; color:#fff;
+.fk-admin .sidebar.collapsed .sidebar-header {
+  justify-content: space-between;
+  /* NICHT mittig ausrichten */
+}
+
+.fk-admin .brand {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+}
+
+.fk-admin .sidebar.collapsed .brand {
+  visibility: hidden;
+  /* Platz bleibt erhalten -> kein vertikaler Shift */
+  display: flex;
+}
+
+.fk-admin .logo-tile {
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: .8rem;
+  display: grid;
+  place-items: center;
+  color: #fff;
   background: var(--gradient-primary);
-  box-shadow:0 10px 22px -14px hsl(var(--primary)/.35);
-  border:1px solid rgba(255,255,255,.15);
+  box-shadow: 0 10px 22px -14px hsl(var(--primary)/.35);
+  border: 1px solid rgba(255, 255, 255, .15);
 }
-.fk-admin .brand-title{ margin:0; font-size:.95rem; font-weight:700; color:hsl(var(--admin-sidebar-foreground)); }
-.fk-admin .brand-sub  { margin:0; font-size:.78rem; color:hsl(var(--admin-sidebar-muted)); }
 
-.fk-admin .icon-btn{
-  width:2.2rem; height:2.2rem; display:grid; place-items:center;
-  border-radius:.8rem; background:hsl(var(--admin-sidebar-strong));
-  border:1px solid hsl(var(--admin-sidebar-border));
-  color:hsl(var(--admin-sidebar-muted)); cursor:pointer;
-  box-shadow:0 2px 6px -2px rgba(0,0,0,.35);
+.fk-admin .brand-title {
+  margin: 0;
+  font-size: .95rem;
+  font-weight: 700;
+  color: hsl(var(--admin-sidebar-foreground));
 }
-.fk-admin .sidebar.collapsed .icon-btn{
-  width:2.4rem; height:2.4rem;
-  background: rgba(255,255,255,.06);
-  border-color: rgba(255,255,255,.20);
-  color:#fff;
-}
-.fk-admin .icon-btn:hover{ filter:brightness(1.05); }
 
-/* ===== Inhalt in der Sidebar ===== */
-.fk-admin .sidebar-content{
+.fk-admin .brand-sub {
+  margin: 0;
+  font-size: .78rem;
+  color: hsl(var(--admin-sidebar-muted));
+}
+
+.fk-admin .icon-btn {
+  width: 2.2rem;
+  height: 2.2rem;
+  display: grid;
+  place-items: center;
+  border-radius: .8rem;
+  background: hsl(var(--admin-sidebar-strong));
+  border: 1px solid hsl(var(--admin-sidebar-border));
+  color: hsl(var(--admin-sidebar-muted));
+  cursor: pointer;
+  box-shadow: 0 2px 6px -2px rgba(0, 0, 0, .35);
+}
+
+.fk-admin .sidebar.collapsed .icon-btn {
+  width: 2.4rem;
+  height: 2.4rem;
+  background: rgba(255, 255, 255, .06);
+  border-color: rgba(255, 255, 255, .20);
+  color: #fff;
+}
+
+.fk-admin .icon-btn:hover {
+  filter: brightness(1.05);
+}
+
+/* ===== Sidebar Content ===== */
+.fk-admin .sidebar-content {
   flex: 1 1 auto;
-  padding:.9rem;
-  overflow-y:auto;
+  padding: .9rem;
+  /* gleich in beiden Zuständen */
+  overflow-y: auto;
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
-.fk-admin .sidebar-content::-webkit-scrollbar{ width:0; height:0; }
+
+.fk-admin .sidebar-content::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
 
 /* Abschnittstitel */
-.fk-admin .section-title{
-  font-size:.72rem; font-weight:700; letter-spacing:.12em; margin:.9rem 0 .75rem;
+.fk-admin .section-title {
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .12em;
+  margin: .9rem 0 .75rem;
   color: color-mix(in hsl, hsl(var(--primary)) 55%, hsl(var(--admin-sidebar-muted)));
   text-transform: uppercase;
 }
 
-/* ===== Liste / Buttons ===== */
-.fk-admin .nav-list{ display:flex; flex-direction:column; gap:.65rem; }
+/* Titel: im collapsed unsichtbar (Platz bleibt) */
+.fk-admin .sidebar.collapsed .section-title {
+  visibility: hidden;
+}
 
-.fk-admin .nav-btn{
-  position:relative;
-  width:100%; display:flex; align-items:center; gap:.75rem;
-  border:1px solid transparent; border-radius: 18px;
+/* ===== Nav List / Buttons ===== */
+.fk-admin .nav-list {
+  display: flex;
+  flex-direction: column;
+  gap: .65rem;
+}
+
+.fk-admin .nav-btn {
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  border: 1px solid transparent;
+  border-radius: 18px;
   background: transparent;
-  color:hsl(var(--admin-sidebar-foreground));
-  padding:.8rem .95rem;
-  text-align:left; cursor:pointer;
+  color: hsl(var(--admin-sidebar-foreground));
+  padding: .8rem .95rem;
+  text-align: left;
+  cursor: pointer;
   transition: background .16s ease, border-color .16s ease, box-shadow .16s ease;
 }
-.fk-admin .nav-btn:hover{
+
+.fk-admin .nav-btn:hover {
   background: var(--hover-bg);
-  border-color: rgba(255,255,255,.10);
+  border-color: rgba(255, 255, 255, .10);
 }
-.fk-admin .nav-btn.is-active{
+
+.fk-admin .nav-btn.is-active {
   background: var(--active-bg);
-  border-color: rgba(255,255,255,.18);
+  border-color: rgba(255, 255, 255, .18);
 }
-.fk-admin .nav-btn.is-active::before{
-  content:""; position:absolute; left:10px; top:50%; transform:translateY(-50%);
-  width:4px; height:22px; border-radius:6px;
+
+.fk-admin .nav-btn.is-active::before {
+  content: "";
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 22px;
+  border-radius: 6px;
   background: linear-gradient(180deg, hsl(var(--primary)/.9), hsl(var(--primary)/.55));
 }
-.fk-admin .nav-btn:focus-visible{ outline:3px solid hsl(var(--primary)/.35); outline-offset:2px; }
 
-.fk-admin .label{ font-size:.95rem; font-weight:700; flex:1 1 auto; }
-.fk-admin .sub  { font-size:.8rem;  color:hsl(var(--admin-sidebar-muted)); }
+.fk-admin .nav-btn:focus-visible {
+  outline: 3px solid hsl(var(--primary)/.35);
+  outline-offset: 2px;
+}
 
-.fk-admin .chevron{ opacity:.85; }
-.fk-admin .nav-btn:not(.is-active) .chevron{ display:none; }
+.fk-admin .label {
+  font-size: .95rem;
+  font-weight: 700;
+  flex: 1 1 auto;
+}
 
-/* Icons (Nav) */
-.fk-admin .icon{ width:16px; height:16px; }
-.fk-admin .nav-btn > .icon{
-  width:18px; height:18px; padding:0; border-radius:0; background:transparent; border:none;
-  color:hsl(var(--admin-sidebar-muted));
+.fk-admin .sub {
+  font-size: .8rem;
+  color: hsl(var(--admin-sidebar-muted));
+}
+
+.fk-admin .chevron {
+  opacity: .85;
+}
+
+.fk-admin .nav-btn:not(.is-active) .chevron {
+  display: none;
+}
+
+/* Icons (allgemein) */
+.fk-admin .icon {
+  width: 16px;
+  height: 16px;
+}
+
+.fk-admin .nav-btn>.icon {
+  width: 18px;
+  height: 18px;
+  color: hsl(var(--admin-sidebar-muted));
+}
+
+/* ===== Primär-Nav: stabiler Icon-Wrapper ===== */
+.fk-admin .nav-icon {
+  width: 1.8rem;
+  height: 1.8rem;
+  border-radius: .55rem;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, .06);
+  border: 1px solid rgba(255, 255, 255, .18);
+  color: hsl(var(--admin-sidebar-muted));
+  box-shadow: 0 8px 18px -12px rgba(0, 0, 0, .45);
+}
+
+.fk-admin .nav-icon .icon {
+  width: 18px;
+  height: 18px;
+}
+
+.fk-admin .nav-btn:hover .nav-icon {
+  filter: brightness(1.08);
+}
+
+.fk-admin .nav-btn.is-active .nav-icon {
+  background: rgba(255, 255, 255, .10);
+  border-color: rgba(255, 255, 255, .22);
+  color: #fff;
 }
 
 /* ===== Themen-Dots ===== */
-.fk-admin .theme .theme-dot{
-  width:1.8rem; height:1.8rem; border-radius:.55rem;
-  display:grid; place-items:center; color:#fff;
-  border:1px solid rgba(255,255,255,.18);
-  box-shadow:0 8px 18px -12px rgba(0,0,0,.45);
-}
-.fk-admin .theme--operating  .theme-dot{ background:var(--theme-operating); }
-.fk-admin .theme--enterprise .theme-dot{ background:var(--theme-enterprise); }
-.fk-admin .theme--sourcing   .theme-dot{ background:var(--theme-sourcing); }
-.fk-admin .theme--project    .theme-dot{ background:var(--theme-project); border-color:rgba(0,0,0,.22); }
-
-/* ===== Sidebar-Footer ===== */
-.fk-admin .sidebar-footer{
-  margin-top:1rem; padding-top:1rem;
-  border-top:1px solid hsl(var(--admin-sidebar-border));
-  color:hsl(var(--admin-sidebar-muted)); font-size:.8rem;
+.fk-admin .theme .theme-dot {
+  width: 1.8rem;
+  height: 1.8rem;
+  border-radius: .55rem;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, .18);
+  box-shadow: 0 8px 18px -12px rgba(0, 0, 0, .45);
 }
 
-/* ===== Collapsed (nur Icons / Tiles) ===== */
-.fk-admin .sidebar.collapsed .section-title,
+.fk-admin .theme--operating .theme-dot {
+  background: var(--theme-operating);
+}
+
+.fk-admin .theme--enterprise .theme-dot {
+  background: var(--theme-enterprise);
+}
+
+.fk-admin .theme--sourcing .theme-dot {
+  background: var(--theme-sourcing);
+}
+
+.fk-admin .theme--project .theme-dot {
+  background: var(--theme-project);
+  border-color: rgba(0, 0, 0, .22);
+}
+
+/* ===== Collapsed (Icon/Tiles) ===== */
 .fk-admin .sidebar.collapsed .label,
 .fk-admin .sidebar.collapsed .sub,
-.fk-admin .sidebar.collapsed .sidebar-footer{
-  display:none !important;
+.fk-admin .sidebar.collapsed .sidebar-footer {
+  display: none !important;
+  /* Text & Footer ausblenden */
 }
 
-.fk-admin .sidebar.collapsed .sidebar-content{
-  padding:.8rem .5rem .9rem .5rem;
-  display:flex; flex-direction:column;
-}
-.fk-admin .sidebar.collapsed .sidebar-content .nav-list:first-of-type{
-  margin-bottom:.4rem;
+.fk-admin .sidebar.collapsed .nav-list {
+  align-items: flex-start;
+  /* gleiche linke Kante wie offen */
+  gap: .55rem;
 }
 
-.fk-admin .sidebar.collapsed .nav-list{
-  align-items:center;
-  gap:.55rem;
-}
-.fk-admin .sidebar.collapsed .nav-btn{
-  width:60px; height:44px;  /* breite Tiles */
-  margin:0; padding:0;
-  justify-content:center;
-  border-radius:12px;
-}
-
-/* Primär-Kachel (Übersicht/Katalog) */
-.fk-admin .sidebar.collapsed .nav-btn > .icon{
-  width:18px; height:18px;
-  padding-block:12px;
-  padding-inline:20px; /* ergibt 60px Breite */
-  border-radius:12px;
-  background:rgba(255,255,255,.10);
-  border:1px solid rgba(255,255,255,.18);
-  color:#fff !important;
+/* Primär-Nav als Kachel */
+.fk-admin .sidebar.collapsed .nav-icon {
+  width: 60px;
+  height: 44px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .10);
+  border: 1px solid rgba(255, 255, 255, .18);
+  color: #fff;
 }
 
 /* Themen-Kachel */
-.fk-admin .sidebar.collapsed .theme .theme-dot{
-  width:60px; height:44px; border-radius:12px;
-  display:grid; place-items:center;
-}
-.fk-admin .sidebar.collapsed .theme .theme-dot .icon{
-  width:18px; height:18px; color:#fff;
+.fk-admin .sidebar.collapsed .theme .theme-dot {
+  width: 60px;
+  height: 44px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
 }
 
-/* aktive States im collapsed neutral */
-.fk-admin .sidebar.collapsed .nav-btn.is-active{
-  background:transparent !important;
-  border-color:transparent !important;
-  box-shadow:none !important;
+.fk-admin .sidebar.collapsed .theme .theme-dot .icon {
+  width: 18px;
+  height: 18px;
+  color: #fff;
 }
-.fk-admin .sidebar.collapsed .nav-btn.is-active::before{ display:none !important; }
+
+/* Collapsed: neutrale Active-States */
+.fk-admin .sidebar.collapsed .nav-btn.is-active {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+.fk-admin .sidebar.collapsed .nav-btn.is-active::before {
+  display: none !important;
+}
+
+/* ===== Sidebar-Footer ===== */
+.fk-admin .sidebar-footer {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid hsl(var(--admin-sidebar-border));
+  color: hsl(var(--admin-sidebar-muted));
+  font-size: .8rem;
+}
+
+/* Der Header wird zum Positionierungs-Parent */
+.fk-admin .sidebar-header {
+  position: relative;
+  /* NEU */
+}
+
+/* Toggle-Button im collapsed immer sichtbar rechts zentriert */
+.fk-admin .sidebar.collapsed .toggle-btn {
+  position: absolute;
+  /* NEU */
+  right: 20px;
+  /* Abstand zur rechten Kante */
+  top: 50%;
+  /* vertikal zentrieren */
+  transform: translateY(-50%);
+  z-index: 20;
+  /* über Content */
+}
+
+/* Optionale Größenanpassung (damit er griffig bleibt) */
+.fk-admin .sidebar.collapsed .icon-btn.toggle-btn {
+  width: 36px;
+  height: 36px;
+}
+
 
 /* ===== Main Content neben der Sidebar ===== */
-.main-content{
+.main-content {
   margin-left: var(--sidebar-open);
   width: calc(100% - var(--sidebar-open));
   transition: margin-left .3s ease, width .3s ease;
   min-height: 100vh;
 }
-.main-content.collapsed{
+
+.main-content.collapsed {
   margin-left: var(--sidebar-closed);
   width: calc(100% - var(--sidebar-closed));
 }
 
 /* ===== Top Navigation ===== */
-.admin-topnav{
-  position: sticky; top: 0; z-index: 60;
-  background: rgba(255,255,255,.85);
+.admin-topnav {
+  position: sticky;
+  top: 0;
+  z-index: 60;
+  background: rgba(255, 255, 255, .85);
   backdrop-filter: saturate(140%) blur(6px);
   -webkit-backdrop-filter: saturate(140%) blur(6px);
   height: var(--header-height);
   border-bottom: 1px solid hsl(var(--admin-sidebar-border));
 }
-.topnav-container{
+
+.topnav-container {
   height: 100%;
   max-width: 1280px;
   margin: 0 auto;
@@ -269,56 +451,226 @@
   gap: 0;
   padding: 0 24px;
 }
-.topnav-left{  justify-self:end; }
-.topnav-center{ justify-self:center; display:flex; align-items:center; padding:0 .75rem; }
-.topnav-right{ justify-self:stretch; display:flex; align-items:center; gap:1.25rem; }
 
-.topnav-right .brand-logo{
-  margin-left: auto; height: 38px; width: auto; margin-right: 8px;
-  opacity:.95; transition: transform .15s ease, opacity .15s ease;
-}
-.topnav-right .brand-logo:hover{ transform:translateY(-1px); opacity:1; }
-
-.topnav-links, .topnav-links-right{
-  list-style:none; display:flex; align-items:center; gap:1.25rem; margin:0;
+.topnav-left {
+  justify-self: end;
 }
 
-.topnav-link{
+.topnav-center {
+  justify-self: center;
+  display: flex;
+  align-items: center;
+  padding: 0 .75rem;
+}
+
+.topnav-right {
+  justify-self: stretch;
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+}
+
+.topnav-right .brand-logo {
+  margin-left: auto;
+  height: 38px;
+  width: auto;
+  margin-right: 8px;
+  opacity: .95;
+  transition: transform .15s ease, opacity .15s ease;
+}
+
+.topnav-right .brand-logo:hover {
+  transform: translateY(-1px);
+  opacity: 1;
+}
+
+.topnav-links,
+.topnav-links-right {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  margin: 0;
+}
+
+.topnav-link {
   position: relative;
-  text-decoration:none;
-  color:#0F263A;
-  font-weight:700;
-  padding:.45rem .75rem;
-  border-radius:10px;
-  line-height:1;
+  text-decoration: none;
+  color: #0F263A;
+  font-weight: 700;
+  padding: .45rem .75rem;
+  border-radius: 10px;
+  line-height: 1;
   transition: background-color .2s ease, color .2s ease;
 }
-.topnav-link:hover{ background:hsl(210 40% 96%); }
-.topnav-link:focus-visible{
-  outline:2px solid hsl(var(--primary));
-  outline-offset:3px;
+
+.topnav-link:hover {
+  background: hsl(210 40% 96%);
 }
 
-/* Unterstreichung wie im Screenshot */
+.topnav-link:focus-visible {
+  outline: 2px solid hsl(var(--primary));
+  outline-offset: 3px;
+}
+
+/* Unterstreichung */
 .topnav-link.topnav-link-active::after,
-.topnav-link:hover::after{
-  content:"";
-  position:absolute; left:12px; right:12px; bottom:-10px;
-  height:3px; border-radius:3px;
+.topnav-link:hover::after {
+  content: "";
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: -10px;
+  height: 3px;
+  border-radius: 3px;
   background: linear-gradient(90deg, hsl(var(--primary)), hsl(var(--primary) / .55));
 }
 
 /* Avatar */
-.topnav-avatar{
-  width:40px; height:40px; padding:2px; border-radius:9999px;
-  background: linear-gradient(180deg,#E2E8F0,#CBD5E1);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.6);
+.topnav-avatar {
+  width: 40px;
+  height: 40px;
+  padding: 2px;
+  border-radius: 9999px;
+  background: linear-gradient(180deg, #E2E8F0, #CBD5E1);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .6);
 }
-.topnav-avatar img{ width:100%; height:100%; border-radius:inherit; display:block; }
+
+.topnav-avatar img {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  display: block;
+}
+
+/* === Einheitliche Größe im collapsed: 48x40, Radius 10 === */
+/* Primär-Nav (Übersicht/Katalog) */
+.fk-admin .sidebar.collapsed .nav-btn--primary {
+  width: 56px;
+  height: 40px;
+  border-radius: 10px;
+  padding: 0;
+  justify-content: center;
+}
+
+.fk-admin .sidebar.collapsed .nav-btn--primary .nav-icon {
+  width: 48px;
+  height: 40px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+}
+
+.fk-admin .sidebar.collapsed .nav-btn--primary .nav-icon .icon {
+  width: 16px;
+  height: 16px;
+}
+
+/* Themen-Cards (4 Stück) */
+.fk-admin .sidebar.collapsed .nav-btn--theme {
+  width: 56px;
+  height: 40px;
+  border-radius: 10px;
+  padding: 0;
+  justify-content: center;
+  margin-left: 4px;
+}
+
+.fk-admin .sidebar.collapsed .nav-btn--theme .theme-dot {
+  width: 48px;
+  height: 40px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+}
+
+.fk-admin .sidebar.collapsed .nav-btn--theme .theme-dot .icon {
+  width: 16px;
+  height: 16px;
+}
+
+/* (Sicherheitsnetz) Falls noch alte 60x44-Regeln vorhanden sind, werden sie hier überstimmt */
+.fk-admin .sidebar.collapsed .nav-btn.theme .theme-dot {
+  width: 48px;
+  height: 40px;
+  border-radius: 10px;
+}
+
+/* Gleiche Zeilenmaße für beide Typen */
+.fk-admin .sidebar:not(.collapsed) .nav-btn--primary,
+.fk-admin .sidebar:not(.collapsed) .nav-btn--theme {
+  min-height: var(--nav-row-h);
+  padding: var(--row-pad-y) var(--row-pad-x);
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  gap: var(--row-gap);
+}
+
+/* Gleiche Icon-Kachelgröße links (überstimmt ältere 1.8rem-Regeln) */
+.fk-admin .sidebar:not(.collapsed) .nav-btn--primary .nav-icon,
+.fk-admin .sidebar:not(.collapsed) .nav-btn--theme .theme-dot {
+  width: var(--tile-size) !important;
+  height: var(--tile-size) !important;
+  border-radius: var(--tile-radius);
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+}
+
+/* Einheitliche Icon-Größe in der Kachel */
+.fk-admin .sidebar:not(.collapsed) .nav-btn--primary .nav-icon .icon,
+.fk-admin .sidebar:not(.collapsed) .nav-btn--theme .theme-dot .icon {
+  width: 20px;
+  height: 20px;
+}
+
+/* Aktiv-Leiste leicht nach innen, kollidiert nicht mit der Kachel */
+.fk-admin .sidebar:not(.collapsed) .nav-btn.is-active::before {
+  left: 12px;
+  height: 24px;
+}
+/* Hover im zugeklappten Zustand: Größe NICHT verändern */
+.fk-admin .sidebar.collapsed .nav-btn--theme,
+.fk-admin .sidebar.collapsed .nav-btn--primary{
+  box-sizing: border-box;          /* Border zählt zur festen Größe */
+  width: 56px;                     /* deine feste Breite */
+  height: 48px;                    /* deine feste Höhe */
+  border: 1px solid transparent;   /* Border immer vorhanden -> kein Sprung */
+}
+
+/* Parent beim Hover neutralisieren, damit er nicht "größer" wirkt */
+.fk-admin .sidebar.collapsed .nav-btn--theme:hover,
+.fk-admin .sidebar.collapsed .nav-btn--primary:hover{
+  background: transparent;
+  border-color: transparent;
+}
+
+/* Stattdessen: nur die innere Kachel leicht hervorheben */
+.fk-admin .sidebar.collapsed .nav-btn--theme:hover .theme-dot,
+.fk-admin .sidebar.collapsed .nav-btn--primary:hover .nav-icon{
+  filter: brightness(1.06);
+  /* Alternative markierung ohne Größenänderung: */
+  box-shadow: inset 0 0 0 2px rgba(255,255,255,.18);
+}
+
+/* Falls irgendwo noch generische Hover-Regeln stören: */
+.fk-admin .sidebar.collapsed .nav-btn:hover .nav-icon,
+.fk-admin .sidebar.collapsed .nav-btn:hover .theme-dot{
+  /* Stell sicher, dass hier KEINE width/height gesetzt werden */
+}
 
 /* Responsive TopNav */
-@media (max-width:1024px){
-  .topnav-right{ display:none; }
-  .topnav-left{ justify-self:start; }
-  .topnav-center{ padding:0 .5rem; }
+@media (max-width:1024px) {
+  .topnav-right {
+    display: none;
+  }
+
+  .topnav-left {
+    justify-self: start;
+  }
+
+  .topnav-center {
+    padding: 0 .5rem;
+  }
 }

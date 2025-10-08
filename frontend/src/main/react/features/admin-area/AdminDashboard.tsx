@@ -143,7 +143,7 @@ export default function AdminDashboard() {
                   <div className="topic-details">
                     <span className="topic-catalog">{t.catalog}</span>{' '}
                     <span className="topic-questions">
-                      Fragen: <strong>{t.questions}</strong>
+                      Fragen: <strong> </strong>
                     </span>
                   </div>
 

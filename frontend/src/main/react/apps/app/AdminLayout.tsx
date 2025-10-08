@@ -25,15 +25,15 @@ type NavId =
   | 'project';
 
 const NAV_PRIMARY: Array<{ id: NavId; label: string; Icon: React.FC<any> }> = [
-  { id: 'overview', label: 'Übersicht',         Icon: BarChart3 },
-  { id: 'catalog',  label: 'Katalog zuweisen',  Icon: FileText  },
+  { id: 'overview', label: 'Übersicht', Icon: BarChart3 },
+  { id: 'catalog', label: 'Katalog zuweisen', Icon: FileText },
 ];
 
 const NAV_THEMES: Array<{ id: NavId; label: string; sub: string; Icon: React.FC<any> }> = [
-  { id: 'operating',  label: 'IT Operating Model',               sub: 'Organisationsstrukturen und Prozesse',       Icon: Building2 },
+  { id: 'operating', label: 'IT Operating Model', sub: 'Organisationsstrukturen und Prozesse', Icon: Building2 },
   { id: 'enterprise', label: 'Enterprise Architecture Management', sub: 'Strategische IT-Planung und -Ausrichtung', Icon: BarChart3 },
-  { id: 'sourcing',   label: 'IT Sourcing',                       sub: 'Beschaffung & Lieferantenmanagement',       Icon: ShoppingCart },
-  { id: 'project',    label: 'IT Project Management',             sub: 'Projektplanung und -durchführung',          Icon: FileText },
+  { id: 'sourcing', label: 'IT Sourcing', sub: 'Beschaffung & Lieferantenmanagement', Icon: ShoppingCart },
+  { id: 'project', label: 'IT Project Management', sub: 'Projektplanung und -durchführung', Icon: FileText },
 ];
 
 export default function AdminLayout({ children }: AdminLayoutProps) {
@@ -48,7 +48,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     if (savedCollapsed != null) setCollapsed(savedCollapsed === 'true');
 
     const savedActive = localStorage.getItem('activeNav');
-    const allowed: string[] = ['overview','catalog','enterprise','operating','sourcing','project'];
+    const allowed: string[] = ['overview', 'catalog', 'enterprise', 'operating', 'sourcing', 'project'];
     if (savedActive && allowed.includes(savedActive)) {
       setActive(savedActive as NavId);
     }
@@ -88,7 +88,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
 
         {/* Inhalt */}
         <div className="sidebar-content">
-          {/* Navigation */}
+          {/* Navigation (Übersicht / Katalog)*/}
           <div>
             <h3 className="section-title">Navigation</h3>
             <nav className="nav-list">
@@ -98,10 +98,14 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                   <button
                     key={id}
                     onClick={() => setActive(id)}
-                    className={cx('nav-btn', isActive && 'is-active')}
+                    className={cx('nav-btn nav-btn--primary', isActive && 'is-active')}
                     type="button"
+                    title={label}
+                    aria-label={label}
                   >
-                    <Icon className="icon" />
+                    <span className="nav-icon">
+                      <Icon className="icon" />
+                    </span>
                     <span className="label">{label}</span>
                     {showChevron && isActive && <ChevronRight className="chevron icon" />}
                   </button>
@@ -120,8 +124,10 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                   <button
                     key={id}
                     onClick={() => setActive(id)}
-                    className={cx('nav-btn theme', `theme--${id}`, isActive && 'is-active')}
+                    className={cx('nav-btn nav-btn--theme', `theme--${id}`, isActive && 'is-active')}
                     type="button"
+                    title={label}
+                    aria-label={label}
                   >
                     <div className="theme-dot"><Icon className="icon" /></div>
                     <div className="text">
@@ -150,7 +156,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
             <div className="topnav-left">
               <ul className="topnav-links">
                 <li>
-                  <NavLink to="/admin" end className={({isActive}) => `topnav-link${isActive ? ' topnav-link-active' : ''}`}>
+                  <NavLink to="/admin" end className={({ isActive }) => `topnav-link${isActive ? ' topnav-link-active' : ''}`}>
                     Start
                   </NavLink>
                 </li>
@@ -169,7 +175,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
 
             <div className="topnav-right">
               <ul className="topnav-links-right">
-                <li><NavLink to="/admin/results" className={({isActive}) => `topnav-link${isActive ? ' topnav-link-active' : ''}`}>Ergebnisse</NavLink></li>
+                <li><NavLink to="/admin/results" className={({ isActive }) => `topnav-link${isActive ? ' topnav-link-active' : ''}`}>Ergebnisse</NavLink></li>
                 <li><NavLink to="/admin/help" className="topnav-link">Hilfe</NavLink></li>
               </ul>
               <img className="brand-logo" src={capLogo} alt="CAP consulting" />
