@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink ,useLocation } from 'react-router-dom';
 
 import '@/styles/Test.css';    // NEUE Sidebar-/Nav-Styles
 
@@ -24,9 +24,9 @@ type NavId =
   | 'sourcing'
   | 'project';
 
-const NAV_PRIMARY: Array<{ id: NavId; label: string; Icon: React.FC<any> }> = [
-  { id: 'overview', label: 'Übersicht', Icon: BarChart3 },
-  { id: 'catalog', label: 'Katalog zuweisen', Icon: FileText },
+const NAV_PRIMARY: Array<{ id: NavId; label: string; Icon: React.FC<any> ; to: string }> = [
+  { id: 'overview', label: 'Übersicht', Icon: BarChart3 ,to: '/admin'},
+  { id: 'catalog', label: 'Katalog zuweisen', Icon: FileText , to: '/'},
 ];
 
 const NAV_THEMES: Array<{ id: NavId; label: string; sub: string; Icon: React.FC<any> }> = [
@@ -92,11 +92,12 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           <div>
             <h3 className="section-title">Navigation</h3>
             <nav className="nav-list">
-              {NAV_PRIMARY.map(({ id, label, Icon }) => {
+              {NAV_PRIMARY.map(({ id, label, Icon, to }) => {
                 const isActive = active === id;
                 return (
-                  <button
+                  <NavLink
                     key={id}
+                    to={to}
                     onClick={() => setActive(id)}
                     className={cx('nav-btn nav-btn--primary', isActive && 'is-active')}
                     type="button"
@@ -108,7 +109,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                     </span>
                     <span className="label">{label}</span>
                     {showChevron && isActive && <ChevronRight className="chevron icon" />}
-                  </button>
+                  </NavLink>
                 );
               })}
             </nav>

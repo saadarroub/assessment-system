@@ -383,7 +383,7 @@
 
 /* ===== Sidebar-Footer ===== */
 .fk-admin .sidebar-footer {
-  margin-top: 1rem;
+  margin-top: 34rem;
   padding-top: 1rem;
   border-top: 1px solid hsl(var(--admin-sidebar-border));
   color: hsl(var(--admin-sidebar-muted));
@@ -546,7 +546,7 @@
 /* === Einheitliche Größe im collapsed: 48x40, Radius 10 === */
 /* Primär-Nav (Übersicht/Katalog) */
 .fk-admin .sidebar.collapsed .nav-btn--primary {
-  width: 56px;
+  width: 12px;
   height: 40px;
   border-radius: 10px;
   padding: 0;
@@ -554,9 +554,10 @@
 }
 
 .fk-admin .sidebar.collapsed .nav-btn--primary .nav-icon {
-  width: 48px;
+  width: 41px;
   height: 40px;
   border-radius: 10px;
+  margin-right: 4px;
   display: grid;
   place-items: center;
 }
@@ -601,7 +602,7 @@
 .fk-admin .sidebar:not(.collapsed) .nav-btn--theme {
   min-height: var(--nav-row-h);
   padding: var(--row-pad-y) var(--row-pad-x);
-  border-radius: 14px;
+  border-radius: 140px;
   display: flex;
   align-items: center;
   gap: var(--row-gap);
@@ -623,7 +624,7 @@
 .fk-admin .sidebar:not(.collapsed) .nav-btn--theme .theme-dot .icon {
   width: 20px;
   height: 20px;
-}
+} 
 
 /* Aktiv-Leiste leicht nach innen, kollidiert nicht mit der Kachel */
 .fk-admin .sidebar:not(.collapsed) .nav-btn.is-active::before {
@@ -635,7 +636,7 @@
 .fk-admin .sidebar.collapsed .nav-btn--primary{
   box-sizing: border-box;          /* Border zählt zur festen Größe */
   width: 56px;                     /* deine feste Breite */
-  height: 48px;                    /* deine feste Höhe */
+  height: 60px;                    /* deine feste Höhe */
   border: 1px solid transparent;   /* Border immer vorhanden -> kein Sprung */
 }
 

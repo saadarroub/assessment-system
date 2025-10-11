@@ -1,19 +1,27 @@
 import { useState } from "react";
-// Optional: wenn du react-router nutzt, kannst du die Navigation aktivieren
-// import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  // const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
-  const handleRoleLogin = (role: "kund" | "admin") => {
-    // Hier später API-Call / Role-Flow einbauen
-    console.log(`Login als ${role}:`, { email, password });
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      // TODO: echten Login/API-Call einbauen einmal hierr
+      // await api.login({ email, password });
 
-    // Optional: route je nach Rolle
-    // if (role === "kund") navigate("/kunde/dashboard");
-    // if (role === "admin") navigate("/admin");
+      // Nach Erfolg zur App-Dashboard-Seite
+      navigate("/app/dashboard");
+    } catch (err) {
+      console.error(err);
+      // TODO: Fehlermeldung anzeigen
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -23,7 +31,7 @@ export default function LoginPage() {
           Login
         </h2>
 
-        <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
+        <form className="space-y-4" onSubmit={handleLogin}>
           <div>
             <label className="block text-white text-sm mb-1">E-Mail</label>
             <input
@@ -33,6 +41,7 @@ export default function LoginPage() {
               placeholder="you@example.com"
               className="w-full px-3 py-2 rounded-lg bg-white/20 text-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-[#E3BB62]"
               required
+              autoComplete="email"
             />
           </div>
 
@@ -43,29 +52,28 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="********"
-              className="w-full px-3 py-2 rounded-lg bg-white/20 text-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-[#E3BB62]"
+              className="w-full px-3 py-2 rounded-lg bg-white/20 text-white placeholder-gray-300
+             focus:outline-none focus:ring-2 focus:ring-[#E3BB62]"
               required
+              autoComplete="current-password"
             />
           </div>
 
-          {/* Zwei Buttons statt Einloggen */}
-          <div className="grid grid-cols-2 gap-3 pt-2">
-            <button
-              type="button"
-              onClick={() => handleRoleLogin("kund")}
-              className="w-full bg-[#E3BB62] hover:bg-[#d3a84f] text-[#1E293B] font-semibold py-2 rounded-lg transition"
-            >
-              Als Kund
-            </button>
-            <button
-              type="button"
-              onClick={() => handleRoleLogin("admin")}
-              className="w-full border border-white/40 text-white hover:bg-white/10 font-semibold py-2 rounded-lg transition"
-            >
-              Als Admin
-            </button>
-          </div>
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-[#E3BB62] hover:bg-[#d3a84f] disabled:opacity-70 disabled:cursor-not-allowed text-[#1E293B] font-semibold py-2 rounded-lg transition"
+          >
+            {loading ? "Wird eingeloggt..." : "Login"}
+          </button>
         </form>
+
+        <p className="text-center text-sm text-white/80 mt-4">
+          Kein Account?{" "}
+          <a href="/register" className="text-[#E3BB62] font-semibold hover:underline">
+            Registrieren
+          </a>
+        </p>
       </div>
     </div>
   );

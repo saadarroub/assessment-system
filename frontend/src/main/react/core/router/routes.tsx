@@ -52,8 +52,8 @@ export default function AppRoutes() {
           </ProtectedRoute>
         }
       />
-       <Route
-        path="app/totalresults/1"
+      <Route
+        path="/app/totalresults/1"
         element={
           <ProtectedRoute>
             <AnalyticsDashboard />
