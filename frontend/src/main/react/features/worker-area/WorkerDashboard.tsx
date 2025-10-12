@@ -92,7 +92,7 @@ export default function WorkerDashboard() {
     <>
       {/* Globaler Header aus eigener Komponente */}
       <AppHeader />
-
+ 
       {/* Intro */}
       <section className="main">
         <h1>Willkommen zur Umfrage</h1>

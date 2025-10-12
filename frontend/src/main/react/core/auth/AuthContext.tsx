@@ -19,9 +19,24 @@ const AuthContext = createContext<AuthContextValue>({
   isAuthenticated: false,
   roles: [],
   token: null,
-  login: () => {},
-  logout: () => {},
+  login: () => { },
+  logout: () => { },
 });
+/**
+ * Merkt sich, ob du eingeloggt bist (isAuthenticated) und welche Rollen du hast (roles).
+
+Speichert den Token (hier vorerst token aus localStorage).
+
+Gibt zwei Funktionen:
+
+login(token, roles): schreibt Token/Rollen in localStorage und in den React-State.
+
+logout(): löscht alles wieder.
+
+Dadurch können alle Komponenten im App-Baum den Login-Zustand lesen (mit useAuthCtx()).
+ * 
+ *  
+ */
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>(() => ({
@@ -35,11 +50,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setState({ token, roles });
   };
 
-  const logout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('roles');
-    setState({ token: null, roles: [] });
-  };
+const logout = () => {
+  // alles lokale wegräumen
+  localStorage.removeItem("token");
+  localStorage.removeItem("accessToken");
+  localStorage.removeItem("roles");
+  localStorage.removeItem("user");
+  setState({ token: null, roles: [] });
+};
 
   const value = useMemo<AuthContextValue>(() => ({
     isAuthenticated: !!state.token,

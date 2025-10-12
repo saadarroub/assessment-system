@@ -13,7 +13,7 @@ import UserDetailsPage from '@/features/admin-panel/users/UserDetail';
 import CompaniesList from '@/features/admin-panel/companies/CompanyList';
 import CompanyDetails from '@/features/admin-panel/companies/CompanyDetail';
 import AuditPage from '@/features/admin-panel/audit/AuditLogTable';
-
+import KatalogeZuweisen from '@/features/admin-area/KatalogeZuweisen';
 import TestSliderNav from '@/apps/app/TestSliderNav';
 // ⬇️ Topic-Seiten
 import EamPage from '@/features/admin-area/topics/eam/EamPage';
@@ -31,7 +31,7 @@ export default function AppRoutes() {
       <Route
         path="/app/dashboard"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute permission="user:dashboard:view">
             <WorkerDashboard />
           </ProtectedRoute>
         }
@@ -47,7 +47,7 @@ export default function AppRoutes() {
       <Route
         path="/app/results/:sessionId"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute  permission="user:dashboard:view">
             <ResultsPage />
           </ProtectedRoute>
         }
@@ -70,6 +70,14 @@ export default function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      <Route
+  path="/admin/katalogzuweisen"
+  element={
+    <ProtectedRoute permission="admin:dashboard:view">
+      <KatalogeZuweisen />
+    </ProtectedRoute>
+  }
+/>
       <Route
         path="/admin/adminPanel"
         element={

@@ -1,16 +1,14 @@
-// oben:
-import { Navigate, useLocation } from 'react-router-dom';
-import { useAuthCtx } from '@/core/auth/AuthContext';
-import { hasPermission } from '@/shared/utils/roleGuards';
-import type { ReactElement } from 'react';   // 👈 type-only import
+import { Navigate, useLocation } from "react-router-dom";
+import { useAuthCtx } from "@/core/auth/AuthContext";
+import { hasPermission } from "@/shared/utils/roleGuards";
+import type { ReactNode } from "react";
 
-export default function ProtectedRoute({
-  permission,
-  children,
-}: {
+type Props = {
   permission?: string;
-  children: ReactElement;         // 👈 statt JSX.Element
-}) {
+  children: ReactNode;
+};
+
+export default function ProtectedRoute({ permission, children }: Props) {
   const { isAuthenticated, roles } = useAuthCtx();
   const location = useLocation();
 
@@ -20,5 +18,5 @@ export default function ProtectedRoute({
   if (permission && !hasPermission(roles, permission)) {
     return <Navigate to="/app/dashboard" replace />;
   }
-  return children;
+  return <>{children}</>;
 }

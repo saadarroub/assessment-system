@@ -26,7 +26,7 @@ type NavId =
 
 const NAV_PRIMARY: Array<{ id: NavId; label: string; Icon: React.FC<any> ; to: string }> = [
   { id: 'overview', label: 'Übersicht', Icon: BarChart3 ,to: '/admin'},
-  { id: 'catalog', label: 'Katalog zuweisen', Icon: FileText , to: '/'},
+  { id: 'catalog', label: 'Katalog zuweisen', Icon: FileText , to: '/admin/katalogzuweisen'},
 ];
 
 const NAV_THEMES: Array<{ id: NavId; label: string; sub: string; Icon: React.FC<any> }> = [
