@@ -252,5 +252,18 @@ footer{
 /* dezente Kante für die Karte */
 .survey-card{
   border: 1px solid rgba(0,0,0,.05);
+}.profile-container { position: relative; }
+.profile-content { display:flex; align-items:center; gap:6px; background:transparent; border:0; cursor:pointer; }
+.profile-menu {
+  position:absolute; right:0; top:110%;
+  min-width: 180px; background:#fff; border:1px solid #e5e7eb; border-radius:12px;
+  box-shadow: 0 10px 25px rgba(0,0,0,.08);
+  padding:6px; z-index:50;
 }
+.profile-menu-item {
+  width:100%; text-align:left; padding:10px 12px; border-radius:10px;
+  background:transparent; border:0; cursor:pointer;
+}
+.profile-menu-item:hover { background:#f5f6f7; }
+.profile-menu-item.danger { color:#b91c1c; }
 

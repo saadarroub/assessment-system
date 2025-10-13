@@ -2,6 +2,8 @@ import { useNavigate } from 'react-router-dom';
 import AdminLayout from '@/apps/app/AdminLayout';
 import '@/styles/admin.css';
 import { ArrowLeft, Pencil, Trash2, ListTodo, Folder, MessageSquare, BarChart3 } from 'lucide-react';
+import { ArrowLeft, Pencil, Trash2, ListTodo, Folder, MessageSquare } from 'lucide-react';
+
 
 export default function OperatingModelPage() {
   const navigate = useNavigate();
@@ -17,7 +19,11 @@ export default function OperatingModelPage() {
         <div className="header-content">
           <div className="header-center">
             <div className="header-text">
+
               <h2><BarChart3 size={22} /> Enterprise Architecture Management</h2>
+
+              <h1>Enterprise Architecture Management</h1>
+
               <p>Strategische IT-Planung und -Ausrichtung</p>
             </div>
           </div>
