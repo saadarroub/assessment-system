@@ -1,6 +1,6 @@
 // src/main/react/shared/utils/roleGuards.ts
 export const ROLE_PERMISSIONS: Record<string, string[]> = {
-  admin: ['admin:dashboard:view'],
+  admin: ['admin:dashboard:view','user:dashboard:view'],
   user: ['user:dashboard:view'],
 };
 
