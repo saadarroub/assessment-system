@@ -6,7 +6,6 @@ import WorkerDashboard from '@/features/worker-area/WorkerDashboard';
 import AdminDashboard from '@/features/admin-area/AdminDashboard';
 import ProtectedRoute from './ProtectedRoute';
 import ResultsPage from '@/features/worker-area/results/ResultsPage';
-import TotalResultsPage from '@/features/worker-area/results/TotalResultsPage';
 import CompanyDetailPage from '@/features/worker-area/results/CompanyDetailPage';
 import CompanyListPage from '@/features/worker-area/results/CompanyListPage';
 
@@ -59,14 +58,6 @@ export default function AppRoutes() {
         }
       />
       
-      <Route
-        path="/app/totalresults/:sessionId"
-        element={
-          <ProtectedRoute>
-            <TotalResultsPage />
-          </ProtectedRoute>
-        }
-      />
 
       {/* Admin Dashboard */}
       <Route
