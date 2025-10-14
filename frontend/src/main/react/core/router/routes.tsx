@@ -7,6 +7,8 @@ import AdminDashboard from '@/features/admin-area/AdminDashboard';
 import ProtectedRoute from './ProtectedRoute';
 import ResultsPage from '@/features/worker-area/results/ResultsPage';
 import TotalResultsPage from '@/features/worker-area/results/TotalResultsPage';
+import CompanyDetailPage from '@/features/worker-area/results/CompanyDetailPage';
+import CompanyListPage from '@/features/worker-area/results/CompanyListPage';
 
 // ⬇️ Topic-Seiten
 import EamPage from '@/features/admin-area/topics/eam/EamPage';
@@ -28,6 +30,17 @@ export default function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      
+      <Route
+        path="/app/result/:companyId"
+        element={
+          <ProtectedRoute>
+            <CompanyDetailPage />
+          </ProtectedRoute>
+        }
+      />
+      
+      
       <Route
         path="/app/results/:sessionId"
         element={
@@ -36,6 +49,16 @@ export default function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      
+      <Route
+        path="/app/companylist/"
+        element={
+          <ProtectedRoute>
+            <CompanyListPage />
+          </ProtectedRoute>
+        }
+      />
+      
       <Route
         path="/app/totalresults/:sessionId"
         element={

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import {
   BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -7,7 +8,9 @@ import {
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 
-export default function AnalyticsDashboard() {
+export default function CompanyDetailPage() {
+  const { companyId } = useParams<{ companyId: string }>();
+  const navigate = useNavigate();
   const [timeRange, setTimeRange] = useState('6m');
 
   // Simulierte Daten für mehrere Unternehmen
@@ -24,15 +27,36 @@ export default function AnalyticsDashboard() {
     { id: 'C010', name: 'FoodService', overall: 70, employees: 160, industry: 'Food', date: '2025-04-10' }
   ];
 
-  const averageScore = Math.round(companiesData.reduce((sum, c) => sum + c.overall, 0) / companiesData.length);
+  // Finde das spezifische Unternehmen basierend auf der URL-Parameter
+  const company = companiesData.find(c => c.id === companyId);
 
-  // Branchen-Durchschnitte
+  // Wenn Unternehmen nicht gefunden, zeige Fehlermeldung
+  if (!company) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-gray-800 mb-4">Unternehmen nicht gefunden</h2>
+          <p className="text-gray-600 mb-6">Die Unternehmens-ID "{companyId}" existiert nicht.</p>
+          <button
+            onClick={() => navigate('/app/companylist')}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg"
+          >
+            Zurück zur Übersicht
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const averageScore = company.overall;
+
+  // Branchen-Durchschnitte (gleich wie vorher)
   const industryAverages = [
     { industry: 'Finance', avg: 88, count: 1 },
     { industry: 'Energy', avg: 85, count: 1 },
     { industry: 'Healthcare', avg: 82, count: 1 },
     { industry: 'Logistics', avg: 79, count: 1 },
-    { industry: 'TechCorp', avg: 75, count: 1 },
+    { industry: 'IT', avg: 75, count: 1 },
     { industry: 'Education', avg: 73, count: 1 },
     { industry: 'Retail', avg: 71, count: 1 },
     { industry: 'Food', avg: 70, count: 1 },
@@ -40,62 +64,59 @@ export default function AnalyticsDashboard() {
     { industry: 'Construction', avg: 65, count: 1 }
   ];
 
-  // Zeitlicher Verlauf
+  // Zeitlicher Verlauf für dieses spezifische Unternehmen
   const timelineData = [
-    { month: 'Okt 2024', avgScore: 68, assessments: 12 },
-    { month: 'Nov 2024', avgScore: 70, assessments: 15 },
-    { month: 'Dez 2024', avgScore: 71, assessments: 18 },
-    { month: 'Jan 2025', avgScore: 73, assessments: 22 },
-    { month: 'Feb 2025', avgScore: 74, assessments: 20 },
-    { month: 'Mär 2025', avgScore: 76, assessments: 25 }
+    { month: 'Okt 2024', avgScore: company.overall - 12, assessments: 1 },
+    { month: 'Nov 2024', avgScore: company.overall - 9, assessments: 1 },
+    { month: 'Dez 2024', avgScore: company.overall - 6, assessments: 1 },
+    { month: 'Jan 2025', avgScore: company.overall - 4, assessments: 1 },
+    { month: 'Feb 2025', avgScore: company.overall - 2, assessments: 1 },
+    { month: 'Mär 2025', avgScore: company.overall, assessments: 1 }
   ];
 
-  // Kategorien-Durchschnitte
+  // Kategorien-Durchschnitte für dieses Unternehmen (variiert basierend auf overall score)
   const categoryAverages = [
-    { category: 'Zugriffskontrolle', score: 87 },
-    { category: 'Netzwerksicherheit', score: 82 },
-    { category: 'Mitarbeitersicherheit', score: 75 },
-    { category: 'Datenschutz', score: 73 },
-    { category: 'Physische Sicherheit', score: 68 },
-    { category: 'Incident Response', score: 62 }
+    { category: 'Zugriffskontrolle', score: Math.min(100, company.overall + 12) },
+    { category: 'Netzwerksicherheit', score: Math.min(100, company.overall + 7) },
+    { category: 'Mitarbeitersicherheit', score: Math.max(0, company.overall) },
+    { category: 'Datenschutz', score: Math.max(0, company.overall - 2) },
+    { category: 'Physische Sicherheit', score: Math.max(0, company.overall - 7) },
+    { category: 'Incident Response', score: Math.max(0, company.overall - 13) }
   ];
 
-  // Reifegrad-Verteilung
+  // Reifegrad-Verteilung (für dieses eine Unternehmen)
   const maturityDistribution = [
-    { level: 'Optimiert (90+)', count: 0, color: '#10B981' },
-    { level: 'Verwaltet (80-89)', count: 3, color: '#3B82F6' },
-    { level: 'Definiert (70-79)', count: 4, color: '#F59E0B' },
-    { level: 'Wiederholt (50-69)', count: 3, color: '#EF4444' },
-    { level: 'Initial (<50)', count: 0, color: '#DC2626' }
+    { level: 'Optimiert (90+)', count: company.overall >= 90 ? 1 : 0, color: '#10B981' },
+    { level: 'Verwaltet (80-89)', count: company.overall >= 80 && company.overall < 90 ? 1 : 0, color: '#3B82F6' },
+    { level: 'Definiert (70-79)', count: company.overall >= 70 && company.overall < 80 ? 1 : 0, color: '#F59E0B' },
+    { level: 'Wiederholt (50-69)', count: company.overall >= 50 && company.overall < 70 ? 1 : 0, color: '#EF4444' },
+    { level: 'Initial (<50)', count: company.overall < 50 ? 1 : 0, color: '#DC2626' }
   ];
 
-  // Unternehmensgrößen vs. Scores
-  const sizeVsScore = companiesData.map(c => ({
-    name: c.name,
-    employees: c.employees,
-    score: c.overall
-  }));
-
-  // Top Schwachstellen
-  const topWeaknesses = [
-    { area: 'Incident Response', percentage: 68, companies: 7 },
-    { area: 'Physische Sicherheit', percentage: 52, companies: 5 },
-    { area: 'Datenschutz', percentage: 48, companies: 5 },
-    { area: 'Mitarbeitersicherheit', percentage: 44, companies: 4 },
-    { area: 'Backup-Strategie', percentage: 36, companies: 4 }
+  // Größe vs Score (nur dieses Unternehmen im Vergleich zu Branchendurchschnitt)
+  const sizeVsScore = [
+    { name: company.name, employees: company.employees, score: company.overall },
+    { name: 'Branchenschnitt', employees: company.employees, score: industryAverages.find(i => i.industry === company.industry)?.avg || 70 }
   ];
+
+  // Top Schwachstellen für dieses Unternehmen
+  const topWeaknesses = categoryAverages
+    .filter(cat => cat.score < 70)
+    .sort((a, b) => a.score - b.score)
+    .slice(0, 5)
+    .map(cat => ({
+      area: cat.category,
+      percentage: Math.round((1 - cat.score / 100) * 100),
+      companies: 1
+    }));
 
   const exportToExcel = () => {
     const data = [
-      ['Unternehmensübersicht'],
+      ['Unternehmensdetails'],
       ['ID', 'Name', 'Gesamtscore', 'Mitarbeiter', 'Branche', 'Datum'],
-      ...companiesData.map(c => [c.id, c.name, c.overall, c.employees, c.industry, c.date]),
+      [company.id, company.name, company.overall, company.employees, company.industry, company.date],
       [],
-      ['Branchendurchschnitte'],
-      ['Branche', 'Durchschnitt', 'Anzahl'],
-      ...industryAverages.map(i => [i.industry, i.avg, i.count]),
-      [],
-      ['Kategorien-Durchschnitte'],
+      ['Kategorien-Scores'],
       ['Kategorie', 'Score'],
       ...categoryAverages.map(c => [c.category, c.score])
     ];
@@ -104,7 +125,7 @@ export default function AnalyticsDashboard() {
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `Gesamtanalyse_${new Date().toISOString().split('T')[0]}.csv`;
+    link.download = `${company.name}_${new Date().toISOString().split('T')[0]}.csv`;
     link.click();
   };
 
@@ -140,7 +161,7 @@ export default function AnalyticsDashboard() {
         heightLeft -= pdfHeight;
       }
 
-      pdf.save(`Gesamtanalyse_${new Date().toISOString().split('T')[0]}.pdf`);
+      pdf.save(`${company.name}_${new Date().toISOString().split('T')[0]}.pdf`);
     } catch (error) {
       console.error('PDF export error:', error);
     }
@@ -153,8 +174,21 @@ export default function AnalyticsDashboard() {
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex justify-between items-center">
             <div>
-                    <h1 className="text-3xl font-bold text-gray-900">{company.name}</h1>
-                    <p className="text-gray-500 mt-1">Detaillierte Sicherheitsbewertung</p>
+              <div className="flex items-center gap-4 mb-2">
+                <button
+                  onClick={() => navigate('/app/companylist')}
+                  className="text-gray-600 hover:text-gray-900 transition-colors"
+                  title="Zurück zur Übersicht"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                  </svg>
+                </button>
+                <div>
+                  <h1 className="text-3xl font-bold text-gray-900">{company.name}</h1>
+                  <p className="text-gray-500 mt-1">Detaillierte Sicherheitsbewertung</p>
+                </div>
+              </div>
             </div>
             <div className="flex gap-2">
               <button
@@ -183,13 +217,17 @@ export default function AnalyticsDashboard() {
       {/* Main Content */}
       <div id="dashboard-content" className="max-w-7xl mx-auto px-6 py-8 space-y-8">
         
-        {/* KPI Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* KPI Cards - Unternehmensspezifisch */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
           <div className="bg-white p-6 rounded-lg shadow-md">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600 mb-1">Durchschnittsscore</p>
-                <p className="text-3xl font-bold text-blue-600">{averageScore}</p>
+                <p className="text-sm text-gray-600 mb-1">Gesamtscore</p>
+                <p className="text-3xl font-bold" style={{
+                  color: company.overall >= 80 ? '#10B981' : company.overall >= 70 ? '#F59E0B' : '#EF4444'
+                }}>
+                  {company.overall}
+                </p>
               </div>
               <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
                 <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -197,52 +235,50 @@ export default function AnalyticsDashboard() {
                 </svg>
               </div>
             </div>
-            <p className="text-xs text-green-600 mt-2">↑ 8% vs. Vormonat</p>
+            <p className={`text-xs mt-2 ${company.overall >= 80 ? 'text-green-600' : company.overall >= 70 ? 'text-yellow-600' : 'text-red-600'}`}>
+              {company.overall >= 80 ? '✓ Gut' : company.overall >= 70 ? '⚠ Mittel' : '✗ Kritisch'}
+            </p>
           </div>
 
           <div className="bg-white p-6 rounded-lg shadow-md">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600 mb-1">Assessments</p>
-                <p className="text-3xl font-bold text-green-600">{companiesData.length}</p>
+                <p className="text-sm text-gray-600 mb-1">Branche</p>
+                <p className="text-xl font-bold text-gray-800">{company.industry}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-lg shadow-md">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 mb-1">Mitarbeiter</p>
+                <p className="text-3xl font-bold text-green-600">{company.employees}</p>
               </div>
               <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
                 <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
               </div>
             </div>
-            <p className="text-xs text-gray-500 mt-2">Letzter Monat</p>
           </div>
 
           <div className="bg-white p-6 rounded-lg shadow-md">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600 mb-1">Kritische Fälle</p>
-                <p className="text-3xl font-bold text-red-600">3</p>
-              </div>
-              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
-                <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
+                <p className="text-sm text-gray-600 mb-1">Datum</p>
+                <p className="text-lg font-bold text-purple-600">{company.date}</p>
               </div>
             </div>
-            <p className="text-xs text-red-600 mt-2">Score &lt; 70</p>
           </div>
 
           <div className="bg-white p-6 rounded-lg shadow-md">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600 mb-1">Branchen</p>
-                <p className="text-3xl font-bold text-purple-600">{industryAverages.length}</p>
-              </div>
-              <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
-                <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                </svg>
+                <p className="text-sm text-gray-600 mb-1">ID</p>
+                <p className="text-lg font-mono font-bold text-gray-800">{company.id}</p>
               </div>
             </div>
-            <p className="text-xs text-gray-500 mt-2">Abgedeckt</p>
           </div>
         </div>
 
@@ -251,24 +287,22 @@ export default function AnalyticsDashboard() {
           
           {/* Zeitlicher Verlauf */}
           <div className="bg-white p-6 rounded-lg shadow-md">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">Durchschnittliche Entwicklung</h3>
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">Entwicklung über Zeit</h3>
             <ResponsiveContainer width="100%" height={280}>
               <LineChart data={timelineData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="month" />
-                <YAxis yAxisId="left" domain={[0, 100]} />
-                <YAxis yAxisId="right" orientation="right" />
+                <YAxis domain={[0, 100]} />
                 <Tooltip />
                 <Legend />
-                <Line yAxisId="left" type="monotone" dataKey="avgScore" stroke="#3B82F6" strokeWidth={3} name="Ø Score" />
-                <Line yAxisId="right" type="monotone" dataKey="assessments" stroke="#10B981" strokeWidth={2} name="Assessments" />
+                <Line type="monotone" dataKey="avgScore" stroke="#3B82F6" strokeWidth={3} name="Score" />
               </LineChart>
             </ResponsiveContainer>
           </div>
 
           {/* Branchenvergleich */}
           <div className="bg-white p-6 rounded-lg shadow-md">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">Branchendurchschnitte</h3>
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">Branchenvergleich</h3>
             <ResponsiveContainer width="100%" height={280}>
               <BarChart data={industryAverages} layout="vertical">
                 <CartesianGrid strokeDasharray="3 3" />
@@ -277,7 +311,10 @@ export default function AnalyticsDashboard() {
                 <Tooltip />
                 <Bar dataKey="avg" name="Durchschnitt">
                   {industryAverages.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.avg >= 80 ? '#10B981' : entry.avg >= 70 ? '#F59E0B' : '#EF4444'} />
+                    <Cell 
+                      key={`cell-${index}`} 
+                      fill={entry.industry === company.industry ? '#3B82F6' : entry.avg >= 80 ? '#10B981' : entry.avg >= 70 ? '#F59E0B' : '#EF4444'} 
+                    />
                   ))}
                 </Bar>
               </BarChart>
@@ -286,29 +323,29 @@ export default function AnalyticsDashboard() {
 
           {/* Kategorien-Radar */}
           <div className="bg-white p-6 rounded-lg shadow-md">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">Durchschnitt nach Kategorien</h3>
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">Kategorien-Bewertung</h3>
             <ResponsiveContainer width="100%" height={280}>
               <RadarChart data={categoryAverages}>
                 <PolarGrid />
                 <PolarAngleAxis dataKey="category" tick={{ fontSize: 10 }} />
                 <PolarRadiusAxis angle={90} domain={[0, 100]} />
-                <Radar name="Durchschnitt" dataKey="score" stroke="#3B82F6" fill="#3B82F6" fillOpacity={0.6} />
+                <Radar name="Score" dataKey="score" stroke="#3B82F6" fill="#3B82F6" fillOpacity={0.6} />
                 <Tooltip />
               </RadarChart>
             </ResponsiveContainer>
           </div>
 
-          {/* Reifegrad-Verteilung */}
+          {/* Reifegrad */}
           <div className="bg-white p-6 rounded-lg shadow-md">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">Reifegrad-Verteilung</h3>
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">Reifegrad</h3>
             <ResponsiveContainer width="100%" height={280}>
               <PieChart>
                 <Pie
-                  data={maturityDistribution}
+                  data={maturityDistribution.filter(m => m.count > 0)}
                   cx="50%"
                   cy="50%"
                   labelLine={false}
-                  label={({ level, count }) => `${level.split(' ')[0]}: ${count}`}
+                  label={({ level }) => level}
                   outerRadius={90}
                   dataKey="count"
                 >
@@ -321,75 +358,73 @@ export default function AnalyticsDashboard() {
             </ResponsiveContainer>
           </div>
 
-          {/* Unternehmensgröße vs. Score */}
+          {/* Größe vs Score */}
           <div className="bg-white p-6 rounded-lg shadow-md">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">Unternehmensgröße vs. Sicherheitsscore</h3>
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">Vergleich zum Branchenschnitt</h3>
             <ResponsiveContainer width="100%" height={280}>
               <ScatterChart>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis type="number" dataKey="employees" name="Mitarbeiter" />
                 <YAxis type="number" dataKey="score" name="Score" domain={[0, 100]} />
                 <Tooltip cursor={{ strokeDasharray: '3 3' }} />
-                <Scatter name="Unternehmen" data={sizeVsScore} fill="#8B5CF6" />
+                <Scatter name="Vergleich" data={sizeVsScore} fill="#8B5CF6" />
               </ScatterChart>
             </ResponsiveContainer>
           </div>
 
           {/* Top Schwachstellen */}
-          <div className="bg-white p-6 rounded-lg shadow-md">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">Häufigste Schwachstellen</h3>
-            <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={topWeaknesses}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="area" angle={-20} textAnchor="end" height={80} tick={{ fontSize: 10 }} />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="percentage" fill="#EF4444" name="Betroffene (%)" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          {topWeaknesses.length > 0 && (
+            <div className="bg-white p-6 rounded-lg shadow-md">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">Verbesserungsbereiche</h3>
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart data={topWeaknesses}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="area" angle={-20} textAnchor="end" height={80} tick={{ fontSize: 10 }} />
+                  <YAxis />
+                  <Tooltip />
+                  <Bar dataKey="percentage" fill="#EF4444" name="Verbesserungspotential (%)" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
         </div>
 
-        {/* Unternehmenstabelle */}
+        {/* Kategorien-Details Tabelle */}
         <div className="bg-white p-6 rounded-lg shadow-md">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Alle Unternehmen</h3>
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">Detaillierte Kategorienbewertung</h3>
           <div className="overflow-x-auto">
             <table className="min-w-full">
               <thead>
                 <tr className="border-b-2 border-gray-200">
-                  <th className="text-left py-3 px-4 font-medium text-gray-600">ID</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-600">Unternehmen</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-600">Branche</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-600">Mitarbeiter</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-600">Kategorie</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-600">Score</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-600">Status</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-600">Datum</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-600">Trend</th>
                 </tr>
               </thead>
               <tbody>
-                {companiesData.map((company, index) => (
+                {categoryAverages.map((category, index) => (
                   <tr key={index} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="py-3 px-4 text-sm text-gray-600">{company.id}</td>
-                    <td className="py-3 px-4 font-medium text-gray-800">{company.name}</td>
-                    <td className="py-3 px-4 text-sm text-gray-600">{company.industry}</td>
-                    <td className="py-3 px-4 text-sm text-gray-600">{company.employees}</td>
+                    <td className="py-3 px-4 font-medium text-gray-800">{category.category}</td>
                     <td className="py-3 px-4">
                       <span className="text-lg font-bold" style={{
-                        color: company.overall >= 80 ? '#10B981' : company.overall >= 70 ? '#F59E0B' : '#EF4444'
+                        color: category.score >= 80 ? '#10B981' : category.score >= 70 ? '#F59E0B' : '#EF4444'
                       }}>
-                        {company.overall}
+                        {category.score}
                       </span>
                     </td>
                     <td className="py-3 px-4">
                       <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
-                        company.overall >= 80 ? 'bg-green-100 text-green-800' :
-                        company.overall >= 70 ? 'bg-yellow-100 text-yellow-800' :
+                        category.score >= 80 ? 'bg-green-100 text-green-800' :
+                        category.score >= 70 ? 'bg-yellow-100 text-yellow-800' :
                         'bg-red-100 text-red-800'
                       }`}>
-                        {company.overall >= 80 ? 'Gut' : company.overall >= 70 ? 'Mittel' : 'Kritisch'}
+                        {category.score >= 80 ? 'Gut' : category.score >= 70 ? 'Mittel' : 'Kritisch'}
                       </span>
                     </td>
-                    <td className="py-3 px-4 text-sm text-gray-600">{company.date}</td>
+                    <td className="py-3 px-4 text-sm text-gray-600">
+                      {category.score >= company.overall ? '↑' : '↓'}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -404,19 +439,19 @@ export default function AnalyticsDashboard() {
             <ul className="space-y-2 text-sm text-gray-700">
               <li className="flex items-start">
                 <span className="text-blue-500 mr-2">•</span>
-                Durchschnittlicher Score liegt bei {averageScore} Punkten
+                Gesamtscore: {company.overall} Punkte
               </li>
               <li className="flex items-start">
                 <span className="text-blue-500 mr-2">•</span>
-                Finance-Branche führt mit 88 Punkten
+                Branche: {company.industry}
               </li>
               <li className="flex items-start">
                 <span className="text-blue-500 mr-2">•</span>
-                Incident Response ist häufigste Schwachstelle
+                {topWeaknesses.length > 0 ? `Hauptschwachstelle: ${topWeaknesses[0].area}` : 'Keine kritischen Schwachstellen'}
               </li>
               <li className="flex items-start">
                 <span className="text-blue-500 mr-2">•</span>
-                Positive Entwicklung: +8% in 6 Monaten
+                Verbesserung: +{Math.abs(timelineData[timelineData.length - 1].avgScore - timelineData[0].avgScore)} Punkte seit Oktober
               </li>
             </ul>
           </div>
@@ -424,32 +459,28 @@ export default function AnalyticsDashboard() {
           <div className="bg-white p-6 rounded-lg shadow-md">
             <h3 className="text-lg font-semibold text-gray-800 mb-4">Empfohlene Maßnahmen</h3>
             <ul className="space-y-2 text-sm text-gray-700">
-              <li className="flex items-start">
-                <span className="text-orange-500 mr-2">•</span>
-                Incident Response Plans branchenweit implementieren
-              </li>
-              <li className="flex items-start">
-                <span className="text-orange-500 mr-2">•</span>
-                Best Practices von Finance-Sektor teilen
-              </li>
-              <li className="flex items-start">
-                <span className="text-orange-500 mr-2">•</span>
-                Fokus auf kleinere Unternehmen (&lt;200 MA)
-              </li>
-              <li className="flex items-start">
-                <span className="text-orange-500 mr-2">•</span>
-                Quartalsweise Nachbewertungen ansetzen
-              </li>
+              {topWeaknesses.slice(0, 3).map((weakness, index) => (
+                <li key={index} className="flex items-start">
+                  <span className="text-orange-500 mr-2">•</span>
+                  {weakness.area} verbessern
+                </li>
+              ))}
+              {topWeaknesses.length === 0 && (
+                <li className="flex items-start">
+                  <span className="text-green-500 mr-2">✓</span>
+                  Gutes Sicherheitsniveau beibehalten
+                </li>
+              )}
             </ul>
           </div>
 
           <div className="bg-white p-6 rounded-lg shadow-md">
             <h3 className="text-lg font-semibold text-gray-800 mb-4">Report-Info</h3>
             <div className="space-y-2 text-sm text-gray-700">
-              <p><strong>Erstellungsdatum:</strong> {new Date().toLocaleDateString('de-DE')}</p>
-              <p><strong>Zeitraum:</strong> Okt 2024 - Mär 2025</p>
-              <p><strong>Datenbasis:</strong> {companiesData.length} Assessments</p>
-              <p><strong>Report-ID:</strong> AGG-{new Date().getFullYear()}-{Math.random().toString(36).substr(2, 6).toUpperCase()}</p>
+              <p><strong>Unternehmen:</strong> {company.name}</p>
+              <p><strong>ID:</strong> {company.id}</p>
+              <p><strong>Erstellt am:</strong> {new Date().toLocaleDateString('de-DE')}</p>
+              <p><strong>Assessment-Datum:</strong> {company.date}</p>
             </div>
           </div>
         </div>

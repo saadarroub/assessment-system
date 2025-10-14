@@ -6,6 +6,7 @@ import {
 } from 'recharts';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
+import AdminLayout from "@/apps/app/AdminLayout"
 
 export default function AnalyticsDashboard() {
   const [timeRange, setTimeRange] = useState('6m');
@@ -147,14 +148,16 @@ export default function AnalyticsDashboard() {
   };
 
   return (
+    
     <div className="min-h-screen bg-gray-50">
+    <AdminLayout>
       {/* Header */}
       <div className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex justify-between items-center">
             <div>
-                    <h1 className="text-3xl font-bold text-gray-900">{company.name}</h1>
-                    <p className="text-gray-500 mt-1">Detaillierte Sicherheitsbewertung</p>
+              <h1 className="text-3xl font-bold text-gray-900">Gesamtanalyse Dashboard</h1>
+              <p className="text-gray-500 mt-1">Aggregierte Sicherheitsbewertungen aller Unternehmen</p>
             </div>
             <div className="flex gap-2">
               <button
@@ -370,7 +373,11 @@ export default function AnalyticsDashboard() {
                 {companiesData.map((company, index) => (
                   <tr key={index} className="border-b border-gray-100 hover:bg-gray-50">
                     <td className="py-3 px-4 text-sm text-gray-600">{company.id}</td>
-                    <td className="py-3 px-4 font-medium text-gray-800">{company.name}</td>
+                    <td className="py-3 px-4 font-medium text-gray-800">
+			   <a href={`/app/result/${company.id}`} className="text-blue-600 hover:underline hover:text-blue-800 transition-colors">
+                                {company.name}
+                           </a>
+		    </td>
                     <td className="py-3 px-4 text-sm text-gray-600">{company.industry}</td>
                     <td className="py-3 px-4 text-sm text-gray-600">{company.employees}</td>
                     <td className="py-3 px-4">
@@ -455,6 +462,7 @@ export default function AnalyticsDashboard() {
         </div>
 
       </div>
+      </AdminLayout>
     </div>
   );
 }
