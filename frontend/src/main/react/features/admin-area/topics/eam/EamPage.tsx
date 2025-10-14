@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import AdminLayout from '@/apps/app/AdminLayout';
 import '@/styles/admin.css';
 import { ArrowLeft, Pencil, Trash2, ListTodo, Folder, MessageSquare, BarChart3 } from 'lucide-react';
-import { ArrowLeft, Pencil, Trash2, ListTodo, Folder, MessageSquare } from 'lucide-react';
+
 
 
 export default function OperatingModelPage() {
@@ -190,6 +190,14 @@ export default function OperatingModelPage() {
           </div>
         ))}
       </div>
+
+         <div className="bg-blue-600 text-white text-center p-4 rounded-lg shadow-md">
+          ✅ Tailwind funktioniert erfolgreich!
+        </div>
+
     </AdminLayout>
+
+           
+
   );
 }
