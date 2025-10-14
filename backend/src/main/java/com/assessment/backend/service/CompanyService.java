@@ -17,7 +17,7 @@ public class CompanyService {
     @Autowired
     private CompanyRepository companyRepository;
 
-    @RequirePermission("view_company")
+   // @RequirePermission("view_company")
     public List<Company> getAllCompanies() {
         return companyRepository.findAll();
     }
