@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import AdminLayout from '@/apps/app/AdminLayout';
 import {
   BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -147,6 +148,7 @@ export default function AnalyticsDashboard() {
   };
 
   return (
+      <AdminLayout>
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white shadow-sm border-b border-gray-200">
@@ -456,5 +458,6 @@ export default function AnalyticsDashboard() {
 
       </div>
     </div>
+    </AdminLayout>
   );
 }
