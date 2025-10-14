@@ -20,6 +20,7 @@ import EamPage from '@/features/admin-area/topics/eam/EamPage';
 import OperatingModelPage from '@/features/admin-area/topics/operating-model/OperatingModelPage';
 import SourcingPage from '@/features/admin-area/topics/sourcing/SourcingPage';
 import ProjectManagementPage from '@/features/admin-area/topics/project-management/ProjectManagementPage';
+import CompanyListtest from '@/features/admin-panel/companies/testcomplist';
 
 
 export default function AppRoutes() {
@@ -158,6 +159,14 @@ export default function AppRoutes() {
          
             <ProjectManagementPage />
          
+        }
+      />
+       <Route
+        path="/testComp"
+        element={
+          <ProtectedRoute permission="user:dashboard:view">
+            <CompanyListtest/>
+          </ProtectedRoute>
         }
       />
   

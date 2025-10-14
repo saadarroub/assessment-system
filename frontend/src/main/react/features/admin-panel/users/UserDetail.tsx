@@ -1,117 +1,69 @@
+// src/features/admin-panel/users/UserDetailsPage.tsx
+import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import AdminPanelHeader from "@/apps/app/adminPanelHeader";
-import "@/styles/adminPanel.css";        // enthält .main-header, .header-content, ...
-import "@/styles/adminUserDetails.css";  // Seitenspezifische Styles
+import "@/styles/adminPanel.css";
+import "@/styles/adminUserDetails.css";
+import { getUser, getUserRoles, type UserApi } from "@/features/service/userService";
 
-type Activity = {
-  action: string;
-  resource: string;
-  ts: string;
-  details: string;
-  outcome: "success" | "error";
-};
-
-type Company = { id: string; name: string; domain: string };
-
-type UserDetails = {
-  id: string;
-  name: string;
-  email: string;
-  created: string;
-  lastLogin: string; // ISO | "Never"
-  roles: string[];
-  status: "active" | "disabled" | "invited";
-  companies: Company[];
-  activities: Activity[];
-};
-
-// ---- Demo-Daten (später via API ersetzen) ----
-export const MOCK_USERS: Record<string, UserDetails> = {
-  u1: {
-    id: "u1",
-    name: "Max Mustermann",
-    email: "max@acme.com",
-    created: "2024-01-15T10:00:00Z",
-    lastLogin: "2025-08-29T09:10:00Z",
-    roles: ["admin"],
-    status: "active",
-    companies: [{ id: "c1", name: "ACME GmbH", domain: "acme.com" }],
-    activities: [
-      {
-        action: "invite",
-        resource: "user:u2",
-        ts: "2025-08-29T09:10:00Z",
-        details: "Invited new user to company ACME GmbH",
-        outcome: "success",
-      },
-      {
-        action: "assign_role",
-        resource: "user:u3",
-        ts: "2025-08-28T16:45:00Z",
-        details: "Assigned editor role to Alice Schmidt",
-        outcome: "success",
-      },
-    ],
-  },
-  u2: {
-    id: "u2",
-    name: "Jane Doe",
-    email: "jane@acme.com",
-    created: "2024-03-02T09:00:00Z",
-    lastLogin: "Never",
-    roles: ["viewer"],
-    status: "invited",
-    companies: [{ id: "c1", name: "ACME GmbH", domain: "acme.com" }],
-    activities: [
-      { action: "login", resource: "portal", ts: "2025-08-29T12:30:00Z", details: "-", outcome: "success" },
-    ],
-  },
-  u3: {
-    id: "u3",
-    name: "Alice Schmidt",
-    email: "alice@globex.com",
-    created: "2024-02-10T11:00:00Z",
-    lastLogin: "2025-08-28T08:05:00Z",
-    roles: ["editor"],
-    status: "active",
-    companies: [{ id: "c2", name: "Globex AG", domain: "globex.com" }],
-    activities: [
-      { action: "update_profile", resource: "user:u3", ts: "2025-08-28T08:05:00Z", details: "Changed display name", outcome: "success" },
-    ],
-  },
-  u4: {
-    id: "u4",
-    name: "Bob Johnson",
-    email: "bob@techcorp.com",
-    created: "2024-05-01T08:30:00Z",
-    lastLogin: "2025-08-25T15:40:00Z",
-    roles: ["admin", "editor"],
-    status: "disabled",
-    companies: [{ id: "c3", name: "TechCorp Ltd", domain: "techcorp.com" }],
-    activities: [
-      { action: "disable_user", resource: "user:u4", ts: "2025-08-25T15:45:00Z", details: "Account disabled by admin", outcome: "success" },
-    ],
-  },
-};
-
-function formatDate(d: string) {
-  if (d.toLowerCase?.() === "never") return "Never";
-  const date = new Date(d);
-  return date.toLocaleDateString("de-DE");
+function fmtDate(d?: string) {
+  if (!d) return "—";
+  const dt = new Date(d);
+  return isNaN(+dt) ? "—" : dt.toLocaleDateString("de-DE");
 }
-function formatTime(d: string) {
-  if (d.toLowerCase?.() === "never") return "—";
-  const date = new Date(d);
-  return date.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+function fmtTime(d?: string) {
+  if (!d) return "—";
+  const dt = new Date(d);
+  return isNaN(+dt) ? "—" : dt.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
 }
 
 export default function UserDetailsPage() {
-  const { id = "u1" } = useParams();
-  const user = MOCK_USERS[id] ?? MOCK_USERS["u1"];
+  const { id } = useParams<{ id: string }>();
+
+  const [user, setUser] = useState<UserApi | null>(null);
+  const [roles, setRoles] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [rolesLoading, setRolesLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // User laden
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        if (!id) throw new Error("Keine User-ID in der URL gefunden.");
+        const u = await getUser(id);
+        if (alive) setUser(u);
+      } catch (e: any) {
+        if (alive) setError(e?.message ?? String(e));
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+    return () => { alive = false; };
+  }, [id]);
+
+  // Rollen laden
+  useEffect(() => {
+    if (!id) return;
+    let alive = true;
+    setRolesLoading(true);
+    (async () => {
+      try {
+        const r = await getUserRoles(id);
+        if (alive) setRoles(r);
+      } finally {
+        if (alive) setRolesLoading(false);
+      }
+    })();
+    return () => { alive = false; };
+  }, [id]);
+
+  const displayName = loading ? "Loading…" : (user?.name || "—");
 
   return (
     <AdminPanelHeader>
-      {/* ===== Hero direkt NACH der Top-Navigation ===== */}
+      {/* ===== Hero ===== */}
       <header className="main-header">
         <div className="header-content">
           <div className="header-left" />
@@ -125,7 +77,6 @@ export default function UserDetailsPage() {
         </div>
       </header>
 
-      {/* ===== Inhalts-Surface ===== */}
       <main className="admin-main">
         {/* Breadcrumb */}
         <nav className="breadcrumb">
@@ -133,18 +84,14 @@ export default function UserDetailsPage() {
           <span>›</span>
           <Link to="/admin/adminPanel/users">Users</Link>
           <span>›</span>
-          <span style={{ color: "hsl(var(--foreground))", fontWeight: 600 }}>
-            {user.name}
-          </span>
+          <span style={{ color: "hsl(var(--foreground))", fontWeight: 600 }}>{displayName}</span>
         </nav>
 
         {/* Kopf mit Zurück-Button */}
         <div className="page-header details-page-header">
-          <Link to="/admin/adminPanel/users" className="back-btn" aria-label="Zurück zu Users">
-            ←
-          </Link>
+          <Link to="/admin/adminPanel/users" className="back-btn" aria-label="Zurück zu Users">←</Link>
           <div>
-            <h2 className="page-title">{user.name}</h2>
+            <h2 className="page-title">{displayName}</h2>
             <p className="page-description">User Details &amp; Management</p>
           </div>
         </div>
@@ -153,40 +100,35 @@ export default function UserDetailsPage() {
         <div className="content-grid">
           {/* Hauptspalte */}
           <div className="main-column">
-            {/* User Information */}
+            {/* User Information (nur API; Fallbacks = "—") */}
             <section className="admin-card info-section">
               <div className="section-header">
                 <h3 className="section-title">User Information</h3>
-                <span
-                  className={`status-badge ${
-                    user.status === "active"
-                      ? "status-active"
-                      : user.status === "invited"
-                      ? "status-invited"
-                      : "status-disabled"
-                  }`}
-                >
-                  {user.status}
-                </span>
               </div>
+
+              {error && (
+                <div className="admin-error" role="alert" style={{ marginBottom: 12 }}>
+                  Fehler: {error}
+                </div>
+              )}
 
               <div className="info-grid">
                 <div>
                   <div className="info-item">
-                    <span className="info-icon" aria-hidden>✉️</span>
+                    <span className="info-icon" aria-hidden>👤</span>
                     <div className="info-content">
-                      <p>Email</p>
-                      <p>{user.email}</p>
+                      <p>Name</p>
+                      <p>{loading ? "…" : (user?.name || "—")}</p>
                     </div>
                   </div>
 
                   <div className="spacer-12" />
 
                   <div className="info-item">
-                    <span className="info-icon" aria-hidden>📅</span>
+                    <span className="info-icon" aria-hidden>✉️</span>
                     <div className="info-content">
-                      <p>Created</p>
-                      <p>{formatDate(user.created)}</p>
+                      <p>Email</p>
+                      <p>{loading ? "…" : (user?.email || "—")}</p>
                     </div>
                   </div>
                 </div>
@@ -195,28 +137,28 @@ export default function UserDetailsPage() {
                   <div style={{ marginBottom: "1rem" }}>
                     <p className="label-compact">Roles</p>
                     <div className="role-badges">
-                      {user.roles.map((r) => (
-                        <span key={r} className="role-badge">{r}</span>
-                      ))}
+                      {rolesLoading ? (
+                        <span className="cell-muted">…</span>
+                      ) : roles.length ? (
+                        roles.map(r => <span key={r} className="role-badge">{r}</span>)
+                      ) : (
+                        <span className="cell-muted">—</span>
+                      )}
                     </div>
                   </div>
 
                   <div className="info-item">
-                    <span className="info-icon" aria-hidden>⚡</span>
+                    <span className="info-icon" aria-hidden>📅</span>
                     <div className="info-content">
-                      <p>Last Login</p>
-                      <p>
-                        {user.lastLogin === "Never"
-                          ? "Never"
-                          : `${formatDate(user.lastLogin)} ${formatTime(user.lastLogin)}`}
-                      </p>
+                      <p>Created</p>
+                      <p>{loading ? "…" : fmtDate(user?.created_at)}</p>
                     </div>
                   </div>
                 </div>
               </div>
             </section>
 
-            {/* Associated Companies */}
+            {/* Associated Companies – Struktur bleibt, Inhalte = "—" solange keine API */}
             <section className="admin-card info-section">
               <div className="section-row">
                 <span aria-hidden>🏢</span>
@@ -224,53 +166,39 @@ export default function UserDetailsPage() {
               </div>
 
               <div className="company-list">
-                {user.companies.map((c) => (
-                  <div key={c.id} className="company-item">
-                    <div className="company-info">
-                      <h4>{c.name}</h4>
-                      <p>{c.domain}</p>
-                    </div>
-                    <Link to={`/admin/companies/${c.id}`} className="company-link">
-                      View Company
-                    </Link>
+                <div className="company-item">
+                  <div className="company-info">
+                    <h4>—</h4>
+                    <p>—</p>
                   </div>
-                ))}
+                  <button className="company-link" disabled style={{ opacity: 0.6, cursor: "not-allowed" }}>
+                    View Company
+                  </button>
+                </div>
               </div>
             </section>
 
-            {/* Recent Activities */}
+            {/* Recent Activities – Struktur bleibt, Inhalte = "—" solange keine API */}
             <section className="admin-card info-section">
               <h3 className="section-title" style={{ marginBottom: "1rem" }}>
                 Recent Activities
               </h3>
 
               <div className="activity-list">
-                {user.activities.map((a, i) => (
-                  <div key={i} className="activity-item">
-                    <div className="activity-dot" aria-hidden />
-                    <div className="activity-content">
-                      <p>
-                        <strong>{a.action}</strong> on <span className="muted">{a.resource}</span>
-                      </p>
-                      <p className="muted">
-                        {formatDate(a.ts)}, {formatTime(a.ts)}
-                      </p>
-                      <p className="muted">{a.details}</p>
-                    </div>
-                    <span
-                      className={`outcome-badge ${
-                        a.outcome === "success" ? "outcome-success" : "outcome-error"
-                      }`}
-                    >
-                      {a.outcome}
-                    </span>
+                <div className="activity-item">
+                  <div className="activity-dot" aria-hidden />
+                  <div className="activity-content">
+                    <p><strong>—</strong> on <span className="muted">—</span></p>
+                    <p className="muted">{fmtDate()} , {fmtTime()}</p>
+                    <p className="muted">—</p>
                   </div>
-                ))}
+                  <span className="outcome-badge outcome-success">—</span>
+                </div>
               </div>
             </section>
           </div>
 
-          {/* Aktionen (rechte Spalte) */}
+          {/* Rechte Spalte (unverändert) */}
           <aside className="sidebar-column">
             <section className="admin-card actions-card">
               <h3 className="actions-title">Actions</h3>
@@ -289,4 +217,3 @@ export default function UserDetailsPage() {
     </AdminPanelHeader>
   );
 }
-  
