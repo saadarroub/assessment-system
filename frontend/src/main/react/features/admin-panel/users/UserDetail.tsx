@@ -1,10 +1,17 @@
-// src/features/admin-panel/users/UserDetailsPage.tsx
+// src/features/admin-panel/users/UserDetailsPage.tsx (Tailwind – angepasst wie Bild 1)
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import AdminPanelHeader from "@/apps/app/adminPanelHeader";
-import "@/styles/adminPanel.css";
-import "@/styles/adminUserDetails.css";
 import { getUser, getUserRoles, type UserApi } from "@/features/service/userService";
+
+const CAP = {
+  dark: "#264555",
+  mid: "#56768f",
+  gold: "#E3BB62",
+  gray: "#808080",
+  sand: "#d2c9b9",
+  mute: "#ebebec",
+};
 
 function fmtDate(d?: string) {
   if (!d) return "—";
@@ -64,154 +71,187 @@ export default function UserDetailsPage() {
   return (
     <AdminPanelHeader>
       {/* ===== Hero ===== */}
-      <header className="main-header">
-        <div className="header-content">
-          <div className="header-left" />
-          <div className="header-center">
-            <div className="header-text">
-              <h1>Users</h1>
-              <p>Manage user accounts, roles, and permissions.</p>
+      <header
+        className="w-full border-b bg-white/90 [backdrop-filter:saturate(1.4)_blur(6px)]"
+        style={{ borderColor: CAP.mute }}
+      >
+        <div className="max-w-[1280px] mx-auto px-6">
+          <div className="h-[84px] flex items-center justify-center">
+            <div className="text-center select-none">
+              <h1 className="m-0 text-[36px] leading-none font-extrabold tracking-[-0.01em] text-[#264555]">Users</h1>
+              <p className="m-0 mt-2 text-[15px] text-[#264555]/70 font-semibold">
+                Manage user accounts, roles, and permissions.
+              </p>
             </div>
           </div>
-          <div className="header-right" />
         </div>
       </header>
 
-      <main className="admin-main">
-        {/* Breadcrumb */}
-        <nav className="breadcrumb">
-          <Link to="/admin/adminPanel">Admin Panel</Link>
-          <span>›</span>
-          <Link to="/admin/adminPanel/users">Users</Link>
-          <span>›</span>
-          <span style={{ color: "hsl(var(--foreground))", fontWeight: 600 }}>{displayName}</span>
-        </nav>
+      <main className="w-full bg-[#EBEBEB] border-b border-[#e9ecef]">
+        <div className="max-w-[1280px] mx-auto px-6 py-6">
+          {/* Breadcrumb */}
+          <nav className="flex items-center gap-2 text-sm text-[#264555]/70 font-medium mb-5">
+            <Link to="/admin/adminPanel" className="hover:underline">Admin Panel</Link>
+            <span className="opacity-60">›</span>
+            <Link to="/admin/adminPanel/users" className="hover:underline">Users</Link>
+            <span className="opacity-60">›</span>
+            <span className="text-[color:var(--foreground,#0f172a)] font-semibold">{displayName}</span>
+          </nav>
 
-        {/* Kopf mit Zurück-Button */}
-        <div className="page-header details-page-header">
-          <Link to="/admin/adminPanel/users" className="back-btn" aria-label="Zurück zu Users">←</Link>
-          <div>
-            <h2 className="page-title">{displayName}</h2>
-            <p className="page-description">User Details &amp; Management</p>
+          {/* Kopf mit Zurück-Button */}
+          <div className="flex items-center gap-3 mb-6">
+            <Link
+              to="/admin/adminPanel/users"
+              aria-label="Zurück zu Users"
+              className="inline-flex items-center justify-center w-9 h-9 rounded-xl border bg-white shadow-sm hover:bg-[#ebebec] transition-colors"
+              style={{ borderColor: CAP.mute }}
+            >
+              <span className="text-lg">←</span>
+            </Link>
+            <div>
+              <h2 className="text-[28px] font-extrabold leading-tight m-0">{displayName}</h2>
+              <p className="text-sm text-[#264555]/70 m-0">User Details &amp; Management</p>
+            </div>
           </div>
-        </div>
 
-        {/* 2-Spalten Inhalt */}
-        <div className="content-grid">
-          {/* Hauptspalte */}
-          <div className="main-column">
-            {/* User Information (nur API; Fallbacks = "—") */}
-            <section className="admin-card info-section">
-              <div className="section-header">
-                <h3 className="section-title">User Information</h3>
-              </div>
-
-              {error && (
-                <div className="admin-error" role="alert" style={{ marginBottom: 12 }}>
-                  Fehler: {error}
-                </div>
-              )}
-
-              <div className="info-grid">
-                <div>
-                  <div className="info-item">
-                    <span className="info-icon" aria-hidden>👤</span>
-                    <div className="info-content">
-                      <p>Name</p>
-                      <p>{loading ? "…" : (user?.name || "—")}</p>
-                    </div>
-                  </div>
-
-                  <div className="spacer-12" />
-
-                  <div className="info-item">
-                    <span className="info-icon" aria-hidden>✉️</span>
-                    <div className="info-content">
-                      <p>Email</p>
-                      <p>{loading ? "…" : (user?.email || "—")}</p>
-                    </div>
-                  </div>
+          {/* 2-Spalten Inhalt */}
+          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px] gap-6">
+            {/* Hauptspalte */}
+            <div className="flex flex-col gap-6">
+              {/* User Information */}
+              <section className="rounded-2xl border border-[#e9ecef] bg-white shadow-[0_10px_24px_-12px_rgba(0,0,0,.18)] p-5">
+                <div className="mb-3">
+                  <h3 className="text-[17px] font-semibold tracking-tight">User Information</h3>
                 </div>
 
-                <div>
-                  <div style={{ marginBottom: "1rem" }}>
-                    <p className="label-compact">Roles</p>
-                    <div className="role-badges">
-                      {rolesLoading ? (
-                        <span className="cell-muted">…</span>
-                      ) : roles.length ? (
-                        roles.map(r => <span key={r} className="role-badge">{r}</span>)
-                      ) : (
-                        <span className="cell-muted">—</span>
-                      )}
+                {error && (
+                  <div
+                    role="alert"
+                    className="mb-3 rounded-xl border border-red-200 bg-red-50 text-red-800 px-3 py-2 text-sm"
+                  >
+                    Fehler: {error}
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    {/* Name */}
+                    <div className="flex items-start gap-3">
+                      <span aria-hidden className="text-[18px]">👤</span>
+                      <div>
+                        <p className="m-0 text-[13px] text-[#264555]/70 font-semibold">Name</p>
+                        <p className="m-0 text-[15px] font-semibold">{loading ? "…" : (user?.name || "—")}</p>
+                      </div>
+                    </div>
+
+                    <div className="h-3" />
+
+                    {/* Email */}
+                    <div className="flex items-start gap-3">
+                      <span aria-hidden className="text-[18px]">✉️</span>
+                      <div>
+                        <p className="m-0 text-[13px] text-[#264555]/70 font-semibold">Email</p>
+                        <p className="m-0 text-[15px] font-semibold break-all">{loading ? "…" : (user?.email || "—")}</p>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="info-item">
-                    <span className="info-icon" aria-hidden>📅</span>
-                    <div className="info-content">
-                      <p>Created</p>
-                      <p>{loading ? "…" : fmtDate(user?.created_at)}</p>
+                  <div>
+                    {/* Roles */}
+                    <div className="mb-4">
+                      <p className="m-0 text-[13px] text-[#264555]/70 font-semibold">Roles</p>
+                      <div className="mt-1 flex flex-wrap gap-2">
+                        {rolesLoading ? (
+                          <span className="text-[#264555]/50">…</span>
+                        ) : roles.length ? (
+                          roles.map((r) => (
+                            <span
+                              key={r}
+                              className="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold bg-[#e5ebf0] text-[#264555]"
+                            >
+                              {r}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-[#264555]/50">—</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Created */}
+                    <div className="flex items-start gap-3">
+                      <span aria-hidden className="text-[18px]">📅</span>
+                      <div>
+                        <p className="m-0 text-[13px] text-[#264555]/70 font-semibold">Created</p>
+                        <p className="m-0 text-[15px] font-semibold">{loading ? "…" : fmtDate(user?.created_at)}</p>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            </section>
+              </section>
 
-            {/* Associated Companies – Struktur bleibt, Inhalte = "—" solange keine API */}
-            <section className="admin-card info-section">
-              <div className="section-row">
-                <span aria-hidden>🏢</span>
-                <h3 className="section-title">Associated Companies</h3>
-              </div>
+              {/* Associated Companies */}
+              <section className="rounded-2xl border border-[#e9ecef] bg-white shadow-[0_10px_24px_-12px_rgba(0,0,0,.18)] p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <span aria-hidden className="text-[18px]">🏢</span>
+                  <h3 className="text-[17px] font-semibold tracking-tight m-0">Associated Companies</h3>
+                </div>
 
-              <div className="company-list">
-                <div className="company-item">
-                  <div className="company-info">
-                    <h4>—</h4>
-                    <p>—</p>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between rounded-xl border border-[#e9ecef] bg-white px-4 py-3">
+                    <div>
+                      <h4 className="m-0 text-[15px] font-extrabold">—</h4>
+                      <p className="m-0 text-sm text-[#264555]/70">—</p>
+                    </div>
+                    <button
+                      className="inline-flex items-center gap-1 text-sm font-bold rounded-lg border border-[#d1d5db] px-3 py-1.5 text-[#264555] bg-white hover:bg-[#f5f7f9]"
+                      disabled
+                      style={{ opacity: 0.6, cursor: "not-allowed" }}
+                    >
+                      View Company
+                    </button>
                   </div>
-                  <button className="company-link" disabled style={{ opacity: 0.6, cursor: "not-allowed" }}>
-                    View Company
+                </div>
+              </section>
+
+              {/* Recent Activities */}
+              <section className="rounded-2xl border border-[#e9ecef] bg-white shadow-[0_10px_24px_-12px_rgba(0,0,0,.18)] p-5">
+                <h3 className="text-[17px] font-semibold tracking-tight mb-4">Recent Activities</h3>
+                <div className="space-y-3">
+                  <div className="flex items-start gap-3 rounded-xl border border-[#e9ecef] bg-white px-4 py-3">
+                    <span aria-hidden className="mt-1 inline-block w-2.5 h-2.5 rounded-full bg-[#1f2937]"></span>
+                    <div className="flex-1 min-w-0">
+                      <p className="m-0 text-[15px]"><strong>—</strong> on <span className="text-[#264555]/60">—</span></p>
+                      <p className="m-0 text-sm text-[#264555]/60">{fmtDate()} , {fmtTime()}</p>
+                      <p className="m-0 text-sm text-[#264555]/60">—</p>
+                    </div>
+                    <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">—</span>
+                  </div>
+                </div>
+              </section>
+            </div>
+
+            {/* Rechte Spalte */}
+            <aside className="space-y-6">
+              <section className="rounded-2xl border border-[#e9ecef] bg-white shadow-[0_10px_24px_-12px_rgba(0,0,0,.18)] p-5">
+                <h3 className="text-[16px] font-semibold tracking-tight">Actions</h3>
+                <div className="mt-4 grid gap-2">
+                  <button
+                    type="button"
+                    className="inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 font-bold text-sm text-white bg-[#264555] hover:brightness-110 shadow-[0_6px_14px_-8px_rgba(38,69,85,.45)]"
+                  >
+                    <span aria-hidden>🔄</span> Reset Password
+                  </button>
+                  <button
+                    type="button"
+                    className="inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 font-bold text-sm text-red-600 border border-red-300 bg-white hover:bg-red-50"
+                  >
+                    <span aria-hidden>🚫</span> Disable User
                   </button>
                 </div>
-              </div>
-            </section>
-
-            {/* Recent Activities – Struktur bleibt, Inhalte = "—" solange keine API */}
-            <section className="admin-card info-section">
-              <h3 className="section-title" style={{ marginBottom: "1rem" }}>
-                Recent Activities
-              </h3>
-
-              <div className="activity-list">
-                <div className="activity-item">
-                  <div className="activity-dot" aria-hidden />
-                  <div className="activity-content">
-                    <p><strong>—</strong> on <span className="muted">—</span></p>
-                    <p className="muted">{fmtDate()} , {fmtTime()}</p>
-                    <p className="muted">—</p>
-                  </div>
-                  <span className="outcome-badge outcome-success">—</span>
-                </div>
-              </div>
-            </section>
+              </section>
+            </aside>
           </div>
-
-          {/* Rechte Spalte (unverändert) */}
-          <aside className="sidebar-column">
-            <section className="admin-card actions-card">
-              <h3 className="actions-title">Actions</h3>
-              <div className="actions-list">
-                <button type="button" className="btn btn-secondary">
-                  <span aria-hidden>🔄</span> Reset Password
-                </button>
-                <button type="button" className="btn btn-destructive">
-                  <span aria-hidden>🚫</span> Disable User
-                </button>
-              </div>
-            </section>
-          </aside>
         </div>
       </main>
     </AdminPanelHeader>
