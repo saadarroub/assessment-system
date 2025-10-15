@@ -1,6 +1,5 @@
 package com.assessment.backend.controller;
 
-import com.assessment.backend.entity.User;
 import com.assessment.backend.service.AuthService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;

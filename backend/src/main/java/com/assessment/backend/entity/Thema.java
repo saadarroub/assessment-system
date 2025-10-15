@@ -1,6 +1,5 @@
 package com.assessment.backend.entity;
 
-
 import jakarta.persistence.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
@@ -9,17 +8,17 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "catalog")
-public class Catalog {
+@Table(name = "thema")
+public class Thema {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
     @Column(nullable = false)
-    private String title;
+    private String name;
 
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "TEXT")
     private String description;
 
     @CreationTimestamp
@@ -30,11 +29,12 @@ public class Catalog {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
-    public Catalog() {
+    // Constructors
+    public Thema() {
     }
 
-    public Catalog(String title, String description) {
-        this.title = title;
+    public Thema(String name, String description) {
+        this.name = name;
         this.description = description;
     }
 
@@ -47,12 +47,12 @@ public class Catalog {
         this.id = id;
     }
 
-    public String getTitle() {
-        return title;
+    public String getName() {
+        return name;
     }
 
-    public void setTitle(String title) {
-        this.title = title;
+    public void setName(String name) {
+        this.name = name;
     }
 
     public String getDescription() {
@@ -78,5 +78,4 @@ public class Catalog {
     public void setUpdatedAt(LocalDateTime updatedAt) {
         this.updatedAt = updatedAt;
     }
-
 }
