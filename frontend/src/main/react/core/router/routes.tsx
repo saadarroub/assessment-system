@@ -6,7 +6,6 @@ import WorkerDashboard from '@/features/worker-area/WorkerDashboard';
 import AdminDashboard from '@/features/admin-area/AdminDashboard';
 import ProtectedRoute from './ProtectedRoute';
 import ResultsPage from '@/features/worker-area/results/ResultsPage';
-import AnalyticsDashboard from '@/features/worker-area/results/TotalResultsPage';
 import AdminPanelPage from '@/features/admin-panel/AdminPanelPage';
 import UserList from '@/features/admin-panel/users/UserList';
 import UserDetailsPage from '@/features/admin-panel/users/UserDetail';
@@ -15,6 +14,9 @@ import CompanyDetails from '@/features/admin-panel/companies/CompanyDetail';
 import AuditPage from '@/features/admin-panel/audit/AuditLogTable';
 import KatalogeZuweisen from '@/features/admin-area/KatalogeZuweisen';
 import TestSliderNav from '@/apps/app/TestSliderNav';
+import CompanyDetailPage from '@/features/worker-area/results/CompanyDetailPage';
+import CompanyListPage from '@/features/worker-area/results/CompanyListPage';
+
 // ⬇️ Topic-Seiten
 import EamPage from '@/features/admin-area/topics/eam/EamPage';
 import OperatingModelPage from '@/features/admin-area/topics/operating-model/OperatingModelPage';
@@ -36,12 +38,12 @@ export default function AppRoutes() {
             <WorkerDashboard />
           </ProtectedRoute>
         }
-      />
-       <Route
-        path="/demo"
+      />      
+      <Route
+        path="/app/result/:companyId"
         element={
           <ProtectedRoute>
-            <TestSliderNav />
+            <CompanyDetailPage />
           </ProtectedRoute>
         }
       />
@@ -53,15 +55,16 @@ export default function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      
       <Route
-        path="/app/totalresults/1"
+        path="/app/companylist/"
         element={
           <ProtectedRoute>
-            <AnalyticsDashboard />
+            <CompanyListPage />
           </ProtectedRoute>
         }
       />
-
+      
       {/* Admin Dashboard */}
       <Route
         path="/admin"
