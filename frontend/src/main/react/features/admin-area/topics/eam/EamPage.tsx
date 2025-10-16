@@ -1,203 +1,152 @@
 import { useNavigate } from 'react-router-dom';
 import AdminLayout from '@/apps/app/AdminLayout';
 import '@/styles/admin.css';
-import { ArrowLeft, Pencil, Trash2, ListTodo, Folder, MessageSquare, BarChart3 } from 'lucide-react';
+import {
+  ArrowLeft,
+  Plus,
+  Folder,
+  BarChart3,
+  MessageSquare,
+  ListPlus,
+  Trash2,
+  Edit3,
+ 
+  
+} from 'lucide-react';
 
+const stats = [
+  { label: 'Kataloge', value: 5, icon: Folder },
+  { label: 'Gesamtfragen', value: 50, icon: MessageSquare },
+  { label: 'Durchschnitt', value: '10.5 pro Katalog', icon: BarChart3 },
+];
 
+const catalogs = [
+  {
+    id: 1,
+    title: 'Katalog 1 – Prozesse',
+    subtitle: 'Organisationsstrukturen',
+    questions: 15,
+    updated: 'Heute',
+  },
+  {
+    id: 2,
+    title: 'Katalog 2 – Prozesse',
+    subtitle: 'Geschäftsprozesse',
+    questions: 20,
+    updated: 'Gestern',
+  },
+  {
+    id: 3,
+    title: 'Katalog 3 – Governance',
+    subtitle: 'IT-Governance und Compliance',
+    questions: 15,
+    updated: 'Heute',
+  },
+];
 
-export default function OperatingModelPage() {
+export default function EamPaget() {
   const navigate = useNavigate();
-
-  // Beispielwerte (kannst du später dynamisch laden)
-  const catalogCount = 3;
-  const totalQuestions = 0;
-  const avgQuestions = 0;
 
   return (
     <AdminLayout>
-      <header className="main-header">
-        <div className="header-content">
-          <div className="header-center">
-            <div className="header-text">
-
-              <h2><BarChart3 size={22} /> Enterprise Architecture Management</h2>
-
-              <h1>Enterprise Architecture Management</h1>
-
-              <p>Strategische IT-Planung und -Ausrichtung</p>
-            </div>
-          </div>
-          <div className="header-right" />
+      <div className="bg-[rgba(86,118,143,0.1)] px-10 pt-10 pb-16 border-b border-gray-200 rounded-b-xl">
+        <div
+          className="w-fit bg-gray-100 hover:bg-blue-50 active:bg-blue-100 
+          rounded-lg shadow px-4 py-3 flex items-center gap-2 
+          cursor-pointer transition-all duration-200 
+          transform hover:-translate-y-0.5"
+          onClick={() => navigate('/admin')}
+        >
+          <ArrowLeft size={22} />
+          <span className="text-sm font-medium text-gray-800">
+            Zurück zur Übersicht
+          </span>
         </div>
 
-        <div className="header-actions">
-          <button className="btn btn-outline" onClick={() => navigate('/admin')}>
-            <ArrowLeft size={16} />
-            <span>Zurück zur Übersicht</span>
-          </button>
-        </div>
-      </header>
-
-      {/* 🔷 Oberer Info-Block */}
-      <div
-        style={{
-          display: 'flex',
-          gap: '2rem',
-          marginTop: '2rem',
-          flexWrap: 'wrap',
-          justifyContent: 'center',
-          padding: '2rem'
-          
-        }}
-      >
-        {[
-          {
-            title: 'Katalog',
-            value: catalogCount,
-            icon: <Folder size={20} color="#5D7D95" />,
-          },
-          {
-            title: 'Gesamtfragen',
-            value: totalQuestions,
-            icon: <MessageSquare size={20} color="#5D7D95" />,
-          },
-          {
-            title: 'Durchschnitt',
-            value: `${avgQuestions} pro Katalog`,
-            icon: <MessageSquare size={20} color="#5D7D95" />,
-          },
-        ].map((item, index) => (
-          <div
-            key={index}
-            style={{
-              flex: '0.5 0 250px',
-              backgroundColor: '#fff',
-              border: '1px solid #e5e7eb',
-              borderRadius: '8px',
-              padding: '1rem',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              minWidth: '200px',
-            }}
-          >
-            <div>
-              <div style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.25rem' }}>{item.title}</div>
-              <div style={{ fontWeight: 600, fontSize: '1.125rem', color: '#1f2937' }}>{item.value}</div>
+        <div className="mt-6 text-center">
+          <div className="flex justify-center items-center gap-3">
+            <div className="bg-[#56768f] p-3 rounded-xl shadow">
+              <BarChart3 size={26} className="text-white" />
             </div>
-            <div>{item.icon}</div>
+            <h1 className="text-2xl md:text-6xl font-bold">Enterprise Architecture Management</h1>
           </div>
-        ))}
+          <p className="text-gray-600 mt-4">Strategische IT-Planung und -Ausrichtung</p>
+        </div>
       </div>
 
-      {/* 🔷 Katalogkarten */}
-      <div
-        className="dashboard-content"
-        style={{
-          display: 'flex',
-          gap: '1.75rem',
-          flexWrap: 'wrap',
-           marginTop: '0rem',
-        }}
-      >
-        {[
-          {
-            title: 'Katalog 1 – Prozesse',
-            subtitle: 'Organisationsstrukturen',
-          },
-          {
-            title: 'Katalog 2 – Prozesse',
-            subtitle: 'Geschäftsprozesse',
-          },
-          {
-            title: 'Katalog 3 – Governance',
-            subtitle: 'IT-Governance und Compliance',
-          },
-        ].map((item, index) => (
-          <div
-            key={index}
-            style={{
-              flex: '1 1 300px',
-              backgroundColor: '#fff',
-              borderRadius: '0.5rem',
-              boxShadow: '0 2px 6px rgba(0,0,0,0.05)',
-              overflow: 'hidden',
-              display: 'flex',
-              flexDirection: 'column',
-              minWidth: '280px',
-            }}
+      {/* Statistikkarten */}
+      <div className="px-10 pt-2 pb-10 bg-white">
+        <div className="px-1 pt-4 flex justify-end">
+          <button className="flex items-center gap-2 bg-[#56768f] text-white font-medium px-4 py-2 
+           rounded shadow hover:shadow-md hover:scale-105 transition-all duration-200"
           >
-            <div style={{ height: '6px', backgroundColor: '#5D7D95' }} />
-            <div style={{ padding: '1rem', flex: '1' }}>
-              <h3 style={{ marginBottom: '0.25rem', fontSize: '1rem' }}>{item.title}</h3>
-              <p style={{ color: '#555', marginBottom: '1rem', fontSize: '0.9rem' }}>{item.subtitle}</p>
-              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                {/* Bearbeiten */}
-                <button
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.4rem',
-                    padding: '0.4rem 0.75rem',
-                    border: '1px solid #ccc',
-                    borderRadius: '4px',
-                    backgroundColor: '#fff',
-                    cursor: 'pointer',
-                    color: '#1f2937',
-                  }}
-                >
-                  <Pencil size={16} />
-                  Bearbeiten
+            <Plus size={16} />Neuer Katalog
+          </button>
+        </div>
+
+        <div className="px-max-w-screen-xl mx-auto">
+          <div className="flex flex-wrap justify-center gap-6 mt-6">
+            {stats.map((s, i) => (
+              <div
+                key={i}
+                className="bg-white border-l-4 border-t-2 border-[#56768f] rounded-lg shadow p-4 min-w-[280px] flex-[1_1_300px]"
+              >
+                <p className="text-sm text-gray-500">{s.label}</p>
+                <div className="flex items-center justify-between mt-1">
+                  <p className="text-2xl font-semibold text-gray-800">{s.value}</p>
+                  {i === 0 && <Folder size={26} className="text-[#56768f]" />}
+                  {i === 1 && <MessageSquare size={26} className="text-[#56768f]" />}
+                  {i === 2 && <BarChart3 size={26} className="text-[#56768f]" />}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Katalogkarten */}
+      <div className="px-10 pt-2 pb-10 bg-white">
+        <div className="px-1 pt-4 flex justify-end" />
+
+        <div className="flex flex-wrap justify-center gap-6 mt-6">
+          {catalogs.map((cat) => (
+            <div
+              key={cat.id}
+              className="bg-white border-t-8 border-[#56768f] rounded-lg shadow p-4 min-w-[280px] flex-[1_1_300px]"
+            >
+              <div className="flex justify-between items-center mb-2">
+                <h2 className="font-semibold text-gray-800">{cat.title}</h2>
+                <span className="text-sm text-gray-500">{cat.questions} Fragen</span>
+              </div>
+
+              <p className="text-sm text-gray-500 mb-4">{cat.subtitle}</p>
+
+              <div className="flex justify-between text-xs text-gray-500">
+                <div className="flex items-center gap-1">
+                  <div className="w-2 h-2 rounded-full bg-green-500" /> Aktiv
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="w-2 h-2 rounded-full bg-blue-500" /> Letzte Änderung: {cat.updated}
+                </div>
+              </div>
+
+              <div className="flex flex-wrap justify-between gap-2 pt-4">
+                <button className="px-4 py-2 border rounded flex items-center justify-center gap-2 text-[#56768f] text-sm hover:bg-gray-50">
+                  <Edit3 size={16} /> Bearbeiten
                 </button>
 
-                {/* Löschen */}
-                <button
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.4rem',
-                    padding: '0.4rem 0.75rem',
-                    border: '1px solid #f87171',
-                    borderRadius: '4px',
-                    backgroundColor: '#fff',
-                    color: '#ef4444',
-                    cursor: 'pointer',
-                  }}
-                >
-                  <Trash2 size={16} />
-                  Löschen
+                <button className="px-4 py-2 border border-red-500 text-red-500 rounded flex items-center justify-center gap-2 text-sm hover:bg-red-50">
+                  <Trash2 size={16} /> Löschen
                 </button>
 
-                {/* Fragen verwalten */}
-                <button
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.4rem',
-                    padding: '0.4rem 0.75rem',
-                    border: 'none',
-                    borderRadius: '4px',
-                    backgroundColor: '#5D7D95',
-                    color: '#fff',
-                    cursor: 'pointer',
-                  }}
-                >
-                  <ListTodo size={16} />
-                  Fragen verwalten
+                <button className="flex-1 min-w-[140px] bg-[#56768f] text-white px-2 py-2 rounded flex items-center justify-center gap-2 text-sm hover:bg-[#56768f]/80">
+                  <ListPlus size={16} /> Fragen verwalten
                 </button>
               </div>
             </div>
-          </div>
-        ))}
-      </div>
-
-         <div className="bg-blue-600 text-white text-center p-4 rounded-lg shadow-md">
-          ✅ Tailwind funktioniert erfolgreich!
+          ))}
         </div>
-
+      </div>
     </AdminLayout>
-
-           
-
   );
 }

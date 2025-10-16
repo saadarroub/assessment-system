@@ -1,148 +1,140 @@
 import { useNavigate } from 'react-router-dom';
 import AdminLayout from '@/apps/app/AdminLayout';
 import '@/styles/admin.css';
-import '@/styles/worker.css';
-import { ArrowLeft, Building2, Edit3, Trash2, ListPlus, Plus } from 'lucide-react';
+import {ArrowLeft,Plus,Folder,BarChart3,MessageSquare,ListPlus,Trash2,Edit3,ShoppingCart} from 'lucide-react';
 
-const STATS = [
-  { label: <h3>Katalog</h3> , value: '3'},
-  { label: <h3>Gesamtfragen</h3>, value: '50' },
-  { label: <h3>Durchschnitt</h3>, value: '10 pro Katalog'},
+const stats = [
+  { label: 'Kataloge', value: 5, icon: Folder },
+  { label: 'Gesamtfragen', value: 50, icon: MessageSquare },
+  { label: 'Durchschnitt', value: '10.5 pro Katalog', icon: BarChart3 },
 ];
 
-export default function OperatingModelPage() {
+const catalogs = [
+  {
+    id: 1,
+    title: 'Katalog 1 – Prozesse',
+    subtitle: 'Organisationsstrukturen',
+    questions: 15,
+    updated: 'Heute',
+  },
+  {
+    id: 2,
+    title: 'Katalog 2 – Prozesse',
+    subtitle: 'Geschäftsprozesse',
+    questions: 20,
+    updated: 'Gestern',
+  },
+  {
+    id: 3,
+    title: 'Katalog 3 – Governance',
+    subtitle: 'IT-Governance und Compliance',
+    questions: 15,
+    updated: 'Heute',
+  },
+];
+
+export default function ProjectManagementPage() {
   const navigate = useNavigate();
 
   return (
     <AdminLayout>
-      {/* ===== HEADER ===== */}
-      <header className="main-header">
-           <div className="header-left">
-            <button className="btn btn-outline" onClick={() => navigate('/admin')}>
-              <ArrowLeft size={18} />
-              <span>Zurück zur Übersicht</span>
-            </button>
-          </div>                  
-          
-          <div className="header-center">
-            <div className="header-text">
-              <h1>
-                <Building2 size={34} /> IT Sourcing  
-                
-              </h1>
-              <p>Beschaffung und Lieferantenmanagement</p>
-            </div>
-          </div>        
-      </header>
+      <div className="bg-[rgba(38,69,85,0.2)] px-10 pt-10 pb-16 border-b border-gray-200 rounded-b-xl">
+        <div
+          className="w-fit bg-gray-100 hover:bg-blue-50 active:bg-blue-100 
+          rounded-lg shadow px-4 py-3 flex items-center gap-2 
+          cursor-pointer transition-all duration-200 
+          transform hover:-translate-y-0.5"
+          onClick={() => navigate('/admin')}
+        >
+          <ArrowLeft size={22} />
+          <span className="text-sm font-medium text-gray-800">
+            Zurück zur Übersicht
+          </span>
+        </div>
 
-      {/* ===== INHALT ===== */}
-      <div className="dashboard-content">
-        
-        <section className="stats-panel">
-          <div className="stats-grid">
-            {STATS.map((s, i) => (
-              <div className="stat-card" key={i}>
-                <div className="stat-content">
-                  <div className="stat-info">
-                    <p className=''>{s.label}</p>
-                    <p className="stat-value">{s.value}</p>
-                  </div>
+        <div className="mt-6 text-center">
+          <div className="flex justify-center items-center gap-3">
+            <div className="bg-[#264555] p-3 rounded-xl shadow">
+              <ShoppingCart size={26} className="text-white" />
+            </div>
+            <h1 className="text-2xl md:text-6xl font-bold">IT Sourcing</h1>
+          </div>
+          <p className="text-gray-600 mt-4">Beschaffung und Lieferantenmanagement</p>
+        </div>
+      </div>
+
+      {/* Statistikkarten */}
+      <div className="px-10 pt-2 pb-10 bg-white">
+        <div className="px-1 pt-4 flex justify-end">
+          <button className="flex items-center gap-2 bg-[#264555] text-white font-medium px-4 py-2 
+           rounded shadow hover:shadow-md hover:scale-105 transition-all duration-200"
+          >
+            <Plus size={16} />Neuer Katalog
+          </button>
+        </div>
+
+        <div className="px-max-w-screen-xl mx-auto">
+          <div className="flex flex-wrap justify-center gap-6 mt-6">
+            {stats.map((s, i) => (
+              <div
+                key={i}
+                className="bg-white border-l-4 border-t-2 border-[#264555] rounded-lg shadow p-4 min-w-[280px] flex-[1_1_300px]"
+              >
+                <p className="text-sm text-gray-500">{s.label}</p>
+                <div className="flex items-center justify-between mt-1">
+                  <p className="text-2xl font-semibold text-gray-800">{s.value}</p>
+                  {i === 0 && <Folder size={26} className="text-[#264555]" />}
+                  {i === 1 && <MessageSquare size={26} className="text-[#264555]" />}
+                  {i === 2 && <BarChart3 size={26} className="text-[#264555]" />}
                 </div>
               </div>
             ))}
           </div>
-        </section>
+        </div>
+      </div>
 
-        <section className="topics-section">
-          <div className="header-actions">
-           
-            <button className="btn btn-caramel">
-              <Plus size={24} />
-              <span>Neuer Katalog</span>
-            </button>
-          </div>
-        </section>
-        
+      {/* Katalogkarten */}
+      <div className="px-10 pt-2 pb-10 bg-white">
+        <div className="px-1 pt-4 flex justify-end" />
 
-        {/* ===== KATALOG-KARTEN ===== */}
-        <section className="catalogs wrapper">
-          <div className="grid-cards">
-            {/* Karte 1 */}
-            <div className="survey-card">
-              <div className="card-top">
-                <div className="top-row">
-                  <span className="tag">Katalog 1</span>
-                  <span className="questions">15 Fragen</span>
-                </div>
-                <h2>Prozesse</h2>
-                <p className="subtitle1">Organisationsstrukturen</p>
+        <div className="flex flex-wrap justify-center gap-6 mt-6">
+          {catalogs.map((cat) => (
+            <div
+              key={cat.id}
+              className="bg-white border-t-8 border-[#264555] rounded-lg shadow p-4 min-w-[280px] flex-[1_1_300px]"
+            >
+              <div className="flex justify-between items-center mb-2">
+                <h2 className="font-semibold text-gray-800">{cat.title}</h2>
+                <span className="text-sm text-gray-500">{cat.questions} Fragen</span>
               </div>
-              <div className="card-bottom">
-                <div className="info-row">
-                  <span><span className="dot green" />Aktiv</span>
-                  <span><span className="dot blue" />Letzte Änderung: Heute</span>
+
+              <p className="text-sm text-gray-500 mb-4">{cat.subtitle}</p>
+
+              <div className="flex justify-between text-xs text-gray-500">
+                <div className="flex items-center gap-1">
+                  <div className="w-2 h-2 rounded-full bg-green-500" /> Aktiv
                 </div>
-                <div className="topic-buttons">
-                  <button className="btn btn-outline"><Edit3 size={16} /> Bearbeiten</button>
-                  <button className="btn btn-outline" style={{ color: 'red', borderColor: 'red' }}>
-                    <Trash2 size={16} /> Löschen
-                  </button>
-                  <button className="start-button"><ListPlus size={16} /> Fragen verwalten</button>
+                <div className="flex items-center gap-1">
+                  <div className="w-2 h-2 rounded-full bg-blue-500" /> Letzte Änderung: {cat.updated}
                 </div>
+              </div>
+
+              <div className="flex flex-wrap justify-between gap-2 pt-4">
+                <button className="px-4 py-2 border rounded flex items-center justify-center gap-2 text-[#264555] text-sm hover:bg-gray-50">
+                  <Edit3 size={16} /> Bearbeiten
+                </button>
+
+                <button className="px-4 py-2 border border-red-500 text-red-500 rounded flex items-center justify-center gap-2 text-sm hover:bg-red-50">
+                  <Trash2 size={16} /> Löschen
+                </button>
+
+                <button className="flex-1 min-w-[140px] bg-[#264555] text-white px-2 py-2 rounded flex items-center justify-center gap-2 text-sm hover:bg-[#264555]/80">
+                  <ListPlus size={16} /> Fragen verwalten
+                </button>
               </div>
             </div>
-
-            {/* Karte 2 */}
-            <div className="survey-card">
-              <div className="card-top">
-                <div className="top-row">
-                  <span className="tag">Katalog 2</span>
-                  <span className="questions">20 Fragen</span>
-                </div>
-                <h2>Geschäftsprozesse</h2>
-                <p className="subtitle1">Strategische Ausrichtung</p>
-              </div>
-              <div className="card-bottom">
-                <div className="info-row">
-                  <span><span className="dot green" />Aktiv</span>
-                  <span><span className="dot blue" />Letzte Änderung: Gestern</span>
-                </div>
-                <div className="topic-buttons">
-                  <button className="btn btn-outline"><Edit3 size={16} /> Bearbeiten</button>
-                  <button className="btn btn-outline" style={{ color: 'red', borderColor: 'red' }}>
-                    <Trash2 size={16} /> Löschen
-                  </button>
-                  <button className="start-button"><ListPlus size={16} /> Fragen verwalten</button>
-                </div>
-              </div>
-            </div>
-
-            {/* Karte 3 */}
-            <div className="survey-card">
-              <div className="card-top">
-                <div className="top-row">
-                  <span className="tag">Katalog 3</span>
-                  <span className="questions">15 Fragen</span>
-                </div>
-                <h2>Governance</h2>
-                <p className="subtitle1">IT-Compliance und Kontrolle</p>
-              </div>
-              <div className="card-bottom">
-                <div className="info-row">
-                  <span><span className="dot green" />Aktiv</span>
-                  <span><span className="dot blue" />Letzte Änderung: Heute</span>
-                </div>
-                <div className="topic-buttons">
-                  <button className="btn btn-outline"><Edit3 size={16} /> Bearbeiten</button>
-                  <button className="btn btn-outline" style={{ color: 'red', borderColor: 'red' }}>
-                    <Trash2 size={16} /> Löschen
-                  </button>
-                  <button className="start-button"><ListPlus size={16} /> Fragen verwalten</button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
+          ))}
+        </div>
       </div>
     </AdminLayout>
   );
