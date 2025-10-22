@@ -131,6 +131,59 @@
 }
 .admin-main .action-item:hover { background: #f3f4f6; transform: translateY(-1px); }
 .admin-main .action-icon { color: hsl(var(--ap-primary)); font-size: 1.1rem; }
+/* === Users table actions: inline icons === */
+.col-actions {
+  width: 120px;
+}
+
+.actions-inline {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  min-width: 108px;
+}
+
+.icon-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: hsl(var(--muted-foreground, 215 15% 30%));
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.icon-btn-ghost:hover {
+  background: hsl(var(--muted, 215 20% 96%));
+}
+
+.icon-btn-ghost:focus-visible {
+  outline: 2px solid hsl(var(--primary, 215 84% 56%));
+  outline-offset: 2px;
+  border-radius: 10px;
+}
+
+.icon-btn-ghost.destructive:hover {
+  background: hsl(0 85% 96%);
+  color: hsl(0 65% 45%);
+}
+
+.icon-btn-ghost svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* Fallback gegen globale Styles */
+.col-actions .icon-btn-ghost,
+.col-actions a.icon-btn-ghost {
+  vertical-align: middle;
+}
 
 /* Responsive */
 @media (max-width: 768px) {

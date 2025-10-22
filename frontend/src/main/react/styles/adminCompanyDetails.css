@@ -451,3 +451,12 @@
   font-variant-numeric: tabular-nums; /* gleichbreite Ziffern für saubere Spalten */
 }
 
+/* Kompaktere Tabelle im Users-Tab der Company-Details */
+.admin-table.subtable th,
+.admin-table.subtable td {
+  padding: .6rem .8rem;
+  font-size: .875rem;
+}
+.admin-table.subtable thead th {
+  background: hsl(var(--muted));
+}
