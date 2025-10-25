@@ -62,7 +62,8 @@ public class QuestionNodeController {
     @GetMapping("/thema/{themaId}")
     public ResponseEntity<List<QuestionNode>> getQuestionNodesByThemaId(@PathVariable("themaId") UUID themaId) {
         try {
-            List<QuestionNode> nodes = questionNodeService.getQuestionNodesByThemaId(themaId);
+            // Use WithDetails to avoid lazy loading issues
+            List<QuestionNode> nodes = questionNodeService.getQuestionNodesByThemaIdWithDetails(themaId);
             if (nodes.isEmpty()) {
                 return new ResponseEntity<>(HttpStatus.NO_CONTENT);
             }
@@ -90,7 +91,8 @@ public class QuestionNodeController {
     @GetMapping("/thema/{themaId}/root")
     public ResponseEntity<List<QuestionNode>> getRootNodesByThemaId(@PathVariable("themaId") UUID themaId) {
         try {
-            List<QuestionNode> nodes = questionNodeService.getRootNodesByThemaId(themaId);
+            // Use WithDetails to avoid lazy loading issues (question will be loaded)
+            List<QuestionNode> nodes = questionNodeService.getRootNodesByThemaIdWithDetails(themaId);
             if (nodes.isEmpty()) {
                 return new ResponseEntity<>(HttpStatus.NO_CONTENT);
             }
@@ -118,7 +120,8 @@ public class QuestionNodeController {
     @GetMapping("/parent/{parentNodeId}/children")
     public ResponseEntity<List<QuestionNode>> getChildNodesByParentId(@PathVariable("parentNodeId") UUID parentNodeId) {
         try {
-            List<QuestionNode> nodes = questionNodeService.getChildNodesByParentId(parentNodeId);
+            // Use WithDetails to avoid lazy loading issues
+            List<QuestionNode> nodes = questionNodeService.getChildNodesByParentIdWithDetails(parentNodeId);
             if (nodes.isEmpty()) {
                 return new ResponseEntity<>(HttpStatus.NO_CONTENT);
             }
@@ -223,6 +226,22 @@ public class QuestionNodeController {
             return new ResponseEntity<>(updatedNode, HttpStatus.OK);
         } catch (RuntimeException e) {
             return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        } catch (Exception e) {
+            return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    // Move Node - PATCH /api/question-nodes/{id}/move
+    @PatchMapping("/{id}/move")
+    public ResponseEntity<QuestionNode> moveQuestionNode(
+            @PathVariable("id") UUID id,
+            @RequestParam(value = "newParentId", required = false) UUID newParentId,
+            @RequestParam(value = "position", required = false) Integer position) {
+        try {
+            QuestionNode moved = questionNodeService.moveQuestionNode(id, newParentId, position);
+            return new ResponseEntity<>(moved, HttpStatus.OK);
+        } catch (RuntimeException e) {
+            return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
         } catch (Exception e) {
             return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
         }
