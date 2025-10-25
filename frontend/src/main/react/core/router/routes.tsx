@@ -13,7 +13,7 @@ import CompaniesList from '@/features/admin-panel/companies/CompanyList';
 import CompanyDetails from '@/features/admin-panel/companies/CompanyDetail';
 import AuditPage from '@/features/admin-panel/audit/AuditLogTable';
 import KatalogeZuweisen from '@/features/admin-area/KatalogeZuweisen';
-import TestSliderNav from '@/apps/app/TestSliderNav';
+import AssessmentPage from '@/features/worker-area/AssessmentPage';
 import CompanyDetailPage from '@/features/worker-area/results/CompanyDetailPage';
 import CompanyListPage from '@/features/worker-area/results/CompanyListPage';
 
@@ -38,7 +38,7 @@ export default function AppRoutes() {
             <WorkerDashboard />
           </ProtectedRoute>
         }
-      />      
+      />
       <Route
         path="/app/result/:companyId"
         element={
@@ -50,12 +50,12 @@ export default function AppRoutes() {
       <Route
         path="/app/results/:sessionId"
         element={
-          <ProtectedRoute  permission="user:dashboard:view">
+          <ProtectedRoute permission="user:dashboard:view">
             <ResultsPage />
           </ProtectedRoute>
         }
       />
-      
+
       <Route
         path="/app/companylist/"
         element={
@@ -64,7 +64,14 @@ export default function AppRoutes() {
           </ProtectedRoute>
         }
       />
-      
+      <Route
+        path="/app/assessments"
+        element={
+          <ProtectedRoute permission="user:dashboard:view">
+            <AssessmentPage />
+          </ProtectedRoute>
+        }
+      />
       {/* Admin Dashboard */}
       <Route
         path="/admin"
@@ -75,13 +82,13 @@ export default function AppRoutes() {
         }
       />
       <Route
-  path="/admin/katalogzuweisen"
-  element={
-    <ProtectedRoute permission="admin:dashboard:view">
-      <KatalogeZuweisen />
-    </ProtectedRoute>
-  }
-/>
+        path="/admin/katalogzuweisen"
+        element={
+          <ProtectedRoute permission="admin:dashboard:view">
+            <KatalogeZuweisen />
+          </ProtectedRoute>
+        }
+      />
       <Route
         path="/admin/adminPanel"
         element={
@@ -98,7 +105,7 @@ export default function AppRoutes() {
           </ProtectedRoute>
         }
       />
-       <Route
+      <Route
         path="/admin/adminPanel/users/:id"
         element={
           <ProtectedRoute>
@@ -110,7 +117,7 @@ export default function AppRoutes() {
         path="/admin/adminPanel/audit"
         element={
           <ProtectedRoute>
-            < AuditPage/>
+            < AuditPage />
           </ProtectedRoute>
         }
       />
@@ -164,15 +171,15 @@ export default function AppRoutes() {
           </ProtectedRoute>
         }
       />
-       <Route
+      <Route
         path="/testComp"
         element={
           <ProtectedRoute permission="user:dashboard:view">
-            <CompanyListtest/>
+            <CompanyListtest />
           </ProtectedRoute>
         }
       />
-  
+
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
