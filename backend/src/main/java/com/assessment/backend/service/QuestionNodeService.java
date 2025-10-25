@@ -61,6 +61,17 @@ public class QuestionNodeService {
             throw new RuntimeException("Question already exists in this Thema");
         }
         
+        // Always auto-assign orderIndex (ignore client value, always append to siblings with GAP strategy)
+        UUID parentId = questionNode.getParentNode() == null ? null : questionNode.getParentNode().getId();
+        List<QuestionNode> siblings = questionNodeRepository.findByParentNodeIdOrderByOrderIndexAsc(parentId);
+        final int GAP = 10;
+        if (siblings.isEmpty()) {
+            questionNode.setOrderIndex(GAP);
+        } else {
+            Integer maxIndex = siblings.get(siblings.size() - 1).getOrderIndex();
+            questionNode.setOrderIndex(maxIndex + GAP);
+        }
+        
         return questionNodeRepository.save(questionNode);
     }
 
@@ -226,5 +237,101 @@ public class QuestionNodeService {
     // Count Required by Thema
     public long countRequiredByThemaId(UUID themaId) {
         return questionNodeRepository.countRequiredNodesByThemaId(themaId);
+    }
+
+    // Move node to new parent and position (position is 0-based index among siblings)
+    @Transactional
+    public QuestionNode moveQuestionNode(UUID nodeId, UUID newParentNodeId, Integer targetPosition) {
+        QuestionNode node = questionNodeRepository.findById(nodeId)
+                .orElseThrow(() -> new RuntimeException("QuestionNode not found with id: " + nodeId));
+
+        // Validate new parent if provided
+        QuestionNode newParent = null;
+        if (newParentNodeId != null) {
+            newParent = questionNodeRepository.findById(newParentNodeId)
+                    .orElseThrow(() -> new RuntimeException("Parent Node not found with id: " + newParentNodeId));
+            // Thema must match
+            if (!newParent.getThema().getId().equals(node.getThema().getId())) {
+                throw new RuntimeException("Thema mismatch when moving node");
+            }
+            // no cycles
+            if (isDescendant(newParent.getId(), node.getId())) {
+                throw new RuntimeException("Move would create cycle");
+            }
+        }
+
+        // load siblings under new parent ordered
+        List<QuestionNode> siblings = questionNodeRepository.findByParentNodeIdOrderByOrderIndexAsc(
+                newParent == null ? null : newParent.getId());
+
+        final int GAP = 10; // integer gap strategy to avoid frequent reindex
+        Integer newIndex;
+        if (siblings == null || siblings.isEmpty()) {
+            newIndex = GAP;
+        } else {
+            if (targetPosition == null || targetPosition >= siblings.size()) {
+                // append to end
+                Integer last = siblings.get(siblings.size() - 1).getOrderIndex();
+                newIndex = last + GAP;
+            } else if (targetPosition <= 0) {
+                Integer first = siblings.get(0).getOrderIndex();
+                newIndex = first - GAP;
+                if (newIndex <= 0) {
+                    // ensure positive orderIndex by reindexing
+                    reindexSiblings(newParent == null ? null : newParent.getId());
+                    siblings = questionNodeRepository.findByParentNodeIdOrderByOrderIndexAsc(
+                            newParent == null ? null : newParent.getId());
+                    newIndex = siblings.get(0).getOrderIndex() - GAP;
+                }
+            } else {
+                Integer prev = siblings.get(targetPosition - 1).getOrderIndex();
+                Integer next = siblings.get(targetPosition).getOrderIndex();
+                if (next - prev > 1) {
+                    newIndex = prev + (next - prev) / 2;
+                } else {
+                    // no gap -> reindex siblings to create gaps then recompute
+                    reindexSiblings(newParent == null ? null : newParent.getId());
+                    siblings = questionNodeRepository.findByParentNodeIdOrderByOrderIndexAsc(
+                            newParent == null ? null : newParent.getId());
+                    prev = siblings.get(targetPosition - 1).getOrderIndex();
+                    next = siblings.get(targetPosition).getOrderIndex();
+                    newIndex = prev + (next - prev) / 2;
+                    if (newIndex.equals(prev) || newIndex.equals(next)) {
+                        // fallback: place after prev
+                        newIndex = prev + GAP;
+                    }
+                }
+            }
+        }
+
+        // Apply move
+        node.setParentNode(newParent);
+        node.setOrderIndex(newIndex);
+        return questionNodeRepository.save(node);
+    }
+
+    // Reindex siblings to 10,20,30,... to restore gaps
+    @Transactional
+    public void reindexSiblings(UUID parentNodeId) {
+        List<QuestionNode> siblings = questionNodeRepository.findByParentNodeIdOrderByOrderIndexAsc(parentNodeId);
+        final int GAP = 10;
+        int idx = GAP;
+        for (QuestionNode s : siblings) {
+            s.setOrderIndex(idx);
+            idx += GAP;
+        }
+        if (!siblings.isEmpty()) questionNodeRepository.saveAll(siblings);
+    }
+
+    // Check if possibleParentId is a descendant of nodeId (to prevent cycles)
+    public boolean isDescendant(UUID possibleParentId, UUID nodeId) {
+        UUID current = possibleParentId;
+        while (current != null) {
+            if (current.equals(nodeId)) return true;
+            Optional<QuestionNode> p = questionNodeRepository.findById(current);
+            if (p.isEmpty()) break;
+            current = p.get().getParentNode() == null ? null : p.get().getParentNode().getId();
+        }
+        return false;
     }
 }
