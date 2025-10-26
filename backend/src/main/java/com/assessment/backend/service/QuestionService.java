@@ -37,7 +37,16 @@ public class QuestionService {
                 throw new RuntimeException("Options are required for question type: " + question.getQuestionType().getName());
             }
         }
-        
+
+      // Check for duplicate question (same text + same question type)
+      if (question.getQuestionType() != null) {
+        boolean exists = questionRepository.existsByTextAndQuestionType_Id(question.getText(), question.getQuestionType().getId());
+
+        if (exists) {
+          throw new RuntimeException("Question with same text already exists for this QuestionType");
+        }
+      }
+
         return questionRepository.save(question);
     }
 
@@ -47,8 +56,9 @@ public class QuestionService {
     }
 
     // Read - By ID
-    public Optional<Question> getQuestionById(UUID id) {
-        return questionRepository.findById(id);
+    public Question getQuestionById(UUID id) {
+        return questionRepository.findById(id)
+                                 .orElseThrow(() -> new RuntimeException("Question not found with id: " + id));
     }
 
     // Read - By Question Type
@@ -63,6 +73,9 @@ public class QuestionService {
 
     // Read - Search by text
     public List<Question> searchQuestionsByText(String text) {
+        if (text == null || text.trim().length() < 2) {
+         throw new RuntimeException("Search text must contain at least 2 characters.");
+        }
         return questionRepository.findByTextContainingIgnoreCase(text);
     }
 
