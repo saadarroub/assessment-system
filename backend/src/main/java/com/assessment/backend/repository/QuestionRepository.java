@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Repository
@@ -22,7 +23,7 @@ public interface QuestionRepository extends JpaRepository<Question, UUID> {
     // Find by Question Type ID
     @Query("SELECT q FROM Question q LEFT JOIN FETCH q.questionType WHERE q.questionType.id = :questionTypeId")
     List<Question> findByQuestionTypeId(UUID questionTypeId);
-    
+
     // Find by text containing (search)
     @Query("SELECT q FROM Question q LEFT JOIN FETCH q.questionType WHERE LOWER(q.text) LIKE LOWER(CONCAT('%', :text, '%'))")
     List<Question> findByTextContainingIgnoreCase(String text);
@@ -41,4 +42,8 @@ public interface QuestionRepository extends JpaRepository<Question, UUID> {
     
     // Count questions by type
     long countByQuestionTypeId(UUID questionTypeId);
+
+  // Check if question with same text exists for type
+    boolean existsByTextAndQuestionType_Id(String text, UUID questionTypeId);
+
 }
