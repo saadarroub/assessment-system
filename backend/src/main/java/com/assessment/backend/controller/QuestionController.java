@@ -1,5 +1,6 @@
 package com.assessment.backend.controller;
 
+import com.assessment.backend.dto.QuestionDTO;
 import com.assessment.backend.entity.Question;
 import com.assessment.backend.service.QuestionService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,9 +22,9 @@ public class QuestionController {
 
     // Create - POST /api/questions
     @PostMapping
-    public ResponseEntity<Question> createQuestion(@RequestBody Question question) {
+    public ResponseEntity<QuestionDTO> createQuestion(@RequestBody QuestionDTO questionDTO) {
         try {
-            Question createdQuestion = questionService.createQuestion(question);
+            QuestionDTO createdQuestion = questionService.createQuestion(questionDTO);
             return new ResponseEntity<>(createdQuestion, HttpStatus.CREATED);
         } catch (RuntimeException e) {
             return new ResponseEntity<>(null, HttpStatus.BAD_REQUEST);
@@ -34,13 +35,13 @@ public class QuestionController {
 
     // Read All - GET /api/questions
     @GetMapping
-    public ResponseEntity<List<Question>> getAllQuestions() {
+    public ResponseEntity<List<QuestionDTO>> getAllQuestions() {
         try {
-            List<Question> questions = questionService.getAllQuestions();
-            if (questions.isEmpty()) {
+            List<QuestionDTO> questionsDTO = questionService.getAllQuestions();
+            if (questionsDTO.isEmpty()) {
                 return new ResponseEntity<>(HttpStatus.NO_CONTENT);
             }
-            return new ResponseEntity<>(questions, HttpStatus.OK);
+            return new ResponseEntity<>(questionsDTO, HttpStatus.OK);
         } catch (Exception e) {
             return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
         }
@@ -48,10 +49,10 @@ public class QuestionController {
 
     // Read By ID - GET /api/questions/{id}
     @GetMapping("/{id}")
-    public ResponseEntity<Question> getQuestionById(@PathVariable("id") UUID id) {
+    public ResponseEntity<QuestionDTO> getQuestionById(@PathVariable("id") UUID id) {
         try {
-            Optional<Question> question = questionService.getQuestionById(id);
-            return question.map(value -> new ResponseEntity<>(value, HttpStatus.OK))
+            Optional<QuestionDTO> questionDTO = questionService.getQuestionById(id);
+            return questionDTO.map(value -> new ResponseEntity<>(value, HttpStatus.OK))
                     .orElseGet(() -> new ResponseEntity<>(HttpStatus.NOT_FOUND));
         } catch (Exception e) {
             return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
@@ -60,13 +61,13 @@ public class QuestionController {
 
     // Read By Question Type ID - GET /api/questions/type/{typeId}
     @GetMapping("/type/{typeId}")
-    public ResponseEntity<List<Question>> getQuestionsByQuestionTypeId(@PathVariable("typeId") UUID typeId) {
+    public ResponseEntity<List<QuestionDTO>> getQuestionsByQuestionTypeId(@PathVariable("typeId") UUID typeId) {
         try {
-            List<Question> questions = questionService.getQuestionsByQuestionTypeId(typeId);
-            if (questions.isEmpty()) {
+            List<QuestionDTO> questionsDTO = questionService.getQuestionsByQuestionTypeId(typeId);
+            if (questionsDTO.isEmpty()) {
                 return new ResponseEntity<>(HttpStatus.NO_CONTENT);
             }
-            return new ResponseEntity<>(questions, HttpStatus.OK);
+            return new ResponseEntity<>(questionsDTO, HttpStatus.OK);
         } catch (Exception e) {
             return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
         }
@@ -74,13 +75,13 @@ public class QuestionController {
 
     // Search By Text - GET /api/questions/search?text=xyz
     @GetMapping("/search")
-    public ResponseEntity<List<Question>> searchQuestionsByText(@RequestParam("text") String text) {
+    public ResponseEntity<List<QuestionDTO>> searchQuestionsByText(@RequestParam("text") String text) {
         try {
-            List<Question> questions = questionService.searchQuestionsByText(text);
-            if (questions.isEmpty()) {
+            List<QuestionDTO> questionsDTO = questionService.searchQuestionsByText(text);
+            if (questionsDTO.isEmpty()) {
                 return new ResponseEntity<>(HttpStatus.NO_CONTENT);
             }
-            return new ResponseEntity<>(questions, HttpStatus.OK);
+            return new ResponseEntity<>(questionsDTO, HttpStatus.OK);
         } catch (Exception e) {
             return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
         }
@@ -88,13 +89,13 @@ public class QuestionController {
 
     // Get Questions with Options - GET /api/questions/with-options
     @GetMapping("/with-options")
-    public ResponseEntity<List<Question>> getQuestionsWithOptions() {
+    public ResponseEntity<List<QuestionDTO>> getQuestionsWithOptions() {
         try {
-            List<Question> questions = questionService.getQuestionsWithOptions();
-            if (questions.isEmpty()) {
+            List<QuestionDTO> questionsDTO = questionService.getQuestionsWithOptions();
+            if (questionsDTO.isEmpty()) {
                 return new ResponseEntity<>(HttpStatus.NO_CONTENT);
             }
-            return new ResponseEntity<>(questions, HttpStatus.OK);
+            return new ResponseEntity<>(questionsDTO, HttpStatus.OK);
         } catch (Exception e) {
             return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
         }
@@ -102,13 +103,13 @@ public class QuestionController {
 
     // Get Questions without Options - GET /api/questions/without-options
     @GetMapping("/without-options")
-    public ResponseEntity<List<Question>> getQuestionsWithoutOptions() {
+    public ResponseEntity<List<QuestionDTO>> getQuestionsWithoutOptions() {
         try {
-            List<Question> questions = questionService.getQuestionsWithoutOptions();
-            if (questions.isEmpty()) {
+            List<QuestionDTO> questionsDTO = questionService.getQuestionsWithoutOptions();
+            if (questionsDTO.isEmpty()) {
                 return new ResponseEntity<>(HttpStatus.NO_CONTENT);
             }
-            return new ResponseEntity<>(questions, HttpStatus.OK);
+            return new ResponseEntity<>(questionsDTO, HttpStatus.OK);
         } catch (Exception e) {
             return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
         }
@@ -116,13 +117,13 @@ public class QuestionController {
 
     // Get Questions with Scoring Schema - GET /api/questions/with-scoring
     @GetMapping("/with-scoring")
-    public ResponseEntity<List<Question>> getQuestionsWithScoringSchema() {
+    public ResponseEntity<List<QuestionDTO>> getQuestionsWithScoringSchema() {
         try {
-            List<Question> questions = questionService.getQuestionsWithScoringSchema();
-            if (questions.isEmpty()) {
+            List<QuestionDTO> questionsDTO = questionService.getQuestionsWithScoringSchema();
+            if (questionsDTO.isEmpty()) {
                 return new ResponseEntity<>(HttpStatus.NO_CONTENT);
             }
-            return new ResponseEntity<>(questions, HttpStatus.OK);
+            return new ResponseEntity<>(questionsDTO, HttpStatus.OK);
         } catch (Exception e) {
             return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
         }
@@ -130,10 +131,11 @@ public class QuestionController {
 
     // Update - PUT /api/questions/{id}
     @PutMapping("/{id}")
-    public ResponseEntity<Question> updateQuestion(@PathVariable("id") UUID id, @RequestBody Question question) {
+    public ResponseEntity<QuestionDTO> updateQuestion(@PathVariable("id") UUID id,
+                                                    @RequestBody Question question) {
         try {
-            Question updatedQuestion = questionService.updateQuestion(id, question);
-            return new ResponseEntity<>(updatedQuestion, HttpStatus.OK);
+            QuestionDTO updatedQuestionDTO = questionService.updateQuestion(id, question);
+            return new ResponseEntity<>(updatedQuestionDTO, HttpStatus.OK);
         } catch (RuntimeException e) {
             return new ResponseEntity<>(HttpStatus.NOT_FOUND);
         } catch (Exception e) {
