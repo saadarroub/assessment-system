@@ -135,7 +135,7 @@ export default function EamPaget() {
                   <Edit3 size={16} /> Bearbeiten
                 </button>
 
-                <button className="px-4 py-2 border border-red-500 text-red-500 rounded flex items-center justify-center gap-2 text-sm hover:bg-red-50">
+                <button className="px-4 py-2 border rounded flex items-center justify-center gap-2 text-red-600 text-sm hover:bg-gray-50">
                   <Trash2 size={16} /> Löschen
                 </button>
 
