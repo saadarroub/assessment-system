@@ -24,7 +24,7 @@ import java.util.UUID;
 public class WorkerCatalogService {
 
     @Autowired
-    private WorkerCatalogRepository workerCatalogRepository;
+    private WorkerCatalogRepository repository;
 
     @Autowired
     private WorkerRepository workerRepository;
@@ -61,7 +61,7 @@ public class WorkerCatalogService {
         }
 
         // 2. Prüfen ob bereits zugewiesen
-        Optional<WorkerCatalog> existing = workerCatalogRepository
+        Optional<WorkerCatalog> existing = repository
                 .findByWorkerIdAndCatalogId(workerId, catalogId);
 
         if (existing.isPresent()) {
@@ -93,7 +93,7 @@ public class WorkerCatalogService {
         // }
 
         // 7. Speichern
-        return workerCatalogRepository.save(assignment);
+        return repository.save(assignment);
     }
 
     /**
@@ -130,7 +130,7 @@ public class WorkerCatalogService {
             String code = AccessCodeGenerator.generateAccessCode();
 
             // Prüfen ob Code bereits existiert
-            Optional<WorkerCatalog> existing = workerCatalogRepository.findByAccessCode(code);
+            Optional<WorkerCatalog> existing = repository.findByAccessCode(code);
             if (existing.isEmpty()) {
                 return code;
             }
@@ -148,7 +148,7 @@ public class WorkerCatalogService {
             String token = AccessCodeGenerator.generateAccessToken();
 
             // Prüfen ob Token bereits existiert
-            Optional<WorkerCatalog> existing = workerCatalogRepository.findByAccessToken(token);
+            Optional<WorkerCatalog> existing = repository.findByAccessToken(token);
             if (existing.isEmpty()) {
                 return token;
             }
@@ -161,68 +161,102 @@ public class WorkerCatalogService {
     // ===== EXISTING METHODS =====
 
     public List<WorkerCatalog> getAllAssignments() {
-        return workerCatalogRepository.findAll();
+        return repository.findAll();
     }
 
     public Optional<WorkerCatalog> getAssignmentById(UUID id) {
-        return workerCatalogRepository.findById(id);
+        return repository.findById(id);
     }
 
     public List<WorkerCatalog> getAssignmentsByWorker(UUID workerId) {
-        return workerCatalogRepository.findByWorkerId(workerId);
+        return repository.findByWorkerId(workerId);
     }
 
     public List<WorkerCatalog> getAssignmentsByCatalog(UUID catalogId) {
-        return workerCatalogRepository.findByCatalogId(catalogId);
+        return repository.findByCatalogId(catalogId);
     }
 
     public List<WorkerCatalog> getAssignmentsByCompany(UUID companyId) {
-        return workerCatalogRepository.findByCompanyId(companyId);
+        return repository.findByCompanyId(companyId);
     }
 
     public List<WorkerCatalog> getAssignmentsByStatus(String status) {
-        return workerCatalogRepository.findByStatus(status);
+        return repository.findByStatus(status);
     }
 
     public Optional<WorkerCatalog> findByAccessCode(String accessCode) {
-        return workerCatalogRepository.findByAccessCode(accessCode);
+        return repository.findByAccessCode(accessCode);
     }
 
-    public Optional<WorkerCatalog> findByAccessToken(String accessToken) {
-        return workerCatalogRepository.findByAccessToken(accessToken);
+    public Optional<WorkerCatalog> findByAccessToken(String token) {
+        return repository.findByAccessToken(token);
     }
 
     public WorkerCatalog createAssignment(WorkerCatalog assignment) {
-        return workerCatalogRepository.save(assignment);
+        return repository.save(assignment);
     }
 
-    public WorkerCatalog updateAssignment(UUID id, WorkerCatalog assignmentDetails) {
-        WorkerCatalog assignment = workerCatalogRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Assignment not found with id: " + id));
+    @Transactional
+    public WorkerCatalog updateAssignment(UUID id, WorkerCatalog patch) {
+        WorkerCatalog existing = repository.findById(id).orElseThrow();
+        if (patch.getStatus() != null) existing.setStatus(patch.getStatus());
+        if (patch.getFirstAccessAt() != null) existing.setFirstAccessAt(patch.getFirstAccessAt());
+        if (patch.getLastAccessAt() != null) existing.setLastAccessAt(patch.getLastAccessAt());
+        if (patch.getExpiresAt() != null) existing.setExpiresAt(patch.getExpiresAt());
+        if (patch.getAccessCode() != null) existing.setAccessCode(patch.getAccessCode());
+        repository.flush();
+        return existing;
+    }
 
-        if (assignmentDetails.getStatus() != null) {
-            assignment.setStatus(assignmentDetails.getStatus());
+    @Transactional
+    public WorkerCatalog markVerified(UUID assignmentId) {
+        WorkerCatalog assignment = repository.findById(assignmentId).orElseThrow();
+        
+        LocalDateTime now = LocalDateTime.now();
+        if (assignment.getFirstAccessAt() == null) {
+            assignment.setFirstAccessAt(now);
+            assignment.setStatus("started");
+        } else {
+            assignment.setStatus("in_progress");
         }
-        if (assignmentDetails.getExpiresAt() != null) {
-            assignment.setExpiresAt(assignmentDetails.getExpiresAt());
-        }
-        if (assignmentDetails.getFirstAccessAt() != null) {
-            assignment.setFirstAccessAt(assignmentDetails.getFirstAccessAt());
-        }
-        if (assignmentDetails.getLastAccessAt() != null) {
-            assignment.setLastAccessAt(assignmentDetails.getLastAccessAt());
-        }
-        if (assignmentDetails.getCompletedAt() != null) {
-            assignment.setCompletedAt(assignmentDetails.getCompletedAt());
-        }
-        if (assignmentDetails.getNotes() != null) {
-            assignment.setNotes(assignmentDetails.getNotes());
-        }
-
-        return workerCatalogRepository.save(assignment);
+        assignment.setLastAccessAt(now);
+        
+        WorkerCatalog saved = repository.save(assignment);
+        repository.flush();
+        return saved;
     }
 
     public void deleteAssignment(UUID id) {
-        workerCatalogRepository.deleteById(id);
+        repository.deleteById(id);
     }
+
+    @Transactional
+    public void touchLastAccess(UUID assignmentId) {
+        WorkerCatalog a = repository.findById(assignmentId).orElseThrow();
+        a.setLastAccessAt(LocalDateTime.now());
+        // Status NICHT ändern!
+        repository.save(a);
+        repository.flush();
+    }
+
+    public Optional<WorkerCatalog> findByWorkerIdAndCatalogId(UUID workerId, UUID catalogId) {
+        return repository.findByWorkerIdAndCatalogId(workerId, catalogId);
+    }
+
+    public List<WorkerCatalog> findByWorkerId(UUID workerId) {
+        return repository.findByWorkerId(workerId);
+    }
+
+    public List<WorkerCatalog> findByCatalogId(UUID catalogId) {
+        return repository.findByCatalogId(catalogId);
+    }
+
+    public List<WorkerCatalog> findByCompanyId(UUID companyId) {
+        return repository.findByCompanyId(companyId);
+    }
+
+    public List<WorkerCatalog> findByStatus(String status) {
+        return repository.findByStatus(status);
+    }
+
 }
