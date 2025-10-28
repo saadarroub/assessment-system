@@ -1,13 +1,19 @@
 package com.assessment.backend.controller;
 
+import com.assessment.backend.dto.QuestionDTO;
 import com.assessment.backend.entity.Question;
+import com.assessment.backend.entity.QuestionType;
+import com.assessment.backend.repository.QuestionTypeRepository;
 import com.assessment.backend.service.QuestionService;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -18,8 +24,77 @@ public class QuestionController {
     
     @Autowired
     private QuestionService questionService;
+    
+    @Autowired
+    private QuestionTypeRepository questionTypeRepository;
+    
+    @Autowired
+    private ObjectMapper objectMapper;
 
-    // Create - POST /api/questions
+    // Create - POST /api/questions (mit DTO - automatische JSON-Konvertierung)
+    @PostMapping("/dto")
+    public ResponseEntity<?> createQuestionFromDTO(@RequestBody QuestionDTO dto) {
+        try {
+            // DTO → Entity konvertieren
+            Question question = new Question();
+            question.setText(dto.getText());
+            
+            // QuestionType laden
+            if (dto.getQuestionType() != null && dto.getQuestionType().getId() != null) {
+                QuestionType questionType = questionTypeRepository.findById(dto.getQuestionType().getId())
+                    .orElseThrow(() -> new RuntimeException("QuestionType not found"));
+                question.setQuestionType(questionType);
+            }
+            
+            // JSON-Objekte → String (automatisch serialisiert)
+            if (dto.getOptions() != null) {
+                question.setOptions(objectMapper.writeValueAsString(dto.getOptions()));
+            }
+            if (dto.getScoringSchema() != null) {
+                question.setScoringSchema(objectMapper.writeValueAsString(dto.getScoringSchema()));
+            }
+            
+            Question createdQuestion = questionService.createQuestion(question);
+            
+            // Response mit deserialisierten JSON-Objekten (HashMap erlaubt null-Werte)
+            Map<String, Object> response = new java.util.HashMap<>();
+            response.put("id", createdQuestion.getId());
+            response.put("text", createdQuestion.getText());
+            response.put("questionType", createdQuestion.getQuestionType());
+            response.put("options", parseJsonSafe(createdQuestion.getOptions()));
+            response.put("scoringSchema", parseJsonSafe(createdQuestion.getScoringSchema()));
+            response.put("createdAt", createdQuestion.getCreatedAt());
+            response.put("updatedAt", createdQuestion.getUpdatedAt());
+            
+            return new ResponseEntity<>(response, HttpStatus.CREATED);
+        } catch (JsonProcessingException e) {
+            return new ResponseEntity<>(
+                Map.of("error", "Invalid JSON format: " + e.getMessage()),
+                HttpStatus.BAD_REQUEST
+            );
+        } catch (RuntimeException e) {
+            return new ResponseEntity<>(
+                Map.of("error", e.getMessage()),
+                HttpStatus.BAD_REQUEST
+            );
+        } catch (Exception e) {
+            return new ResponseEntity<>(
+                Map.of("error", "Internal server error: " + e.getMessage()),
+                HttpStatus.INTERNAL_SERVER_ERROR
+            );
+        }
+    }
+    
+    private Object parseJsonSafe(String json) {
+        if (json == null) return null;
+        try {
+            return objectMapper.readValue(json, Object.class);
+        } catch (Exception e) {
+            return json; // Fallback: Return as string
+        }
+    }
+
+    // Create - POST /api/questions (alte Methode - bleibt für Kompatibilität)
     @PostMapping
     public ResponseEntity<Question> createQuestion(@RequestBody Question question) {
         try {

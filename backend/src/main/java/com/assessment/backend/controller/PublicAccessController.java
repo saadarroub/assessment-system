@@ -10,7 +10,6 @@ import com.assessment.backend.service.AssessmentSessionService;
 import com.assessment.backend.service.AutoScoringService;
 import com.assessment.backend.service.CatalogService;
 import com.assessment.backend.service.ThemaCatalogService;
-import com.assessment.backend.service.ValueNormalizationService;
 import com.assessment.backend.service.WorkerCatalogService;
 import com.assessment.backend.util.AccessGuardUtil;
 import com.assessment.backend.util.PublicQueryUtil;
@@ -50,8 +49,65 @@ public class PublicAccessController {
     @Autowired
     private AutoScoringService autoScoringService;
 
-    @Autowired
-    private ValueNormalizationService valueNormalizationService;
+    /**
+     * Hilfsmethode: Ermittelt den input_type einer Frage
+     */
+    private String getQuestionInputType(UUID questionId) {
+        return publicQueryUtil.getQuestionInputType(questionId);
+    }
+
+    /**
+     * Hilfsmethode: Normalisiert den input_type (analog zu AutoScoringService)
+     */
+    private String normalizeInputType(String inputType) {
+        String s = inputType == null ? "" : inputType.toLowerCase();
+        return switch (s) {
+            case "single", "single_choice", "radio" -> "multiple_choice";
+            case "dropdown", "select" -> "dropdown";
+            case "multi", "multiple", "checkbox", "mcq_multi" -> "multiple_select";
+            case "text", "text_input" -> "text_input";
+            case "number", "numeric", "number_input" -> "number_input";
+            case "date", "date_input" -> "date_input";
+            case "rating", "range", "rating_scale" -> "rating_scale";
+            case "ordering", "order", "sort" -> "ordering";
+            default -> s;
+        };
+    }
+
+    /**
+     * Hilfsmethode: Validiert Rating-Wert (muss Integer 0-5 sein)
+     * @return Integer-Wert wenn gültig, sonst null
+     */
+    private Integer validateRatingValue(Object value) {
+        if (value == null) return null;
+        
+        try {
+            int intValue;
+            if (value instanceof Number) {
+                double d = ((Number) value).doubleValue();
+                // Prüfen ob ganzzahlig
+                if (d != Math.floor(d)) return null;
+                intValue = (int) d;
+            } else if (value instanceof String) {
+                intValue = Integer.parseInt(((String) value).trim());
+            } else if (value instanceof Map) {
+                // Falls als Objekt mit "value" oder "rating" Feld gesendet
+                Map<?, ?> map = (Map<?, ?>) value;
+                Object innerValue = map.get("value");
+                if (innerValue == null) innerValue = map.get("rating");
+                if (innerValue == null) return null;
+                return validateRatingValue(innerValue);
+            } else {
+                return null;
+            }
+            
+            // Validierung: 0-5
+            if (intValue < 0 || intValue > 5) return null;
+            return intValue;
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
 
     /**
      * GET /public/access/{accessToken}/meta
@@ -92,6 +148,7 @@ public class PublicAccessController {
                 );
             }
 
+            // TODO : name des workers mit zurückgeben 
             // Meta-Informationen zurückgeben
             Map<String, Object> meta = new HashMap<>();
             meta.put("catalogTitle", assignment.getCatalog().getTitle());
@@ -496,15 +553,46 @@ public class PublicAccessController {
 
             Object value = body.get("value");
 
-            // 1) Normalisieren (z. B. rating_scale → {rating, normalized, min, max, step})
-            Object normalizedValue = valueNormalizationService.normalizeForQuestion(questionUuid, value);
+            // Fragetyp ermitteln
+            String inputType = getQuestionInputType(questionUuid);
+            if (inputType == null) {
+                return new ResponseEntity<>(Map.of("error", "Question type not found"), HttpStatus.NOT_FOUND);
+            }
 
-            // 2) Auto-Scoring (für manuelle Typen liefert null → Score bleibt unverändert/0)
-            BigDecimal score = autoScoringService.autoScore(questionUuid, normalizedValue);
+            // Typ normalisieren (wie in AutoScoringService)
+            String normalizedType = normalizeInputType(inputType);
 
-            var saved = answerService.upsert(session.getId(), questionUuid, normalizedValue, score);
+            // Rating-Scala: Spezielle Validierung
+            if ("rating_scale".equals(normalizedType)) {
+                Integer ratingValue = validateRatingValue(value);
+                if (ratingValue == null) {
+                    return new ResponseEntity<>(
+                        Map.of("error", "Invalid rating value. Must be an integer between 0 and 5."),
+                        HttpStatus.BAD_REQUEST
+                    );
+                }
+                // Für Rating: value bleibt unverändert, score = der Integer-Wert
+                BigDecimal score = BigDecimal.valueOf(ratingValue);
+                var saved = answerService.upsert(session.getId(), questionUuid, value, score);
+                assessmentSessionService.recalculateTotals(session.getId());
 
-            // 3) Totals aktualisieren
+                long answered = answerService.countAnswered(session.getId());
+                AccessGuardUtil.touchLastAccess(workerCatalogService, assignment.getId());
+
+                return new ResponseEntity<>(Map.of(
+                    "saved", true,
+                    "answerId", saved.getId(),
+                    "score", saved.getScore(),
+                    "answeredCount", answered
+                ), HttpStatus.OK);
+            }
+
+            // Für alle anderen Typen: Auto-Scoring verwenden
+            BigDecimal score = autoScoringService.autoScore(questionUuid, value);
+
+            var saved = answerService.upsert(session.getId(), questionUuid, value, score);
+
+            // Totals aktualisieren
             assessmentSessionService.recalculateTotals(session.getId());
 
             long answered = answerService.countAnswered(session.getId());
