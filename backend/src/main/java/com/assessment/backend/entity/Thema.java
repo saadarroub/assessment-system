@@ -8,8 +8,8 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "company")
-public class Company {
+@Table(name = "thema")
+public class Thema {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -18,22 +18,22 @@ public class Company {
     @Column(nullable = false)
     private String name;
 
-    @Column
+    @Column(nullable = false, columnDefinition = "TEXT")
     private String description;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;   
+    private LocalDateTime createdAt;
 
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
     // Constructors
-    public Company() {
+    public Thema() {
     }
 
-    public Company(String name, String description) {
+    public Thema(String name, String description) {
         this.name = name;
         this.description = description;
     }
@@ -79,4 +79,3 @@ public class Company {
         this.updatedAt = updatedAt;
     }
 }
-
