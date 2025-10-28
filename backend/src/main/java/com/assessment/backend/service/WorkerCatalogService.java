@@ -23,6 +23,8 @@ import java.util.UUID;
 @Service
 public class WorkerCatalogService {
 
+    // TODO : Parsing the expiration date !!!!
+
     @Autowired
     private WorkerCatalogRepository repository;
 

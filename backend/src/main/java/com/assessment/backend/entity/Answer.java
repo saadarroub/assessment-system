@@ -1,6 +1,8 @@
 package com.assessment.backend.entity;
 
+import com.assessment.backend.util.JsonbType;
 import jakarta.persistence.*;
+import org.hibernate.annotations.Type;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -17,6 +19,7 @@ public class Answer {
     private LocalDateTime answeredAt;
 
     // jsonb in DB; hier als String (valides JSON) persistiert
+    @Type(JsonbType.class)
     @Column(name = "value", columnDefinition = "jsonb")
     private String value;
 

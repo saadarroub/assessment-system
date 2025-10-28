@@ -2,6 +2,7 @@ package com.assessment.backend.service;
 
 import com.assessment.backend.entity.AssessmentSession;
 import com.assessment.backend.repository.AssessmentSessionRepository;
+import com.assessment.backend.util.PublicQueryUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -25,6 +26,9 @@ public class AssessmentSessionService {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
+    @Autowired
+    private PublicQueryUtil publicQueryUtil;
+
     @Transactional
     public AssessmentSession getOrCreate(UUID companyId, UUID workerId, UUID themaId) {
         var existing = repository.findFirstByWorkerIdAndThemaIdAndStatusInOrderByCreatedAtDesc(workerId, themaId, OPEN);
@@ -35,6 +39,11 @@ public class AssessmentSessionService {
         s.setWorkerId(workerId);
         s.setThemaId(themaId);
         s.setStatus("started");
+        
+        // Max Possible Score berechnen
+        BigDecimal maxScore = publicQueryUtil.calculateMaxPossibleScore(themaId);
+        s.setMaxPossibleScore(maxScore);
+        
         try {
             return repository.save(s);
         } catch (DataIntegrityViolationException e) {

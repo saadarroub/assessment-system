@@ -260,9 +260,12 @@ public class QuestionNodeService {
             }
         }
 
-        // load siblings under new parent ordered
+        // load siblings under new parent ordered (EXCLUDE the node being moved!)
         List<QuestionNode> siblings = questionNodeRepository.findByParentNodeIdOrderByOrderIndexAsc(
                 newParent == null ? null : newParent.getId());
+        
+        // Remove the node being moved from siblings list (if it's already there)
+        siblings.removeIf(s -> s.getId().equals(nodeId));
 
         final int GAP = 10; // integer gap strategy to avoid frequent reindex
         Integer newIndex;
