@@ -1,22 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-  ScatterChart, Scatter, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis
+  BarChart, Bar, LineChart, Line, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell
 } from 'recharts';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import AdminLayout from "@/apps/app/AdminLayout";
-
-interface Company {
-  id: string;
-  name: string;
-  overall: number;
-  employees: number;
-  industry: string;
-  date: string;
-}
 
 interface Participant {
   name: string;
@@ -26,53 +16,158 @@ interface Participant {
   status: 'completed' | 'pending' | 'in-progress';
 }
 
+interface ThemaScore {
+  themaId: string;
+  themaName: string;
+  totalScore: number;
+  maxPossibleScore: number;
+  percentageScore: number;
+  completedSessions: number;
+  totalSessions: number;
+}
+
+interface CatalogScore {
+  catalogId: string;
+  catalogTitle: string;
+  totalScore: number;
+  maxPossibleScore: number;
+  percentageScore: number;
+  completedSessions: number;
+  totalSessions: number;
+  themaScores: ThemaScore[];
+  workerScores: any[];
+}
+
+interface CompanyOverall {
+  companyId: string;
+  companyName: string;
+  averagePercentageScore: number;
+  totalCompletedSessions: number;
+  totalSessions: number;
+  totalWorkers: number;
+  totalCatalogs: number;
+  catalogScores: CatalogScore[];
+}
+
 export default function CompanyDetailPage() {
   const { companyId } = useParams<{ companyId: string }>();
   const navigate = useNavigate();
-  const [company, setCompany] = useState<Company | null>(null);
+  const [companyData, setCompanyData] = useState<CompanyOverall | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Von API ein bestimmtes Unternehmen abrufen
     const fetchCompanyData = async () => {
       try {
-        // Info des Unternehmens
-        const companyRes = await fetch(`http://localhost:5050/api/company/${companyId}`);
-        const companyData = await companyRes.json();
-        setCompany(companyData);
-
-        // Info der Teilnehmenden
-        const participantsRes = await fetch(`http://localhost:5050/api/company/${companyId}/participants`);
-        const participantsData = await participantsRes.json();
-        setParticipants(participantsData);
-
+        const response = await fetch(`http://localhost:5050/api/scoring/company/${companyId}/overall`);
+        
+        if (!response.ok) {
+          throw new Error('API call failed');
+        }
+        
+        const data = await response.json();
+        setCompanyData(data);
         setLoading(false);
       } catch (error) {
         console.error('Error fetching company data:', error);
-        // Ohne API Mock-Daten
-        const dummyCompanies = [
-          { id: 'C001', name: 'TechCorp GmbH', overall: 75, employees: 250, industry: 'IT', date: '2025-03-15' },
-          { id: 'C002', name: 'MedHealth AG', overall: 82, employees: 150, industry: 'Healthcare', date: '2025-03-18' },
-          { id: 'C003', name: 'FinServ Bank', overall: 88, employees: 500, industry: 'Finance', date: '2025-03-20' },
-          { id: 'C004', name: 'AutoParts Ltd', overall: 68, employees: 300, industry: 'Manufacturing', date: '2025-03-22' },
-          { id: 'C005', name: 'RetailMax', overall: 71, employees: 180, industry: 'Retail', date: '2025-03-25' },
-          { id: 'C006', name: 'LogiTrans', overall: 79, employees: 220, industry: 'Logistics', date: '2025-03-28' },
-          { id: 'C007', name: 'EduLearn GmbH', overall: 73, employees: 120, industry: 'Education', date: '2025-04-01' },
-          { id: 'C008', name: 'PowerGrid AG', overall: 85, employees: 400, industry: 'Energy', date: '2025-04-05' },
-          { id: 'C009', name: 'BuildCo', overall: 65, employees: 280, industry: 'Construction', date: '2025-04-08' },
-          { id: 'C010', name: 'FoodService', overall: 70, employees: 160, industry: 'Food', date: '2025-04-10' }
-        ];
         
-        const dummyParticipants: Participant[] = [
+        
+        // Mock-Daten für Demo (falls API nicht verfügbar)
+        const mockData: CompanyOverall = {
+          companyId: companyId || 'C001',
+          companyName: 'TechCorp GmbH',
+          averagePercentageScore: 75.5,
+          totalCompletedSessions: 150,
+          totalSessions: 200,
+          totalWorkers: 250,
+          totalCatalogs: 5,
+          catalogScores: [
+            {
+              catalogId: 'cat1',
+              catalogTitle: 'Zugriffskontrolle',
+              totalScore: 450.5,
+              maxPossibleScore: 600.0,
+              percentageScore: 87.2,
+              completedSessions: 30,
+              totalSessions: 40,
+              themaScores: [
+                { themaId: 't1', themaName: 'Authentifizierung', totalScore: 85, maxPossibleScore: 100, percentageScore: 85.0, completedSessions: 10, totalSessions: 15 },
+                { themaId: 't2', themaName: 'Autorisierung', totalScore: 90, maxPossibleScore: 100, percentageScore: 90.0, completedSessions: 10, totalSessions: 12 },
+                { themaId: 't3', themaName: 'Multi-Faktor', totalScore: 88, maxPossibleScore: 100, percentageScore: 88.0, completedSessions: 10, totalSessions: 13 }
+              ],
+              workerScores: []
+            },
+            {
+              catalogId: 'cat2',
+              catalogTitle: 'Netzwerksicherheit',
+              totalScore: 410.0,
+              maxPossibleScore: 500.0,
+              percentageScore: 82.0,
+              completedSessions: 28,
+              totalSessions: 35,
+              themaScores: [
+                { themaId: 't4', themaName: 'Firewall-Konfiguration', totalScore: 80, maxPossibleScore: 100, percentageScore: 80.0, completedSessions: 9, totalSessions: 12 },
+                { themaId: 't5', themaName: 'VPN-Nutzung', totalScore: 85, maxPossibleScore: 100, percentageScore: 85.0, completedSessions: 10, totalSessions: 11 },
+                { themaId: 't6', themaName: 'Intrusion Detection', totalScore: 78, maxPossibleScore: 100, percentageScore: 78.0, completedSessions: 9, totalSessions: 12 }
+              ],
+              workerScores: []
+            },
+            {
+              catalogId: 'cat3',
+              catalogTitle: 'Mitarbeitersicherheit',
+              totalScore: 375.0,
+              maxPossibleScore: 500.0,
+              percentageScore: 75.0,
+              completedSessions: 25,
+              totalSessions: 32,
+              themaScores: [
+                { themaId: 't7', themaName: 'Security Awareness', totalScore: 72, maxPossibleScore: 100, percentageScore: 72.0, completedSessions: 8, totalSessions: 11 },
+                { themaId: 't8', themaName: 'Phishing-Erkennung', totalScore: 78, maxPossibleScore: 100, percentageScore: 78.0, completedSessions: 9, totalSessions: 10 },
+                { themaId: 't9', themaName: 'Passwort-Richtlinien', totalScore: 76, maxPossibleScore: 100, percentageScore: 76.0, completedSessions: 8, totalSessions: 11 }
+              ],
+              workerScores: []
+            },
+            {
+              catalogId: 'cat4',
+              catalogTitle: 'Datenschutz',
+              totalScore: 365.0,
+              maxPossibleScore: 500.0,
+              percentageScore: 73.0,
+              completedSessions: 24,
+              totalSessions: 30,
+              themaScores: [
+                { themaId: 't10', themaName: 'DSGVO-Compliance', totalScore: 70, maxPossibleScore: 100, percentageScore: 70.0, completedSessions: 8, totalSessions: 10 },
+                { themaId: 't11', themaName: 'Datenverschlüsselung', totalScore: 76, maxPossibleScore: 100, percentageScore: 76.0, completedSessions: 8, totalSessions: 10 },
+                { themaId: 't12', themaName: 'Datenminimierung', totalScore: 74, maxPossibleScore: 100, percentageScore: 74.0, completedSessions: 8, totalSessions: 10 }
+              ],
+              workerScores: []
+            },
+            {
+              catalogId: 'cat5',
+              catalogTitle: 'Incident Response',
+              totalScore: 310.0,
+              maxPossibleScore: 500.0,
+              percentageScore: 62.0,
+              completedSessions: 20,
+              totalSessions: 28,
+              themaScores: [
+                { themaId: 't13', themaName: 'Notfallpläne', totalScore: 60, maxPossibleScore: 100, percentageScore: 60.0, completedSessions: 7, totalSessions: 9 },
+                { themaId: 't14', themaName: 'Backup & Recovery', totalScore: 64, maxPossibleScore: 100, percentageScore: 64.0, completedSessions: 7, totalSessions: 9 },
+                { themaId: 't15', themaName: 'Incident Reporting', totalScore: 62, maxPossibleScore: 100, percentageScore: 62.0, completedSessions: 6, totalSessions: 10 }
+              ],
+              workerScores: []
+            }
+          ]
+        };
+       const dummyParticipants: Participant[] = [
           { name: 'Max Mustermann', position: 'IT-Leiter', department: 'IT-Abteilung', completionDate: '2025-03-15', status: 'completed' },
           { name: 'Anna Schmidt', position: 'CISO', department: 'Sicherheit', completionDate: '2025-03-15', status: 'completed' },
           { name: 'Peter Wagner', position: 'Compliance Officer', department: 'Compliance', completionDate: '2025-03-15', status: 'completed' }
         ];
-
-        const found = dummyCompanies.find(c => c.id === companyId);
-        setCompany(found || null);
-        setParticipants(dummyParticipants);
+        
+        setParticipants(dummyParticipants);  
+        
+        setCompanyData(mockData);
         setLoading(false);
       }
     };
@@ -80,113 +175,48 @@ export default function CompanyDetailPage() {
     fetchCompanyData();
   }, [companyId]);
 
-  if (loading) {
-    return (
-      <AdminLayout>
-        <div className="flex items-center justify-center h-screen">
-          <div className="text-center">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-            <p className="mt-4 text-gray-600">Laden...</p>
-          </div>
-        </div>
-      </AdminLayout>
-    );
-  }
-
-  if (!company) {
-    return (
-      <AdminLayout>
-        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-          <div className="text-center">
-            <h2 className="text-2xl font-bold text-gray-800 mb-4">Unternehmen nicht gefunden</h2>
-            <p className="text-gray-600 mb-6">Die Unternehmens-ID "{companyId}" existiert nicht.</p>
-            <button
-              onClick={() => navigate('/app/companylist')}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg"
-            >
-              Zurück zur Übersicht
-            </button>
-          </div>
-        </div>
-      </AdminLayout>
-    );
-  }
-
-  // Branchen-Durchschnitte
-  const industryAverages = [
-    { industry: 'Finance', avg: 88 },
-    { industry: 'Energy', avg: 85 },
-    { industry: 'Healthcare', avg: 82 },
-    { industry: 'Logistics', avg: 79 },
-    { industry: 'IT', avg: 75 },
-    { industry: 'Education', avg: 73 },
-    { industry: 'Retail', avg: 71 },
-    { industry: 'Food', avg: 70 },
-    { industry: 'Manufacturing', avg: 68 },
-    { industry: 'Construction', avg: 65 }
-  ];
-
-  // Time Line Data
-  const timelineData = [
-    { month: 'Okt 2024', avgScore: company.overall - 12 },
-    { month: 'Nov 2024', avgScore: company.overall - 9 },
-    { month: 'Dez 2024', avgScore: company.overall - 6 },
-    { month: 'Jan 2025', avgScore: company.overall - 4 },
-    { month: 'Feb 2025', avgScore: company.overall - 2 },
-    { month: 'Mär 2025', avgScore: company.overall }
-  ];
-
-  // Category Averages
-  const categoryAverages = [
-    { category: 'Zugriffskontrolle', score: Math.min(100, company.overall + 12) },
-    { category: 'Netzwerksicherheit', score: Math.min(100, company.overall + 7) },
-    { category: 'Mitarbeitersicherheit', score: Math.max(0, company.overall) },
-    { category: 'Datenschutz', score: Math.max(0, company.overall - 2) },
-    { category: 'Physische Sicherheit', score: Math.max(0, company.overall - 7) },
-    { category: 'Incident Response', score: Math.max(0, company.overall - 13) }
-  ];
-
-  // Maturity Distribution
-  const maturityDistribution = [
-    { level: 'Optimiert (90+)', count: company.overall >= 90 ? 1 : 0, color: '#10B981' },
-    { level: 'Verwaltet (80-89)', count: company.overall >= 80 && company.overall < 90 ? 1 : 0, color: '#3B82F6' },
-    { level: 'Definiert (70-79)', count: company.overall >= 70 && company.overall < 80 ? 1 : 0, color: '#F59E0B' },
-    { level: 'Wiederholt (50-69)', count: company.overall >= 50 && company.overall < 70 ? 1 : 0, color: '#EF4444' },
-    { level: 'Initial (<50)', count: company.overall < 50 ? 1 : 0, color: '#DC2626' }
-  ];
-
-  // Size vs Score
-  const sizeVsScore = [
-    { name: company.name, employees: company.employees, score: company.overall },
-    { name: 'Branchenschnitt', employees: company.employees, score: industryAverages.find(i => i.industry === company.industry)?.avg || 70 }
-  ];
-
-  // Schwachstellen
-  const topWeaknesses = categoryAverages
-    .filter(cat => cat.score < 70)
-    .sort((a, b) => a.score - b.score)
-    .slice(0, 5)
-    .map(cat => ({
-      area: cat.category,
-      percentage: Math.round((1 - cat.score / 100) * 100)
-    }));
-
   const exportToExcel = () => {
+    if (!companyData) return;
+    
     const data = [
       ['Unternehmensdetails'],
-      ['ID', 'Name', 'Gesamtscore', 'Mitarbeiter', 'Branche', 'Datum'],
-      [company.id, company.name, company.overall, company.employees, company.industry, company.date],
+      ['ID', 'Name', 'Gesamtscore %', 'Mitarbeiter', 'Kataloge', 'Abgeschlossene Sessions'],
+      [companyData.companyId, companyData.companyName, companyData.averagePercentageScore, companyData.totalWorkers, companyData.totalCatalogs, companyData.totalCompletedSessions],
       [],
-      ['Kategorien-Scores'],
-      ['Kategorie', 'Score'],
-      ...categoryAverages.map(c => [c.category, c.score])
+      ['Katalog-Scores'],
+      ['Katalog', 'Score %', 'Punkte', 'Max Punkte', 'Abgeschlossen', 'Gesamt Sessions'],
+      ...companyData.catalogScores.map(c => [
+        c.catalogTitle, 
+        c.percentageScore.toFixed(2), 
+        c.totalScore.toFixed(2), 
+        c.maxPossibleScore.toFixed(2),
+        c.completedSessions, 
+        c.totalSessions
+      ]),
+      [],
+      ['Themen-Details'],
+      ['Katalog', 'Thema', 'Score %', 'Punkte', 'Max Punkte', 'Abgeschlossen', 'Gesamt Sessions']
     ];
+    
+    companyData.catalogScores.forEach(catalog => {
+      catalog.themaScores.forEach(thema => {
+        data.push([
+          catalog.catalogTitle,
+          thema.themaName,
+          thema.percentageScore.toFixed(2),
+          thema.totalScore.toFixed(2),
+          thema.maxPossibleScore.toFixed(2),
+          thema.completedSessions,
+          thema.totalSessions
+        ]);
+      });
+    });
     
     const csvContent = data.map(row => row.join(',')).join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `${company.name}_${new Date().toISOString().split('T')[0]}.csv`;
+    link.download = `${companyData.companyName}_${new Date().toISOString().split('T')[0]}.csv`;
     link.click();
   };
 
@@ -222,10 +252,104 @@ export default function CompanyDetailPage() {
         heightLeft -= pdfHeight;
       }
 
-      pdf.save(`${company.name}_${new Date().toISOString().split('T')[0]}.pdf`);
+      pdf.save(`${companyData?.companyName}_${new Date().toISOString().split('T')[0]}.pdf`);
     } catch (error) {
       console.error('PDF export error:', error);
     }
+  };
+
+  if (loading) {
+    return (
+      <AdminLayout>
+        <div className="flex items-center justify-center h-screen">
+          <div className="text-center">
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            <p className="mt-4 text-gray-600">Laden...</p>
+          </div>
+        </div>
+      </AdminLayout>
+    );
+  }
+
+  if (!companyData) {
+    return (
+      <AdminLayout>
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">Unternehmen nicht gefunden</h2>
+            <p className="text-gray-600 mb-6">Die Unternehmens-ID "{companyId}" existiert nicht.</p>
+            <button
+              onClick={() => navigate('/app/companylist')}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg"
+            >
+              Zurück zur Übersicht
+            </button>
+          </div>
+        </div>
+      </AdminLayout>
+    );
+  }
+
+  // Zeitverlauf Mock-Daten (basierend auf aktuellem Score)
+  const timelineData = [
+    { month: 'Okt 2024', avgScore: Math.max(0, companyData.averagePercentageScore - 12) },
+    { month: 'Nov 2024', avgScore: Math.max(0, companyData.averagePercentageScore - 9) },
+    { month: 'Dez 2024', avgScore: Math.max(0, companyData.averagePercentageScore - 6) },
+    { month: 'Jan 2025', avgScore: Math.max(0, companyData.averagePercentageScore - 4) },
+    { month: 'Feb 2025', avgScore: Math.max(0, companyData.averagePercentageScore - 2) },
+    { month: 'Mär 2025', avgScore: companyData.averagePercentageScore }
+  ];
+
+  // Katalog-Scores für Bar Chart
+  const catalogChartData = companyData.catalogScores.map(cat => ({
+    name: cat.catalogTitle.length > 15 ? cat.catalogTitle.substring(0, 12) + '...' : cat.catalogTitle,
+    score: cat.percentageScore
+  }));
+
+  // Alle Themen sammeln mit Katalog-Info
+  const allThemas: Array<ThemaScore & { catalogTitle: string }> = [];
+  companyData.catalogScores.forEach(catalog => {
+    catalog.themaScores.forEach(thema => {
+      allThemas.push({
+        ...thema,
+        catalogTitle: catalog.catalogTitle
+      });
+    });
+  });
+
+  // Themen für Bar Chart (alle Themen)
+  const themaChartData = allThemas.map(thema => ({
+    name: thema.themaName.length > 20 ? thema.themaName.substring(0, 17) + '...' : thema.themaName,
+    fullName: thema.themaName,
+    score: thema.percentageScore,
+    catalog: thema.catalogTitle
+  }));
+
+  // Top schwächste Themen für Verbesserungsbereiche
+  const weakestThemas = [...allThemas]
+    .sort((a, b) => a.percentageScore - b.percentageScore)
+    .slice(0, 5)
+    .map(t => ({
+      name: t.themaName.length > 25 ? t.themaName.substring(0, 22) + '...' : t.themaName,
+      score: t.percentageScore
+    }));
+
+  // Radar Chart Daten (Katalog-Scores)
+  const radarData = companyData.catalogScores.map(cat => ({
+    category: cat.catalogTitle.length > 20 ? cat.catalogTitle.substring(0, 17) + '...' : cat.catalogTitle,
+    score: cat.percentageScore
+  }));
+
+  const getScoreColor = (score: number) => {
+    if (score >= 80) return '#10B981';
+    if (score >= 70) return '#F59E0B';
+    return '#EF4444';
+  };
+
+  const getStatusText = (score: number) => {
+    if (score >= 80) return '✓ Gut';
+    if (score >= 70) return '⚠ Mittel';
+    return '✗ Kritisch';
   };
 
   return (
@@ -246,7 +370,7 @@ export default function CompanyDetailPage() {
                   </svg>
                 </button>
                 <div>
-                  <h1 className="text-3xl font-bold text-gray-900">{company.name}</h1>
+                  <h1 className="text-3xl font-bold text-gray-900">{companyData.companyName}</h1>
                   <p className="text-gray-500 mt-1">Detaillierte Sicherheitsbewertung</p>
                 </div>
               </div>
@@ -284,9 +408,9 @@ export default function CompanyDetailPage() {
                 <div>
                   <p className="text-sm text-gray-600 mb-1">Gesamtscore</p>
                   <p className="text-3xl font-bold" style={{
-                    color: company.overall >= 80 ? '#10B981' : company.overall >= 70 ? '#F59E0B' : '#EF4444'
+                    color: getScoreColor(companyData.averagePercentageScore)
                   }}>
-                    {company.overall}
+                    {companyData.averagePercentageScore.toFixed(1)}%
                   </p>
                 </div>
                 <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
@@ -295,23 +419,16 @@ export default function CompanyDetailPage() {
                   </svg>
                 </div>
               </div>
-              <p className={`text-xs mt-2 ${company.overall >= 80 ? 'text-green-600' : company.overall >= 70 ? 'text-yellow-600' : 'text-red-600'}`}>
-                {company.overall >= 80 ? '✓ Gut' : company.overall >= 70 ? '⚠ Mittel' : '✗ Kritisch'}
+              <p className={`text-xs mt-2`} style={{ color: getScoreColor(companyData.averagePercentageScore) }}>
+                {getStatusText(companyData.averagePercentageScore)}
               </p>
-            </div>
-
-            <div className="bg-white p-6 rounded-lg shadow-md">
-              <div>
-                <p className="text-sm text-gray-600 mb-1">Branche</p>
-                <p className="text-xl font-bold text-gray-800">{company.industry}</p>
-              </div>
             </div>
 
             <div className="bg-white p-6 rounded-lg shadow-md">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600 mb-1">Mitarbeiter</p>
-                  <p className="text-3xl font-bold text-green-600">{company.employees}</p>
+                  <p className="text-3xl font-bold text-green-600">{companyData.totalWorkers}</p>
                 </div>
                 <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
                   <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -323,15 +440,23 @@ export default function CompanyDetailPage() {
 
             <div className="bg-white p-6 rounded-lg shadow-md">
               <div>
-                <p className="text-sm text-gray-600 mb-1">Datum</p>
-                <p className="text-lg font-bold text-purple-600">{company.date}</p>
+                <p className="text-sm text-gray-600 mb-1">Kataloge</p>
+                <p className="text-3xl font-bold text-purple-600">{companyData.totalCatalogs}</p>
+              </div>
+            </div>
+
+            <div className="bg-white p-6 rounded-lg shadow-md">
+              <div>
+                <p className="text-sm text-gray-600 mb-1">Abgeschlossene Sessions</p>
+                <p className="text-3xl font-bold text-blue-600">{companyData.totalCompletedSessions}</p>
+                <p className="text-xs text-gray-500 mt-1">von {companyData.totalSessions} gesamt</p>
               </div>
             </div>
 
             <div className="bg-white p-6 rounded-lg shadow-md">
               <div>
                 <p className="text-sm text-gray-600 mb-1">ID</p>
-                <p className="text-lg font-mono font-bold text-gray-800">{company.id}</p>
+                <p className="text-lg font-mono font-bold text-gray-800">{companyData.companyId.substring(0, 8)}...</p>
               </div>
             </div>
           </div>
@@ -349,101 +474,77 @@ export default function CompanyDetailPage() {
                   <YAxis domain={[0, 100]} />
                   <Tooltip />
                   <Legend />
-                  <Line type="monotone" dataKey="avgScore" stroke="#3B82F6" strokeWidth={3} name="Score" />
+                  <Line type="monotone" dataKey="avgScore" stroke="#3B82F6" strokeWidth={3} name="Score %" />
                 </LineChart>
               </ResponsiveContainer>
             </div>
 
-            {/* Branchenvergleich */}
+            {/* Themen (alle Themen aus allen Katalogen) */}
             <div className="bg-white p-6 rounded-lg shadow-md">
-              <h3 className="text-lg font-semibold text-gray-800 mb-4">Branchenvergleich</h3>
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">Themen-Übersicht</h3>
               <ResponsiveContainer width="100%" height={280}>
-                <BarChart data={industryAverages} layout="vertical">
+                <BarChart data={themaChartData} layout="vertical">
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis type="number" domain={[0, 100]} />
-                  <YAxis dataKey="industry" type="category" width={100} tick={{ fontSize: 11 }} />
-                  <Tooltip />
-                  <Bar dataKey="avg" name="Durchschnitt">
-                    {industryAverages.map((entry, index) => (
-                      <Cell 
-                        key={`cell-${index}`} 
-                        fill={entry.industry === company.industry ? '#3B82F6' : entry.avg >= 80 ? '#10B981' : entry.avg >= 70 ? '#F59E0B' : '#EF4444'} 
-                      />
+                  <YAxis dataKey="name" type="category" width={120} tick={{ fontSize: 9 }} />
+                  <Tooltip 
+                    content={({ payload }) => {
+                      if (payload && payload.length > 0) {
+                        const data = payload[0].payload;
+                        return (
+                          <div className="bg-white p-2 border border-gray-300 rounded shadow-md text-xs">
+                            <p className="font-semibold">{data.fullName}</p>
+                            <p>Katalog: {data.catalog}</p>
+                            <p>Score: {data.score.toFixed(1)}%</p>
+                          </div>
+                        );
+                      }
+                      return null;
+                    }}
+                  />
+                  <Bar dataKey="score" name="Score %">
+                    {themaChartData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={getScoreColor(entry.score)} />
                     ))}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
             </div>
 
-            {/* Kategorien-Radar */}
+            {/* Themen Radar */}
             <div className="bg-white p-6 rounded-lg shadow-md">
-              <h3 className="text-lg font-semibold text-gray-800 mb-4">Kategorien-Bewertung</h3>
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">Themen-Bewertung</h3>
               <ResponsiveContainer width="100%" height={280}>
-                <RadarChart data={categoryAverages}>
+                <RadarChart data={radarData}>
                   <PolarGrid />
                   <PolarAngleAxis dataKey="category" tick={{ fontSize: 10 }} />
                   <PolarRadiusAxis angle={90} domain={[0, 100]} />
-                  <Radar name="Score" dataKey="score" stroke="#3B82F6" fill="#3B82F6" fillOpacity={0.6} />
+                  <Radar name="Score %" dataKey="score" stroke="#3B82F6" fill="#3B82F6" fillOpacity={0.6} />
                   <Tooltip />
                 </RadarChart>
               </ResponsiveContainer>
             </div>
 
-            {/* Reifegrad */}
+            {/* Pro Katalog (Bar Chart) */}
             <div className="bg-white p-6 rounded-lg shadow-md">
-              <h3 className="text-lg font-semibold text-gray-800 mb-4">Reifegrad</h3>
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">Reifgrad pro Katalog</h3>
               <ResponsiveContainer width="100%" height={280}>
-                <PieChart>
-                  <Pie
-                    data={maturityDistribution.filter(m => m.count > 0)}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ level }) => level}
-                    outerRadius={90}
-                    dataKey="count"
-                  >
-                    {maturityDistribution.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-
-            {/* Größe vs Score */}
-            <div className="bg-white p-6 rounded-lg shadow-md">
-              <h3 className="text-lg font-semibold text-gray-800 mb-4">Vergleich zum Branchenschnitt</h3>
-              <ResponsiveContainer width="100%" height={280}>
-                <ScatterChart>
+                <BarChart data={catalogChartData}>
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis type="number" dataKey="employees" name="Mitarbeiter" />
-                  <YAxis type="number" dataKey="score" name="Score" domain={[0, 100]} />
-                  <Tooltip cursor={{ strokeDasharray: '3 3' }} />
-                  <Scatter name="Vergleich" data={sizeVsScore} fill="#8B5CF6" />
-                </ScatterChart>
+                  <XAxis dataKey="name" angle={-20} textAnchor="end" height={100} tick={{ fontSize: 10 }} />
+                  <YAxis domain={[0, 100]} />
+                  <Tooltip />
+                  <Bar dataKey="score" name="Score %">
+                    {catalogChartData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={getScoreColor(entry.score)} />
+                    ))}
+                  </Bar>
+                </BarChart>
               </ResponsiveContainer>
             </div>
-
-            {/* Top Schwachstellen */}
-            {topWeaknesses.length > 0 && (
-              <div className="bg-white p-6 rounded-lg shadow-md">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4">Verbesserungsbereiche</h3>
-                <ResponsiveContainer width="100%" height={280}>
-                  <BarChart data={topWeaknesses}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="area" angle={-20} textAnchor="end" height={80} tick={{ fontSize: 10 }} />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="percentage" fill="#EF4444" name="Verbesserungspotential (%)" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            )}
           </div>
-
-          {/* Teilnehmer-Details Tabelle */}
+  
+	{/* Teilnehmer-Details Tabelle */}
           <div className="bg-white p-6 rounded-lg shadow-md">
             <h3 className="text-lg font-semibold text-gray-800 mb-4">Assessment-Teilnehmer</h3>
             <div className="overflow-x-auto">
@@ -492,60 +593,6 @@ export default function CompanyDetailPage() {
               <p><strong>Gesamt:</strong> {participants.length} Teilnehmer haben das Assessment abgeschlossen</p>
             </div>
           </div>
-
-          {/* Zusammenfassung */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-white p-6 rounded-lg shadow-md">
-              <h3 className="text-lg font-semibold text-gray-800 mb-4">Wichtigste Erkenntnisse</h3>
-              <ul className="space-y-2 text-sm text-gray-700">
-                <li className="flex items-start">
-                  <span className="text-blue-500 mr-2">•</span>
-                  Gesamtscore: {company.overall} Punkte
-                </li>
-                <li className="flex items-start">
-                  <span className="text-blue-500 mr-2">•</span>
-                  Branche: {company.industry}
-                </li>
-                <li className="flex items-start">
-                  <span className="text-blue-500 mr-2">•</span>
-                  {topWeaknesses.length > 0 ? `Hauptschwachstelle: ${topWeaknesses[0].area}` : 'Keine kritischen Schwachstellen'}
-                </li>
-                <li className="flex items-start">
-                  <span className="text-blue-500 mr-2">•</span>
-                  Verbesserung: +{Math.abs(timelineData[timelineData.length - 1].avgScore - timelineData[0].avgScore)} Punkte seit Oktober
-                </li>
-              </ul>
-            </div>
-
-            <div className="bg-white p-6 rounded-lg shadow-md">
-              <h3 className="text-lg font-semibold text-gray-800 mb-4">Empfohlene Maßnahmen</h3>
-              <ul className="space-y-2 text-sm text-gray-700">
-                {topWeaknesses.slice(0, 3).map((weakness, index) => (
-                  <li key={index} className="flex items-start">
-                    <span className="text-orange-500 mr-2">•</span>
-                    {weakness.area} verbessern
-                  </li>
-                ))}
-                {topWeaknesses.length === 0 && (
-                  <li className="flex items-start">
-                    <span className="text-green-500 mr-2">✓</span>
-                    Gutes Sicherheitsniveau beibehalten
-                  </li>
-                )}
-              </ul>
-            </div>
-
-            <div className="bg-white p-6 rounded-lg shadow-md">
-              <h3 className="text-lg font-semibold text-gray-800 mb-4">Report-Info</h3>
-              <div className="space-y-2 text-sm text-gray-700">
-                <p><strong>Unternehmen:</strong> {company.name}</p>
-                <p><strong>ID:</strong> {company.id}</p>
-                <p><strong>Erstellt am:</strong> {new Date().toLocaleDateString('de-DE')}</p>
-                <p><strong>Assessment-Datum:</strong> {company.date}</p>
-              </div>
-            </div>
-          </div>
-
         </div>
       </div>
     </AdminLayout>
