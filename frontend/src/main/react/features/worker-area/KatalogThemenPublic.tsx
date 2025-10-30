@@ -267,32 +267,42 @@ export default function KatalogThemenPublic() {
   const done      = topicCards.filter(c =>  c.effectiveProgress >= 100);
 
   /* --- Start/Fortsetzen: bestehenden sessionId-Wert NICHT überschreiben --- */
-  const handleStart = (card: TopicCardModel) => {
-    const dashKey = card.dashKey;
-    const storeRaw = localStorage.getItem("assessments");
-    const store: Record<string, AssessEntry> = storeRaw ? JSON.parse(storeRaw) : {};
-    const prev = store[dashKey] ?? {};
-    const current = typeof prev.progress === "number" && prev.progress > 0 ? prev.progress : 1;
+const handleStart = (card: TopicCardModel) => {
+  const dashKey = card.dashKey;
+  const storeRaw = localStorage.getItem("assessments");
+  const store: Record<string, AssessEntry> = storeRaw ? JSON.parse(storeRaw) : {};
+  const prev = store[dashKey] ?? {};
+  const current = typeof prev.progress === "number" && prev.progress > 0 ? prev.progress : 1;
 
-    store[dashKey] = {
-      started: prev.started ?? new Date().toISOString(),
-      progress: current,
-      currentQuestion: prev.currentQuestion ?? 0,
-      sessionId: prev.sessionId, // WICHTIG: vorhandene sessionId beibehalten
-    };
-    localStorage.setItem("assessments", JSON.stringify(store));
-
-    // Query weiterreichen
-    const qs = new URLSearchParams(location.search);
-    const tk = (qs.get("token") || qs.get("accessToken") || "").trim();
-
-    const qp = new URLSearchParams({
-      topicId: card.topicId,
-      topicName: card.topicName,
-      ...(tk ? { accessToken: tk } : {}),
-    });
-    navigate(`/app/assessments?${qp.toString()}`);
+  // Progress + evtl. vorhandene Session-ID beibehalten
+  store[dashKey] = {
+    started: prev.started ?? new Date().toISOString(),
+    progress: current,
+    currentQuestion: prev.currentQuestion ?? 0,
+    sessionId: prev.sessionId,
   };
+  localStorage.setItem("assessments", JSON.stringify(store));
+
+  // ---- HIER minimal erweitern: die Original-Query übernehmen ----
+  const qs = new URLSearchParams(location.search);
+  const tk           = (qs.get("token") || qs.get("accessToken") || "").trim();
+  const catalogId    = (qs.get("catalogId") || "").trim();
+  const catalogTitle = (qs.get("catalogTitle") || "").trim();
+  const assignmentId = (qs.get("assignmentId") || "").trim();
+
+  // Alles an die AssessmentPage mitgeben, damit sie später korrekt zurücknavigieren kann
+  const qp = new URLSearchParams({
+    topicId:   card.topicId,
+    topicName: card.topicName,
+    ...(tk ? { accessToken: tk } : {}),
+    ...(catalogId ? { catalogId } : {}),
+    ...(catalogTitle ? { catalogTitle } : {}),
+    ...(assignmentId ? { assignmentId } : {}),
+  });
+
+  navigate(`/app/assessments?${qp.toString()}`);
+};
+
 
   /* --- Storage-/Visibility-Listener --- */
   useEffect(() => {

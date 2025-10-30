@@ -23,6 +23,23 @@ export default function AssessmentPage() {
   const query = useQuery();
   const navigate = useNavigate();
 
+  const catalogId    = query.get("catalogId")    || ""; // optional
+const catalogTitle = query.get("catalogTitle") || ""; // optional
+const assignmentId = query.get("assignmentId") || ""; // optional
+const THEMEN_ROUTE = "/app/katalog-themen-public";
+
+// Einheitliche Rücknavigation zur Themenliste (mit ALLEN Parametern)
+function goBackToTopics() {
+  const qs = new URLSearchParams({
+    token: accessToken, // in der Public-Route heißt der Param "token"
+    ...(catalogId ? { catalogId } : {}),
+    ...(catalogTitle ? { catalogTitle } : {}),
+    ...(assignmentId ? { assignmentId } : {}),
+  });
+  navigate(`${THEMEN_ROUTE}?${qs.toString()}`);
+}
+
+
   /* -------- URL-Parameter -------- */
   const type = query.get("type") || "";                 // optional
   //const topicId = query.get("topicId") || "";           // optional
@@ -233,7 +250,7 @@ export default function AssessmentPage() {
 
             <button
               type="button"
-              onClick={() => navigate("/app/dashboard")}
+              onClick={goBackToTopics}
               className="group inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold bg-white text-slate-800 border border-[#ddd] transition hover:bg-[#d4af37] hover:border-[#d4af37] hover:text-[#1f2a37]"
             >
               <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -467,11 +484,11 @@ export default function AssessmentPage() {
                 className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold bg-blue-600 text-white hover:bg-blue-700 transition"
                 onClick={restart}
               >
-                🔁 Assessment erneut starten
+                Assessment erneut starten
               </button>
               <button
                 className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold bg-[#d4af37] text-[#333] hover:bg-[#c29d2f] transition"
-                onClick={() => navigate("/app/dashboard")}
+               onClick={goBackToTopics}
               >
                 🏠 Zur Übersicht
               </button>

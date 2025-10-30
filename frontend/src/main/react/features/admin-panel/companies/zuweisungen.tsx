@@ -7,7 +7,7 @@ import AdminPanelHeader from "@/apps/app/adminPanelHeader";
 import { listAssignments, type AssignmentApi } from "@/features/service/assignmentService";
 
 type SortKey = "worker" | "catalog" | "status" | "assignedAt" | "expiresAt" | "completedAt";
-
+ 
 const CSS = {
     adminBg: "hsl(var(--admin-bg,0 0% 92%))",
     card: "hsl(var(--card,0 0% 98%))",

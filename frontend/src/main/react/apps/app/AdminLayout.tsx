@@ -3,7 +3,7 @@ import { NavLink } from "react-router-dom";
 import capLogo from "@/assets/Logo_cap_consulting_RGB_Darkblue.svg";
 import {
   Settings, BarChart3, FileText, ShoppingCart, Building2,
-  ChevronRight, ChevronLeft
+  ChevronRight, ChevronLeft,LayoutDashboard
 } from "lucide-react";
 
 /* ===== Tokens (ex-CSS-Variablen) ===== */
@@ -43,6 +43,7 @@ function cx(...x: Array<string | false | null | undefined>) {
 
 type NavId =
   | "overview"
+  | "Admin-Panel"
   | "catalog"
   | "enterprise"
   | "operating"
@@ -50,8 +51,9 @@ type NavId =
   | "project";
 
 const NAV_PRIMARY: Array<{ id: NavId; label: string; Icon: React.FC<any>; to: string }> = [
-  { id: "overview", label: "Übersicht", Icon: BarChart3, to: "/admin" },
+  { id: "overview", label: "Übersicht", Icon: LayoutDashboard, to: "/admin" },
   { id: "catalog",  label: "Katalog zuweisen", Icon: FileText, to: "/admin/katalogzuweisen" },
+  { id: "Admin-Panel",  label: "Admin-Panel", Icon: BarChart3, to: "/admin/adminPanel"},
 ];
 
 const NAV_THEMES: Array<{ id: NavId; label: string; sub: string; Icon: React.FC<any> }> = [
@@ -383,7 +385,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                 </li>
               </ul>
             </div>
-
+ 
             {/* center avatar */}
             <div className="flex items-center justify-center px-2">
               <div className="h-10 w-10 rounded-full bg-[linear-gradient(180deg,#E2E8F0,#CBD5E1)] p-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,.6)]">

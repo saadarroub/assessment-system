@@ -35,9 +35,9 @@ const MENU = [
   { to: "/admin/adminPanel/users", label: "Users", icon: Users },
   { to: "/admin/adminPanel/companies", label: "Companies", icon: Building2 },
   { to: "/admin/adminPanel/audit", label: "Audit", icon: ClipboardList },
-];
+]; 
 
-export default function AdminLayout({ children }: AdminLayoutProps) {
+export default function AdminPanelLayout({ children }: AdminLayoutProps) {
   const [collapsed, setCollapsed] = useState(false);
 
   // Toggle mittig im collapsed-Header

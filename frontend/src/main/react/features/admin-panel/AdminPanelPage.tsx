@@ -1,9 +1,10 @@
 import { Link, NavLink } from "react-router-dom";
-import AdminLayout from "@/apps/app/adminPanelHeader";
+import AdminLayout from "@/apps/app/AdminLayout";
 import "@/styles/adminPanel.css";
 import "@/styles/admin.css";
 import { Users, Building2, ClipboardList, ArrowRight } from "lucide-react";
 
+ 
 type Panel = {
   title: string;
   desc: string;
