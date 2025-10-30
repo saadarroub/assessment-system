@@ -76,27 +76,34 @@ export default function AdminDashboard() {
 
   return (
     <AdminLayout>
-      {/* ====== Hero ====== */}
-      <header className="main-header">
-        <div className="header-content">
-          <div className="header-left">
-            <img src={myLogo} alt="Dein Logo" />
+        <header className="relative bg-[hsl(var(--card))] border-b border-[hsl(var(--border))] pt-4 pb-4 px-8">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0"
+          style={{ top: "calc(var(--header-height) - 1px)", height: 0, boxShadow: "0 10px 16px -14px rgba(15,23,42,.18)" }}
+        />
+
+        <div className="flex items-center justify-center gap-4">
+          <img
+            src={myLogo}
+            alt="Dein Logo"
+            className="h-[200px] w-[200px] object-contain shrink-0"
+            width={200}
+            height={200}
+          />
+          <div className="text-center">
+            <h1 className="text-[clamp(28px,6vw,56px)] font-extrabold tracking-[-0.02em] mb-2 leading-[1.05] text-[#264555]">
+              Fragenkatalog Administration
+            </h1>
+            <p className="mt-0 text-[#334155]/90 text-[clamp(14px,1.6vw,18px)]">
+              Verwalten Sie Ihre Themenschwerpunkte und erstellen Sie finale Kataloge für Kunden
+            </p>
           </div>
-          <div className="header-center">
-            <div className="header-text">
-              <h1>Fragenkatalog Administration</h1>
-              <p>
-                Verwalten Sie Ihre Themenschwerpunkte und erstellen Sie finale
-                Kataloge für Kunden
-              </p>
-            </div>
-          </div>
-          <div className="header-right" />
         </div>
 
-        <div className="header-actions">
+        <div className="flex justify-end gap-3 px-8 mt-1">
           <button
-            className="btn btn-primary"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-[#264555] text-white text-sm font-semibold shadow-md hover:bg-[#223e4c] focus:outline-none focus:ring-2 focus:ring-white/30 active:translate-y-px"
             onClick={() => navigate("/admin/adminPanel")}
           >
             <MinusSquare size={16} />
