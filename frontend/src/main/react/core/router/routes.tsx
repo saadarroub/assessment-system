@@ -2,7 +2,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import LandingPage from '@/apps/landing/LandingPage';
 import LoginPage from '@/features/auth/LoginPage';
-import WorkerDashboard from '@/features/worker-area/WorkerDashboard';
+import KatalogThemenPublic from '@/features/worker-area/KatalogThemenPublic';
 import AdminDashboard from '@/features/admin-area/AdminDashboard';
 import ProtectedRoute from './ProtectedRoute';
 import ResultsPage from '@/features/worker-area/results/ResultsPage';
@@ -16,6 +16,10 @@ import KatalogeZuweisen from '@/features/admin-area/KatalogeZuweisen';
 import AssessmentPage from '@/features/worker-area/AssessmentPage';
 import CompanyDetailPage from '@/features/worker-area/results/CompanyDetailPage';
 import CompanyListPage from '@/features/worker-area/results/CompanyListPage';
+import KatalogVerwaltung from '@/features/admin-area/KatalogVerwaltung';
+import Zuweisungen from '@/features/admin-panel/companies/zuweisungen';
+import InviteGate from "@/public/InviteGate";
+import ZugewiesenerKatalog from '@/public/ZugewiesenerKatalogPagePublic';
 
 // ⬇️ Topic-Seiten
 import EamPage from '@/features/admin-area/topics/eam/EamPage';
@@ -30,12 +34,15 @@ export default function AppRoutes() {
     <Routes>
       <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/invite/:token" element={<InviteGate />} />
+       <Route path="/KatalogGate" element={<ZugewiesenerKatalog />} />
+
 
       <Route
-        path="/app/dashboard"
+        path="/app/katalog-themen-public"
         element={
-          <ProtectedRoute permission="user:dashboard:view">
-            <WorkerDashboard />
+          <ProtectedRoute allowWithToken>
+            <KatalogThemenPublic />
           </ProtectedRoute>
         }
       />
@@ -81,6 +88,13 @@ export default function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      <Route 
+         path="/admin/kataloge/verwaltung" 
+         element={
+          <ProtectedRoute permission="admin:dashboard:view">
+            <KatalogVerwaltung />
+          </ProtectedRoute>
+         } />
       <Route
         path="/admin/katalogzuweisen"
         element={
@@ -126,6 +140,14 @@ export default function AppRoutes() {
         element={
           <ProtectedRoute>
             <CompaniesList />
+          </ProtectedRoute>
+        }
+      />
+          <Route
+        path="/admin/adminPanel/zuweisungen"
+        element={
+          <ProtectedRoute>
+            <Zuweisungen />
           </ProtectedRoute>
         }
       />

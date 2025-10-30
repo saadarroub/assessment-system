@@ -1,64 +1,63 @@
-// src/main/react/features/worker-area/WorkerDashboard.tsx
+// src/main/react/features/worker-area/KatalogThemenPublic.tsx
 import React, { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import AppHeader from "@/apps/app/AppHeader";
 import { fetchThemenByCatalog } from "@/features/service/themaCatalogService";
 import type { ThemaDto } from "@/features/service/themaCatalogService";
+import { getState, calcProgressPct } from "@/features/service/publicAssessmentService";
 
-/* ================== Konfiguration ================== */
-/** Platzhalter – später durch echte, pro User zugewiesene Katalog-ID ersetzen */
-const CATALOG_ID = "10000001-2222-3333-4444-555555555555";
-
-/**
- * Wohin der Start/Fortsetzen-Button verlinken soll,
- * bis eine echte Topic-Assessment-Route existiert.
- * Erlaubt: "it-strategy" | "cybersecurity" | "digital-transformation" | "data-management"
- */
-const ASSESSMENT_ROUTE_TYPE:
-  | "it-strategy"
-  | "cybersecurity"
-  | "digital-transformation"
-  | "data-management" = "it-strategy";
-
-/* ================== Style-/Card-Texte (Konstanten) ================== */
+/* ================== Style-/Card-Texte ================== */
 const DEFAULT_EST = "15–20 Min";
 const DEFAULT_FEATURES = ["Dynamische Fragentiefe", "Echtzeit-Fortschritt", "Adaptive Felder"];
 
-/* ================== Typen ================== */
+/* ================== Snapshot-Helper ================== */
+const SNAP_PREFIX = "snapshot:themas:";
+function readSnapshotIds(assignmentId: string): string[] | null {
+  try {
+    const raw = localStorage.getItem(`${SNAP_PREFIX}${assignmentId}`);
+    if (!raw) return null;
+    const ids = JSON.parse(raw);
+    return Array.isArray(ids) ? (ids as string[]) : null;
+  } catch {
+    return null;
+  }
+}
+function writeSnapshotIds(assignmentId: string, ids: string[]) {
+  try {
+    localStorage.setItem(`${SNAP_PREFIX}${assignmentId}`, JSON.stringify(ids));
+  } catch {}
+}
+
+/* ================== Types ================== */
 type TopicCardModel = {
-  /** Key im localStorage.assessments – pro Thema eindeutig */
-  dashKey: string; // z.B. "topic:3fa8-..."
-  tag: string; // "Thema"
-  title: string; // Thema-Name
-  questionsLabel: string; // z.B. "Thema"
-  subtitle: string; // Thema-Description
-  est: string; // "15–20 Min"
-  features: string[]; // Feature-Liste
-  theme: "blue"; // Farbe NICHT ändern -> bleibt Blau
-  effectiveProgress: number; // aus localStorage
+  dashKey: string;
+  tag: string;
+  title: string;
+  questionsLabel: string;
+  subtitle: string;
+  est: string;
+  features: string[];
+  theme: "blue";
+  effectiveProgress: number;
   topicId: string;
   topicName: string;
 };
 
-/* ================== Karten-Komponente (Style unverändert) ================== */
-function CatalogCard({
-  data,
-  onStart,
-}: {
-  data: TopicCardModel;
-  onStart: () => void;
-}) {
+type AssessEntry = {
+  started?: string;
+  progress?: number;
+  currentQuestion?: number;
+  sessionId?: string; // <- wichtig fürs Live-Update
+};
+
+/* ================== Card (unverändert optisch) ================== */
+function CatalogCard({ data, onStart }: { data: TopicCardModel; onStart: () => void }) {
   const p = Math.max(0, Math.min(100, Math.round(data.effectiveProgress)));
   const running = p > 0 && p < 100;
   const completed = p >= 100;
 
-  const btnLabel = completed
-    ? "Neu starten →"
-    : running
-    ? "Umfrage fortsetzen →"
-    : "Umfrage starten →";
+  const btnLabel = completed ? "Neu starten →" : running ? "Umfrage fortsetzen →" : "Umfrage starten →";
 
-  // sanfte Progress-Animation
   const [animate, setAnimate] = useState(false);
   useEffect(() => {
     setAnimate(false);
@@ -78,7 +77,6 @@ function CatalogCard({
       "
       data-assessment-id={data.dashKey}
     >
-      {/* Header – Farbe unverändert (#264555) */}
       <div className="card-header p-6 text-white relative bg-[#264555]">
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/10 to-transparent" />
         <div className="relative z-[1] flex items-center justify-between gap-2 flex-wrap mb-3">
@@ -102,7 +100,6 @@ function CatalogCard({
         </div>
       </div>
 
-      {/* Progress */}
       {p > 0 && (
         <div className="px-6 py-4 bg-slate-50 border-b border-slate-200">
           <div className="flex items-center justify-between text-sm text-slate-600 mb-2 font-medium">
@@ -111,18 +108,13 @@ function CatalogCard({
           </div>
           <div className="h-2 bg-slate-200 rounded-xl overflow-hidden">
             <div
-              className="
-                h-full rounded-xl
-                bg-white
-                transition-all duration-500 ease-in-out
-              "
+              className="h-full rounded-xl bg-white transition-all duration-500 ease-in-out"
               style={{ width: `${animate ? p : 0}%` }}
             />
           </div>
         </div>
       )}
 
-      {/* Body */}
       <div className="p-6 flex flex-col flex-1">
         <div className="flex flex-wrap gap-5 mb-5 text-sm text-slate-500">
           <div className="flex items-center gap-1.5">
@@ -151,11 +143,7 @@ function CatalogCard({
 
         <button
           onClick={onStart}
-          className="
-            w-full py-3 rounded-lg text-white font-semibold transition-all mt-auto shadow-sm
-            bg-[#264555] hover:bg-[#1f3846]
-            hover:-translate-y-0.5 hover:shadow-lg active:translate-y-0
-          "
+          className="w-full py-3 rounded-lg text-white font-semibold transition-all mt-auto shadow-sm bg-[#264555] hover:bg-[#1f3846] hover:-translate-y-0.5 hover:shadow-lg active:translate-y-0"
         >
           {btnLabel}
         </button>
@@ -164,44 +152,99 @@ function CatalogCard({
   );
 }
 
-/* ================== Seite ================== */
-export default function WorkerDashboard() {
+/* ================== Seite: KatalogThemenPublic ================== */
+export default function KatalogThemenPublic() {
   type TabKey = "available" | "planned" | "done";
   const [activeTab, setActiveTab] = useState<TabKey>("available");
   const [tick, setTick] = useState(0);
   const [themen, setThemen] = useState<ThemaDto[] | null>(null);
+
   const navigate = useNavigate();
+  const location = useLocation();
 
-  /* --- Themen laden --- */
+  // token aus URL – wird fürs Live-Progress benötigt
+  const token = useMemo(() => {
+    const qs = new URLSearchParams(location.search);
+    return (qs.get("token") || qs.get("accessToken") || "").trim();
+  }, [location.search]);
+
+  /* --- Themen laden: per ?catalogId=... (+ assignmentId Snapshot) --- */
   useEffect(() => {
-    let mounted = true;
-    fetchThemenByCatalog(CATALOG_ID)
-      .then((list) => mounted && setThemen(list))
-      .catch(() => setThemen([]));
-    return () => {
-      mounted = false;
-    };
-  }, []);
+    let alive = true;
+    (async () => {
+      try {
+        const qs = new URLSearchParams(location.search);
+        const catalogId = (qs.get("catalogId") || "").trim();
+        const assignmentId = (qs.get("assignmentId") || "").trim();
+        const wantsRefresh = (qs.get("refresh") || "").trim() === "1";
 
-  /* --- localStorage lesen --- */
+        if (!catalogId) {
+          setThemen([]);
+          return;
+        }
+        setThemen(null);
+
+        const live = await fetchThemenByCatalog(catalogId);
+        if (!alive) return;
+        const list = Array.isArray(live) ? live : [];
+
+        if (assignmentId) {
+          if (wantsRefresh) {
+            writeSnapshotIds(assignmentId, list.map(t => t.id));
+            setThemen(list);
+            return;
+          }
+          const snapIds = readSnapshotIds(assignmentId);
+          if (snapIds && snapIds.length) {
+            const setIds = new Set(snapIds);
+            setThemen(list.filter(t => setIds.has(t.id)));
+            return;
+          } else {
+            writeSnapshotIds(assignmentId, list.map(t => t.id));
+            setThemen(list);
+            return;
+          }
+        }
+        setThemen(list);
+      } catch {
+        if (alive) setThemen([]);
+      }
+    })();
+    return () => { alive = false; };
+  }, [location.search]);
+
+  /* --- assessments aus localStorage --- */
   const assessments = useMemo(() => {
     try {
-      return JSON.parse(localStorage.getItem("assessments") || "{}") as Record<
-        string,
-        { started?: string; progress?: number; currentQuestion?: number }
-      >;
+      return JSON.parse(localStorage.getItem("assessments") || "{}") as Record<string, AssessEntry>;
     } catch {
       return {};
     }
   }, [tick]);
 
-  /* --- Kartenmodell bauen --- */
+  /* --- Cards bauen + Live-Progress mit sessionId vom Backend --- */
   const topicCards: TopicCardModel[] = useMemo(() => {
     const list = Array.isArray(themen) ? themen : [];
     return list.map((t) => {
       const dashKey = `topic:${t.id}`;
       const entry = assessments[dashKey] ?? {};
-      const effectiveProgress = typeof entry.progress === "number" ? entry.progress : 0;
+      let effectiveProgress = typeof entry.progress === "number" ? entry.progress : 0;
+
+      // Nur wenn token + sessionId vorhanden → echten Stand holen
+      if (token && entry.sessionId) {
+        getState(token, entry.sessionId)
+          .then((state) => {
+            const newProgress = calcProgressPct(state);
+            if (newProgress !== effectiveProgress) {
+              const next = { ...assessments, [dashKey]: { ...entry, progress: newProgress } };
+              localStorage.setItem("assessments", JSON.stringify(next));
+              // Re-Render auslösen
+              setTick((t) => t + 1);
+            }
+          })
+          .catch(() => {});
+      }
+
       return {
         dashKey,
         tag: "Thema",
@@ -216,44 +259,45 @@ export default function WorkerDashboard() {
         topicName: t.name || "",
       };
     });
-  }, [themen, assessments]);
+  }, [themen, assessments, token]);
 
   /* --- Tabs --- */
-  const available = topicCards.filter(
-    (c) => !(c.effectiveProgress > 0 && c.effectiveProgress < 100) && c.effectiveProgress < 100
-  );
-  const planned = topicCards.filter((c) => c.effectiveProgress > 0 && c.effectiveProgress < 100);
-  const done = topicCards.filter((c) => c.effectiveProgress >= 100);
+  const available = topicCards.filter(c => !(c.effectiveProgress > 0 && c.effectiveProgress < 100) && c.effectiveProgress < 100);
+  const planned   = topicCards.filter(c =>  c.effectiveProgress > 0 && c.effectiveProgress < 100);
+  const done      = topicCards.filter(c =>  c.effectiveProgress >= 100);
 
-  /* --- Start/Fortsetzen: 1% setzen + zur Assessment-Seite navigieren --- */
+  /* --- Start/Fortsetzen: bestehenden sessionId-Wert NICHT überschreiben --- */
   const handleStart = (card: TopicCardModel) => {
     const dashKey = card.dashKey;
     const storeRaw = localStorage.getItem("assessments");
-    const store = storeRaw ? JSON.parse(storeRaw) : {};
+    const store: Record<string, AssessEntry> = storeRaw ? JSON.parse(storeRaw) : {};
     const prev = store[dashKey] ?? {};
     const current = typeof prev.progress === "number" && prev.progress > 0 ? prev.progress : 1;
+
     store[dashKey] = {
       started: prev.started ?? new Date().toISOString(),
       progress: current,
       currentQuestion: prev.currentQuestion ?? 0,
+      sessionId: prev.sessionId, // WICHTIG: vorhandene sessionId beibehalten
     };
     localStorage.setItem("assessments", JSON.stringify(store));
 
-    // topicId & topicName an die AssessmentPage mitgeben
+    // Query weiterreichen
+    const qs = new URLSearchParams(location.search);
+    const tk = (qs.get("token") || qs.get("accessToken") || "").trim();
+
     const qp = new URLSearchParams({
-      type: ASSESSMENT_ROUTE_TYPE,
       topicId: card.topicId,
-      topicName: card.topicName, // URLSearchParams encodet automatisch
+      topicName: card.topicName,
+      ...(tk ? { accessToken: tk } : {}),
     });
     navigate(`/app/assessments?${qp.toString()}`);
   };
 
-  /* --- Sichtbarkeit/Storage-Änderungen beobachten --- */
+  /* --- Storage-/Visibility-Listener --- */
   useEffect(() => {
     const onShow = () => setTick((t) => t + 1);
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === "assessments") setTick((t) => t + 1);
-    };
+    const onStorage = (e: StorageEvent) => { if (e.key === "assessments") setTick((t) => t + 1); };
     document.addEventListener("visibilitychange", onShow);
     window.addEventListener("pageshow", onShow);
     window.addEventListener("storage", onStorage);
@@ -264,15 +308,10 @@ export default function WorkerDashboard() {
     };
   }, []);
 
-  /* --- UI Bits --- */
-  const tabBtnBase =
-    "relative -bottom-[2px] px-6 py-3 border-b-[3px] font-medium transition-all";
+  /* --- UI (unverändert) --- */
+  const tabBtnBase = "relative -bottom-[2px] px-6 py-3 border-b-[3px] font-medium transition-all";
   const tabBtn = (key: TabKey) =>
-    `${tabBtnBase} ${
-      activeTab === key
-        ? "border-blue-700 text-blue-700"
-        : "border-transparent text-slate-500 hover:text-slate-700"
-    }`;
+    `${tabBtnBase} ${activeTab === key ? "border-blue-700 text-blue-700" : "border-transparent text-slate-500 hover:text-slate-700"}`;
 
   const Grid = ({ list }: { list: TopicCardModel[] }) => (
     <div className="grid gap-6 [grid-template-columns:repeat(auto-fill,minmax(350px,1fr))]">
@@ -282,12 +321,10 @@ export default function WorkerDashboard() {
     </div>
   );
 
-  /* ================== Render ================== */
   return (
     <div className="bg-[#f7f8fb] text-[#333] min-h-screen">
       <AppHeader />
 
-      {/* Intro */}
       <section className="text-center pt-10 pb-2 px-5">
         <h1 className="text-[24px] font-semibold mb-3">Assessment Plattform</h1>
         <p className="max-w-[620px] mx-auto text-slate-600">
@@ -296,7 +333,6 @@ export default function WorkerDashboard() {
         </p>
       </section>
 
-      {/* KPI-Cards */}
       <section className="pt-6 pb-6">
         <div className="max-w-[1120px] mx-auto px-4 grid grid-cols-1 sm:grid-cols-3 gap-6">
           <div className="bg-white rounded-2xl shadow-[0_6px_20px_rgba(0,0,0,.06)] border border-slate-100 py-6 text-center">
@@ -314,65 +350,48 @@ export default function WorkerDashboard() {
         </div>
       </section>
 
-      {/* Tabs */}
       <section className="mb-8">
         <div className="max-w-[1280px] mx-auto px-4">
           <div className="flex flex-wrap gap-2 justify-center border-b-2 border-slate-200">
-            <button className={tabBtn("available")} onClick={() => setActiveTab("available")}>
-              Offene Themen
-            </button>
-            <button className={tabBtn("planned")} onClick={() => setActiveTab("planned")}>
-              Laufende Themen
-            </button>
-            <button className={tabBtn("done")} onClick={() => setActiveTab("done")}>
-              Abgeschlossene Themen
-            </button>
+            <button className={tabBtn("available")} onClick={() => setActiveTab("available")}>Offene Themen</button>
+            <button className={tabBtn("planned")} onClick={() => setActiveTab("planned")}>Laufende Themen</button>
+            <button className={tabBtn("done")} onClick={() => setActiveTab("done")}>Abgeschlossene Themen</button>
           </div>
         </div>
       </section>
 
-      {/* Inhalte je Tab */}
       <section className="pb-16">
         <div className="max-w-[1280px] mx-auto px-4">
           {!themen ? (
             <div className="text-center text-slate-500 py-20">Lade Themen …</div>
           ) : themen.length === 0 ? (
-            <div className="text-center text-slate-500 py-20">
-              Keine Themen im Katalog gefunden.
-            </div>
+            <div className="text-center text-slate-500 py-20">Keine Themen im Katalog gefunden.</div>
           ) : (
             <>
               {activeTab === "available" && <Grid list={available} />}
-              {activeTab === "planned" &&
-                (planned.length ? (
-                  <Grid list={planned} />
-                ) : (
-                  <div className="text-center py-20 text-slate-500">
-                    <svg className="w-24 h-24 mx-auto mb-5 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" />
-                    </svg>
-                    <h2 className="text-xl font-semibold">Keine laufenden Themen</h2>
-                    <p>Starten Sie ein Thema, um es hier zu sehen.</p>
-                  </div>
-                ))}
-              {activeTab === "done" &&
-                (done.length ? (
-                  <Grid list={done} />
-                ) : (
-                  <div className="text-center py-20 text-slate-500">
-                    <svg className="w-24 h-24 mx-auto mb-5 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                    </svg>
-                    <h2 className="text-xl font-semibold">Noch nichts abgeschlossen</h2>
-                    <p>Abgeschlossene Themen erscheinen hier.</p>
-                  </div>
-                ))}
+              {activeTab === "planned"   && (planned.length ? <Grid list={planned} /> : (
+                <div className="text-center py-20 text-slate-500">
+                  <svg className="w-24 h-24 mx-auto mb-5 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" />
+                  </svg>
+                  <h2 className="text-xl font-semibold">Keine laufenden Themen</h2>
+                  <p>Starten Sie ein Thema, um es hier zu sehen.</p>
+                </div>
+              ))}
+              {activeTab === "done"      && (done.length ? <Grid list={done} /> : (
+                <div className="text-center py-20 text-slate-500">
+                  <svg className="w-24 h-24 mx-auto mb-5 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                  <h2 className="text-xl font-semibold">Noch nichts abgeschlossen</h2>
+                  <p>Abgeschlossene Themen erscheinen hier.</p>
+                </div>
+              ))}
             </>
           )}
         </div>
       </section>
 
-      {/* Footer */}
       <footer className="text-center bg-white py-8 shadow-[0_-2px_5px_rgba(0,0,0,.03)]">
         <p>
           Bereit loszulegen?

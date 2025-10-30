@@ -5,6 +5,11 @@ export type ThemaDto = {
   createdAt?: string;
   updatedAt?: string;
 };
+export type CreateThemaCatalogDto = {
+  themaId: string;
+  catalogId: string;
+  orderIndex?: number;
+};
 
 /**
  * Holt alle Themen (Topics) eines Katalogs.
@@ -17,7 +22,7 @@ export async function fetchThemenByCatalog(catalogId: string): Promise<ThemaDto[
   // Wenn du Vite-Proxy nutzt, nimm:
   // const url = `/api/thema-catalogs/catalog/${encodeURIComponent(catalogId)}/themas`;
   const url = `http://localhost:8080/api/thema-catalogs/catalog/${encodeURIComponent(catalogId)}/themas`;
-
+ 
   try {
     const res = await fetch(url, { headers: { Accept: "application/json" } });
 
@@ -49,3 +54,25 @@ export async function fetchThemenByCatalog(catalogId: string): Promise<ThemaDto[
     return [];
   }
 }
+
+export async function createThemaCatalog(payload: CreateThemaCatalogDto) {
+  const url = "http://localhost:8080/api/thema-catalogs"; // ggf. /api/... via Proxy
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`HTTP ${res.status}${text ? ` – ${text}` : ""}`);
+  }
+  return res.json(); // { themaId, catalogId, orderIndex }
+}
+export async function assignTopicsToCatalog(catalogId: string, topicIds: string[]) {
+  await Promise.all(
+    topicIds.map((themaId, i) =>
+      createThemaCatalog({ themaId, catalogId, orderIndex: i })
+    )
+  );
+}
+
