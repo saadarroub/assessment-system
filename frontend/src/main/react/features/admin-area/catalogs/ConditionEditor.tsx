@@ -1,27 +1,124 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import AdminLayout from "@/apps/app/AdminLayout";
 import "@/styles/admin.css";
-import { ArrowLeft,FileText, Plus, X, MessageSquare, List, BarChart3,Calendar, Hash, CheckSquare, CircleDot, Trash2,ListOrdered, Edit3, GripVertical, ChevronDown,  ChevronRight,} from "lucide-react";
+import {
+  ArrowLeft,
+  FileText,
+  Plus,
+  X,
+  MessageSquare,
+  List,
+  BarChart3,
+  Calendar,
+  Hash,
+  CheckSquare,
+  CircleDot,
+  Trash2,
+  ListOrdered,
+  Edit3,
+  GripVertical,
+  ChevronDown,
+  ChevronRight,
+} from "lucide-react";
 
+import {
+  getRootQuestionsByThema,
+  getChildrenByParent,
+} from "@/api/questionApi";
 
 // 🧩 Drag & Drop Imports
 import { DndContext, closestCenter } from "@dnd-kit/core";
 import type { DragEndEvent } from "@dnd-kit/core";
-import { SortableContext,verticalListSortingStrategy,useSortable, arrayMove,
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+  arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
 export default function ConditionEditor() {
   const navigate = useNavigate();
+  const { id: themaId } = useParams();
+  // ✅ Holt die ID aus der URL
+
+  useEffect(() => {
+    console.log("🟢 Thema-ID aus URL:", themaId);
+  }, [themaId]);
 
   // 🧩 States
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [questionText, setQuestionText] = useState("");
   const [selectedType, setSelectedType] = useState("");
-  const [options, setOptions] = useState<{ label: string; score: number }[]>([]);
+  const [options, setOptions] = useState<{ label: string; score: number }[]>(
+    []
+  );
   const [questions, setQuestions] = useState<any[]>([]);
   const [parentQuestion, setParentQuestion] = useState<any | null>(null);
+
+  // 🧩 Root-Fragen eines Themas laden
+  useEffect(() => {
+    const fetchRootQuestions = async () => {
+      try {
+        const data = await getRootQuestionsByThema(themaId!);
+        console.log("📥 Root-Fragen für Thema:", themaId, data);
+        setQuestions(
+          data.map((q: any) => ({
+            id: q.id,
+            text: q.question?.text || "Ohne Text",
+            type: q.question?.questionType?.inputType || "unknown",
+            children: [],
+            expanded: true,
+          }))
+        );
+      } catch (error) {
+        console.error("❌ Fehler beim Laden der Root-Fragen:", error);
+      }
+    };
+
+    if (themaId) fetchRootQuestions();
+  }, [themaId]);
+
+useEffect(() => {
+  async function fetchAllQuestions() {
+    try {
+      // 1️⃣ Root-Fragen für das Thema laden
+      const roots = await getRootQuestionsByThema(themaId!);
+      console.log("📥 Root-Fragen:", roots);
+
+      // 2️⃣ Für jede Root-Frage direkt prüfen, ob sie Unterfragen hat
+      const rootsWithChildren = await Promise.all(
+        roots.map(async (root: any) => {
+          const children = await getChildrenByParent(root.id);
+          console.log(`🔹 Unterfragen von ${root.id}:`, children);
+
+          return {
+            id: root.id,
+            text: root.question?.text || "Ohne Text",
+            type: root.question?.questionType?.inputType || "unknown",
+            children: children.map((child: any) => ({
+              id: child.id,
+              text: child.question?.text || "Ohne Text",
+              type: child.question?.questionType?.inputType || "unknown",
+              children: [],
+              expanded: false,
+            })),
+            expanded: false,
+          };
+        })
+      );
+
+      // 3️⃣ Fragen im State speichern
+      setQuestions(rootsWithChildren);
+    } catch (error) {
+      console.error("❌ Fehler beim Laden aller Fragen:", error);
+    }
+  }
+
+  if (themaId) fetchAllQuestions();
+}, [themaId]);
+
 
   // ✅ Neue Frage hinzufügen
   const handleConfirm = () => {
@@ -35,7 +132,11 @@ export default function ConditionEditor() {
     };
 
     if (parentQuestion) {
-      const updated = addChildToParent(questions, parentQuestion.id, newQuestion);
+      const updated = addChildToParent(
+        questions,
+        parentQuestion.id,
+        newQuestion
+      );
       setQuestions(updated);
     } else {
       setQuestions([...questions, newQuestion]);
@@ -58,13 +159,24 @@ export default function ConditionEditor() {
   };
 
   // 🔁 Rekursiv Unterfrage einfügen
-  const addChildToParent = (list: any[], parentId: string, child: any): any[] => {
+  const addChildToParent = (
+    list: any[],
+    parentId: string,
+    child: any
+  ): any[] => {
     return list.map((q) => {
       if (q.id === parentId) {
-        return { ...q, expanded: true, children: [...(q.children || []), child] };
+        return {
+          ...q,
+          expanded: true,
+          children: [...(q.children || []), child],
+        };
       }
       if (q.children?.length) {
-        return { ...q, children: addChildToParent(q.children, parentId, child) };
+        return {
+          ...q,
+          children: addChildToParent(q.children, parentId, child),
+        };
       }
       return q;
     });
@@ -83,16 +195,61 @@ export default function ConditionEditor() {
   };
 
   // 🔽 Ein- & Ausklappen
-  const toggleExpand = (id: string) => {
-    const toggleRecursive = (list: any[]): any[] =>
-      list.map((q) => {
-        if (q.id === id) return { ...q, expanded: !q.expanded };
-        if (q.children?.length) {
-          return { ...q, children: toggleRecursive(q.children) };
+  // 🔽 Ein- & Ausklappen von Fragen (rekursiv)
+  const toggleExpand = async (id: string) => {
+    try {
+      // Lokales Umschalten
+      setQuestions((prevQuestions) =>
+        prevQuestions.map((q) =>
+          q.id === id ? { ...q, expanded: !q.expanded } : q
+        )
+      );
+
+      // 🔹 Finde die Frage, die expandiert werden soll (rekursiv)
+      const findQuestionRecursive = (list: any[], id: string): any => {
+        for (const q of list) {
+          if (q.id === id) return q;
+          const found = findQuestionRecursive(q.children || [], id);
+          if (found) return found;
         }
-        return q;
-      });
-    setQuestions(toggleRecursive(questions));
+        return null;
+      };
+
+      const target = findQuestionRecursive(questions, id);
+
+      if (target && !target.expanded) {
+        console.log("📡 Lade Unterfragen für:", id);
+        const children = await getChildrenByParent(id);
+
+        if (children.length > 0) {
+          const formattedChildren = children.map((child: any) => ({
+            id: child.id,
+            text: child.question?.text || "Ohne Text",
+            type: child.question?.questionType?.inputType || "unknown",
+            children: [],
+            expanded: false,
+          }));
+
+          // 🔹 Rekursive Update-Funktion
+          const updateRecursive = (nodes: any[]): any[] =>
+            nodes.map((node) => {
+              if (node.id === id) {
+                return { ...node, expanded: true, children: formattedChildren };
+              }
+              return {
+                ...node,
+                children: updateRecursive(node.children || []),
+              };
+            });
+
+          setQuestions((prev) => updateRecursive(prev));
+        } else {
+          console.log("ℹ️ Keine Unterfragen für", id);
+        }
+      }
+    } catch (error) {
+      console.error("❌ Fehler beim Laden der Unterfragen:", error);
+    }
   };
 
   // 🔹 Fragetypen
@@ -123,7 +280,11 @@ export default function ConditionEditor() {
     };
 
     return (
-      <div ref={setNodeRef} style={style} className={`mt-3 ${level > 0 ? "ml-8" : ""}`}>
+      <div
+        ref={setNodeRef}
+        style={style}
+        className={`mt-3 ${level > 0 ? "ml-8" : ""}`}
+      >
         <div className="flex items-center justify-between bg-white rounded-xl shadow-sm border border-gray-200 px-4 py-3">
           {/* Links */}
           <div className="flex items-start gap-3">
@@ -163,7 +324,8 @@ export default function ConditionEditor() {
               </p>
               <div className="mt-2">
                 <span className="text-xs text-[#4a65b9] bg-[#e6edff] px-2 py-0.5 rounded-full font-medium">
-                  {questionTypes.find((t) => t.value === q.type)?.label || "Unbekannt"}
+                  {questionTypes.find((t) => t.value === q.type)?.label ||
+                    "Unbekannt"}
                 </span>
               </div>
             </div>
@@ -194,7 +356,10 @@ export default function ConditionEditor() {
 
         {/* Unterfragen */}
         {q.expanded && q.children?.length > 0 && (
-          <SortableContext items={q.children.map((child: any) => child.id)} strategy={verticalListSortingStrategy}>
+          <SortableContext
+            items={q.children.map((child: any) => child.id)}
+            strategy={verticalListSortingStrategy}
+          >
             {q.children.map((child: any) => (
               <SortableQuestion key={child.id} q={child} level={level + 1} />
             ))}
@@ -208,15 +373,22 @@ export default function ConditionEditor() {
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
-    setQuestions((prev) => moveQuestion(prev, String(active.id), String(over.id)));
+    setQuestions((prev) =>
+      moveQuestion(prev, String(active.id), String(over.id))
+    );
   };
 
   // 🔧 Verschieben (rekursiv)
-  const moveQuestion = (list: any[], activeId: string, overId: string): any[] => {
+  const moveQuestion = (
+    list: any[],
+    activeId: string,
+    overId: string
+  ): any[] => {
     const oldIndex = list.findIndex((item) => item.id === activeId);
     const newIndex = list.findIndex((item) => item.id === overId);
 
-    if (oldIndex !== -1 && newIndex !== -1) return arrayMove(list, oldIndex, newIndex);
+    if (oldIndex !== -1 && newIndex !== -1)
+      return arrayMove(list, oldIndex, newIndex);
 
     return list.map((q) =>
       q.children?.length
@@ -265,8 +437,14 @@ export default function ConditionEditor() {
 
       {/* Fragenliste mit DnD */}
       <div className="px-10 pt-8">
-        <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-          <SortableContext items={questions.map((q) => q.id)} strategy={verticalListSortingStrategy}>
+        <DndContext
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext
+            items={questions.map((q) => q.id)}
+            strategy={verticalListSortingStrategy}
+          >
             {questions.map((q) => (
               <SortableQuestion key={q.id} q={q} />
             ))}

@@ -18,6 +18,10 @@ import {
   Trash2,
 } from "lucide-react";
 
+
+
+
+
 export default function CatalogList() {
   const navigate = useNavigate();
 
@@ -42,13 +46,20 @@ export default function CatalogList() {
   const typesWithOptions = ["radio", "checkbox", "select"];
   const showOptions = typesWithOptions.includes(selectedType);
 
-  // 🔹 Frage speichern → weiterleiten
-  const handleConfirm = () => {
-    if (!questionText.trim() || !selectedType) return;
-    setIsModalOpen(false);
-    // ⬇️ hier dynamisch ID einfügen falls nötig
-    navigate("/admin/catalogs/1/condition-editor");
-  };
+
+
+// 🔹 Frage speichern → weiterleiten
+const handleConfirm = () => {
+  if (!questionText.trim() || !selectedType) return;
+  
+  setIsModalOpen(false);
+
+  // ⬇️ hier dynamisch ID einfügen falls nötig
+  navigate("/admin/catalogs/1/condition-editor");
+};
+
+
+
 
   const handleCancel = () => {
     setQuestionText("");
