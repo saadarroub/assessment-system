@@ -1,5 +1,5 @@
 // src/main/react/features/assessments/AssessmentPage.tsx
-import React, { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   startSession,
@@ -25,7 +25,7 @@ export default function AssessmentPage() {
 
   /* -------- URL-Parameter -------- */
   const type = query.get("type") || "";                 // optional
-  const topicId = query.get("topicId") || "";           // optional
+  //const topicId = query.get("topicId") || "";           // optional
   const topicName = query.get("topicName") || "";       // optional
   const accessToken = query.get("accessToken") || "";   // erforderlich
   const themaId = query.get("themaId") || query.get("topicId") || ""; // erforderlich

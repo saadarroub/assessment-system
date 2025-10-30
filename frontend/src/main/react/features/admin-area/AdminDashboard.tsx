@@ -18,7 +18,7 @@ import { getAllQuestionNodes } from "@/api/questionApi";
 // 🧩 Stats bleiben gleich
 type Stat = { label: string; value: string; tone?: "positive" | "neutral" };
 const STATS: Stat[] = [
-  { label: "Themenschwerpunkte", value: "–", tone: "positive" },
+  { label: "Themen", value: "–", tone: "positive" },
   { label: "Gesamtfragen", value: "–", tone: "positive" },
   { label: "Aktive Nutzer", value: "89", tone: "positive" },
   { label: "Letzte Änderung", value: "Heute", tone: "neutral" },
@@ -96,7 +96,7 @@ export default function AdminDashboard() {
               Fragenkatalog Administration
             </h1>
             <p className="mt-0 text-[#334155]/90 text-[clamp(14px,1.6vw,18px)]">
-              Verwalten Sie Ihre Themenschwerpunkte und erstellen Sie finale Kataloge für Kunden
+              Verwalten Sie Ihre Themen und erstellen Sie finale Kataloge für Kunden
             </p>
           </div>
         </div>
@@ -144,13 +144,14 @@ export default function AdminDashboard() {
         {/* Topics */}
         <section className="topics-section">
           <div className="section-header">
-            <h2>Themenschwerpunkte</h2>
+            <h2>Themen</h2>
             <button
               className="btn btn-caramel"
               onClick={() => alert("Funktion bald verfügbar")}
+              
             >
               <Plus size={16} />
-              <span>Neues Thema hinzufügen</span>
+              <span >Neues Thema hinzufügen</span>
             </button>
           </div>
 
@@ -195,7 +196,7 @@ export default function AdminDashboard() {
 
                 {/* 🔹 Buttons */}
                 <div className="flex flex-wrap justify-between gap-2 pt-4">
-                  <button className="px-4 py-2 border rounded flex items-center justify-center gap-2 text-brand-navy text-sm hover:bg-green-50">
+                  <button className="px-4 py-2 border rounded flex items-center justify-center gap-2 text-brand-navy text-sm hover:bg-green-50"  onClick={() => alert("Funktion bald verfügbar")}>
                     <Edit3 size={16} /> Bearbeiten
                   </button>
 
@@ -272,10 +273,12 @@ export default function AdminDashboard() {
 
               <button
                 onClick={() => {
-                  console.log("Thema gelöscht:", selectedTopic?.id);
-                  setShowDeleteModal(false);
+                  //console.log("Thema gelöscht:", selectedTopic?.id);
+                  //setShowDeleteModal(false);
+                   alert("Funktion bald verfügbar")
                 }}
                 className="px-4 py-2 rounded-lg bg-red-600 text-white font-medium hover:bg-red-700 transition-all"
+                
               >
                 Löschen
               </button>

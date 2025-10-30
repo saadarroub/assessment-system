@@ -1,7 +1,7 @@
 // src/features/admin-panel/companies/zuweisungen.tsx
 
 import { useEffect, useMemo, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { Search, ArrowUpDown, Copy, Check, Link as LinkIcon, X } from "lucide-react";
 import AdminPanelHeader from "@/apps/app/adminPanelHeader";
 import { listAssignments, type AssignmentApi } from "@/features/service/assignmentService";
@@ -44,7 +44,7 @@ function Badge({ status }: { status?: string | null }) {
 }
 
 export default function Zuweisungen() {
-    const navigate = useNavigate();
+    //const navigate = useNavigate();
     const location = useLocation() as { state?: { assignments?: AssignmentApi[] } };
     const initial = location?.state?.assignments ?? [];
 
@@ -62,13 +62,13 @@ export default function Zuweisungen() {
     const [copiedCode, setCopiedCode] = useState(false);
 
     // Basis-URL für den öffentlichen Zugriff (z. B. Backend-Route /public/access/{token})
-    const PUBLIC_INVITE_BASE =
-        import.meta.env.VITE_PUBLIC_INVITE_BASE ?? "http://localhost:8080/public/access";
+    /**const PUBLIC_INVITE_BASE =
+        import.meta.env.VITE_PUBLIC_INVITE_BASE ?? "http://localhost:8080/public/access"; */
      //Zum Testen   
-    function buildAdminMetaUrl(a: AssignmentApi) {
+  /**  function buildAdminMetaUrl(a: AssignmentApi) {
         const token = a.accessToken || "";
         return `${PUBLIC_INVITE_BASE}/${token}/meta`;
-    }
+    } */
 
     function buildUserInviteUrl(a: AssignmentApi) {
         const token = a.accessToken || "";

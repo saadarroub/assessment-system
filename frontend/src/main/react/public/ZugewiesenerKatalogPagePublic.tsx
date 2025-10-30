@@ -1,5 +1,5 @@
 // src/main/react/features/worker-area/ZugewiesenerKatalog.tsx
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import AppHeader from "@/apps/app/AppHeader";
 

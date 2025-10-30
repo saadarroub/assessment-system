@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import  { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   BarChart, Bar, LineChart, Line, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
@@ -326,14 +326,14 @@ export default function CompanyDetailPage() {
   }));
 
   // Top schwächste Themen für Verbesserungsbereiche
-  const weakestThemas = [...allThemas]
+  /**const weakestThemas = [...allThemas]
     .sort((a, b) => a.percentageScore - b.percentageScore)
     .slice(0, 5)
     .map(t => ({
       name: t.themaName.length > 25 ? t.themaName.substring(0, 22) + '...' : t.themaName,
       score: t.percentageScore
     }));
-
+ */
   // Radar Chart Daten (Katalog-Scores)
   const radarData = companyData.catalogScores.map(cat => ({
     category: cat.catalogTitle.length > 20 ? cat.catalogTitle.substring(0, 17) + '...' : cat.catalogTitle,

@@ -1,5 +1,5 @@
 import AdminLayout from "@/apps/app/AdminLayout";
-import React, { useMemo, useState, useEffect, useRef } from "react";
+import  { useMemo, useState, useEffect, useRef } from "react";
 import { Building2, Settings, Pencil, Wrench, Plus } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -44,7 +44,7 @@ export type KatalogeZuweisenProps = {
 
 /* --------------------------------- UI ------------------------------------ */
 
-export default function KatalogeZuweisen({ onAssign }: KatalogeZuweisenProps) {
+export default function KatalogeZuweisen({  }: KatalogeZuweisenProps) {
   // Kataloge
   const [catalogs, setCatalogs] = useState<KatalogItem[]>([]);
   const [loadingCatalogs, setLoadingCatalogs] = useState(false);
@@ -84,7 +84,7 @@ export default function KatalogeZuweisen({ onAssign }: KatalogeZuweisenProps) {
   const [formDesc, setFormDesc] = useState("");
 
   const DEFAULT_ICON: LucideIcon = Building2;
-  const DEFAULT_COLOR = "#d2c9b9";
+  const DEFAULT_COLOR = "#094c79ff";
 
   /* ---------- Kataloge laden ---------- */
   async function loadCatalogs() {
@@ -195,9 +195,9 @@ export default function KatalogeZuweisen({ onAssign }: KatalogeZuweisenProps) {
       return next;
     }); */
 
-  function toggleCatalog(id: string) {
+  /**function toggleCatalog(id: string) {
     setSelectedCatalogId(id);
-  }
+  } */
   function selectOrToggleCatalog(id: string) {
     setSelectedCatalogId(prev => (prev === id ? null : id));
   }

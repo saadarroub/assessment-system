@@ -27,6 +27,9 @@ import OperatingModelPage from '@/features/admin-area/topics/operating-model/Ope
 import SourcingPage from '@/features/admin-area/topics/sourcing/SourcingPage';
 import ProjectManagementPage from '@/features/admin-area/topics/project-management/ProjectManagementPage';
 import CompanyListtest from '@/features/admin-panel/companies/testcomplist';
+import ConditionEditor from '@/features/admin-area/catalogs/ConditionEditor';
+import CatalogList from '@/features/admin-area/catalogs/CatalogList';
+
 
 
 export default function AppRoutes() {
@@ -190,6 +193,24 @@ export default function AppRoutes() {
         element={
           <ProtectedRoute permission="admin:dashboard:view">
             <ProjectManagementPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin/catalogs"
+        element={
+          <ProtectedRoute permission="admin:dashboard:view">
+            <CatalogList />
+          </ProtectedRoute>
+        }
+     /> 
+
+      <Route
+        path="/admin/catalogs/:id/condition-editor"
+        element={
+          <ProtectedRoute permission="admin:dashboard:view">
+            <ConditionEditor />
           </ProtectedRoute>
         }
       />

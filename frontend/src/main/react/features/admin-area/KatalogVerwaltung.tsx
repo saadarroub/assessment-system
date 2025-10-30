@@ -1,7 +1,7 @@
 // src/pages/admin/katalogVerwaltung.tsx
 
 import AdminLayout from "@/apps/app/AdminLayout";
-import React, { useEffect, useState } from "react";
+import  { useEffect, useState } from "react";
 import { Building2 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -38,7 +38,7 @@ type Props = {
 
 /* --------------------------------- UI ------------------------------------ */
 
-export default function KatalogVerwaltung({ onSave }: Props) {
+export default function KatalogVerwaltung({ }: Props) {
     /* ---------- Themen (rechts) ---------- */
     const [topics, setTopics] = useState<Topic[]>([]);
     const [loadingTopics, setLoadingTopics] = useState(false);
@@ -262,6 +262,9 @@ export default function KatalogVerwaltung({ onSave }: Props) {
                                         </button>
                                     );
                                 })}
+
+                                {topicError && <p className="text-sm text-red-600">{topicError}</p>}
+
                             </div>
 
                             {/* Footer-Zeile */}

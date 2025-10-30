@@ -1,8 +1,8 @@
 // src/features/service/publicAssessmentService.ts
 
-/* =========================
+/* 
    API Types (roh vom Backend)
-========================= */
+ */
 export type ApiStartResponse = {
   sessionId: string;
   themaId: string;
@@ -32,9 +32,9 @@ export type ApiState = {
   totalCount: number;
 };
 
-/* =========================
-   HTTP Helper (ABSOLUTE BASE-URL)
-========================= */
+/* 
+   HTTP Helper 
+ */
 // Per .env steuerbar, sonst localhost:8080
 const BACKEND_BASE =
   (import.meta as any).env?.VITE_BACKEND_BASE || "http://localhost:8080";
@@ -64,9 +64,9 @@ async function http<T>(url: string, init?: RequestInit): Promise<T> {
   return res.status === 204 ? undefined : res.json();
 }
 
-/* =========================
+/* 
    Endpoints (mit absoluter URL)
-========================= */
+ */
 
 const accessRoot = (accessToken: string) =>
   join(BACKEND_BASE, `/public/access/${encodeURIComponent(accessToken)}`);
@@ -193,9 +193,9 @@ export function normalizeApiQuestion(q: ApiQuestion): UiQuestion {
   return { id: q.questionId, text: q.text, type: "text" };
 }
 
-/* =========================
+/* 
    Helper: UI-Wert -> value
-========================= */
+ */
 export function buildSaveValue(
   q: UiQuestion,
   raw: any
