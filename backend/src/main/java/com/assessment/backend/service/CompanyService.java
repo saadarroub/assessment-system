@@ -17,7 +17,10 @@ public class CompanyService {
     @Autowired
     private CompanyRepository companyRepository;
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> origin/feat/katalog
     public List<Company> getAllCompanies() {
         return companyRepository.findAll();
     }

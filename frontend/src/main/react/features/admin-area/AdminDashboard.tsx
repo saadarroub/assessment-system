@@ -1,69 +1,102 @@
-import { Link, useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import {  useNavigate } from "react-router-dom";
+import "@/styles/admin.css";
 import AdminLayout from "@/apps/app/AdminLayout";
-import myLogo from "@/assets/Zero-6-icons-05.webp";
-import { Plus, ArrowRight, MinusSquare } from "lucide-react";
 
+import myLogo from "@/assets/Zero-6-icons-05.webp";
+import {
+  Plus,
+  MinusSquare,
+  Trash2,
+  Edit3,
+  ListPlus,
+  FileText,
+} from "lucide-react";
+
+import { getAllQuestionNodes } from "@/api/questionApi";
+
+// 🧩 Stats bleiben gleich
 type Stat = { label: string; value: string; tone?: "positive" | "neutral" };
 const STATS: Stat[] = [
-  { label: "Themenschwerpunkte", value: "4", tone: "positive" },
-  { label: "Gesamtfragen", value: "250", tone: "positive" },
+  { label: "Themenschwerpunkte", value: "–", tone: "positive" },
+  { label: "Gesamtfragen", value: "–", tone: "positive" },
   { label: "Aktive Nutzer", value: "89", tone: "positive" },
   { label: "Letzte Änderung", value: "Heute", tone: "neutral" },
 ];
 
-type Topic = {
-  id: string;
-  title: string;
-  subtitle: string;
-  catalog: string;
-  questions: number;
-  kind: "strategy" | "project" | "sourcing" | "business";
-  slug: string;
-};
-
-const TOPICS: Topic[] = [
-  { id: "t4", title: "IT Operating Model", subtitle: "Organisationsstrukturen und Prozesse", catalog: "Katalog 4", questions: 40, kind: "business", slug: "operating-model" },
-  { id: "t1", title: "Enterprise Architecture Management", subtitle: "Strategische IT-Planung und -Ausrichtung", catalog: "Katalog 1", questions: 30, kind: "strategy", slug: "eam" },
-  { id: "t2", title: "IT Sourcing", subtitle: "Beschaffung und Lieferantenmanagement", catalog: "Katalog 3", questions: 50, kind: "sourcing", slug: "sourcing" },
-  { id: "t3", title: "IT Project Management", subtitle: "Projektplanung und -durchführung", catalog: "Katalog 2", questions: 50, kind: "project", slug: "project-management" },
-];
-
-const EMOJI: Record<Topic["kind"], string> = { strategy: "🎯", project: "📊", sourcing: "🤝", business: "⚙️" };
-
 export default function AdminDashboard() {
   const navigate = useNavigate();
+  const [topics, setTopics] = useState<any[]>([]);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [selectedTopic, setSelectedTopic] = useState<any | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // 🔹 Themen dynamisch laden
+  useEffect(() => {
+    const fetchTopics = async () => {
+      try {
+        const nodes = await getAllQuestionNodes();
+
+        // Gruppiere nach Thema + zähle Fragen
+        const grouped = Object.values(
+          nodes.reduce((acc: any, node: any) => {
+            const thema = node.thema;
+            if (!acc[thema.id]) {
+              acc[thema.id] = {
+                id: thema.id,
+                title: thema.name,
+                subtitle: thema.description,
+                questions: 0,
+              };
+            }
+            acc[thema.id].questions += 1;
+            return acc;
+          }, {})
+        );
+
+        setTopics(grouped);
+      } catch (err) {
+        console.error("❌ Fehler beim Laden der Themen:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTopics();
+  }, []);
+
+  if (loading)
+    return (
+      <AdminLayout>
+        <div className="p-10 text-center text-gray-500 text-lg">
+          ⏳ Themen werden geladen...
+        </div>
+      </AdminLayout>
+    );
 
   return (
     <AdminLayout>
-      {/* ===== Hero ===== */}
-      <header className="relative bg-[hsl(var(--card))] border-b border-[hsl(var(--border))] pt-4 pb-4 px-8">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-x-0"
-          style={{ top: "calc(var(--header-height) - 1px)", height: 0, boxShadow: "0 10px 16px -14px rgba(15,23,42,.18)" }}
-        />
-
-        <div className="flex items-center justify-center gap-4">
-          <img
-            src={myLogo}
-            alt="Dein Logo"
-            className="h-[200px] w-[200px] object-contain shrink-0"
-            width={200}
-            height={200}
-          />
-          <div className="text-center">
-            <h1 className="text-[clamp(28px,6vw,56px)] font-extrabold tracking-[-0.02em] mb-2 leading-[1.05] text-[#264555]">
-              Fragenkatalog Administration
-            </h1>
-            <p className="mt-0 text-[#334155]/90 text-[clamp(14px,1.6vw,18px)]">
-              Verwalten Sie Ihre Themenschwerpunkte und erstellen Sie finale Kataloge für Kunden
-            </p>
+      {/* ====== Hero ====== */}
+      <header className="main-header">
+        <div className="header-content">
+          <div className="header-left">
+            <img src={myLogo} alt="Dein Logo" />
           </div>
+          <div className="header-center">
+            <div className="header-text">
+              <h1>Fragenkatalog Administration</h1>
+              <p>
+                Verwalten Sie Ihre Themenschwerpunkte und erstellen Sie finale
+                Kataloge für Kunden
+              </p>
+            </div>
+          </div>
+          <div className="header-right" />
         </div>
 
-        <div className="flex justify-end gap-3 px-8 mt-1">
+        <div className="header-actions">
           <button
-            className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-[#264555] text-white text-sm font-semibold shadow-md hover:bg-[#223e4c] focus:outline-none focus:ring-2 focus:ring-white/30 active:translate-y-px"
+            className="btn btn-primary"
             onClick={() => navigate("/admin/adminPanel")}
           >
             <MinusSquare size={16} />
@@ -72,103 +105,177 @@ export default function AdminDashboard() {
         </div>
       </header>
 
-      {/* ===== Content ===== */}
-      <div className="p-8">
+      {/* ====== Content ====== */}
+      <div className="dashboard-content">
         {/* Stats */}
-        <section className="mt-5 mb-8">
-          {/* 1 Spalte (mobile), 2 Spalten ab md, 3 Spalten ab 1200px (arbitrary breakpoint) */}
-          <div className="grid grid-cols-1 md:grid-cols-2 min-[1200px]:grid-cols-3 gap-4">
-            {STATS.map((s, i) => {
-              const topBars = [
-                "linear-gradient(90deg,#4F6B7E,#7B93A6)",
-                "linear-gradient(90deg,#3B82F6,#60A5FA)",
-                "linear-gradient(90deg,#16A34A,#34D399)",
-                "linear-gradient(90deg,#F59E0B,#FBBF24)",
-              ];
-              return (
-                <div
-                  key={i}
-                  className="relative bg-white border border-[hsl(var(--border))] rounded-[12px] shadow-[0_10px_20px_-15px_rgba(15,23,42,.18)] overflow-hidden"
-                >
-                  <div className="absolute inset-x-0 top-0 h-[3px] opacity-70" style={{ background: topBars[i] ?? topBars[0] }} />
-                  <div className="flex items-center justify-between py-[1.1rem] px-5">
-                    <div className="flex flex-col items-start">
-                      <p className="text-[0.9rem] font-semibold tracking-[.01em] text-[#64748B]">{s.label}</p>
-                      <p className="text-[2rem] leading-[1.1] font-extrabold tracking-[-.01em] text-[#0F172A] mt-1 -translate-x-[4px] md:-translate-x-[2px]">
-                        {s.value}
-                      </p>
-                    </div>
+        <section className="stats-panel">
+          <div className="grid grid-cols-4 gap-4">
+            {STATS.map((s, i) => (
+              <div className="stat-card" key={i}>
+                <div className="stat-content">
+                  <div className="stat-info">
+                    <p className="stat-label">{s.label}</p>
+                    <p className="px-1 stat-value">
+                      {s.value === "–"
+                        ? i === 0
+                          ? topics.length
+                          : i === 1
+                          ? topics.reduce(
+                              (sum, t) => sum + (t.questions || 0),
+                              0
+                            )
+                          : "–"
+                        : s.value}
+                    </p>
                   </div>
                 </div>
-              );
-            })}
+              </div>
+            ))}
           </div>
         </section>
 
         {/* Topics */}
-        <section className="mb-8">
-          <div className="flex items-center justify-between gap-3 flex-nowrap mb-6">
-            <h2 className="text-[1.25rem] font-semibold">Themenschwerpunkte</h2>
+        <section className="topics-section">
+          <div className="section-header">
+            <h2>Themenschwerpunkte</h2>
             <button
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white shadow-[var(--shadow-elegant)] whitespace-nowrap"
-              style={{ background: "linear-gradient(135deg, hsl(var(--caramel)), hsl(var(--caramel-2)))", transition: "var(--transition-smooth)" }}
+              className="btn btn-caramel"
+              onClick={() => alert("Funktion bald verfügbar")}
             >
               <Plus size={16} />
               <span>Neues Thema hinzufügen</span>
             </button>
           </div>
 
-          {/* 1 Spalte mobil, 2 Spalten ab 1200px */}
-          <div className="grid grid-cols-1 min-[1200px]:grid-cols-2 gap-7">
-            {TOPICS.map((t) => {
-              const accents: Record<Topic["kind"], { card: string; btn: string }> = {
-                strategy: { card: "linear-gradient(90deg,#5F7D92,#4F6B7E)", btn: "linear-gradient(135deg,#5F7D92,#4F6B7E)" },
-                project: { card: "linear-gradient(90deg,#D1C7B8,#C6BBAA)", btn: "linear-gradient(135deg,#D1C7B8,#C6BBAA)" },
-                sourcing: { card: "linear-gradient(90deg,#24414C,#1B3541)", btn: "linear-gradient(135deg,#24414C,#1B3541)" },
-                business: { card: "linear-gradient(90deg,#7B7D7F,#6F7173)", btn: "linear-gradient(135deg,#7B7D7F,#6F7173)" },
-              };
+          <div className="topics-grid">
+            {topics.map((t) => (
+              <div className="topic-card card-v2 kind-business " key={t.id}>
+                {/* Fragenanzahl */}
+                <div className="absolute top-7 right-5 text-[14px] text-gray-500 font-medium">
+                  {t.questions} Fragen
+                </div>
 
-              return (
-                <div
-                  key={t.id}
-                  className="relative bg-white border border-[hsl(var(--border))] rounded-[12px] shadow-[0_10px_20px_-15px_rgba(15,23,42,.18)] p-5 pt-[1.25rem] transition-[transform,box-shadow] duration-300 ease-[cubic-bezier(.4,0,.2,1)] hover:shadow-[0_10px_30px_-10px_hsl(var(--primary)/0.3)] hover:-translate-y-[1px]"
-                >
-                  <div className="absolute inset-x-0 top-0 h-[10px] rounded-t-[12px]" style={{ background: accents[t.kind].card }} />
-                  <ArrowRight className="absolute right-[18px] top-[14px] text-[hsl(var(--muted-foreground))] opacity-60" size={20} />
-
-                  <div className="flex items-center gap-2 mt-[.25rem]">
-                    <span aria-hidden className="text-[20px] leading-none w-7 h-7 flex items-center justify-center rounded-[6px] bg-[hsl(var(--muted))]">
-                      {EMOJI[t.kind]}
-                    </span>
-                    <h3 className="text-[1.125rem] font-bold text-[hsl(var(--foreground))]">{t.title}</h3>
-                  </div>
-
-                  <ul className="list-disc text-[hsl(var(--muted-foreground))] ml-5 my-2 mb-4">
-                    <li>{t.subtitle}</li>
-                  </ul>
-
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex-1 min-w-0 text-[hsl(var(--muted-foreground))]">
-                      <span className="text-[hsl(var(--foreground))]">{t.catalog}</span>{" "}
-                      <span>
-                        Fragen: <strong className="font-semibold text-[hsl(var(--foreground))]">{t.questions}</strong>
-                      </span>
+                {/* Titel & Icon */}
+                <div className="topic-title-row flex items-center gap-3">
+                  <div className="w-10 h-10 flex items-center justify-center bg-gray-100 rounded-lg">
+                    <div className="bg-[#264555] p-2.5 rounded-xl shadow">
+                      <FileText size={18} className="text-white" />
                     </div>
-
-                    <Link
-                      to={`/admin/topics/${t.slug}`}
-                      className="inline-flex items-center gap-[.45rem] px-[.9rem] py-[.55rem] rounded-lg font-semibold text-white whitespace-nowrap shadow-[0_10px_30px_-10px_hsl(var(--primary)/0.3)]"
-                      style={{ background: accents[t.kind].btn }}
-                    >
-                      Verwalten <ArrowRight size={16} />
-                    </Link>
+                  </div>
+                  <div className="topic-text">
+                    <h3 className="topic-title font-semibold text-gray-900">
+                      {t.title}
+                    </h3>
                   </div>
                 </div>
-              );
-            })}
+
+                {/* Untertitel */}
+                <ul className="topic-bullets">
+                  <li>{t.subtitle || "Keine Beschreibung vorhanden"}</li>
+                </ul>
+
+                {/* Statuszeile */}
+                <div className="flex items-center justify-between mt-3 text-sm text-gray-600">
+                  <div className="flex items-center text-green-600">
+                    <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+                    Aktiv
+                  </div>
+                  <div className="flex items-center text-blue-600">
+                    <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
+                    Letzte Änderung: Heute
+                  </div>
+                </div>
+
+                {/* 🔹 Buttons */}
+                <div className="flex flex-wrap justify-between gap-2 pt-4">
+                  <button className="px-4 py-2 border rounded flex items-center justify-center gap-2 text-brand-navy text-sm hover:bg-green-50">
+                    <Edit3 size={16} /> Bearbeiten
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setSelectedTopic(t);
+                      setShowDeleteModal(true);
+                    }}
+                    className="px-4 py-2 border border-red-500 text-red-500 rounded flex items-center justify-center gap-2 text-sm hover:bg-red-50 transition-all"
+                  >
+                    <Trash2 size={16} /> Löschen
+                  </button>
+
+                  
+                  {/* Fragen verwalten */}
+                  <button
+                    onClick={async () => {
+                      try {
+                        const nodes = await getAllQuestionNodes();
+                        const hasQuestions = nodes.some(
+                          (n: any) => n.thema && n.thema.id === t.id
+                        );
+
+                        if (hasQuestions) {
+                          navigate(`/admin/catalogs/${t.id}/condition-editor`);
+                        } else {
+                          navigate(`/admin/catalogs`);
+                        }
+                      } catch (error) {
+                        console.error(
+                          "❌ Fehler beim Laden der Fragen:",
+                          error
+                        );
+                        navigate(`/admin/catalogs`);
+                      }
+                    }}
+                    className="flex-1 min-w-auto px-2 py-1 rounded flex items-center justify-center gap-2 hover:opacity-90 transition"
+                    style={{
+                      backgroundColor: "#264555",
+                      color: "#fff",
+                    }}
+                  >
+                    <ListPlus size={16} /> Fragen verwalten
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         </section>
       </div>
+
+      {/* ====== Delete Modal ====== */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 backdrop-blur-sm flex justify-center items-center z-50">
+          <div className="bg-white rounded-xl shadow-lg w-[420px] p-6 text-center">
+            <h2 className="text-lg font-semibold text-gray-800 mb-4">
+              Thema löschen
+            </h2>
+            <p className="text-gray-600 mb-6 ">
+              Sind Sie sicher, dass Sie das Thema{" "}
+              <span className="font-semibold text-black">
+                {selectedTopic?.title}
+              </span>{" "}
+              löschen möchten?
+            </p>
+
+            <div className="flex justify-center gap-3">
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 transition-all"
+              >
+                Abbrechen
+              </button>
+
+              <button
+                onClick={() => {
+                  console.log("Thema gelöscht:", selectedTopic?.id);
+                  setShowDeleteModal(false);
+                }}
+                className="px-4 py-2 rounded-lg bg-red-600 text-white font-medium hover:bg-red-700 transition-all"
+              >
+                Löschen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AdminLayout>
   );
 }
