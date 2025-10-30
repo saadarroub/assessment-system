@@ -1,0 +1,81 @@
+
+
+SO STARTEN SIE DAS SYSTEM
+
+1. DOCKER IMAGE HOLEN
+
+   docker pull saadarroub/assessment-system:latest
+
+2. CONTAINER STARTEN
+   Starten Sie den Container mit folgendem Befehl:
+   
+   docker run -d --name assessment-system -p 8080:8080 -p 5173:5173 saadarroub/assessment-system:latest
+
+   Erklärung der Parameter:
+   • -p 8080:8080    = Backend API Port (für die REST-API)
+   • -p 5173:5173    = Frontend Port (für die Web-Oberfläche)
+
+3. ANWENDUNG ÖFFNEN
+   Nach dem Start erreichen Sie:
+   
+   → Frontend: http://localhost:5173
+   → Backend API: http://localhost:8080
+
+WAS SIE TESTEN KÖNNEN
+
+ADMIN-BEREICH:
+• Benutzerverwaltung
+• Firmenverwaltung
+• Katalogverwaltung
+• Berechtigungen
+• Themen und Fragen
+
+Hinweis: Einige Funktionen sind aktuell noch eingeschränkt. 
+Vollständige Bearbeitungs- und Verwaltungsfunktionen werden in den kommenden Features freigeschaltet!
+
+WORKER-BEREICH:
+• Assessments durchführen
+• Verschiedene Fragetypen beantworten
+• Fortschritt speichern und fortsetzen
+
+ALLGEMEIN:
+• Navigation
+• Responsive Design auf verschiedenen Geräten
+
+NEUE FEATURES IN DEN KOMMENDEN TAGEN
+
+In den nächsten Tagen werden wir kontinuierlich neue Features ausrollen!
+
+UM NEUE FEATURES ZU TESTEN - BITTE IMAGE REFRESHEN:
+
+Führen Sie folgende Befehle aus:
+
+   docker stop assessment-system
+   docker rm assessment-system
+   docker pull saadarroub/assessment-system:latest
+   docker run -d --name assessment-system -p 8080:8080 -p 5173:5173 saadarroub/assessment-system:latest
+
+WICHTIG: Bitte refreshen Sie das Image regelmäßig, 
+um automatisch die neuesten Features und Bugfixes zu erhalten!
+
+FEEDBACK UND FEHLER MELDEN
+
+Falls Sie Fehler finden oder Verbesserungsvorschläge haben, bitte ich Sie um folgende Informationen:
+
+• Was haben Sie getan? (Schritte zur Reproduktion)
+• Was war das erwartete Ergebnis?
+• Was ist tatsächlich passiert?
+• Screenshots (falls möglich)
+• Browser/Version (bei Frontend-Problemen)
+
+
+
+VORAUSSETZUNGEN:
+Bitte stellen Sie sicher, dass Docker auf Ihrem System installiert ist.
+
+Bei Fragen oder Problemen stehe ich Ihnen gerne zur Verfügung!
+
+Vielen Dank für Ihre Unterstützung beim Testen des Systems. Ihr Feedback ist sehr wertvoll für uns!
+
+
+docker build --no-cache -t saadarroub/assessment-allinone:latest -f Dockerfile.allinone .
