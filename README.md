@@ -16,20 +16,38 @@ Eine saubere, minimale Distribution: Ein Docker Image enthält Postgres 17.5, da
 
 ## Schnellstart
 
-Lokal bauen und starten:
+### **Option 1: Fertige Image von Docker Hub (empfohlen) 🚀**
 
 ```powershell
-docker build -t saadarroub/assessment-allinone:latest -f Dockerfile.allinone .
 docker run --rm -p 8082:8080 saadarroub/assessment-allinone:latest
 ```
 
+### **Option 2: Lokal bauen**
+
+**WICHTIG:** Vor dem Build sicherstellen, dass Git die Zeilenumbrüche korrekt setzt:
+
+```powershell
+# Zeilenumbrüche normalisieren (wichtig für Windows!)
+git add --renormalize .
+
+# Image bauen
+docker build -t saadarroub/assessment-allinone:latest -f Dockerfile.allinone .
+
+# Starten
+docker run -d -p 8080:8080 --name assessment-app saadarroub/assessment-allinone:latest
+```
+
 Öffnen:
-- Web-UI: http://localhost:8082
-- API: über denselben Port (z. B. http://localhost:8082/api/... oder /public/...)
+- Web-UI: http://localhost:8080
+- API: über denselben Port (z. B. http://localhost:8080/api/... oder /public/...)
+
+**⚠️ Bekannte Probleme:**
+- **"env: 'bash\r': No such file or directory"** → Führe `git add --renormalize .` aus vor dem Build
+- Die `.gitattributes` Datei stellt sicher, dass Shell-Scripts immer Unix-Zeilenumbrüche (LF) verwenden
 
 Hinweise:
 - Der erste Start dauert etwas länger (DB-Init + Seeding).
-- Ohne gemountetes Volume ist jeder Run “frisch” (praktisch für Tests).
+- Ohne gemountetes Volume ist jeder Run "frisch" (praktisch für Tests).
 
 ## Push zu Docker Hub
 
