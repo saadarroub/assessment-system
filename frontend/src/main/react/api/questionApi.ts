@@ -79,3 +79,11 @@ export async function getChildrenByParent(parentId: string) {
   return data;
 }
 
+// 🔹 Holt Details eines Themas (Name + Beschreibung)
+export async function getThemaById(themaId: string) {
+  const response = await fetch(`http://localhost:8080/api/themas/${themaId}`);
+  if (!response.ok) throw new Error("Fehler beim Laden des Themas");
+  return await response.json();
+}
+
+

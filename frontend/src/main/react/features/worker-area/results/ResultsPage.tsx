@@ -1,4 +1,3 @@
-import React from 'react';
 import { useParams } from 'react-router-dom';
 import {
   Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
@@ -44,7 +43,7 @@ export default function ResultsPage() {
     { name: 'Kritisch', value: 5, color: '#DC2626' }
   ];
 
-  const getMaturityLevel = (score) => {
+  const getMaturityLevel = (score: number) => {
     if (score >= 90) return { level: 'Optimiert', color: '#10B981', desc: 'Exzellente Sicherheitsstandards' };
     if (score >= 80) return { level: 'Verwaltet', color: '#3B82F6', desc: 'Gute Sicherheitsmaßnahmen' };
     if (score >= 70) return { level: 'Definiert', color: '#F59E0B', desc: 'Grundlegende Sicherheit vorhanden' };
@@ -61,7 +60,7 @@ export default function ResultsPage() {
     { priority: 'Mittel', area: 'Mitarbeitersicherheit', action: 'Security Awareness Training', effort: 'Niedrig', timeline: '1-2 Monate' }
   ];
 
-  const getPriorityColor = (priority) => {
+  const getPriorityColor = (priority: string): string => {
     switch (priority) {
       case 'Hoch': return 'bg-red-100 text-red-800';
       case 'Mittel': return 'bg-yellow-100 text-yellow-800';
@@ -75,30 +74,35 @@ export default function ResultsPage() {
     const charts = document.querySelectorAll('.recharts-wrapper');
     const promises = Array.from(charts).map(async (chart) => {
       try {
-        const canvas = await html2canvas(chart.parentNode, {
+        const parentElement = chart.parentNode as HTMLElement;
+        if (!parentElement) {
+          throw new Error('Parent element not found');
+        }
+
+        const canvas = await html2canvas(parentElement, {
           backgroundColor: '#ffffff',
           scale: 2,
           useCORS: true,
           allowTaint: true,
           logging: false
         });
-      const imgData = canvas.toDataURL('image/png');
+        
+        const imgData = canvas.toDataURL('image/png');
+        const img = document.createElement('img');
+        img.src = imgData;
+        img.style.width = `${parentElement.offsetWidth}px`;
+        img.style.height = `${parentElement.offsetHeight}px`;
+        img.style.display = 'block';
+        
+        (chart as HTMLElement).style.display = 'none';
+        parentElement.appendChild(img);
       
-      const img = document.createElement('img');
-      img.src = imgData;
-      img.style.width = chart.parentNode.offsetWidth + 'px';
-      img.style.height = chart.parentNode.offsetHeight + 'px';
-      img.style.display = 'block';
-      
-      chart.style.display = 'none';
-      chart.parentNode.appendChild(img);
-    
-    return { chart, img };
-    } catch (error) {
-      console.error('Chart conversion error:', error);
-      return null;
-    }    
-  });
+        return { chart, img };
+      } catch (error) {
+        console.error('Chart conversion error:', error);
+        return null;
+      }    
+    });
   
   const results = await Promise.all(promises);
   return results.filter(result => result !== null);
@@ -107,7 +111,7 @@ export default function ResultsPage() {
 
 
 const exportToExcel = () => {
-  const excelButton = document.getElementById('excel-btn');
+  const excelButton = document.getElementById('excel-btn') as HTMLButtonElement;
   if (excelButton) {
     excelButton.disabled = true;
     excelButton.textContent = 'Excel generieren...';
@@ -131,15 +135,16 @@ const exportToExcel = () => {
     link.click();
   } finally {
     setTimeout(() => {
-      if (excelButton) {
-        excelButton.disabled = false;
-        excelButton.textContent = 'Als Excel exportieren';
+      const btn = document.getElementById('excel-btn') as HTMLButtonElement;
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = 'Als Excel exportieren';
       }
     }, 1000);
   }
 };
 
-const convertSVGToImage = (svg) => {
+const convertSVGToImage = (svg: SVGElement): Promise<HTMLImageElement> => {
   return new Promise((resolve) => {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
@@ -150,18 +155,24 @@ const convertSVGToImage = (svg) => {
     const url = URL.createObjectURL(svgBlob);
     
     img.onload = () => {
-      canvas.width = svg.getBoundingClientRect().width;
-      canvas.height = svg.getBoundingClientRect().height;
-      ctx.drawImage(img, 0, 0);
-      URL.revokeObjectURL(url);
+      const bounds = svg.getBoundingClientRect();
+      canvas.width = bounds.width;
+      canvas.height = bounds.height;
       
-      canvas.toBlob((blob) => {
-        const imgElement = document.createElement('img');
-        imgElement.src = URL.createObjectURL(blob);
-        imgElement.style.width = canvas.width + 'px';
-        imgElement.style.height = canvas.height + 'px';
-        resolve(imgElement);
-      });
+      if (ctx) {
+        ctx.drawImage(img, 0, 0);
+        URL.revokeObjectURL(url);
+        
+        canvas.toBlob((blob) => {
+          if (blob) {
+            const imgElement = document.createElement('img');
+            imgElement.src = URL.createObjectURL(blob);
+            imgElement.style.width = `${canvas.width}px`;
+            imgElement.style.height = `${canvas.height}px`;
+            resolve(imgElement);
+          }
+        });
+      }
     };
     
     img.src = url;
@@ -175,7 +186,7 @@ const exportToPNG = async () => {
   if (!element) return;
 
   try {
-    const pngButton = document.getElementById('png-btn');
+    const pngButton = document.getElementById('png-btn') as HTMLButtonElement;
     if (pngButton) {
       pngButton.disabled = true;
       pngButton.textContent = 'PNG generieren...';
@@ -203,7 +214,7 @@ const exportToPNG = async () => {
   } catch (error) {
     console.error('PNG export error:', error);
   } finally {
-    const pngButton = document.getElementById('png-btn');
+    const pngButton = document.getElementById('png-btn') as HTMLButtonElement;
     if (pngButton) {
       pngButton.disabled = false;
       pngButton.textContent = 'Als PNG exportieren';
@@ -227,7 +238,7 @@ const exportToPNG = async () => {
   if (!element) return;
 
   try {
-    const exportButton = document.getElementById('export-btn');
+    const exportButton = document.getElementById('export-btn') as HTMLButtonElement;
     if (exportButton) {
       exportButton.disabled = true;
       exportButton.textContent = 'PDF generieren...';
@@ -271,7 +282,7 @@ const exportToPNG = async () => {
     console.error('PDF export error:', error);
     alert('PDF error.');
   } finally {
-    const exportButton = document.getElementById('export-btn');
+    const exportButton = document.getElementById('export-btn') as HTMLButtonElement;
     if (exportButton) {
       exportButton.disabled = false;
       exportButton.textContent = 'Als PDF exportieren';

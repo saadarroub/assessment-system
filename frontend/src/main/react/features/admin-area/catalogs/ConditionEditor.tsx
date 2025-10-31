@@ -25,6 +25,7 @@ import {
 import {
   getRootQuestionsByThema,
   getChildrenByParent,
+  getThemaById
 } from "@/api/questionApi";
 
 // 🧩 Drag & Drop Imports
@@ -38,11 +39,31 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
+
+
+
 export default function ConditionEditor() {
   const navigate = useNavigate();
   const { id: themaId } = useParams();
-  // ✅ Holt die ID aus der URL
+  const [thema, setThema] = useState<any>(null);
 
+  useEffect(() => {
+  async function fetchThemaDetails() {
+    try {
+      const data = await getThemaById(themaId!);
+      setThema(data);
+      console.log("📘 Thema geladen:", data);
+    } catch (error) {
+      console.error("❌ Fehler beim Laden des Themas:", error);
+    }
+  }
+
+  if (themaId) fetchThemaDetails();
+}, [themaId]);
+
+
+
+  // ✅ Holt die ID aus der URL
   useEffect(() => {
     console.log("🟢 Thema-ID aus URL:", themaId);
   }, [themaId]);
@@ -57,68 +78,63 @@ export default function ConditionEditor() {
   const [questions, setQuestions] = useState<any[]>([]);
   const [parentQuestion, setParentQuestion] = useState<any | null>(null);
 
-  // 🧩 Root-Fragen eines Themas laden
-  useEffect(() => {
-    const fetchRootQuestions = async () => {
-      try {
-        const data = await getRootQuestionsByThema(themaId!);
-        console.log("📥 Root-Fragen für Thema:", themaId, data);
-        setQuestions(
-          data.map((q: any) => ({
-            id: q.id,
-            text: q.question?.text || "Ohne Text",
-            type: q.question?.questionType?.inputType || "unknown",
-            children: [],
-            expanded: true,
-          }))
-        );
-      } catch (error) {
-        console.error("❌ Fehler beim Laden der Root-Fragen:", error);
-      }
-    };
-
-    if (themaId) fetchRootQuestions();
-  }, [themaId]);
-
-useEffect(() => {
-  async function fetchAllQuestions() {
+  // 🔁 Rekursive Funktion, die ALLE Kinder bis zur tiefsten Ebene lädt
+  async function fetchChildrenRecursive(parentId: string): Promise<any[]> {
     try {
-      // 1️⃣ Root-Fragen für das Thema laden
-      const roots = await getRootQuestionsByThema(themaId!);
-      console.log("📥 Root-Fragen:", roots);
+      const children = await getChildrenByParent(parentId);
 
-      // 2️⃣ Für jede Root-Frage direkt prüfen, ob sie Unterfragen hat
-      const rootsWithChildren = await Promise.all(
-        roots.map(async (root: any) => {
-          const children = await getChildrenByParent(root.id);
-          console.log(`🔹 Unterfragen von ${root.id}:`, children);
+      // Wenn keine Unterfragen -> gib leeres Array zurück
+      if (!children || children.length === 0) return [];
 
-          return {
-            id: root.id,
-            text: root.question?.text || "Ohne Text",
-            type: root.question?.questionType?.inputType || "unknown",
-            children: children.map((child: any) => ({
-              id: child.id,
-              text: child.question?.text || "Ohne Text",
-              type: child.question?.questionType?.inputType || "unknown",
-              children: [],
-              expanded: false,
-            })),
-            expanded: false,
-          };
-        })
+      // Wenn es Kinder gibt -> lade auch deren Unterfragen rekursiv
+      const enriched = await Promise.all(
+        children.map(async (child: any) => ({
+          id: child.id,
+          text: child.question?.text || "Ohne Text",
+          type: child.question?.questionType?.inputType || "unknown",
+          expanded: false,
+          // 🪄 hier ruft sich die Funktion selbst wieder auf
+          children: await fetchChildrenRecursive(child.id),
+        }))
       );
 
-      // 3️⃣ Fragen im State speichern
-      setQuestions(rootsWithChildren);
-    } catch (error) {
-      console.error("❌ Fehler beim Laden aller Fragen:", error);
+      return enriched;
+    } catch (err) {
+      console.error(`Fehler beim Laden der Unterfragen von ${parentId}:`, err);
+      return [];
     }
   }
 
-  if (themaId) fetchAllQuestions();
-}, [themaId]);
 
+
+  useEffect(() => {
+    async function fetchAllQuestions() {
+      try {
+        // 1️⃣ Root-Fragen laden
+        const roots = await getRootQuestionsByThema(themaId!);
+        console.log("📥 Root-Fragen:", roots);
+
+        // 2️⃣ Für jede Root-Frage alle Kinder (rekursiv) laden
+        const fullHierarchy = await Promise.all(
+          roots.map(async (root: any) => ({
+            id: root.id,
+            text: root.question?.text || "Ohne Text",
+            type: root.question?.questionType?.inputType || "unknown",
+            expanded: false,
+            // 🔁 Holt automatisch alle Unterfragen jeder Ebene
+            children: await fetchChildrenRecursive(root.id),
+          }))
+        );
+
+        // 3️⃣ In State speichern
+        setQuestions(fullHierarchy);
+      } catch (error) {
+        console.error("❌ Fehler beim Laden aller Fragen:", error);
+      }
+    }
+
+    if (themaId) fetchAllQuestions();
+  }, [themaId]);
 
   // ✅ Neue Frage hinzufügen
   const handleConfirm = () => {
@@ -194,63 +210,66 @@ useEffect(() => {
     setQuestions(removeRecursive(questions));
   };
 
-  // 🔽 Ein- & Ausklappen
-  // 🔽 Ein- & Ausklappen von Fragen (rekursiv)
-  const toggleExpand = async (id: string) => {
-    try {
-      // Lokales Umschalten
-      setQuestions((prevQuestions) =>
-        prevQuestions.map((q) =>
-          q.id === id ? { ...q, expanded: !q.expanded } : q
-        )
-      );
-
-      // 🔹 Finde die Frage, die expandiert werden soll (rekursiv)
-      const findQuestionRecursive = (list: any[], id: string): any => {
-        for (const q of list) {
-          if (q.id === id) return q;
-          const found = findQuestionRecursive(q.children || [], id);
-          if (found) return found;
-        }
-        return null;
-      };
-
-      const target = findQuestionRecursive(questions, id);
-
-      if (target && !target.expanded) {
-        console.log("📡 Lade Unterfragen für:", id);
-        const children = await getChildrenByParent(id);
-
-        if (children.length > 0) {
-          const formattedChildren = children.map((child: any) => ({
-            id: child.id,
-            text: child.question?.text || "Ohne Text",
-            type: child.question?.questionType?.inputType || "unknown",
-            children: [],
-            expanded: false,
-          }));
-
-          // 🔹 Rekursive Update-Funktion
-          const updateRecursive = (nodes: any[]): any[] =>
-            nodes.map((node) => {
-              if (node.id === id) {
-                return { ...node, expanded: true, children: formattedChildren };
-              }
-              return {
-                ...node,
-                children: updateRecursive(node.children || []),
-              };
-            });
-
-          setQuestions((prev) => updateRecursive(prev));
+ // 🔁 Ein- & Ausklappen von Fragen (vollständig rekursiv)
+const toggleExpand = async (id: string) => {
+  const updated = await Promise.all(
+    questions.map(async (q) => {
+      if (q.id === id) {
+        // Wenn noch keine Kinder geladen sind → lade sie rekursiv
+        if (!q.expanded && q.children.length === 0) {
+          const children = await fetchChildrenRecursive(id);
+          return { ...q, expanded: true, children };
         } else {
-          console.log("ℹ️ Keine Unterfragen für", id);
+          // Wenn Kinder schon da sind → nur ein-/ausklappen
+          return { ...q, expanded: !q.expanded };
         }
       }
-    } catch (error) {
-      console.error("❌ Fehler beim Laden der Unterfragen:", error);
+
+      // 🔁 Falls Unterfragen vorhanden → rekursiv weitersuchen
+      if (q.children?.length) {
+        return {
+          ...q,
+          children: await Promise.all(
+            q.children.map(async (child: any) =>
+              child.id === id
+                ? !child.expanded
+                  ? { ...child, expanded: true, children: await fetchChildrenRecursive(child.id) }
+                  : { ...child, expanded: false }
+                : await toggleExpandInChild(child, id)
+            )
+          ),
+        };
+      }
+
+      return q;
+    })
+  );
+
+  setQuestions(updated);
+};
+
+// 🔁 Hilfsfunktion für rekursives Ein-/Ausklappen in Unterfragen
+async function toggleExpandInChild(node: any, id: string): Promise<any> {
+  if (node.id === id) {
+    if (!node.expanded && node.children.length === 0) {
+      const children = await fetchChildrenRecursive(id);
+      return { ...node, expanded: true, children };
+    } else {
+      return { ...node, expanded: !node.expanded };
     }
-  };
+  }
+
+  if (node.children?.length) {
+    return {
+      ...node,
+      children: await Promise.all(
+        node.children.map((child: any) => toggleExpandInChild(child, id))
+      ),
+    };
+  }
+
+  return node;
+}
 
   // 🔹 Fragetypen
   const questionTypes = [
@@ -417,10 +436,10 @@ useEffect(() => {
               <FileText size={26} className="text-white" />
             </div>
             <h1 className="text-2xl md:text-6xl font-bold">
-              IT Project Management
+              {thema?.name || "Lade Thema..."}
             </h1>
           </div>
-          <p className="text-gray-600 mt-4">Projektplanung und -durchführung</p>
+          <p className="text-gray-600 mt-4">{thema?.description || "Beschreibung wird geladen..."}</p>
         </div>
       </div>
 

@@ -149,7 +149,7 @@ export default function AdminDashboard() {
 
           <div className="topics-grid">
             {topics.map((t) => (
-              <div className="topic-card card-v2 kind-business " key={t.id}>
+              <div className="topic-card card-v2 kind-strategy flex flex-col justify-between h-full" key={t.id}>
                 {/* Fragenanzahl */}
                 <div className="absolute top-7 right-5 text-[14px] text-gray-500 font-medium">
                   {t.questions} Fragen
@@ -158,7 +158,7 @@ export default function AdminDashboard() {
                 {/* Titel & Icon */}
                 <div className="topic-title-row flex items-center gap-3">
                   <div className="w-10 h-10 flex items-center justify-center bg-gray-100 rounded-lg">
-                    <div className="bg-[#264555] p-2.5 rounded-xl shadow">
+                    <div className="bg-[#56768f] p-2.5 rounded-xl shadow">
                       <FileText size={18} className="text-white" />
                     </div>
                   </div>
@@ -227,7 +227,7 @@ export default function AdminDashboard() {
                     }}
                     className="flex-1 min-w-auto px-2 py-1 rounded flex items-center justify-center gap-2 hover:opacity-90 transition"
                     style={{
-                      backgroundColor: "#264555",
+                      backgroundColor: "#56768f",
                       color: "#fff",
                     }}
                   >
