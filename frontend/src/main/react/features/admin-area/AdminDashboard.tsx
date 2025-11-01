@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import {  useNavigate } from "react-router-dom";
+import { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import "@/styles/admin.css";
 import AdminLayout from "@/apps/app/AdminLayout";
 
@@ -13,7 +13,13 @@ import {
   FileText,
 } from "lucide-react";
 
-import { getAllQuestionNodes } from "@/api/questionApi";
+import {
+  getAllQuestionNodes,
+  getAllThemas,
+  createThema,
+  deleteThema,
+  updateThema,
+} from "@/api/questionApi";
 
 // 🧩 Stats bleiben gleich
 type Stat = { label: string; value: string; tone?: "positive" | "neutral" };
@@ -31,37 +37,59 @@ export default function AdminDashboard() {
   const [selectedTopic, setSelectedTopic] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // 🔹 Themen dynamisch laden
+  // 🧩 States für Bearbeiten-Modal
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editThemaName, setEditThemaName] = useState("");
+  const [editThemaDesc, setEditThemaDesc] = useState("");
+  const [editThemaId, setEditThemaId] = useState<string | null>(null);
+
+  // 🧩 Modal-Steuerung für neues Thema
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [newThemaName, setNewThemaName] = useState("");
+  const [newThemaDesc, setNewThemaDesc] = useState("");
+
+  const titleInputRef = useRef<HTMLInputElement | null>(null);
+
+  // ⏳ Wenn das Modal geöffnet wird → automatisch Fokus auf Titel
   useEffect(() => {
-    const fetchTopics = async () => {
-      try {
-        const nodes = await getAllQuestionNodes();
+    if (isEditModalOpen && titleInputRef.current) {
+      titleInputRef.current.focus();
+    }
+  }, [isEditModalOpen]);
 
-        // Gruppiere nach Thema + zähle Fragen
-        const grouped = Object.values(
-          nodes.reduce((acc: any, node: any) => {
-            const thema = node.thema;
-            if (!acc[thema.id]) {
-              acc[thema.id] = {
-                id: thema.id,
-                title: thema.name,
-                subtitle: thema.description,
-                questions: 0,
-              };
-            }
-            acc[thema.id].questions += 1;
-            return acc;
-          }, {})
-        );
+  // 🔹 Themen laden (inkl. Themen ohne Fragen)
+  const fetchTopics = async () => {
+    try {
+      console.log("📡 Lade alle Themen (inkl. ohne Fragen)...");
 
-        setTopics(grouped);
-      } catch (err) {
-        console.error("❌ Fehler beim Laden der Themen:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
+      // ✅ 1. Hole alle Themen
+      const themas = await getAllThemas();
 
+      // ✅ 2. Hole alle QuestionNodes, um zu zählen, welche Themen Fragen haben
+      const nodes = await getAllQuestionNodes();
+
+      // ✅ 3. Kombiniere beide Listen (Thema + Anzahl Fragen)
+      const grouped = themas.map((thema: any) => {
+        const count = nodes.filter((n: any) => n.thema?.id === thema.id).length;
+        return {
+          id: thema.id,
+          title: thema.name,
+          subtitle: thema.description,
+          questions: count,
+        };
+      });
+
+      // ✅ 4. Themen im State speichern (neuestes zuerst)
+      setTopics(grouped.reverse());
+    } catch (err) {
+      console.error("❌ Fehler beim Laden der Themen:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 🔁 Beim ersten Rendern automatisch laden
+  useEffect(() => {
     fetchTopics();
   }, []);
 
@@ -140,7 +168,7 @@ export default function AdminDashboard() {
             <h2>Themenschwerpunkte</h2>
             <button
               className="btn btn-caramel"
-              onClick={() => alert("Funktion bald verfügbar")}
+              onClick={() => setIsAddModalOpen(true)}
             >
               <Plus size={16} />
               <span>Neues Thema hinzufügen</span>
@@ -149,7 +177,10 @@ export default function AdminDashboard() {
 
           <div className="topics-grid">
             {topics.map((t) => (
-              <div className="topic-card card-v2 kind-strategy flex flex-col justify-between h-full" key={t.id}>
+              <div
+                className="topic-card card-v2 kind-strategy flex flex-col justify-between h-full"
+                key={t.id}
+              >
                 {/* Fragenanzahl */}
                 <div className="absolute top-7 right-5 text-[14px] text-gray-500 font-medium">
                   {t.questions} Fragen
@@ -188,7 +219,15 @@ export default function AdminDashboard() {
 
                 {/* 🔹 Buttons */}
                 <div className="flex flex-wrap justify-between gap-2 pt-4">
-                  <button className="px-4 py-2 border rounded flex items-center justify-center gap-2 text-brand-navy text-sm hover:bg-green-50">
+                  <button
+                    onClick={() => {
+                      setEditThemaId(t.id);
+                      setEditThemaName(t.title);
+                      setEditThemaDesc(t.subtitle);
+                      setIsEditModalOpen(true);
+                    }}
+                    className="px-4 py-2 border rounded flex items-center justify-center gap-2 text-brand-navy text-sm hover:bg-green-50"
+                  >
                     <Edit3 size={16} /> Bearbeiten
                   </button>
 
@@ -202,7 +241,6 @@ export default function AdminDashboard() {
                     <Trash2 size={16} /> Löschen
                   </button>
 
-                  
                   {/* Fragen verwalten */}
                   <button
                     onClick={async () => {
@@ -240,6 +278,141 @@ export default function AdminDashboard() {
         </section>
       </div>
 
+      {/* ====== Edit Thema Modal ====== */}
+      {isEditModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 backdrop-blur-sm flex justify-center items-center z-50">
+          <div className="bg-white rounded-xl shadow-lg w-[420px] p-6 text-center">
+            <h3 className="text-lg font-semibold mb-4 text-center text-gray-800">
+              Thema bearbeiten
+            </h3>
+
+            {/* Titel (bearbeitbar) */}
+            <input
+              ref={titleInputRef}
+              type="text"
+              value={editThemaName}
+              onChange={(e) => setEditThemaName(e.target.value)}
+              className="w-full border p-2 rounded mb-3"
+              placeholder="Thema-Name"
+            />
+
+            {/* Beschreibung (bearbeitbar) */}
+            <textarea
+              value={editThemaDesc}
+              onChange={(e) => setEditThemaDesc(e.target.value)}
+              className="w-full border p-2 rounded mb-4 h-24"
+              placeholder="Beschreibung"
+            />
+
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setIsEditModalOpen(false)}
+                className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
+              >
+                Abbrechen
+              </button>
+
+              <button
+                onClick={async () => {
+                  if (!editThemaId) return;
+                  try {
+                    const updated = await updateThema(editThemaId, {
+                      name: editThemaName,
+                      description: editThemaDesc,
+                    });
+
+                    // UI sofort aktualisieren
+                    setTopics((prev) =>
+                      prev.map((t) =>
+                        t.id === updated.id
+                          ? {
+                              ...t,
+                              title: updated.name,
+                              subtitle: updated.description,
+                            }
+                          : t
+                      )
+                    );
+
+                    setIsEditModalOpen(false);
+                    console.log("✅ Thema erfolgreich aktualisiert!");
+                  } catch (err) {
+                    console.error(
+                      "❌ Fehler beim Aktualisieren des Themas:",
+                      err
+                    );
+                    alert("Fehler beim Aktualisieren des Themas!");
+                  }
+                }}
+                className="px-4 py-2 bg-[#56768f] text-white rounded hover:opacity-90"
+              >
+                Speichern
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ====== Add Thema Modal ====== */}
+      {isAddModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 backdrop-blur-sm flex justify-center items-center z-50">
+          <div className="bg-white rounded-xl shadow-lg w-[420px] p-6 text-center">
+            <h3 className="text-lg font-semibold mb-4 text-center text-gray-800">
+              Neues Thema hinzufügen
+            </h3>
+
+            <input
+              type="text"
+              placeholder="Thema-Name"
+              value={newThemaName}
+              onChange={(e) => setNewThemaName(e.target.value)}
+              className="w-full border p-2 rounded mb-3"
+            />
+
+            <textarea
+              placeholder="Beschreibung"
+              value={newThemaDesc}
+              onChange={(e) => setNewThemaDesc(e.target.value)}
+              className="w-full border p-2 rounded mb-4 h-24"
+            />
+
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setIsAddModalOpen(false)}
+                className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
+              >
+                Abbrechen
+              </button>
+
+              <button
+                onClick={async () => {
+                  try {
+                    await createThema({
+                      name: newThemaName,
+                      description: newThemaDesc,
+                    });
+
+                    // 🧠 Direkt aus Datenbank neu laden (statt reload)
+                    await fetchTopics();
+
+                    // 🔹 Modal schließen & Felder leeren
+                    setIsAddModalOpen(false);
+                    setNewThemaName("");
+                    setNewThemaDesc("");
+                  } catch (err) {
+                    console.error("❌ Fehler beim Erstellen des Themas:", err);
+                    alert("Fehler beim Erstellen des Themas!");
+                  }
+                }}
+                className="px-4 py-2 bg-[#56768f] text-white rounded hover:opacity-90"
+              >
+                Speichern
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ====== Delete Modal ====== */}
       {showDeleteModal && (
         <div className="fixed inset-0 bg-black bg-opacity-40 backdrop-blur-sm flex justify-center items-center z-50">
@@ -247,11 +420,11 @@ export default function AdminDashboard() {
             <h2 className="text-lg font-semibold text-gray-800 mb-4">
               Thema löschen
             </h2>
-            <p className="text-gray-600 mb-6 ">
-              Sind Sie sicher, dass Sie das Thema{" "}
-              <span className="font-semibold text-black">
+            <p className="text-gray-600 mb-6 leading-relaxed">
+              Sind Sie sicher, dass Sie das Thema <br />
+              <span className="block mt-1 font-semibold text-black text-lg">
                 {selectedTopic?.title}
-              </span>{" "}
+              </span>
               löschen möchten?
             </p>
 
@@ -264,9 +437,28 @@ export default function AdminDashboard() {
               </button>
 
               <button
-                onClick={() => {
-                  console.log("Thema gelöscht:", selectedTopic?.id);
-                  setShowDeleteModal(false);
+                onClick={async () => {
+                  if (!selectedTopic?.id) return;
+
+                  try {
+                    console.log("🗑️ Lösche Thema:", selectedTopic.id);
+
+                    // 1️⃣ Thema in der DB löschen
+                    await deleteThema(selectedTopic.id);
+
+                    // 2️⃣ UI sofort aktualisieren (ohne Reload)
+                    setTopics((prev) =>
+                      prev.filter((t) => t.id !== selectedTopic.id)
+                    );
+
+                    // 3️⃣ Modal schließen
+                    setShowDeleteModal(false);
+
+                    console.log("✅ Thema erfolgreich gelöscht!");
+                  } catch (err) {
+                    console.error("❌ Fehler beim Löschen des Themas:", err);
+                    alert("Fehler beim Löschen des Themas!");
+                  }
                 }}
                 className="px-4 py-2 rounded-lg bg-red-600 text-white font-medium hover:bg-red-700 transition-all"
               >

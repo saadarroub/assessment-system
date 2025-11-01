@@ -473,7 +473,7 @@ async function toggleExpandInChild(node: any, id: string): Promise<any> {
 
       {/* Modal bleibt unverändert */}
       {isModalOpen && (
-        <div className="absolute top-5 left-24  w-full h-full bg-black bg-opacity-20 flex justify-center items-center z-50 ">
+        <div className="fixed top-5 left-24  w-full h-full bg-black bg-opacity-20 flex justify-center items-center z-50 ">
           <div className="bg-white rounded-xl shadow-lg w-[730px] max-h-[80vh] flex flex-col relative">
             <div className="p-8 overflow-y-auto flex-1">
               <button

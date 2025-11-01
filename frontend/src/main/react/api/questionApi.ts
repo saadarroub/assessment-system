@@ -52,6 +52,13 @@ export async function getAllQuestionNodes() {
   return response.data;
 }
 
+// 🔹 Holt ALLE Themen 
+export async function getAllThemas() {
+  const response = await axios.get(`${API_BASE}/themas`);
+  return response.data;
+}
+
+
 // 🔹 Holt alle Root-Fragen eines bestimmten Themas
 export async function getRootQuestionsByThema(themaId: string) {
   const response = await fetch(`http://localhost:8080/api/question-nodes/thema/${themaId}/root`);
@@ -85,5 +92,37 @@ export async function getThemaById(themaId: string) {
   if (!response.ok) throw new Error("Fehler beim Laden des Themas");
   return await response.json();
 }
+
+// 🔹 Neues Thema anlegen
+export async function createThema(themaData: { name: string; description: string }) {
+  const response = await axios.post(`${API_BASE}/themas`, themaData, {
+    headers: { "Content-Type": "application/json" },
+  });
+  return response.data;
+}
+
+
+// 🔹 Thema löschen
+export async function deleteThema(id: string) {
+  const response = await fetch(`http://localhost:8080/api/themas/${id}`, {
+    method: "DELETE",
+  });
+
+  if (!response.ok) throw new Error("Fehler beim Löschen des Themas");
+  return true;
+}
+
+// 🔹 Thema aktualisieren
+export async function updateThema(id: string, themaData: { name: string; description: string }) {
+  const response = await fetch(`http://localhost:8080/api/themas/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(themaData),
+  });
+
+  if (!response.ok) throw new Error("Fehler beim Aktualisieren des Themas");
+  return await response.json();
+}
+
 
 
