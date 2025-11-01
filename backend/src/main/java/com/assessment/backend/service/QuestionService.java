@@ -81,24 +81,9 @@ public class QuestionService {
         return questionRepository.findQuestionsWithScoringSchema();
     }
 
-    // Update
+    // Update (für DTO-basiertes Update)
     @Transactional
-    public Question updateQuestion(UUID id, Question questionDetails) {
-        Question question = questionRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Question not found with id: " + id));
-        
-        question.setText(questionDetails.getText());
-        
-        // Update QuestionType if provided
-        if (questionDetails.getQuestionType() != null && questionDetails.getQuestionType().getId() != null) {
-            QuestionType questionType = questionTypeRepository.findById(questionDetails.getQuestionType().getId())
-                    .orElseThrow(() -> new RuntimeException("QuestionType not found with id: " + questionDetails.getQuestionType().getId()));
-            question.setQuestionType(questionType);
-        }
-        
-        question.setOptions(questionDetails.getOptions());
-        question.setScoringSchema(questionDetails.getScoringSchema());
-        
+    public Question updateQuestionEntity(Question question) {
         return questionRepository.save(question);
     }
 
