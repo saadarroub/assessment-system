@@ -22,7 +22,7 @@ import {
   
 } from "@/api/questionApi";
 
-// 🧩 Stats bleiben gleich
+//  Stats bleiben gleich
 type Stat = { label: string; value: string; tone?: "positive" | "neutral" };
 const STATS: Stat[] = [
   { label: "Themen", value: "–", tone: "positive" },
@@ -38,6 +38,7 @@ export default function AdminDashboard() {
   const [selectedTopic, setSelectedTopic] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
 
+<<<<<<< HEAD
   // 🧩 States für Bearbeiten-Modal
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editThemaName, setEditThemaName] = useState("");
@@ -52,6 +53,9 @@ export default function AdminDashboard() {
   const titleInputRef = useRef<HTMLInputElement | null>(null);
 
   // ⏳ Wenn das Modal geöffnet wird → automatisch Fokus auf Titel
+=======
+  // Themen dynamisch laden
+>>>>>>> 81b23512 (WIP: lokale Änderungen)
   useEffect(() => {
     if (isEditModalOpen && titleInputRef.current) {
       titleInputRef.current.focus();

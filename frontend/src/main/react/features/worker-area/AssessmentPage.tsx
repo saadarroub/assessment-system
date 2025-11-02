@@ -261,7 +261,7 @@ function goBackToTopics() {
             </button>
           </div>
         </div>
-
+ 
         {/* Progress */}
         {!completed && (
           <div className="px-6 pt-4">
