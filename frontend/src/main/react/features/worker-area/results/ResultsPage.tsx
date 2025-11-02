@@ -69,7 +69,7 @@ export default function ResultsPage() {
     }
   };
   
-  /*
+  
   const convertChartsToImages = async () => {
     const charts = document.querySelectorAll('.recharts-wrapper');
     const promises = Array.from(charts).map(async (chart) => {
@@ -107,7 +107,7 @@ export default function ResultsPage() {
   const results = await Promise.all(promises);
   return results.filter(result => result !== null);
 };
-*/
+
 
 
 const exportToExcel = () => {
@@ -143,7 +143,7 @@ const exportToExcel = () => {
     }, 1000);
   }
 };
-/*
+
 const convertSVGToImage = (svg: SVGElement): Promise<HTMLImageElement> => {
   return new Promise((resolve) => {
     const canvas = document.createElement('canvas');
@@ -178,7 +178,7 @@ const convertSVGToImage = (svg: SVGElement): Promise<HTMLImageElement> => {
     img.src = url;
   });
 };
-*/
+
 
 
 const exportToPNG = async () => {

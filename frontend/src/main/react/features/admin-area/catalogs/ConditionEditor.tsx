@@ -25,6 +25,11 @@ import {
 import {
   getRootQuestionsByThema,
   getChildrenByParent,
+  getThemaById,
+  deleteQuestion,
+  createQuestion,
+  createQuestionNode,
+  getQuestionTypes,updateQuestion
 } from "@/api/questionApi";
 
 // 🧩 Drag & Drop Imports
@@ -41,8 +46,23 @@ import { CSS } from "@dnd-kit/utilities";
 export default function ConditionEditor() {
   const navigate = useNavigate();
   const { id: themaId } = useParams();
-  // ✅ Holt die ID aus der URL
+  const [thema, setThema] = useState<any>(null);
 
+  useEffect(() => {
+    async function fetchThemaDetails() {
+      try {
+        const data = await getThemaById(themaId!);
+        setThema(data);
+        console.log("📘 Thema geladen:", data);
+      } catch (error) {
+        console.error("❌ Fehler beim Laden des Themas:", error);
+      }
+    }
+
+    if (themaId) fetchThemaDetails();
+  }, [themaId]);
+
+  // ✅ Holt die ID aus der URL
   useEffect(() => {
     console.log("🟢 Thema-ID aus URL:", themaId);
   }, [themaId]);
@@ -56,69 +76,155 @@ export default function ConditionEditor() {
   );
   const [questions, setQuestions] = useState<any[]>([]);
   const [parentQuestion, setParentQuestion] = useState<any | null>(null);
+  const [editingQuestion, setEditingQuestion] = useState<any | null>(null);
 
-  // 🧩 Root-Fragen eines Themas laden
-  useEffect(() => {
-    const fetchRootQuestions = async () => {
-      try {
-        const data = await getRootQuestionsByThema(themaId!);
-        console.log("📥 Root-Fragen für Thema:", themaId, data);
-        setQuestions(
-          data.map((q: any) => ({
-            id: q.id,
-            text: q.question?.text || "Ohne Text",
-            type: q.question?.questionType?.inputType || "unknown",
-            children: [],
-            expanded: true,
-          }))
-        );
-      } catch (error) {
-        console.error("❌ Fehler beim Laden der Root-Fragen:", error);
-      }
-    };
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [questionToDelete, setQuestionToDelete] = useState<any | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
-    if (themaId) fetchRootQuestions();
-  }, [themaId]);
+  const [questionTypes, setQuestionTypes] = useState<any[]>([]);
 
-useEffect(() => {
-  async function fetchAllQuestions() {
+  // 🔁 Rekursive Funktion, die ALLE Kinder bis zur tiefsten Ebene lädt
+  async function fetchChildrenRecursive(parentId: string): Promise<any[]> {
     try {
-      // 1️⃣ Root-Fragen für das Thema laden
-      const roots = await getRootQuestionsByThema(themaId!);
-      console.log("📥 Root-Fragen:", roots);
+      const children = await getChildrenByParent(parentId);
 
-      // 2️⃣ Für jede Root-Frage direkt prüfen, ob sie Unterfragen hat
-      const rootsWithChildren = await Promise.all(
-        roots.map(async (root: any) => {
-          const children = await getChildrenByParent(root.id);
-          console.log(`🔹 Unterfragen von ${root.id}:`, children);
+      // Wenn keine Unterfragen -> gib leeres Array zurück
+      if (!children || children.length === 0) return [];
 
-          return {
-            id: root.id,
-            text: root.question?.text || "Ohne Text",
-            type: root.question?.questionType?.inputType || "unknown",
-            children: children.map((child: any) => ({
-              id: child.id,
-              text: child.question?.text || "Ohne Text",
-              type: child.question?.questionType?.inputType || "unknown",
-              children: [],
-              expanded: false,
-            })),
-            expanded: false,
-          };
-        })
+      // Wenn es Kinder gibt -> lade auch deren Unterfragen rekursiv
+      const enriched = await Promise.all(
+        children.map(async (child: any) => ({
+          id: child.id, // QuestionNode-ID
+          questionId: child.question?.id, // ✅ echte Question-ID
+          text: child.question?.text || "Ohne Text",
+          type: child.question?.questionType?.inputType || "unknown",
+          expanded: false,
+          children: await fetchChildrenRecursive(child.id),
+        }))
       );
 
-      // 3️⃣ Fragen im State speichern
-      setQuestions(rootsWithChildren);
-    } catch (error) {
-      console.error("❌ Fehler beim Laden aller Fragen:", error);
+      return enriched;
+    } catch (err) {
+      console.error(`Fehler beim Laden der Unterfragen von ${parentId}:`, err);
+      return [];
     }
   }
 
-  if (themaId) fetchAllQuestions();
-}, [themaId]);
+  // 🔹 Fragetypen aus der API laden (wie in CatalogList)
+  useEffect(() => {
+    const fetchTypes = async () => {
+      try {
+        const types = await getQuestionTypes();
 
+        const mapped = types.map((t: any) => {
+          let icon;
+          switch (t.inputType) {
+            case "text":
+              icon = <MessageSquare size={18} />;
+              break;
+            case "radio":
+              icon = <CircleDot size={18} />;
+              break;
+            case "select":
+              icon = <List size={18} />;
+              break;
+            case "checkbox":
+              icon = <CheckSquare size={18} />;
+              break;
+            case "number":
+              icon = <Hash size={18} />;
+              break;
+            case "date":
+              icon = <Calendar size={18} />;
+              break;
+            case "range":
+              icon = <BarChart3 size={18} />;
+              break;
+            case "ranking":
+              icon = <ListOrdered size={18} />;
+              break;
+            default:
+              icon = <MessageSquare size={18} />;
+          }
+
+          let label;
+          switch (t.inputType) {
+            case "text":
+              label = "Textfeld";
+              break;
+            case "radio":
+              label = "Ja/Nein";
+              break;
+            case "select":
+              label = "Auswahl";
+              break;
+            case "checkbox":
+              label = "Mehrfach";
+              break;
+            case "number":
+              label = "Zahl";
+              break;
+            case "date":
+              label = "Datum";
+              break;
+            case "range":
+              label = "Bewertung";
+              break;
+            case "ranking":
+              label = "Reihenfolge";
+              break;
+            default:
+              label = t.name;
+          }
+
+          return {
+            id: t.id,
+            label,
+            value: t.inputType,
+            hasOptions: t.hasOptions,
+            icon,
+          };
+        });
+
+        setQuestionTypes(mapped);
+        console.log("✅ Fragetypen geladen:", mapped);
+      } catch (err) {
+        console.error("❌ Fehler beim Laden der Fragetypen:", err);
+      }
+    };
+
+    fetchTypes();
+  }, []);
+
+  useEffect(() => {
+    async function fetchAllQuestions() {
+      try {
+        // 1️⃣ Root-Fragen laden
+        const roots = await getRootQuestionsByThema(themaId!);
+        console.log("📥 Root-Fragen:", roots);
+
+        // 2️⃣ Für jede Root-Frage alle Kinder (rekursiv) laden
+        const fullHierarchy = await Promise.all(
+          roots.map(async (root: any) => ({
+            id: root.id,
+            questionId: root.question?.id, // ✅ echte Question-ID
+            text: root.question?.text || "Ohne Text",
+            type: root.question?.questionType?.inputType || "unknown",
+            expanded: false,
+            children: await fetchChildrenRecursive(root.id),
+          }))
+        );
+
+        // 3️⃣ In State speichern
+        setQuestions(fullHierarchy);
+      } catch (error) {
+        console.error("❌ Fehler beim Laden aller Fragen:", error);
+      }
+    }
+
+    if (themaId) fetchAllQuestions();
+  }, [themaId]);
 
   // ✅ Neue Frage hinzufügen
   const handleConfirm = () => {
@@ -155,6 +261,7 @@ useEffect(() => {
     setSelectedType("");
     setOptions([]);
     setParentQuestion(null);
+    setEditingQuestion(null); // ✅ hinzugefügt
     setIsModalOpen(false);
   };
 
@@ -182,87 +289,232 @@ useEffect(() => {
     });
   };
 
-  // 🗑️ Frage löschen
-  const handleDeleteQuestion = (id: string) => {
-    const removeRecursive = (list: any[]): any[] =>
-      list
-        .filter((q) => q.id !== id)
-        .map((q) => ({
-          ...q,
-          children: q.children ? removeRecursive(q.children) : [],
-        }));
-    setQuestions(removeRecursive(questions));
+  // 🗑️ Öffnet das Lösch-Modal
+  const handleDeleteQuestion = (q: any) => {
+    setQuestionToDelete(q);
+    setIsDeleteModalOpen(true);
   };
 
-  // 🔽 Ein- & Ausklappen
-  // 🔽 Ein- & Ausklappen von Fragen (rekursiv)
-  const toggleExpand = async (id: string) => {
+  // ✅ Bestätigt das Löschen
+  const confirmDeleteQuestion = async () => {
+    if (!questionToDelete) return;
+
     try {
-      // Lokales Umschalten
-      setQuestions((prevQuestions) =>
-        prevQuestions.map((q) =>
-          q.id === id ? { ...q, expanded: !q.expanded } : q
-        )
-      );
+      setIsDeleting(true);
 
-      // 🔹 Finde die Frage, die expandiert werden soll (rekursiv)
-      const findQuestionRecursive = (list: any[], id: string): any => {
-        for (const q of list) {
-          if (q.id === id) return q;
-          const found = findQuestionRecursive(q.children || [], id);
-          if (found) return found;
-        }
-        return null;
-      };
+      // ✅ Richtige Question-ID bestimmen
+      const questionId = questionToDelete.questionId
+        ? questionToDelete.questionId
+        : questionToDelete.question?.id;
 
-      const target = findQuestionRecursive(questions, id);
+      console.log("📌 Lösche Frage mit ID:", questionId);
 
-      if (target && !target.expanded) {
-        console.log("📡 Lade Unterfragen für:", id);
-        const children = await getChildrenByParent(id);
+      if (!questionId) {
+        throw new Error("Keine gültige Question-ID gefunden!");
+      }
 
-        if (children.length > 0) {
-          const formattedChildren = children.map((child: any) => ({
-            id: child.id,
-            text: child.question?.text || "Ohne Text",
-            type: child.question?.questionType?.inputType || "unknown",
-            children: [],
-            expanded: false,
+      // ✅ Backend-Aufruf
+      await deleteQuestion(questionId);
+
+      // ✅ Entferne gelöschte Frage aus der UI
+      const removeRecursive = (list: any[]): any[] =>
+        list
+          .filter((q) => q.id !== questionToDelete.id)
+          .map((q) => ({
+            ...q,
+            children: q.children ? removeRecursive(q.children) : [],
           }));
 
-          // 🔹 Rekursive Update-Funktion
-          const updateRecursive = (nodes: any[]): any[] =>
-            nodes.map((node) => {
-              if (node.id === id) {
-                return { ...node, expanded: true, children: formattedChildren };
-              }
-              return {
-                ...node,
-                children: updateRecursive(node.children || []),
-              };
-            });
+      setQuestions((prev) => removeRecursive(prev));
 
-          setQuestions((prev) => updateRecursive(prev));
-        } else {
-          console.log("ℹ️ Keine Unterfragen für", id);
-        }
-      }
+      console.log("✅ Frage erfolgreich gelöscht:", questionId);
     } catch (error) {
-      console.error("❌ Fehler beim Laden der Unterfragen:", error);
+      console.error("❌ Fehler beim Löschen der Frage:", error);
+      alert("Fehler beim Löschen der Frage. Bitte später erneut versuchen.");
+    } finally {
+      setIsDeleting(false);
+      setIsDeleteModalOpen(false);
+      setQuestionToDelete(null);
     }
   };
 
+  const handleCreateQuestion = async () => {
+    // 🧩 1. Eingaben prüfen
+    if (!questionText.trim() || !selectedType) {
+      alert("❌ Bitte Fragetext und Typ auswählen!");
+      return;
+    }
+
+    const hasOptions = questionTypes.find(
+      (t) => t.value === selectedType
+    )?.hasOptions;
+
+    // 🧱 2. Payload für API
+    const payload = {
+      text: questionText,
+      questionType: {
+        id: questionTypes.find((t) => t.value === selectedType)?.id,
+      },
+      options: hasOptions ? options.map((o) => o.label) : null,
+      scoringSchema: hasOptions
+        ? Object.fromEntries(options.map((o) => [o.label, o.score]))
+        : null,
+    };
+
+    try {
+      // 🧩 3. Frage erstellen
+      const question = await createQuestion(payload);
+      console.log("✅ Frage erstellt:", question);
+
+      // 🔗 4. QuestionNode mit Thema verknüpfen
+      console.log("🔗 Verknüpfe Frage mit Thema:", themaId);
+      const node = await createQuestionNode(
+        themaId!,
+        question.id,
+        parentQuestion ? parentQuestion.id : null
+      );
+
+      console.log("✅ QuestionNode erfolgreich erstellt:", node);
+
+      // 🧩 5. Neue Frage lokal in UI einfügen
+      const newQuestion = {
+        id: node.id, // Node-ID
+        questionId: question.id,
+        text: question.text,
+        type: selectedType,
+        children: [],
+        expanded: false,
+      };
+
+      if (parentQuestion) {
+        const updated = addChildToParent(
+          questions,
+          parentQuestion.id,
+          newQuestion
+        );
+        setQuestions(updated);
+      } else {
+        setQuestions([...questions, newQuestion]);
+      }
+
+      // 🧹 6. Modal & Felder zurücksetzen
+      setIsModalOpen(false);
+      setQuestionText("");
+      setSelectedType("");
+      setOptions([]);
+      setParentQuestion(null);
+    } catch (error) {
+      console.error("❌ Fehler beim Hinzufügen der Frage:", error);
+      alert("❌ Fehler beim Hinzufügen der Frage!");
+    }
+  };
+
+
+  const handleUpdateQuestion = async () => {
+  if (!editingQuestion) return;
+  try {
+    const hasOptions = questionTypes.find((t) => t.value === selectedType)
+      ?.hasOptions;
+
+    const payload = {
+      text: questionText,
+      questionType: {
+        id: questionTypes.find((t) => t.value === selectedType)?.id,
+      },
+      options: hasOptions ? options.map((o) => o.label) : null,
+      scoringSchema: hasOptions
+        ? Object.fromEntries(options.map((o) => [o.label, o.score]))
+        : null,
+    };
+
+    // Backend-Update aufrufen
+    await updateQuestion(editingQuestion.questionId, payload);
+
+    // UI aktualisieren
+    const updateQuestionInTree = (list: any[]): any[] =>
+      list.map((q) =>
+        q.id === editingQuestion.id
+          ? { ...q, text: questionText, type: selectedType, options }
+          : {
+              ...q,
+              children: q.children ? updateQuestionInTree(q.children) : [],
+            }
+      );
+
+    setQuestions((prev) => updateQuestionInTree(prev));
+    handleCancel();
+  } catch (err) {
+    console.error("❌ Fehler beim Bearbeiten der Frage:", err);
+  }
+};
+
+
+  // 🔁 Ein- & Ausklappen von Fragen (vollständig rekursiv)
+  const toggleExpand = async (id: string) => {
+    const updated = await Promise.all(
+      questions.map(async (q) => {
+        if (q.id === id) {
+          // Wenn noch keine Kinder geladen sind → lade sie rekursiv
+          if (!q.expanded && q.children.length === 0) {
+            const children = await fetchChildrenRecursive(id);
+            return { ...q, expanded: true, children };
+          } else {
+            // Wenn Kinder schon da sind → nur ein-/ausklappen
+            return { ...q, expanded: !q.expanded };
+          }
+        }
+
+        // 🔁 Falls Unterfragen vorhanden → rekursiv weitersuchen
+        if (q.children?.length) {
+          return {
+            ...q,
+            children: await Promise.all(
+              q.children.map(async (child: any) =>
+                child.id === id
+                  ? !child.expanded
+                    ? {
+                        ...child,
+                        expanded: true,
+                        children: await fetchChildrenRecursive(child.id),
+                      }
+                    : { ...child, expanded: false }
+                  : await toggleExpandInChild(child, id)
+              )
+            ),
+          };
+        }
+
+        return q;
+      })
+    );
+
+    setQuestions(updated);
+  };
+
+  // 🔁 Hilfsfunktion für rekursives Ein-/Ausklappen in Unterfragen
+  async function toggleExpandInChild(node: any, id: string): Promise<any> {
+    if (node.id === id) {
+      if (!node.expanded && node.children.length === 0) {
+        const children = await fetchChildrenRecursive(id);
+        return { ...node, expanded: true, children };
+      } else {
+        return { ...node, expanded: !node.expanded };
+      }
+    }
+
+    if (node.children?.length) {
+      return {
+        ...node,
+        children: await Promise.all(
+          node.children.map((child: any) => toggleExpandInChild(child, id))
+        ),
+      };
+    }
+
+    return node;
+  }
+
   // 🔹 Fragetypen
-  const questionTypes = [
-    { label: "Textfeld", value: "text", icon: <MessageSquare size={18} /> },
-    { label: "Ja/Nein", value: "radio", icon: <CircleDot size={18} /> },
-    { label: "Auswahl", value: "select", icon: <List size={18} /> },
-    { label: "Mehrfach", value: "checkbox", icon: <CheckSquare size={18} /> },
-    { label: "Zahl", value: "number", icon: <Hash size={18} /> },
-    { label: "Datum", value: "date", icon: <Calendar size={18} /> },
-    { label: "Bewertung", value: "range", icon: <BarChart3 size={18} /> },
-    { label: "Reihenfolge", value: "ranking", icon: <ListOrdered size={18} /> },
-  ];
 
   const typesWithOptions = ["radio", "checkbox", "select"];
   const showOptions = typesWithOptions.includes(selectedType);
@@ -342,11 +594,22 @@ useEffect(() => {
             >
               <Plus size={18} />
             </button>
-            <button className="text-gray-600 hover:text-brand-sand transition-all">
+            <button
+              onClick={() => {
+                setEditingQuestion(q);
+                setParentQuestion(null);
+                setQuestionText(q.text);
+                setSelectedType(q.type);
+                setOptions(q.options || []);
+                setIsModalOpen(true);
+              }}
+              className="text-gray-600 hover:text-brand-sand transition-all"
+            >
               <Edit3 size={18} />
             </button>
+
             <button
-              onClick={() => handleDeleteQuestion(q.id)}
+              onClick={() => handleDeleteQuestion(q)}
               className="text-red-500 hover:text-red-600 transition-all"
             >
               <Trash2 size={18} />
@@ -417,10 +680,12 @@ useEffect(() => {
               <FileText size={26} className="text-white" />
             </div>
             <h1 className="text-2xl md:text-6xl font-bold">
-              IT Project Management
+              {thema?.name || "Lade Thema..."}
             </h1>
           </div>
-          <p className="text-gray-600 mt-4">Projektplanung und -durchführung</p>
+          <p className="text-gray-600 mt-4">
+            {thema?.description || "Beschreibung wird geladen..."}
+          </p>
         </div>
       </div>
 
@@ -452,11 +717,49 @@ useEffect(() => {
         </DndContext>
       </div>
 
-      {/* Modal bleibt unverändert */}
+      {/* 🗑️ Lösch-Bestätigungs-Modal */}
+      {isDeleteModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50">
+          <div className="bg-white rounded-xl shadow-lg w-[420px] p-6">
+            <h2 className="text-lg font-semibold text-gray-800 mb-4">
+              Frage wirklich löschen?
+            </h2>
+            <p className="text-sm text-gray-600 mb-6">
+              Diese Aktion kann nicht rückgängig gemacht werden.
+              <br />
+              <span className="font-medium text-gray-900">
+                „{questionToDelete?.text}“
+              </span>{" "}
+              wird dauerhaft entfernt.
+            </p>
+
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setIsDeleteModalOpen(false)}
+                className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100"
+              >
+                Abbrechen
+              </button>
+              <button
+                onClick={confirmDeleteQuestion}
+                disabled={isDeleting}
+                className={`px-4 py-2 rounded-lg bg-red-500 text-white font-medium hover:bg-red-600 transition-all ${
+                  isDeleting ? "opacity-60 cursor-not-allowed" : ""
+                }`}
+              >
+                {isDeleting ? "Lösche..." : "Ja, löschen"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🧱 Modal: Neue Frage hinzufügen */}
       {isModalOpen && (
-        <div className="absolute top-5 left-24  w-full h-full bg-black bg-opacity-20 flex justify-center items-center z-50 ">
+        <div className="fixed top-5 left-24 w-full h-full bg-black bg-opacity-20 flex justify-center items-center z-50">
           <div className="bg-white rounded-xl shadow-lg w-[730px] max-h-[80vh] flex flex-col relative">
             <div className="p-8 overflow-y-auto flex-1">
+              {/* ❌ Schließen-Button */}
               <button
                 onClick={handleCancel}
                 className="absolute top-3 right-3 text-gray-500 hover:text-gray-700"
@@ -464,7 +767,12 @@ useEffect(() => {
                 <X size={20} />
               </button>
 
-              {parentQuestion ? (
+              {/* 🔹 Titelbereich */}
+              {editingQuestion ? (
+                <h2 className="text-xl font-semibold text-gray-800 mb-6">
+                  Frage bearbeiten
+                </h2>
+              ) : parentQuestion ? (
                 <div className="mb-6">
                   <p className="text-sm text-gray-500">
                     <span className="font-semibold text-gray-700">
@@ -478,11 +786,11 @@ useEffect(() => {
                 </div>
               ) : (
                 <h2 className="text-xl font-semibold text-gray-800 mb-6">
-                  Neue Frage hinzufügen
+                  Neue Hauptfrage hinzufügen
                 </h2>
               )}
 
-              {/* Frage */}
+              {/* 🔸 Fragetext */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Frage<span className="text-red-500">*</span>
@@ -496,7 +804,7 @@ useEffect(() => {
                 ></textarea>
               </div>
 
-              {/* Fragetyp */}
+              {/* 🔸 Fragetyp */}
               <div className="mb-6 mt-6">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Fragetyp<span className="text-red-500">*</span>
@@ -519,7 +827,7 @@ useEffect(() => {
                 </div>
               </div>
 
-              {/* Optionen */}
+              {/* 🔸 Antwortoptionen (nur falls nötig) */}
               {showOptions && (
                 <div className="border-t border-gray-200 pt-4 mt-4">
                   <h3 className="text-md font-semibold text-gray-800 mb-3">
@@ -580,7 +888,7 @@ useEffect(() => {
               )}
             </div>
 
-            {/* Footer */}
+            {/* 🔹 Footer mit aktualisiertem Button */}
             <div className="flex justify-end gap-3 px-8 py-4 border-t bg-white sticky bottom-0 rounded-b-xl">
               <button
                 onClick={handleCancel}
@@ -589,10 +897,12 @@ useEffect(() => {
                 Abbrechen
               </button>
               <button
-                onClick={handleConfirm}
+                onClick={
+                  editingQuestion ? handleUpdateQuestion : handleCreateQuestion
+                }
                 className="px-4 py-2 rounded-lg bg-brand-sand text-white font-medium hover:opacity-90"
               >
-                Hinzufügen
+                {editingQuestion ? "Speichern" : "Hinzufügen"}
               </button>
             </div>
           </div>
