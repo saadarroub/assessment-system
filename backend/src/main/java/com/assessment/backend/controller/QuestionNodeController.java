@@ -21,14 +21,20 @@ public class QuestionNodeController {
 
     // Create - POST /api/question-nodes
     @PostMapping
-    public ResponseEntity<QuestionNode> createQuestionNode(@RequestBody QuestionNode questionNode) {
+    public ResponseEntity<?> createQuestionNode(@RequestBody QuestionNode questionNode) {
         try {
             QuestionNode createdNode = questionNodeService.createQuestionNode(questionNode);
             return new ResponseEntity<>(createdNode, HttpStatus.CREATED);
         } catch (RuntimeException e) {
-            return new ResponseEntity<>(null, HttpStatus.BAD_REQUEST);
+            return new ResponseEntity<>(
+                java.util.Map.of("error", e.getMessage()), 
+                HttpStatus.BAD_REQUEST
+            );
         } catch (Exception e) {
-            return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
+            return new ResponseEntity<>(
+                java.util.Map.of("error", "Internal server error: " + e.getMessage()), 
+                HttpStatus.INTERNAL_SERVER_ERROR
+            );
         }
     }
 

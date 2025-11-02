@@ -32,8 +32,8 @@ public class QuestionController {
     private ObjectMapper objectMapper;
 
     // Create - POST /api/questions (mit DTO - automatische JSON-Konvertierung)
-    @PostMapping("/dto")
-    public ResponseEntity<?> createQuestionFromDTO(@RequestBody QuestionDTO dto) {
+    @PostMapping
+    public ResponseEntity<?> createQuestion(@RequestBody QuestionDTO dto) {
         try {
             // DTO → Entity konvertieren
             Question question = new Question();
@@ -91,19 +91,6 @@ public class QuestionController {
             return objectMapper.readValue(json, Object.class);
         } catch (Exception e) {
             return json; // Fallback: Return as string
-        }
-    }
-
-    // Create - POST /api/questions (alte Methode - bleibt für Kompatibilität)
-    @PostMapping
-    public ResponseEntity<Question> createQuestion(@RequestBody Question question) {
-        try {
-            Question createdQuestion = questionService.createQuestion(question);
-            return new ResponseEntity<>(createdQuestion, HttpStatus.CREATED);
-        } catch (RuntimeException e) {
-            return new ResponseEntity<>(null, HttpStatus.BAD_REQUEST);
-        } catch (Exception e) {
-            return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
@@ -203,16 +190,62 @@ public class QuestionController {
         }
     }
 
-    // Update - PUT /api/questions/{id}
+    // Update - PUT /api/questions/{id} (mit DTO - automatische JSON-Konvertierung)
     @PutMapping("/{id}")
-    public ResponseEntity<Question> updateQuestion(@PathVariable("id") UUID id, @RequestBody Question question) {
+    public ResponseEntity<?> updateQuestion(@PathVariable("id") UUID id, @RequestBody QuestionDTO dto) {
         try {
-            Question updatedQuestion = questionService.updateQuestion(id, question);
-            return new ResponseEntity<>(updatedQuestion, HttpStatus.OK);
+            // Existierende Question laden
+            Question question = questionService.getQuestionById(id)
+                .orElseThrow(() -> new RuntimeException("Question not found with id: " + id));
+            
+            // DTO → Entity konvertieren
+            if (dto.getText() != null) {
+                question.setText(dto.getText());
+            }
+            
+            // QuestionType aktualisieren
+            if (dto.getQuestionType() != null && dto.getQuestionType().getId() != null) {
+                QuestionType questionType = questionTypeRepository.findById(dto.getQuestionType().getId())
+                    .orElseThrow(() -> new RuntimeException("QuestionType not found"));
+                question.setQuestionType(questionType);
+            }
+            
+            // JSON-Objekte → String (automatisch serialisiert)
+            if (dto.getOptions() != null) {
+                question.setOptions(objectMapper.writeValueAsString(dto.getOptions()));
+            }
+            if (dto.getScoringSchema() != null) {
+                question.setScoringSchema(objectMapper.writeValueAsString(dto.getScoringSchema()));
+            }
+            
+            Question updatedQuestion = questionService.updateQuestionEntity(question);
+            
+            // Response mit deserialisierten JSON-Objekten
+            Map<String, Object> response = new java.util.HashMap<>();
+            response.put("id", updatedQuestion.getId());
+            response.put("text", updatedQuestion.getText());
+            response.put("questionType", updatedQuestion.getQuestionType());
+            response.put("options", parseJsonSafe(updatedQuestion.getOptions()));
+            response.put("scoringSchema", parseJsonSafe(updatedQuestion.getScoringSchema()));
+            response.put("createdAt", updatedQuestion.getCreatedAt());
+            response.put("updatedAt", updatedQuestion.getUpdatedAt());
+            
+            return new ResponseEntity<>(response, HttpStatus.OK);
+        } catch (JsonProcessingException e) {
+            return new ResponseEntity<>(
+                Map.of("error", "Invalid JSON format: " + e.getMessage()),
+                HttpStatus.BAD_REQUEST
+            );
         } catch (RuntimeException e) {
-            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+            return new ResponseEntity<>(
+                Map.of("error", e.getMessage()),
+                HttpStatus.NOT_FOUND
+            );
         } catch (Exception e) {
-            return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
+            return new ResponseEntity<>(
+                Map.of("error", "Internal server error: " + e.getMessage()),
+                HttpStatus.INTERNAL_SERVER_ERROR
+            );
         }
     }
 
