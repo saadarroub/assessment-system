@@ -9,18 +9,7 @@ export async function getAllQuestions() {
   return response.data;
 }
 
-// ✅ Neue Frage erstellen
-export async function createQuestion(newQuestion: any) {
-  try {
-    const response = await axios.post(`${API_BASE}/questions`, newQuestion, {
-      headers: { "Content-Type": "application/json" },
-    });
-    return response.data;
-  } catch (error: any) {
-    console.error("❌ Fehler beim Erstellen der Frage:", error);
-    throw error;
-  }
-}
+
 
 // ✅ Alle Fragetypen abrufen
 export async function getQuestionTypes() {
@@ -131,9 +120,9 @@ export async function updateThema(id: string, themaData: { name: string; descrip
 }
 
 // ✅ Neue Frage erstellen
-export async function createQuestionDTO(questionData: any) {
+export async function createQuestion(questionData: any) {
   try {
-    const response = await axios.post(`${API_BASE}/questions/dto`, questionData);
+    const response = await axios.post(`${API_BASE}/questions`, questionData);
     return response.data;
   } catch (error: any) {
     console.error("❌ Fehler beim Erstellen der Frage:", error);
@@ -142,11 +131,15 @@ export async function createQuestionDTO(questionData: any) {
 }
 
 // 🔹 QuestionNode erstellen
-export async function createQuestionNode(themaId: string, questionId: string) {
+export async function createQuestionNode(
+  themaId: string,
+  questionId: string,
+  parentNodeId?: string | null
+) {
   const payload = {
     thema: { id: themaId },
     question: { id: questionId },
-    parentNode: null, // Hauptfrage
+    parentNode: parentNodeId ? { id: parentNodeId } : null,
   };
 
   const response = await axios.post(`${API_BASE}/question-nodes`, payload, {
@@ -155,6 +148,7 @@ export async function createQuestionNode(themaId: string, questionId: string) {
 
   return response.data;
 }
+
 
 
 

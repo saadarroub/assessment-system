@@ -27,6 +27,9 @@ import {
   getChildrenByParent,
   getThemaById,
   deleteQuestion,
+  createQuestion,
+  createQuestionNode,
+  getQuestionTypes,updateQuestion
 } from "@/api/questionApi";
 
 // 🧩 Drag & Drop Imports
@@ -73,10 +76,13 @@ export default function ConditionEditor() {
   );
   const [questions, setQuestions] = useState<any[]>([]);
   const [parentQuestion, setParentQuestion] = useState<any | null>(null);
+  const [editingQuestion, setEditingQuestion] = useState<any | null>(null);
 
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [questionToDelete, setQuestionToDelete] = useState<any | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  const [questionTypes, setQuestionTypes] = useState<any[]>([]);
 
   // 🔁 Rekursive Funktion, die ALLE Kinder bis zur tiefsten Ebene lädt
   async function fetchChildrenRecursive(parentId: string): Promise<any[]> {
@@ -104,6 +110,92 @@ export default function ConditionEditor() {
       return [];
     }
   }
+
+  // 🔹 Fragetypen aus der API laden (wie in CatalogList)
+  useEffect(() => {
+    const fetchTypes = async () => {
+      try {
+        const types = await getQuestionTypes();
+
+        const mapped = types.map((t: any) => {
+          let icon;
+          switch (t.inputType) {
+            case "text":
+              icon = <MessageSquare size={18} />;
+              break;
+            case "radio":
+              icon = <CircleDot size={18} />;
+              break;
+            case "select":
+              icon = <List size={18} />;
+              break;
+            case "checkbox":
+              icon = <CheckSquare size={18} />;
+              break;
+            case "number":
+              icon = <Hash size={18} />;
+              break;
+            case "date":
+              icon = <Calendar size={18} />;
+              break;
+            case "range":
+              icon = <BarChart3 size={18} />;
+              break;
+            case "ranking":
+              icon = <ListOrdered size={18} />;
+              break;
+            default:
+              icon = <MessageSquare size={18} />;
+          }
+
+          let label;
+          switch (t.inputType) {
+            case "text":
+              label = "Textfeld";
+              break;
+            case "radio":
+              label = "Ja/Nein";
+              break;
+            case "select":
+              label = "Auswahl";
+              break;
+            case "checkbox":
+              label = "Mehrfach";
+              break;
+            case "number":
+              label = "Zahl";
+              break;
+            case "date":
+              label = "Datum";
+              break;
+            case "range":
+              label = "Bewertung";
+              break;
+            case "ranking":
+              label = "Reihenfolge";
+              break;
+            default:
+              label = t.name;
+          }
+
+          return {
+            id: t.id,
+            label,
+            value: t.inputType,
+            hasOptions: t.hasOptions,
+            icon,
+          };
+        });
+
+        setQuestionTypes(mapped);
+        console.log("✅ Fragetypen geladen:", mapped);
+      } catch (err) {
+        console.error("❌ Fehler beim Laden der Fragetypen:", err);
+      }
+    };
+
+    fetchTypes();
+  }, []);
 
   useEffect(() => {
     async function fetchAllQuestions() {
@@ -169,6 +261,7 @@ export default function ConditionEditor() {
     setSelectedType("");
     setOptions([]);
     setParentQuestion(null);
+    setEditingQuestion(null); // ✅ hinzugefügt
     setIsModalOpen(false);
   };
 
@@ -197,56 +290,161 @@ export default function ConditionEditor() {
   };
 
   // 🗑️ Öffnet das Lösch-Modal
-const handleDeleteQuestion = (q: any) => {
-  console.log("🧩 Frageobjekt beim Klick:", q);
-  console.log("📌 QuestionNode-ID:", q.id);
-  console.log("📌 Question-ID:", q.questionId);
-  setQuestionToDelete(q);
-  setIsDeleteModalOpen(true);
-};
-
+  const handleDeleteQuestion = (q: any) => {
+    setQuestionToDelete(q);
+    setIsDeleteModalOpen(true);
+  };
 
   // ✅ Bestätigt das Löschen
- // ✅ Bestätigt das Löschen
-const confirmDeleteQuestion = async () => {
-  if (!questionToDelete) return;
+  const confirmDeleteQuestion = async () => {
+    if (!questionToDelete) return;
 
-  try {
-    setIsDeleting(true);
+    try {
+      setIsDeleting(true);
 
-    // ✅ Richtige Question-ID bestimmen
-    const questionId = questionToDelete.questionId 
-      ? questionToDelete.questionId 
-      : questionToDelete.question?.id;
+      // ✅ Richtige Question-ID bestimmen
+      const questionId = questionToDelete.questionId
+        ? questionToDelete.questionId
+        : questionToDelete.question?.id;
 
-    console.log("📌 Lösche Frage mit ID:", questionId);
+      console.log("📌 Lösche Frage mit ID:", questionId);
 
-    if (!questionId) {
-      throw new Error("Keine gültige Question-ID gefunden!");
+      if (!questionId) {
+        throw new Error("Keine gültige Question-ID gefunden!");
+      }
+
+      // ✅ Backend-Aufruf
+      await deleteQuestion(questionId);
+
+      // ✅ Entferne gelöschte Frage aus der UI
+      const removeRecursive = (list: any[]): any[] =>
+        list
+          .filter((q) => q.id !== questionToDelete.id)
+          .map((q) => ({
+            ...q,
+            children: q.children ? removeRecursive(q.children) : [],
+          }));
+
+      setQuestions((prev) => removeRecursive(prev));
+
+      console.log("✅ Frage erfolgreich gelöscht:", questionId);
+    } catch (error) {
+      console.error("❌ Fehler beim Löschen der Frage:", error);
+      alert("Fehler beim Löschen der Frage. Bitte später erneut versuchen.");
+    } finally {
+      setIsDeleting(false);
+      setIsDeleteModalOpen(false);
+      setQuestionToDelete(null);
+    }
+  };
+
+  const handleCreateQuestion = async () => {
+    // 🧩 1. Eingaben prüfen
+    if (!questionText.trim() || !selectedType) {
+      alert("❌ Bitte Fragetext und Typ auswählen!");
+      return;
     }
 
-    // ✅ Backend-Aufruf
-    await deleteQuestion(questionId);
+    const hasOptions = questionTypes.find(
+      (t) => t.value === selectedType
+    )?.hasOptions;
 
-    // ✅ Entferne gelöschte Frage aus der UI
-    const removeRecursive = (list: any[]): any[] =>
-      list
-        .filter((q) => q.id !== questionToDelete.id)
-        .map((q) => ({
-          ...q,
-          children: q.children ? removeRecursive(q.children) : [],
-        }));
+    // 🧱 2. Payload für API
+    const payload = {
+      text: questionText,
+      questionType: {
+        id: questionTypes.find((t) => t.value === selectedType)?.id,
+      },
+      options: hasOptions ? options.map((o) => o.label) : null,
+      scoringSchema: hasOptions
+        ? Object.fromEntries(options.map((o) => [o.label, o.score]))
+        : null,
+    };
 
-    setQuestions((prev) => removeRecursive(prev));
+    try {
+      // 🧩 3. Frage erstellen
+      const question = await createQuestion(payload);
+      console.log("✅ Frage erstellt:", question);
 
-    console.log("✅ Frage erfolgreich gelöscht:", questionId);
-  } catch (error) {
-    console.error("❌ Fehler beim Löschen der Frage:", error);
-    alert("Fehler beim Löschen der Frage. Bitte später erneut versuchen.");
-  } finally {
-    setIsDeleting(false);
-    setIsDeleteModalOpen(false);
-    setQuestionToDelete(null);
+      // 🔗 4. QuestionNode mit Thema verknüpfen
+      console.log("🔗 Verknüpfe Frage mit Thema:", themaId);
+      const node = await createQuestionNode(
+        themaId!,
+        question.id,
+        parentQuestion ? parentQuestion.id : null
+      );
+
+      console.log("✅ QuestionNode erfolgreich erstellt:", node);
+
+      // 🧩 5. Neue Frage lokal in UI einfügen
+      const newQuestion = {
+        id: node.id, // Node-ID
+        questionId: question.id,
+        text: question.text,
+        type: selectedType,
+        children: [],
+        expanded: false,
+      };
+
+      if (parentQuestion) {
+        const updated = addChildToParent(
+          questions,
+          parentQuestion.id,
+          newQuestion
+        );
+        setQuestions(updated);
+      } else {
+        setQuestions([...questions, newQuestion]);
+      }
+
+      // 🧹 6. Modal & Felder zurücksetzen
+      setIsModalOpen(false);
+      setQuestionText("");
+      setSelectedType("");
+      setOptions([]);
+      setParentQuestion(null);
+    } catch (error) {
+      console.error("❌ Fehler beim Hinzufügen der Frage:", error);
+      alert("❌ Fehler beim Hinzufügen der Frage!");
+    }
+  };
+
+
+  const handleUpdateQuestion = async () => {
+  if (!editingQuestion) return;
+  try {
+    const hasOptions = questionTypes.find((t) => t.value === selectedType)
+      ?.hasOptions;
+
+    const payload = {
+      text: questionText,
+      questionType: {
+        id: questionTypes.find((t) => t.value === selectedType)?.id,
+      },
+      options: hasOptions ? options.map((o) => o.label) : null,
+      scoringSchema: hasOptions
+        ? Object.fromEntries(options.map((o) => [o.label, o.score]))
+        : null,
+    };
+
+    // Backend-Update aufrufen
+    await updateQuestion(editingQuestion.questionId, payload);
+
+    // UI aktualisieren
+    const updateQuestionInTree = (list: any[]): any[] =>
+      list.map((q) =>
+        q.id === editingQuestion.id
+          ? { ...q, text: questionText, type: selectedType, options }
+          : {
+              ...q,
+              children: q.children ? updateQuestionInTree(q.children) : [],
+            }
+      );
+
+    setQuestions((prev) => updateQuestionInTree(prev));
+    handleCancel();
+  } catch (err) {
+    console.error("❌ Fehler beim Bearbeiten der Frage:", err);
   }
 };
 
@@ -317,16 +515,6 @@ const confirmDeleteQuestion = async () => {
   }
 
   // 🔹 Fragetypen
-  const questionTypes = [
-    { label: "Textfeld", value: "text", icon: <MessageSquare size={18} /> },
-    { label: "Ja/Nein", value: "radio", icon: <CircleDot size={18} /> },
-    { label: "Auswahl", value: "select", icon: <List size={18} /> },
-    { label: "Mehrfach", value: "checkbox", icon: <CheckSquare size={18} /> },
-    { label: "Zahl", value: "number", icon: <Hash size={18} /> },
-    { label: "Datum", value: "date", icon: <Calendar size={18} /> },
-    { label: "Bewertung", value: "range", icon: <BarChart3 size={18} /> },
-    { label: "Reihenfolge", value: "ranking", icon: <ListOrdered size={18} /> },
-  ];
 
   const typesWithOptions = ["radio", "checkbox", "select"];
   const showOptions = typesWithOptions.includes(selectedType);
@@ -406,9 +594,20 @@ const confirmDeleteQuestion = async () => {
             >
               <Plus size={18} />
             </button>
-            <button className="text-gray-600 hover:text-brand-sand transition-all">
+            <button
+              onClick={() => {
+                setEditingQuestion(q);
+                setParentQuestion(null);
+                setQuestionText(q.text);
+                setSelectedType(q.type);
+                setOptions(q.options || []);
+                setIsModalOpen(true);
+              }}
+              className="text-gray-600 hover:text-brand-sand transition-all"
+            >
               <Edit3 size={18} />
             </button>
+
             <button
               onClick={() => handleDeleteQuestion(q)}
               className="text-red-500 hover:text-red-600 transition-all"
@@ -555,11 +754,12 @@ const confirmDeleteQuestion = async () => {
         </div>
       )}
 
-      {/* Modal bleibt unverändert */}
+      {/* 🧱 Modal: Neue Frage hinzufügen */}
       {isModalOpen && (
-        <div className="fixed top-5 left-24  w-full h-full bg-black bg-opacity-20 flex justify-center items-center z-50 ">
+        <div className="fixed top-5 left-24 w-full h-full bg-black bg-opacity-20 flex justify-center items-center z-50">
           <div className="bg-white rounded-xl shadow-lg w-[730px] max-h-[80vh] flex flex-col relative">
             <div className="p-8 overflow-y-auto flex-1">
+              {/* ❌ Schließen-Button */}
               <button
                 onClick={handleCancel}
                 className="absolute top-3 right-3 text-gray-500 hover:text-gray-700"
@@ -567,7 +767,12 @@ const confirmDeleteQuestion = async () => {
                 <X size={20} />
               </button>
 
-              {parentQuestion ? (
+              {/* 🔹 Titelbereich */}
+              {editingQuestion ? (
+                <h2 className="text-xl font-semibold text-gray-800 mb-6">
+                  Frage bearbeiten
+                </h2>
+              ) : parentQuestion ? (
                 <div className="mb-6">
                   <p className="text-sm text-gray-500">
                     <span className="font-semibold text-gray-700">
@@ -581,11 +786,11 @@ const confirmDeleteQuestion = async () => {
                 </div>
               ) : (
                 <h2 className="text-xl font-semibold text-gray-800 mb-6">
-                  Neue Frage hinzufügen
+                  Neue Hauptfrage hinzufügen
                 </h2>
               )}
 
-              {/* Frage */}
+              {/* 🔸 Fragetext */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Frage<span className="text-red-500">*</span>
@@ -599,7 +804,7 @@ const confirmDeleteQuestion = async () => {
                 ></textarea>
               </div>
 
-              {/* Fragetyp */}
+              {/* 🔸 Fragetyp */}
               <div className="mb-6 mt-6">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Fragetyp<span className="text-red-500">*</span>
@@ -622,7 +827,7 @@ const confirmDeleteQuestion = async () => {
                 </div>
               </div>
 
-              {/* Optionen */}
+              {/* 🔸 Antwortoptionen (nur falls nötig) */}
               {showOptions && (
                 <div className="border-t border-gray-200 pt-4 mt-4">
                   <h3 className="text-md font-semibold text-gray-800 mb-3">
@@ -683,7 +888,7 @@ const confirmDeleteQuestion = async () => {
               )}
             </div>
 
-            {/* Footer */}
+            {/* 🔹 Footer mit aktualisiertem Button */}
             <div className="flex justify-end gap-3 px-8 py-4 border-t bg-white sticky bottom-0 rounded-b-xl">
               <button
                 onClick={handleCancel}
@@ -692,10 +897,12 @@ const confirmDeleteQuestion = async () => {
                 Abbrechen
               </button>
               <button
-                onClick={handleConfirm}
+                onClick={
+                  editingQuestion ? handleUpdateQuestion : handleCreateQuestion
+                }
                 className="px-4 py-2 rounded-lg bg-brand-sand text-white font-medium hover:opacity-90"
               >
-                Hinzufügen
+                {editingQuestion ? "Speichern" : "Hinzufügen"}
               </button>
             </div>
           </div>

@@ -21,7 +21,7 @@ import {
 import {
   getThemaById,
   getQuestionTypes,
-  createQuestionDTO,
+  createQuestion,
   createQuestionNode,
 } from "@/api/questionApi";
 
@@ -61,9 +61,9 @@ const handleConfirm = async () => {
   };
 
   try {
-    console.log("📤 Erstelle Frage...", payload);
-    const question = await createQuestionDTO(payload);
-    console.log("✅ Frage erstellt:", question);
+  
+    const question = await createQuestion(payload);
+  
 
     // ➕ Frage mit Thema verknüpfen
     console.log("🔗 Verknüpfe Frage mit Thema:", themaId);
