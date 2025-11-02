@@ -168,7 +168,7 @@ export default function AppRoutes() {
       />
 
       <Route
-        path="/admin/catalogs"
+        path="/admin/catalogs/:id"
         element={
           <ProtectedRoute permission="admin:dashboard:view">
             <CatalogList />

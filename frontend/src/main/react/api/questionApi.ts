@@ -35,8 +35,14 @@ export async function getQuestionTypes() {
 
 // 🟢 Frage löschen
 export async function deleteQuestion(id: string) {
-  await axios.delete(`${API_BASE}/questions/${id}`);
+  try {
+    await axios.delete(`${API_BASE}/questions/${id}`);
+  } catch (error) {
+    console.error("❌ Fehler beim Löschen der Frage:", error);
+    throw error;
+  }
 }
+
 
 // 🟢 Frage aktualisieren
 export async function updateQuestion(id: string, question: any) {
@@ -123,6 +129,37 @@ export async function updateThema(id: string, themaData: { name: string; descrip
   if (!response.ok) throw new Error("Fehler beim Aktualisieren des Themas");
   return await response.json();
 }
+
+// ✅ Neue Frage erstellen
+export async function createQuestionDTO(questionData: any) {
+  try {
+    const response = await axios.post(`${API_BASE}/questions/dto`, questionData);
+    return response.data;
+  } catch (error: any) {
+    console.error("❌ Fehler beim Erstellen der Frage:", error);
+    throw error;
+  }
+}
+
+// 🔹 QuestionNode erstellen
+export async function createQuestionNode(themaId: string, questionId: string) {
+  const payload = {
+    thema: { id: themaId },
+    question: { id: questionId },
+    parentNode: null, // Hauptfrage
+  };
+
+  const response = await axios.post(`${API_BASE}/question-nodes`, payload, {
+    headers: { "Content-Type": "application/json" },
+  });
+
+  return response.data;
+}
+
+
+
+
+
 
 
 

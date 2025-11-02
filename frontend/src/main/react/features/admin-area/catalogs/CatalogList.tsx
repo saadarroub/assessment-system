@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import AdminLayout from "@/apps/app/AdminLayout";
 import "@/styles/admin.css";
 import {
@@ -18,9 +18,12 @@ import {
   Trash2,
 } from "lucide-react";
 
-
-
-
+import {
+  getThemaById,
+  getQuestionTypes,
+  createQuestionDTO,
+  createQuestionNode,
+} from "@/api/questionApi";
 
 export default function CatalogList() {
   const navigate = useNavigate();
@@ -28,37 +31,59 @@ export default function CatalogList() {
   // 🔹 States
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [questionText, setQuestionText] = useState("");
-  const [selectedType, setSelectedType] = useState("");
-  const [options, setOptions] = useState<{ label: string; score: number }[]>([]);
+  const [selectedType, setSelectedType] = useState<any | null>(null);
+
+  const [options, setOptions] = useState<{ label: string; score: number }[]>(
+    []
+  );
+  const [questionTypes, setQuestionTypes] = useState<any[]>([]);
 
   // 🔹 Fragetypen
-  const questionTypes = [
-    { label: "Textfeld", value: "text", icon: <MessageSquare size={18} /> },
-    { label: "Ja/Nein", value: "radio", icon: <CircleDot size={18} /> },
-    { label: "Auswahl", value: "select", icon: <List size={18} /> },
-    { label: "Mehrfach", value: "checkbox", icon: <CheckSquare size={18} /> },
-    { label: "Zahl", value: "number", icon: <Hash size={18} /> },
-    { label: "Datum", value: "date", icon: <Calendar size={18} /> },
-    { label: "Bewertung", value: "range", icon: <BarChart3 size={18} /> },
-    { label: "Reihenfolge", value: "ranking", icon: <ListOrdered size={18} /> },
-  ];
 
-  const typesWithOptions = ["radio", "checkbox", "select"];
-  const showOptions = typesWithOptions.includes(selectedType);
+  const showOptions = selectedType?.hasOptions === true;
 
+  // 🔹 Frage speichern → anlegen + mit Thema verknüpfen
+const handleConfirm = async () => {
+  if (!questionText.trim() || !selectedType) {
+    alert("❌ Bitte Fragetext und Typ auswählen!");
+    return;
+  }
 
+  const hasOptions = selectedType?.hasOptions;
 
-// 🔹 Frage speichern → weiterleiten
-const handleConfirm = () => {
-  if (!questionText.trim() || !selectedType) return;
-  
-  setIsModalOpen(false);
+  const payload = {
+    text: questionText,
+    questionType: { id: selectedType.id },
+    options: hasOptions ? options.map((o) => o.label) : null,
+    scoringSchema: hasOptions
+      ? Object.fromEntries(options.map((o) => [o.label, o.score]))
+      : null,
+  };
 
-  // ⬇️ hier dynamisch ID einfügen falls nötig
-  navigate("/admin/catalogs/1/condition-editor");
+  try {
+    console.log("📤 Erstelle Frage...", payload);
+    const question = await createQuestionDTO(payload);
+    console.log("✅ Frage erstellt:", question);
+
+    // ➕ Frage mit Thema verknüpfen
+    console.log("🔗 Verknüpfe Frage mit Thema:", themaId);
+    await createQuestionNode(themaId!, question.id);
+
+    console.log("✅ QuestionNode erfolgreich erstellt!");
+
+    // 🧹 UI zurücksetzen
+    setIsModalOpen(false);
+    setQuestionText("");
+    setSelectedType(null);
+    setOptions([]);
+
+    // 🚀 Direkt weiterleiten — kein alert mehr!
+    navigate(`/admin/catalogs/${themaId}/condition-editor`);
+  } catch (error) {
+    console.error("❌ Fehler beim Hinzufügen der Frage:", error);
+    alert("❌ Fehler beim Hinzufügen der Frage!");
+  }
 };
-
-
 
 
   const handleCancel = () => {
@@ -67,6 +92,110 @@ const handleConfirm = () => {
     setOptions([]);
     setIsModalOpen(false);
   };
+
+  const { id: themaId } = useParams();
+  const [thema, setThema] = useState<{
+    name: string;
+    description: string;
+  } | null>(null);
+
+  useEffect(() => {
+    const fetchTypes = async () => {
+      try {
+        const types = await getQuestionTypes();
+
+        // 🔹 Icons zuordnen und API-Daten aufbereiten
+        const mapped = types.map((t: any) => {
+          let icon;
+          switch (t.inputType) {
+            case "text":
+              icon = <MessageSquare size={18} />;
+              break;
+            case "radio":
+              icon = <CircleDot size={18} />;
+              break;
+            case "select":
+              icon = <List size={18} />;
+              break;
+            case "checkbox":
+              icon = <CheckSquare size={18} />;
+              break;
+            case "number":
+              icon = <Hash size={18} />;
+              break;
+            case "date":
+              icon = <Calendar size={18} />;
+              break;
+            case "range":
+              icon = <BarChart3 size={18} />;
+              break;
+            case "ranking":
+              icon = <ListOrdered size={18} />;
+              break;
+            default:
+              icon = <MessageSquare size={18} />;
+          }
+
+          let label;
+          switch (t.inputType) {
+            case "text":
+              label = "Textfeld";
+              break;
+            case "radio":
+              label = "Ja/Nein";
+              break;
+            case "select":
+              label = "Auswahl";
+              break;
+            case "checkbox":
+              label = "Mehrfach";
+              break;
+            case "number":
+              label = "Zahl";
+              break;
+            case "date":
+              label = "Datum";
+              break;
+            case "range":
+              label = "Bewertung";
+              break;
+            case "ranking":
+              label = "Reihenfolge";
+              break;
+            default:
+              label = t.name; // Fallback, falls neuer Typ aus DB kommt
+          }
+
+          return {
+            id: t.id,
+            label,
+            value: t.inputType,
+            hasOptions: t.hasOptions,
+            icon,
+          };
+        });
+
+        setQuestionTypes(mapped);
+      } catch (err) {
+        console.error("❌ Fehler beim Laden der Fragetypen:", err);
+      }
+    };
+
+    fetchTypes();
+  }, []);
+
+  useEffect(() => {
+    const loadThema = async () => {
+      try {
+        const data = await getThemaById(themaId!);
+        setThema(data);
+      } catch (err) {
+        console.error("❌ Fehler beim Laden des Themas:", err);
+      }
+    };
+
+    if (themaId) loadThema();
+  }, [themaId]);
 
   return (
     <AdminLayout>
@@ -87,11 +216,15 @@ const handleConfirm = () => {
             <div className="bg-brand-sand p-3 rounded-xl shadow">
               <FileText size={26} className="text-white" />
             </div>
+
+            {/* Dynamischer Titel */}
             <h1 className="text-2xl md:text-6xl font-bold">
-              IT Project Management
+              {thema ? thema.name : "Lade Thema..."}
             </h1>
           </div>
-          <p className="text-gray-600 mt-4">Projektplanung und -durchführung</p>
+
+          {/* Dynamische Beschreibung */}
+          <p className="text-gray-600 mt-4">{thema ? thema.description : ""}</p>
         </div>
       </div>
 
@@ -154,10 +287,10 @@ const handleConfirm = () => {
                 <div className="grid grid-cols-2 gap-3">
                   {questionTypes.map((type) => (
                     <button
-                      key={type.value}
-                      onClick={() => setSelectedType(type.value)}
+                      key={type.id}
+                      onClick={() => setSelectedType(type)}
                       className={`flex items-center justify-start gap-3 border rounded-lg py-3 px-4 text-left font-medium text-sm transition-all duration-150 ${
-                        selectedType === type.value
+                        selectedType?.id === type.id
                           ? "bg-brand-sand border-brand-sand text-white shadow-md"
                           : "border-gray-300 text-gray-800 hover:bg-gray-50"
                       }`}

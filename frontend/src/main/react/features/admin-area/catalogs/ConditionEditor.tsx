@@ -25,7 +25,8 @@ import {
 import {
   getRootQuestionsByThema,
   getChildrenByParent,
-  getThemaById
+  getThemaById,
+  deleteQuestion,
 } from "@/api/questionApi";
 
 // 🧩 Drag & Drop Imports
@@ -39,29 +40,24 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
-
-
-
 export default function ConditionEditor() {
   const navigate = useNavigate();
   const { id: themaId } = useParams();
   const [thema, setThema] = useState<any>(null);
 
   useEffect(() => {
-  async function fetchThemaDetails() {
-    try {
-      const data = await getThemaById(themaId!);
-      setThema(data);
-      console.log("📘 Thema geladen:", data);
-    } catch (error) {
-      console.error("❌ Fehler beim Laden des Themas:", error);
+    async function fetchThemaDetails() {
+      try {
+        const data = await getThemaById(themaId!);
+        setThema(data);
+        console.log("📘 Thema geladen:", data);
+      } catch (error) {
+        console.error("❌ Fehler beim Laden des Themas:", error);
+      }
     }
-  }
 
-  if (themaId) fetchThemaDetails();
-}, [themaId]);
-
-
+    if (themaId) fetchThemaDetails();
+  }, [themaId]);
 
   // ✅ Holt die ID aus der URL
   useEffect(() => {
@@ -78,6 +74,10 @@ export default function ConditionEditor() {
   const [questions, setQuestions] = useState<any[]>([]);
   const [parentQuestion, setParentQuestion] = useState<any | null>(null);
 
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [questionToDelete, setQuestionToDelete] = useState<any | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   // 🔁 Rekursive Funktion, die ALLE Kinder bis zur tiefsten Ebene lädt
   async function fetchChildrenRecursive(parentId: string): Promise<any[]> {
     try {
@@ -89,11 +89,11 @@ export default function ConditionEditor() {
       // Wenn es Kinder gibt -> lade auch deren Unterfragen rekursiv
       const enriched = await Promise.all(
         children.map(async (child: any) => ({
-          id: child.id,
+          id: child.id, // QuestionNode-ID
+          questionId: child.question?.id, // ✅ echte Question-ID
           text: child.question?.text || "Ohne Text",
           type: child.question?.questionType?.inputType || "unknown",
           expanded: false,
-          // 🪄 hier ruft sich die Funktion selbst wieder auf
           children: await fetchChildrenRecursive(child.id),
         }))
       );
@@ -104,8 +104,6 @@ export default function ConditionEditor() {
       return [];
     }
   }
-
-
 
   useEffect(() => {
     async function fetchAllQuestions() {
@@ -118,10 +116,10 @@ export default function ConditionEditor() {
         const fullHierarchy = await Promise.all(
           roots.map(async (root: any) => ({
             id: root.id,
+            questionId: root.question?.id, // ✅ echte Question-ID
             text: root.question?.text || "Ohne Text",
             type: root.question?.questionType?.inputType || "unknown",
             expanded: false,
-            // 🔁 Holt automatisch alle Unterfragen jeder Ebene
             children: await fetchChildrenRecursive(root.id),
           }))
         );
@@ -198,78 +196,125 @@ export default function ConditionEditor() {
     });
   };
 
-  // 🗑️ Frage löschen
-  const handleDeleteQuestion = (id: string) => {
+  // 🗑️ Öffnet das Lösch-Modal
+const handleDeleteQuestion = (q: any) => {
+  console.log("🧩 Frageobjekt beim Klick:", q);
+  console.log("📌 QuestionNode-ID:", q.id);
+  console.log("📌 Question-ID:", q.questionId);
+  setQuestionToDelete(q);
+  setIsDeleteModalOpen(true);
+};
+
+
+  // ✅ Bestätigt das Löschen
+ // ✅ Bestätigt das Löschen
+const confirmDeleteQuestion = async () => {
+  if (!questionToDelete) return;
+
+  try {
+    setIsDeleting(true);
+
+    // ✅ Richtige Question-ID bestimmen
+    const questionId = questionToDelete.questionId 
+      ? questionToDelete.questionId 
+      : questionToDelete.question?.id;
+
+    console.log("📌 Lösche Frage mit ID:", questionId);
+
+    if (!questionId) {
+      throw new Error("Keine gültige Question-ID gefunden!");
+    }
+
+    // ✅ Backend-Aufruf
+    await deleteQuestion(questionId);
+
+    // ✅ Entferne gelöschte Frage aus der UI
     const removeRecursive = (list: any[]): any[] =>
       list
-        .filter((q) => q.id !== id)
+        .filter((q) => q.id !== questionToDelete.id)
         .map((q) => ({
           ...q,
           children: q.children ? removeRecursive(q.children) : [],
         }));
-    setQuestions(removeRecursive(questions));
-  };
 
- // 🔁 Ein- & Ausklappen von Fragen (vollständig rekursiv)
-const toggleExpand = async (id: string) => {
-  const updated = await Promise.all(
-    questions.map(async (q) => {
-      if (q.id === id) {
-        // Wenn noch keine Kinder geladen sind → lade sie rekursiv
-        if (!q.expanded && q.children.length === 0) {
-          const children = await fetchChildrenRecursive(id);
-          return { ...q, expanded: true, children };
-        } else {
-          // Wenn Kinder schon da sind → nur ein-/ausklappen
-          return { ...q, expanded: !q.expanded };
-        }
-      }
+    setQuestions((prev) => removeRecursive(prev));
 
-      // 🔁 Falls Unterfragen vorhanden → rekursiv weitersuchen
-      if (q.children?.length) {
-        return {
-          ...q,
-          children: await Promise.all(
-            q.children.map(async (child: any) =>
-              child.id === id
-                ? !child.expanded
-                  ? { ...child, expanded: true, children: await fetchChildrenRecursive(child.id) }
-                  : { ...child, expanded: false }
-                : await toggleExpandInChild(child, id)
-            )
-          ),
-        };
-      }
-
-      return q;
-    })
-  );
-
-  setQuestions(updated);
+    console.log("✅ Frage erfolgreich gelöscht:", questionId);
+  } catch (error) {
+    console.error("❌ Fehler beim Löschen der Frage:", error);
+    alert("Fehler beim Löschen der Frage. Bitte später erneut versuchen.");
+  } finally {
+    setIsDeleting(false);
+    setIsDeleteModalOpen(false);
+    setQuestionToDelete(null);
+  }
 };
 
-// 🔁 Hilfsfunktion für rekursives Ein-/Ausklappen in Unterfragen
-async function toggleExpandInChild(node: any, id: string): Promise<any> {
-  if (node.id === id) {
-    if (!node.expanded && node.children.length === 0) {
-      const children = await fetchChildrenRecursive(id);
-      return { ...node, expanded: true, children };
-    } else {
-      return { ...node, expanded: !node.expanded };
+
+  // 🔁 Ein- & Ausklappen von Fragen (vollständig rekursiv)
+  const toggleExpand = async (id: string) => {
+    const updated = await Promise.all(
+      questions.map(async (q) => {
+        if (q.id === id) {
+          // Wenn noch keine Kinder geladen sind → lade sie rekursiv
+          if (!q.expanded && q.children.length === 0) {
+            const children = await fetchChildrenRecursive(id);
+            return { ...q, expanded: true, children };
+          } else {
+            // Wenn Kinder schon da sind → nur ein-/ausklappen
+            return { ...q, expanded: !q.expanded };
+          }
+        }
+
+        // 🔁 Falls Unterfragen vorhanden → rekursiv weitersuchen
+        if (q.children?.length) {
+          return {
+            ...q,
+            children: await Promise.all(
+              q.children.map(async (child: any) =>
+                child.id === id
+                  ? !child.expanded
+                    ? {
+                        ...child,
+                        expanded: true,
+                        children: await fetchChildrenRecursive(child.id),
+                      }
+                    : { ...child, expanded: false }
+                  : await toggleExpandInChild(child, id)
+              )
+            ),
+          };
+        }
+
+        return q;
+      })
+    );
+
+    setQuestions(updated);
+  };
+
+  // 🔁 Hilfsfunktion für rekursives Ein-/Ausklappen in Unterfragen
+  async function toggleExpandInChild(node: any, id: string): Promise<any> {
+    if (node.id === id) {
+      if (!node.expanded && node.children.length === 0) {
+        const children = await fetchChildrenRecursive(id);
+        return { ...node, expanded: true, children };
+      } else {
+        return { ...node, expanded: !node.expanded };
+      }
     }
-  }
 
-  if (node.children?.length) {
-    return {
-      ...node,
-      children: await Promise.all(
-        node.children.map((child: any) => toggleExpandInChild(child, id))
-      ),
-    };
-  }
+    if (node.children?.length) {
+      return {
+        ...node,
+        children: await Promise.all(
+          node.children.map((child: any) => toggleExpandInChild(child, id))
+        ),
+      };
+    }
 
-  return node;
-}
+    return node;
+  }
 
   // 🔹 Fragetypen
   const questionTypes = [
@@ -365,7 +410,7 @@ async function toggleExpandInChild(node: any, id: string): Promise<any> {
               <Edit3 size={18} />
             </button>
             <button
-              onClick={() => handleDeleteQuestion(q.id)}
+              onClick={() => handleDeleteQuestion(q)}
               className="text-red-500 hover:text-red-600 transition-all"
             >
               <Trash2 size={18} />
@@ -439,7 +484,9 @@ async function toggleExpandInChild(node: any, id: string): Promise<any> {
               {thema?.name || "Lade Thema..."}
             </h1>
           </div>
-          <p className="text-gray-600 mt-4">{thema?.description || "Beschreibung wird geladen..."}</p>
+          <p className="text-gray-600 mt-4">
+            {thema?.description || "Beschreibung wird geladen..."}
+          </p>
         </div>
       </div>
 
@@ -470,6 +517,43 @@ async function toggleExpandInChild(node: any, id: string): Promise<any> {
           </SortableContext>
         </DndContext>
       </div>
+
+      {/* 🗑️ Lösch-Bestätigungs-Modal */}
+      {isDeleteModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50">
+          <div className="bg-white rounded-xl shadow-lg w-[420px] p-6">
+            <h2 className="text-lg font-semibold text-gray-800 mb-4">
+              Frage wirklich löschen?
+            </h2>
+            <p className="text-sm text-gray-600 mb-6">
+              Diese Aktion kann nicht rückgängig gemacht werden.
+              <br />
+              <span className="font-medium text-gray-900">
+                „{questionToDelete?.text}“
+              </span>{" "}
+              wird dauerhaft entfernt.
+            </p>
+
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setIsDeleteModalOpen(false)}
+                className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100"
+              >
+                Abbrechen
+              </button>
+              <button
+                onClick={confirmDeleteQuestion}
+                disabled={isDeleting}
+                className={`px-4 py-2 rounded-lg bg-red-500 text-white font-medium hover:bg-red-600 transition-all ${
+                  isDeleting ? "opacity-60 cursor-not-allowed" : ""
+                }`}
+              >
+                {isDeleting ? "Lösche..." : "Ja, löschen"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal bleibt unverändert */}
       {isModalOpen && (

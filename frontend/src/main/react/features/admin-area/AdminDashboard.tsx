@@ -19,6 +19,7 @@ import {
   createThema,
   deleteThema,
   updateThema,
+  
 } from "@/api/questionApi";
 
 // 🧩 Stats bleiben gleich
@@ -253,7 +254,7 @@ export default function AdminDashboard() {
                         if (hasQuestions) {
                           navigate(`/admin/catalogs/${t.id}/condition-editor`);
                         } else {
-                          navigate(`/admin/catalogs`);
+                           navigate(`/admin/catalogs/${t.id}`);
                         }
                       } catch (error) {
                         console.error(
