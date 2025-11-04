@@ -1,9 +1,10 @@
 import { Link, NavLink } from "react-router-dom";
-import AdminLayout from "@/apps/app/adminPanelHeader";
+import AdminLayout from "@/apps/app/AdminLayout";
 import "@/styles/adminPanel.css";
 import "@/styles/admin.css";
 import { Users, Building2, ClipboardList, ArrowRight } from "lucide-react";
 
+ 
 type Panel = {
   title: string;
   desc: string;
@@ -34,12 +35,19 @@ const PANELS: Panel[] = [
     to: "/admin/adminPanel/audit",
     icon: ClipboardList,
   },
+  {
+title: "Alle Zuweisungen",
+    desc: "View katalog zuweisungen",
+    count: 5,
+    to: "/admin/adminPanel/zuweisungen",
+    icon: ClipboardList,
+  },
 ];
 
 export default function AdminPanelPage() {
   return (
     <AdminLayout>
-      {/* ===== Hero wie im Fragenkatalog/Admin-Bereich ===== */}
+      {/* ===== wie im Fragenkatalog/Admin-Bereich ===== */}
       <header className="main-header">
         <div className="header-content">
           <div className="header-left" />

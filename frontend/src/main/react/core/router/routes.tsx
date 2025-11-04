@@ -2,11 +2,10 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import LandingPage from '@/apps/landing/LandingPage';
 import LoginPage from '@/features/auth/LoginPage';
-import WorkerDashboard from '@/features/worker-area/WorkerDashboard';
+import KatalogThemenPublic from '@/features/worker-area/KatalogThemenPublic';
 import AdminDashboard from '@/features/admin-area/AdminDashboard';
 import ProtectedRoute from './ProtectedRoute';
 import ResultsPage from '@/features/worker-area/results/ResultsPage';
-import AnalyticsDashboard from '@/features/worker-area/results/TotalResultsPage';
 import AdminPanelPage from '@/features/admin-panel/AdminPanelPage';
 import UserList from '@/features/admin-panel/users/UserList';
 import UserDetailsPage from '@/features/admin-panel/users/UserDetail';
@@ -14,16 +13,22 @@ import CompaniesList from '@/features/admin-panel/companies/CompanyList';
 import CompanyDetails from '@/features/admin-panel/companies/CompanyDetail';
 import AuditPage from '@/features/admin-panel/audit/AuditLogTable';
 import KatalogeZuweisen from '@/features/admin-area/KatalogeZuweisen';
-import TestSliderNav from '@/apps/app/TestSliderNav';
+import AssessmentPage from '@/features/worker-area/AssessmentPage';
+import CompanyDetailPage from '@/features/worker-area/results/CompanyDetailPage';
+import CompanyListPage from '@/features/worker-area/results/CompanyListPage';
+import KatalogVerwaltung from '@/features/admin-area/KatalogVerwaltung';
+import Zuweisungen from '@/features/admin-panel/companies/zuweisungen';
+import InviteGate from "@/public/InviteGate";
+import ZugewiesenerKatalog from '@/public/ZugewiesenerKatalogPagePublic';
+
 // ⬇️ Topic-Seiten
 import EamPage from '@/features/admin-area/topics/eam/EamPage';
 import OperatingModelPage from '@/features/admin-area/topics/operating-model/OperatingModelPage';
 import SourcingPage from '@/features/admin-area/topics/sourcing/SourcingPage';
 import ProjectManagementPage from '@/features/admin-area/topics/project-management/ProjectManagementPage';
 import CompanyListtest from '@/features/admin-panel/companies/testcomplist';
-import CatalogList from '@/features/admin-area/catalogs/CatalogList';
 import ConditionEditor from '@/features/admin-area/catalogs/ConditionEditor';
-
+import CatalogList from '@/features/admin-area/catalogs/CatalogList';
 
 
 
@@ -32,57 +37,75 @@ export default function AppRoutes() {
     <Routes>
       <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/invite/:token" element={<InviteGate />} />
+       <Route path="/KatalogGate" element={<ZugewiesenerKatalog />} />
+
 
       <Route
-        path="/app/dashboard"
+        path="/app/katalog-themen-public"
         element={
-          <ProtectedRoute permission="user:dashboard:view">
-            <WorkerDashboard />
+          <ProtectedRoute allowWithToken>
+            <KatalogThemenPublic />
           </ProtectedRoute>
         }
       />
-       <Route
-        path="/demo"
+      <Route
+        path="/app/result/:companyId"
         element={
           <ProtectedRoute>
-            <TestSliderNav />
+            <CompanyDetailPage />
           </ProtectedRoute>
         }
       />
       <Route
         path="/app/results/:sessionId"
         element={
-          <ProtectedRoute  permission="user:dashboard:view">
+          <ProtectedRoute permission="user:dashboard:view">
             <ResultsPage />
           </ProtectedRoute>
         }
       />
+
       <Route
-        path="/app/totalresults/1"
+        path="/app/companylist/"
         element={
           <ProtectedRoute>
-            <AnalyticsDashboard />
+            <CompanyListPage />
           </ProtectedRoute>
         }
       />
-
+      <Route
+        path="/app/assessments"
+        element={
+          <ProtectedRoute permission="user:dashboard:view">
+            <AssessmentPage />
+          </ProtectedRoute>
+        }
+      />
       {/* Admin Dashboard */}
       <Route
         path="/admin"
         element={
-          
+          <ProtectedRoute permission="admin:dashboard:view">
             <AdminDashboard />
-        
+          </ProtectedRoute>
         }
       />
+      <Route 
+         path="/admin/kataloge/verwaltung" 
+         element={
+          <ProtectedRoute permission="admin:dashboard:view">
+            <KatalogVerwaltung />
+          </ProtectedRoute>
+         } />
       <Route
-  path="/admin/katalogzuweisen"
-  element={
-    <ProtectedRoute permission="admin:dashboard:view">
-      <KatalogeZuweisen />
-    </ProtectedRoute>
-  }
-/>
+        path="/admin/katalogzuweisen"
+        element={
+          <ProtectedRoute permission="admin:dashboard:view">
+            <KatalogeZuweisen />
+          </ProtectedRoute>
+        }
+      />
       <Route
         path="/admin/adminPanel"
         element={
@@ -99,7 +122,7 @@ export default function AppRoutes() {
           </ProtectedRoute>
         }
       />
-       <Route
+      <Route
         path="/admin/adminPanel/users/:id"
         element={
           <ProtectedRoute>
@@ -111,7 +134,7 @@ export default function AppRoutes() {
         path="/admin/adminPanel/audit"
         element={
           <ProtectedRoute>
-            < AuditPage/>
+            < AuditPage />
           </ProtectedRoute>
         }
       />
@@ -120,6 +143,14 @@ export default function AppRoutes() {
         element={
           <ProtectedRoute>
             <CompaniesList />
+          </ProtectedRoute>
+        }
+      />
+          <Route
+        path="/admin/adminPanel/zuweisungen"
+        element={
+          <ProtectedRoute>
+            <Zuweisungen />
           </ProtectedRoute>
         }
       />
@@ -136,35 +167,34 @@ export default function AppRoutes() {
       <Route
         path="/admin/topics/eam"
         element={
-         
+          <ProtectedRoute permission="admin:dashboard:view">
             <EamPage />
-          
+          </ProtectedRoute>
         }
       />
       <Route
         path="/admin/topics/operating-model"
         element={
-        
+          <ProtectedRoute permission="admin:dashboard:view">
             <OperatingModelPage />
-          
+          </ProtectedRoute>
         }
       />
       <Route
         path="/admin/topics/sourcing"
         element={
-    
+          <ProtectedRoute permission="admin:dashboard:view">
             <SourcingPage />
-        
+          </ProtectedRoute>
         }
       />
       <Route
         path="/admin/topics/project-management"
         element={
-         
+          <ProtectedRoute permission="admin:dashboard:view">
             <ProjectManagementPage />
-         
+          </ProtectedRoute>
         }
-
       />
 
       <Route
@@ -184,16 +214,15 @@ export default function AppRoutes() {
           </ProtectedRoute>
         }
       />
-
-       <Route
+      <Route
         path="/testComp"
         element={
           <ProtectedRoute permission="user:dashboard:view">
-            <CompanyListtest/>
+            <CompanyListtest />
           </ProtectedRoute>
         }
       />
-  
+
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

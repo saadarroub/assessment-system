@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import AdminPanelHeader from "@/apps/app/adminPanelHeader";
 import { Search, Filter, ArrowUpDown } from "lucide-react";
 import "@/styles/adminPanel.css";   // Grundlayout & Tokens inkl. Hero
-import "@/styles/adminAudit.css";   // Seite/Toolbar/Tabelle
+import "@/styles/AdminAudit.css";   // Seite/Toolbar/Tabelle
 
 type ActionKey =
   | "login"

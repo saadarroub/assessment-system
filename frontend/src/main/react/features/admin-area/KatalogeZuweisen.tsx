@@ -1,11 +1,18 @@
 import AdminLayout from "@/apps/app/AdminLayout";
-import React, { useMemo, useState, useEffect, useRef } from "react";
-import { ClipboardList, Building2, ShoppingCart, BarChart3 } from "lucide-react";
+import  { useMemo, useState, useEffect, useRef } from "react";
+import { Building2, Settings, Pencil, Wrench, Plus } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { Link } from "react-router-dom";
+
+import { getCompanies, getWorkersByCompany, type WorkerApi } from "../service/companyService";
+import { getCatalogs, createCatalog, type CatalogApi, updateCatalog, deleteCatalog } from "../service/catalogService";
+import { assignWorkerCatalogBulk } from "../service/assignmentService";
+
 
 /* ----------------------------- Types & Models ----------------------------- */
 
 export type Company = { id: string; name: string };
+
 export type Recipient = {
   id: string;
   name: string;
@@ -14,138 +21,158 @@ export type Recipient = {
   email?: string;
 };
 
-export type Topic = {
-  id: string;
-  name: string;
-  subtitle?: string;
+export type KatalogItem = {
+  id: string;          // Backend-ID
+  name: string;        // aus title gemappt
+  subtitle?: string;   // aus description gemappt
   icon?: LucideIcon;
   color?: string;
-};
-
-export type Catalog = {
-  id: string;
-  topicId: string;
-  title: string;
-  description?: string;
-  questions?: number;
-  assigned?: boolean;
 };
 
 export type AssignPayload = {
   companyId: string;
   recipientIds: string[];
-  catalogIds: string[];
+  catalogIds: string[];     // wir senden Katalog-IDs
   description?: string;
   dueDate?: string;
   note?: string;
 };
 
 export type KatalogeZuweisenProps = {
-  companies?: Company[];
-  recipients?: Recipient[];
-  topics?: Topic[];
-  catalogs?: Catalog[];
   onAssign?: (payload: AssignPayload) => void;
 };
 
-/* ----------------------------- Mock Data (opt) ---------------------------- */
-const MOCK_COMPANIES: Company[] = [
-  { id: "c1", name: "TechStart GmbH" },
-  { id: "c2", name: "Cap Consulting" },
-];
-
-const MOCK_RECIPIENTS: Recipient[] = [
-  // c1
-  { id: "t1", name: "Team Marketing", type: "team",   companyId: "c1" },
-  { id: "p1", name: "Anna Schmidt",   type: "person", companyId: "c1", email: "anna@techstart.de" },
-  { id: "p2", name: "Max Müller",     type: "person", companyId: "c1", email: "max@techstart.de" },
-  // c2
-  { id: "t2", name: "Team Vertrieb",  type: "team",   companyId: "c2" },
-  { id: "p3", name: "Lisa Weber",     type: "person", companyId: "c2", email: "lisa@cap-consulting.de" },
-];
-
-/** Themen */
-const MOCK_TOPICS: Topic[] = [
-  { id: "topic-operating", name: "IT Operating Model", icon: Building2,  color: "#d2c9b9" },
-  { id: "topic-eam",       name: "Enterprise Architecture Management", icon: BarChart3, color: "#56768f" },
-  { id: "topic-sourcing",  name: "IT Sourcing", icon: ShoppingCart,     color: "#264555" },
-  { id: "topic-project",   name: "IT Project Management", icon: ClipboardList, color: "#ebebec" },
-];
-
-const MOCK_CATALOGS: Catalog[] = [
-  { id: "cat-op-1", topicId: "topic-operating", title: "Prozesslandkarte", description: "Rollen, RACI, Kernprozesse", questions: 12 },
-  { id: "cat-op-2", topicId: "topic-operating", title: "ITSM & Governance", description: "ITIL, Policies, KPIs", questions: 14 },
-  { id: "cat-ea-1", topicId: "topic-eam", title: "Ziel-Architektur 2026", description: "Domänen, Capabilities", questions: 18 },
-  { id: "cat-ea-2", topicId: "topic-eam", title: "Standards & Guidelines", description: "Schnittstellen, Tech-Radar", questions: 10 },
-  { id: "cat-so-1", topicId: "topic-sourcing", title: "Lieferantenauswahl", description: "Kriterien, Scorecards", questions: 9 },
-  { id: "cat-so-2", topicId: "topic-sourcing", title: "Vertragsmanagement", description: "SLAs, Penalties", questions: 7, assigned: true },
-  { id: "cat-pr-1", topicId: "topic-project", title: "PM-Framework", description: "Vorgehensmodelle, Rollen", questions: 11 },
-  { id: "cat-pr-2", topicId: "topic-project", title: "Risiko & Qualität", description: "Risikolisten, QA-Gates", questions: 8 },
-];
-
 /* --------------------------------- UI ------------------------------------ */
 
-export default function KatalogeZuweisen({
-  companies = MOCK_COMPANIES,
-  recipients = MOCK_RECIPIENTS,
-  topics = MOCK_TOPICS,
-  catalogs = MOCK_CATALOGS,
-  onAssign,
-}: KatalogeZuweisenProps) {
-  // --- left form (global) ---
+export default function KatalogeZuweisen({  }: KatalogeZuweisenProps) {
+  // Kataloge
+  const [catalogs, setCatalogs] = useState<KatalogItem[]>([]);
+  const [loadingCatalogs, setLoadingCatalogs] = useState(false);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
+
+  // Firmen & Empfänger
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [recipients, setRecipients] = useState<Recipient[]>([]);
+  const [loadingCompanies, setLoadingCompanies] = useState(false);
+  const [loadingRecipients, setLoadingRecipients] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Form
   const [companyId, setCompanyId] = useState("");
   const [recipientIds, setRecipientIds] = useState<string[]>([]);
   const [description, setDescription] = useState("");
   const [dueDate, setDueDate] = useState<string>("");
   const [note, setNote] = useState("");
 
-  // --- right side (tabs + selection) ---
-  const [activeTopicId, setActiveTopicId] = useState<string>(topics[0]?.id ?? "");
-  const [searchByTopic, setSearchByTopic] = useState<Record<string, string>>({});
-  const [selectedCatalogIds, setSelectedCatalogIds] = useState<Set<string>>(new Set());
+  // Auswahl Kataloge
+  const [selectedCatalogId, setSelectedCatalogId] = useState<string | null>(null);; // useState<Set<string>>(new Set())
 
-  // --- Empfänger-Dropdown state ---
+  // Edit/Lösch-Modus (Icon-Toggle, kein Text)
+  const [editMode, setEditMode] = useState(false);
+
+  // Empfänger-Dropdown
   const [openRecipients, setOpenRecipients] = useState(false);
   const [recipientSearch, setRecipientSearch] = useState("");
   const dropdownRef = useRef<HTMLDivElement | null>(null);
 
-  const catalogsByTopic = useMemo(() => {
-    const map: Record<string, Catalog[]> = {};
-    for (const t of topics) map[t.id] = [];
-    for (const c of catalogs) (map[c.topicId] ?? (map[c.topicId] = [])).push(c);
-    return map;
-  }, [catalogs, topics]);
+  // Modals
+  type DialogMode = "create" | "edit" | "delete";
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogMode, setDialogMode] = useState<DialogMode>("edit");
+  const [dialogCatalog, setDialogCatalog] = useState<KatalogItem | null>(null);
+  const [formTitle, setFormTitle] = useState("");
+  const [formDesc, setFormDesc] = useState("");
 
-  const activeTopic = topics.find((t) => t.id === activeTopicId);
-  const globalSelectedCount = selectedCatalogIds.size;
+  const DEFAULT_ICON: LucideIcon = Building2;
+  const DEFAULT_COLOR = "#094c79ff";
 
-  // 🔸 Mitarbeitende der ausgewählten Firma
-  const recipientsOfCompany = useMemo(
-    () => (companyId ? recipients.filter(r => r.companyId === companyId) : []),
-    [recipients, companyId]
-  );
+  /* ---------- Kataloge laden ---------- */
+  async function loadCatalogs() {
+    try {
+      setLoadingCatalogs(true);
+      setCatalogError(null);
+      const apiList = await getCatalogs();
+      const ui: KatalogItem[] = apiList.map((c: CatalogApi) => ({
+        id: c.id,
+        name: c.title,
+        subtitle: c.description ?? undefined,
+        icon: DEFAULT_ICON,
+        color: DEFAULT_COLOR,
+      }));
+      setCatalogs(ui);
+    } catch (e) {
+      console.error(e);
+      setCatalogError("Kataloge konnten nicht geladen werden.");
+    } finally {
+      setLoadingCatalogs(false);
+    }
+  }
+  useEffect(() => { void loadCatalogs(); }, []);
 
-  // 🔸 Suche im Dropdown
+  /* ---------- Firmen laden ---------- */
+  useEffect(() => {
+    (async () => {
+      try {
+        setLoadingCompanies(true);
+        setErrorMsg(null);
+        const list = await getCompanies();
+        setCompanies(list);
+      } catch (e) {
+        console.error(e);
+        setErrorMsg("Firmen konnten nicht geladen werden.");
+      } finally {
+        setLoadingCompanies(false);
+      }
+    })();
+  }, []);
+
+  /* ---------- Empfänger laden bei Firmenwechsel ---------- */
+  function adaptWorkersToRecipients(workers: WorkerApi[]): Recipient[] {
+    return workers.map(w => ({
+      id: w.id,
+      name: w.name,
+      type: "person",
+      companyId: w.companyId,
+      email: w.email,
+    }));
+  }
+
+  useEffect(() => {
+    setRecipientIds([]);
+    setOpenRecipients(false);
+    setRecipientSearch("");
+    setRecipients([]);
+    if (!companyId) return;
+
+    (async () => {
+      try {
+        setLoadingRecipients(true);
+        setErrorMsg(null);
+        const workers = await getWorkersByCompany(companyId);
+        setRecipients(adaptWorkersToRecipients(workers));
+      } catch (e) {
+        console.error(e);
+        setErrorMsg("Empfänger konnten nicht geladen werden.");
+      } finally {
+        setLoadingRecipients(false);
+      }
+    })();
+  }, [companyId]);
+
+  /* ---------- Empfänger-Filter ---------- */
   const filteredRecipients = useMemo(() => {
     const q = recipientSearch.trim().toLowerCase();
-    if (!q) return recipientsOfCompany;
-    return recipientsOfCompany.filter(r =>
+    if (!q) return recipients;
+    return recipients.filter(r =>
       r.name.toLowerCase().includes(q) || (r.email ?? "").toLowerCase().includes(q)
     );
-  }, [recipientSearch, recipientsOfCompany]);
+  }, [recipientSearch, recipients]);
 
   const allFilteredSelected =
     filteredRecipients.length > 0 &&
     filteredRecipients.every(e => recipientIds.includes(e.id));
 
-  // 🔸 Firmenwechsel -> Auswahl leeren & Dropdown schließen
-  useEffect(() => {
-    setRecipientIds([]);
-    setRecipientSearch("");
-    setOpenRecipients(false);
-  }, [companyId]);
-
-  // 🔸 Outside click -> Dropdown schließen
+  /* ---------- Outside click fürs Dropdown ---------- */
   useEffect(() => {
     const onDocClick = (e: MouseEvent) => {
       if (!dropdownRef.current) return;
@@ -155,62 +182,139 @@ export default function KatalogeZuweisen({
     return () => document.removeEventListener("click", onDocClick);
   }, []);
 
-  const canAssign = !!companyId && recipientIds.length > 0 && globalSelectedCount > 0;
+  /* ---------- Form/Actions ---------- */
+  const canAssign = !!companyId && recipientIds.length > 0 && !!selectedCatalogId;
 
   function toggleRecipient(id: string) {
     setRecipientIds(prev => (prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]));
   }
 
-  function toggleCatalog(id: string) {
-    setSelectedCatalogIds(prev => {
+  /**  setSelectedCatalogIds(prev => {
       const next = new Set(prev);
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
-    });
-  }
+    }); */
 
-  function toggleAllInTopic(topicId: string) {
-    const allIds = (catalogsByTopic[topicId] ?? []).map(c => c.id);
-    setSelectedCatalogIds(prev => {
-      const next = new Set(prev);
-      const allSelected = allIds.every(id => next.has(id));
-      if (allSelected) allIds.forEach(id => next.delete(id));
-      else {
-        allIds.forEach(id => {
-          const cat = catalogs.find(c => c.id === id);
-          if (!cat?.assigned) next.add(id);
-        });
-      }
-      return next;
-    });
+  /**function toggleCatalog(id: string) {
+    setSelectedCatalogId(id);
+  } */
+  function selectOrToggleCatalog(id: string) {
+    setSelectedCatalogId(prev => (prev === id ? null : id));
   }
 
   function selectAllFromCompanyFiltered() {
-    if (allFilteredSelected) {
-      // abwählen: nur die gefilterten entfernen
-      setRecipientIds(prev => prev.filter(id => !filteredRecipients.some(e => e.id === id)));
-    } else {
-      // hinzufügen: gefilterte addieren
-      setRecipientIds(prev => {
-        const s = new Set(prev);
-        filteredRecipients.forEach(e => s.add(e.id));
-        return Array.from(s);
-      });
+    if (filteredRecipients.length === 0) return;
+    setRecipientIds(prev => {
+      const set = new Set(prev);
+      if (allFilteredSelected) filteredRecipients.forEach(r => set.delete(r.id));
+      else filteredRecipients.forEach(r => set.add(r.id));
+      return Array.from(set);
+    });
+  }
+
+  async function handleAssign() {
+    if (!canAssign) return;
+    // 1) userId (assignedById) aus localStorage lesen
+    let assignedById = "";
+    try {
+      const raw = localStorage.getItem("user");
+      if (raw) assignedById = JSON.parse(raw)?.id ?? "";
+    } catch { }
+    if (!assignedById) {
+      alert("Fehler: Kein Benutzer gefunden. Bitte erneut anmelden.");
+      return;
+    }
+
+    // 2) genau eine Katalog-ID ermitteln
+    const catalogId = selectedCatalogId ;//Array.from(selectedCatalogIds)[0]
+    if (!catalogId) return;
+
+    // 3) expiresAt erzeugen – du wolltest KEIN „end of day“,
+    //    daher nehmen wir direkt das vom <input type='date'> kommende Datum
+    //    und wandeln es schlicht in ISO um (ohne extra Tagesende-Logik):
+    if (!dueDate) {
+      alert("Bitte ein Fälligkeitsdatum wählen.");
+      return;
+    }
+    const expiresAt = `${dueDate}T00:00:00.000`; // yyyy-MM-dd + "T00:00:00.000"
+    const payload = {
+      workerIds: recipientIds,
+      catalogId,
+      expiresAt,
+      assignedById,
+      notes: note || description || undefined,
+    };
+    try {
+      // Optional: Ladezustand
+      // setIsSubmitting(true);
+
+      const res = await assignWorkerCatalogBulk(payload);
+      alert(`Zuweisung erfolgreich: ${res.success}/${res.total}`);
+
+      // Optional: Formular zurücksetzen
+      // setSelectedCatalogIds(new Set());
+      // setRecipientIds([]);
+      // setDescription(""); setNote(""); setDueDate("");
+    } catch (e: any) {
+      alert(`Zuweisung fehlgeschlagen: ${e?.message ?? e}`);
+    } finally {
+      // setIsSubmitting(false);
     }
   }
 
-  function handleAssign() {
-    if (!canAssign) return;
-    const payload: AssignPayload = {
-      companyId,
-      recipientIds,
-      catalogIds: Array.from(selectedCatalogIds),
-      description: description || undefined,
-      dueDate: dueDate || undefined,
-      note: note || undefined,
-    };
-    onAssign?.(payload);
+  /* ---------- Dialog Helper ---------- */
+  function openCreateDialog() {
+    setDialogMode("create");
+    setDialogCatalog(null);     // kein bestehender Katalog
+    setFormTitle("");           // leeres Formular
+    setFormDesc("");
+    setDialogOpen(true);
   }
+
+  function openEditDialog(k: KatalogItem) {
+    setDialogMode("edit");
+    setDialogCatalog(k);
+    setFormTitle(k.name ?? "");
+    setFormDesc(k.subtitle ?? "");
+    setDialogOpen(true);
+  }
+  function openDeleteDialog(k: KatalogItem) {
+    setDialogMode("delete");
+    setDialogCatalog(k);
+    setDialogOpen(true);
+  }
+  function closeDialog() {
+    setDialogOpen(false);
+    setTimeout(() => {
+      setDialogCatalog(null);
+      setFormTitle("");
+      setFormDesc("");
+    }, 120);
+  }
+  async function submitDialog() {
+    if (dialogMode === "edit" && dialogCatalog) {
+      await updateCatalog(dialogCatalog.id, {
+        title: formTitle.trim() || dialogCatalog.name,
+        description: formDesc.trim() ? formDesc.trim() : null,
+      });
+    } else if (dialogMode === "delete" && dialogCatalog) {
+      await deleteCatalog(dialogCatalog.id);
+       setSelectedCatalogId(prev => (prev === dialogCatalog.id ? null : prev)); // setSelectedCatalogIds(prev => { const n = new Set(prev); n.delete(dialogCatalog.id); return n; })
+    } else if (dialogMode === "create") {
+      if (!formTitle.trim()) {
+        // kleine UX: ohne Titel nicht absenden
+        return alert("Bitte einen Titel angeben.");
+      }
+      await createCatalog({
+        title: formTitle.trim(),
+        description: formDesc.trim() ? formDesc.trim() : undefined,
+      });
+    }
+
+    await loadCatalogs();
+    closeDialog();
+  }
+
 
   /* ------------------------------- RENDER -------------------------------- */
 
@@ -220,7 +324,7 @@ export default function KatalogeZuweisen({
         {/* Header */}
         <div className="mb-4">
           <h1 className="text-[22px] font-semibold tracking-[-0.01em] text-slate-900">
-            Kataloge zuweisen – <span className="text-slate-700">{activeTopic?.name ?? "Thema"}</span>
+            Kataloge zuweisen
           </h1>
         </div>
 
@@ -230,49 +334,66 @@ export default function KatalogeZuweisen({
             <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
               <h2 className="mb-4 text-[18px] font-semibold text-slate-900">Grundinformationen</h2>
 
+              {(errorMsg || catalogError) && (
+                <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {errorMsg ?? catalogError}
+                </div>
+              )}
+
               <div className="space-y-4">
                 {/* Firma */}
                 <div className="space-y-1">
                   <label className="text-sm font-medium text-slate-700">
-                    Kunde/Firma <span className="text-red-500">*</span>
+                    Firma <span className="text-red-500">*</span>
                   </label>
                   <select
-                    className="h-11 w-full rounded-lg border border-slate-300 px-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/10"
+                    className="h-11 w-full rounded-lg border border-slate-300 px-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/10 disabled:opacity-50"
                     value={companyId}
                     onChange={(e) => setCompanyId(e.target.value)}
+                    disabled={loadingCompanies}
                   >
-                    <option value="">Firma auswählen…</option>
+                    <option value="">{loadingCompanies ? "Lade Firmen…" : "Firma auswählen…"}</option>
                     {companies.map((c) => (
                       <option key={c.id} value={c.id}>{c.name}</option>
                     ))}
                   </select>
                 </div>
 
-                {/* Empfänger (Dropdown wie im Screenshot) */}
+                {/* Empfänger */}
                 <div className="space-y-1" ref={dropdownRef}>
                   <label className="text-sm font-medium text-slate-700">
-                    Empfänger (Mitarbeitende) <span className="text-red-500">*</span>
+                    Empfänger (kunde) <span className="text-red-500">*</span>
                   </label>
 
-                  {/* Feld/Trigger */}
                   <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); if (companyId) setOpenRecipients(v => !v); }}
-                    disabled={!companyId}
+                    disabled={!companyId || loadingRecipients}
                     className={[
-                      "h-11 w-full rounded-lg border px-3 text-left text-sm flex items-center justify-between",
-                      companyId ? "border-slate-300 hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-blue-500/10"
-                                : "border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed"
+                      "relative w-full rounded-lg border px-3 py-2 text-left text-sm",
+                      "flex items-start",
+                      companyId
+                        ? "border-slate-300 bg-white hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-blue-500/10"
+                        : "border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed"
                     ].join(" ")}
                   >
-                    <span className="truncate">
-                      {recipientIds.length === 0 ? "Empfänger auswählen…" : (
-                        <span className="flex gap-2 flex-wrap">
+                    <span className="pr-8 w-full">
+                      {!companyId ? (
+                        <span className="text-slate-400">Zuerst Firma auswählen…</span>
+                      ) : recipientIds.length === 0 ? (
+                        <span className="text-slate-400">
+                          {loadingRecipients ? "Lade Empfänger…" : "Empfänger auswählen…"}
+                        </span>
+                      ) : (
+                        <span className="flex flex-wrap gap-1 max-h-24 overflow-y-auto">
                           {recipientIds
-                            .map(id => recipientsOfCompany.find(r => r.id === id))
+                            .map(id => recipients.find(r => r.id === id))
                             .filter(Boolean)
                             .map(r => (
-                              <span key={r!.id} className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2 py-1 text-xs text-blue-700">
+                              <span
+                                key={r!.id}
+                                className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2 py-1 text-xs text-blue-700"
+                              >
                                 {r!.name}
                                 <button
                                   type="button"
@@ -287,14 +408,13 @@ export default function KatalogeZuweisen({
                         </span>
                       )}
                     </span>
-                    <span className="ml-3 text-slate-400">👤</span>
+
+                    <span className="absolute right-2 top-2.5 text-slate-400">👤</span>
                   </button>
 
-                  {/* Dropdown */}
                   {openRecipients && (
                     <div className="relative z-40">
                       <div className="absolute mt-1 w-full rounded-lg border border-slate-200 bg-white shadow-lg">
-                        {/* Suche */}
                         <div className="p-2 border-b border-slate-200">
                           <input
                             value={recipientSearch}
@@ -305,20 +425,21 @@ export default function KatalogeZuweisen({
                           />
                         </div>
 
-                        {/* Alle aus Firma auswählen */}
                         <button
                           type="button"
                           onClick={selectAllFromCompanyFiltered}
                           className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-slate-50"
+                          disabled={loadingRecipients || recipients.length === 0}
                         >
                           <span className="text-lg">👥</span>
                           <span className="flex-1 text-left">Alle aus Firma auswählen</span>
                           <span className="text-xs text-slate-500">{allFilteredSelected ? "✓" : ""}</span>
                         </button>
 
-                        {/* Optionen */}
                         <div className="max-h-72 overflow-auto py-1">
-                          {filteredRecipients.length === 0 ? (
+                          {loadingRecipients ? (
+                            <div className="px-3 py-2 text-sm text-slate-500">Laden…</div>
+                          ) : filteredRecipients.length === 0 ? (
                             <div className="px-3 py-2 text-sm text-slate-500">Keine Ergebnisse</div>
                           ) : (
                             filteredRecipients.map(r => {
@@ -337,7 +458,6 @@ export default function KatalogeZuweisen({
                                     <div className="min-w-0">
                                       <div className="text-sm text-slate-800">{r.name}</div>
                                       {r.email && <div className="text-xs text-slate-500 truncate">{r.email}</div>}
-                                      {r.type === "team" && <div className="text-xs text-slate-400">(Team)</div>}
                                     </div>
                                   </div>
                                 </button>
@@ -363,11 +483,14 @@ export default function KatalogeZuweisen({
 
                 {/* Fällig am */}
                 <div className="space-y-1">
-                  <label className="text-sm font-medium text-slate-700">Fällig am</label>
+                  <label className="text-sm font-medium text-slate-700">
+                    Fällig am <span className="text-red-500">*</span>
+                  </label>
                   <input
                     type="date"
                     className="h-11 w-full rounded-lg border border-slate-300 px-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/10"
                     value={dueDate}
+                    required
                     onChange={(e) => setDueDate(e.target.value)}
                   />
                 </div>
@@ -383,144 +506,150 @@ export default function KatalogeZuweisen({
                     onChange={(e) => setNote(e.target.value)}
                   />
                 </div>
-
-                {/* Info-Zeile */}
-                <div className="pt-1 text-sm text-slate-500">
-                  {globalSelectedCount} Katalog(e) ausgewählt
-                </div>
               </div>
             </div>
           </div>
 
-          {/* Right: Tabs & Catalogs (unchanged) */}
+          {/* Right: Katalog-Karten */}
           <div className="lg:col-span-7">
             <div className="rounded-2xl border border-[#ebebec] bg-white p-6 shadow-sm">
-              <h2 className="mb-1 text-[18px] font-semibold text-[#264555]">Kataloge auswählen</h2>
-              <p className="mb-4 text-sm text-[#56768f]">Wählen Sie die Kataloge aus, die Sie zuweisen möchten</p>
+              {/* Header mit Verwaltungs-Link + Icon-Toggle */}
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-[18px] font-semibold text-[#264555]">Kataloge auswählen</h2>
 
-              <div className="flex gap-6">
-                {/* Tablist – links */}
-                <div className="w-64">
-                  <nav role="tablist" aria-label="Themen" className="flex flex-col gap-2">
-                    {topics.map((t) => {
-                      const countInTopic = (catalogsByTopic[t.id] ?? []).filter(c => selectedCatalogIds.has(c.id)).length;
-                      const active = activeTopicId === t.id;
-                      const Icon = t.icon ?? ClipboardList;
-                      return (
-                        <button
-                          key={t.id}
-                          role="tab"
-                          aria-selected={active}
-                          aria-controls={`panel-${t.id}`}
-                          onClick={() => setActiveTopicId(t.id)}
-                          className={[
-                            "group flex w-full items-center gap-3 rounded-lg border px-3 py-2 text-left transition",
-                            active ? "border-[#E3BB62] bg-[#ebebec] shadow-sm" : "border-[#ebebec] hover:bg-[#ebebec]/70",
-                          ].join(" ")}
+                <div className="flex items-center gap-3">
+                  {/* Icon-only Toggle für Edit/Lösch-Modus */}
+                  <button
+                    type="button"
+                    onClick={() => setEditMode(v => !v)}
+                    className={[
+                      "inline-flex h-9 w-9 items-center justify-center rounded-lg border",
+                      editMode ? "border-[#E3BB62] bg-[#fff3c4]" : "border-slate-300 bg-white hover:bg-slate-50",
+                    ].join(" ")}
+                    aria-pressed={editMode}
+                    aria-label={editMode ? "Bearbeitungsmodus aktiv" : "Bearbeitungsmodus inaktiv"}
+                    title={editMode ? "Modus: Löschen aktiv" : "Modus aktivieren: Löschen"}
+                  >
+                    <Wrench size={16} />
+                  </button>
+
+                  <Link
+                    to="/admin/kataloge/verwaltung"
+                    className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                  >
+                    <Settings size={16} />
+                    Katalog verwalten
+                  </Link>
+                </div>
+              </div>
+
+              <p className="mb-4 flex items-center justify-between text-sm text-[#56768f]">
+                <span className="truncate">
+                  {loadingCatalogs ? "Kataloge werden geladen…" : "Wählen Sie die Kataloge aus, die Sie zuweisen möchten"}
+                </span>
+
+
+                  <button
+                    type="button"
+                    onClick={openCreateDialog}
+                    className="ml-3 shrink-0 inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 bg-white hover:bg-slate-50"
+                    title="Neuen Katalog anlegen"
+                    aria-label="Neuen Katalog anlegen"
+                  >
+                    <Plus size={16} />
+                  </button>
+              
+              </p>
+
+
+
+              {/* Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {catalogs.map((k) => {
+                  const Icon = k.icon ?? Building2;
+                  const selected = selectedCatalogId === k.id;//selectedCatalogIds.has(k.id)
+                  const metaLabel = "– Themen";
+
+                  // Card-Klick: normal -> Auswahl; im editMode -> Delete-Dialog
+                  const onCardClick = () => {
+                    if (editMode) openDeleteDialog(k);
+                    else selectOrToggleCatalog(k.id);
+                  };
+
+                  return (
+                    <div
+                      key={k.id}
+                      className={[
+                        "relative w-full text-left rounded-xl border p-4 transition-colors min-h-[132px] cursor-pointer",
+                        editMode
+                          ? "border-[#E3BB62] bg-[#fff8e1]/60 hover:bg-[#fff3c4]/60"
+                          : selected
+                            ? "border-[#E3BB62] bg-[#ebebec]"
+                            : "border-[#ebebec] hover:border-[#56768f]/50 hover:bg-[#ebebec]/50",
+                      ].join(" ")}
+                      onClick={onCardClick}
+                    >
+                      {/* rechter Indikator: Auswahl-Kreis ODER X im editMode */}
+                      <span
+                        className={[
+                          "absolute right-3 top-3 inline-flex h-5 w-5 items-center justify-center rounded-full border-2",
+                          editMode ? "border-[#E3BB62] text-[#E3BB62]" : "border-[#56768f]",
+                        ].join(" ")}
+                      >
+                        {editMode
+                          ? "×"
+                          : (selected && <span className="h-3.5 w-3.5 rounded-full bg-[#E3BB62]" />)
+                        }
+                      </span>
+
+                      <div className="flex items-start gap-3 pr-6">
+                        <span
+                          className="grid h-10 w-10 place-items-center rounded-xl text-white shrink-0"
+                          style={{ backgroundColor: k.color ?? DEFAULT_COLOR }}
                         >
-                          <span className="grid h-9 w-9 place-items-center rounded-xl text-white" style={{ backgroundColor: t.color ?? "#808080" }}>
-                            <Icon size={18} />
-                          </span>
-                          <span className="flex-1 min-w-0">
-                            <span className="block text-sm font-semibold text-[#264555]">{t.name}</span>
-                          </span>
-                          {countInTopic > 0 && (
-                            <span className="rounded-full bg-[#ebebec] px-2 py-0.5 text-xs text-[#56768f]">
-                              {countInTopic}
-                            </span>
+                          <Icon size={18} />
+                        </span>
+
+                        <div className="min-w-0 flex-1">
+                          <div className="text-[14px] font-semibold text-[#264555] leading-5 line-clamp-2">
+                            {k.name}
+                          </div>
+
+                          {k.subtitle && (
+                            <div className="mt-1 text-xs text-slate-600 leading-5 line-clamp-2">
+                              {k.subtitle}
+                            </div>
                           )}
-                        </button>
-                      );
-                    })}
-                  </nav>
-                </div>
 
-                {/* Panels – rechts */}
-                <div className="flex-1">
-                  {/* Suche */}
-                  <div className="mb-3 flex items-center gap-3">
-                    <div className="relative w-full">
-                      <input
-                        value={searchByTopic[activeTopicId] ?? ""}
-                        onChange={(e) => setSearchByTopic((s) => ({ ...s, [activeTopicId]: e.target.value }))}
-                        placeholder="Kataloge suchen…"
-                        className="h-11 w-full rounded-lg border border-[#ebebec] pl-10 pr-3 text-sm placeholder:text-slate-400 focus:border-[#56768f] focus:outline-none focus:ring-4 focus:ring-[#56768f]/15"
-                      />
-                      <svg viewBox="0 0 24 24" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#56768f]" fill="none" stroke="currentColor" strokeWidth="2">
-                        <circle cx="11" cy="11" r="8"></circle>
-                        <path d="m21 21-4.35-4.35"></path>
-                      </svg>
+                          <div className="mt-2 flex items-center justify-between">
+                            <span className="text-xs text-slate-500">{metaLabel}</span>
+
+                            {/* ✎ Icon-only: öffnet Edit-Modal */}
+                            {editMode && (
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); openEditDialog(k); }}
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-700 hover:bg-slate-50" //{${editMode ? "" : "hidden"}`} in css
+                                title="Katalog bearbeiten"
+                                aria-label="Katalog bearbeiten"
+                              >
+                                <Pencil size={14} />
+                              </button>)}
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  );
+                })}
+              </div>
 
-                  {topics.map((t) => {
-                    const active = activeTopicId === t.id;
-                    const search = searchByTopic[t.id] ?? "";
-                    const allCats = catalogsByTopic[t.id] ?? [];
-                    const filtered = allCats.filter(c => {
-                      const q = search.toLowerCase();
-                      return c.title.toLowerCase().includes(q) || (c.description ?? "").toLowerCase().includes(q);
-                    });
-
-                    const selectedInTopic = allCats.filter(c => selectedCatalogIds.has(c.id)).length;
-                    const allSelectableIds = allCats.filter(c => !c.assigned).map(c => c.id);
-                    const allSelected = allSelectableIds.length > 0 && allSelectableIds.every(id => selectedCatalogIds.has(id));
-
-                    return (
-                      <section key={t.id} role="tabpanel" id={`panel-${t.id}`} aria-labelledby={`tab-${t.id}`} hidden={!active}>
-                        <div className="mb-3">
-                          <label className="inline-flex select-none items-center gap-2 text-sm text-[#264555]">
-                            <input
-                              type="checkbox"
-                              checked={allSelected}
-                              onChange={() => toggleAllInTopic(t.id)}
-                              className="h-4 w-4 appearance-none rounded-full border-2 border-[#56768f] checked:bg-[#E3BB62] checked:border-[#E3BB62] focus:outline-none focus:ring-2 focus:ring-[#56768f]/20"
-                            />
-                            Alle Kataloge dieses Themas auswählen
-                          </label>
-                        </div>
-
-                        {filtered.length === 0 ? (
-                          <div className="rounded-lg border border-dashed border-[#ebebec] p-8 text-center text-sm text-slate-500">
-                            Keine Kataloge gefunden.
-                          </div>
-                        ) : (
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {filtered.map((c) => {
-                              const selected = selectedCatalogIds.has(c.id);
-                              const disabled = !!c.assigned;
-                              return (
-                                <label key={c.id} className={["relative flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition-colors",
-                                  selected ? "border-[#E3BB62] bg-[#ebebec]" : "border-[#ebebec] hover:border-[#56768f]/50 hover:bg-[#ebebec]/50",
-                                  disabled ? "opacity-60" : ""].join(" ")}>
-                                  <input
-                                    type="checkbox"
-                                    disabled={disabled}
-                                    checked={selected}
-                                    onChange={() => toggleCatalog(c.id)}
-                                    className="mt-1 h-4 w-4 appearance-none rounded-full border-2 border-[#56768f] checked:bg-[#E3BB62] checked:border-[#E3BB62] focus:outline-none focus:ring-2 focus:ring-[#56768f]/20"
-                                  />
-                                  <div className="min-w-0 flex-1">
-                                    <div className="mb-1 flex items-start justify-between gap-3">
-                                      <div className="text-[15px] font-semibold text-[#264555]">{c.title}</div>
-                                      {c.assigned && <span className="shrink-0 rounded-full border border-[#E3BB62]/40 bg-[#E3BB62]/15 px-2 py-0.5 text-xs text-[#264555]">bereits zugewiesen</span>}
-                                    </div>
-                                    {c.description && <p className="text-xs leading-5 text-slate-600">{c.description}</p>}
-                                    <div className="mt-2 text-xs text-slate-500">{typeof c.questions === "number" ? `${c.questions} Fragen` : "\u00A0"}</div>
-                                  </div>
-                                </label>
-                              );
-                            })}
-                          </div>
-                        )}
-
-                        <div className="mt-4 text-sm text-slate-600">
-                          Ausgewählt: <span className="font-semibold text-[#264555]">{selectedInTopic}</span>
-                        </div>
-                      </section>
-                    );
-                  })}
-                </div>
+              {/* Footer-Zeile */}
+              <hr className="my-4 border-t border-[#ebebec]" />
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-slate-600">Ausgewählt:</span>
+                <span className="font-semibold text-[#264555]">
+                  {selectedCatalogId ? "1 Katalog" : "0 Kataloge"}
+                </span>
               </div>
             </div>
           </div>
@@ -545,6 +674,95 @@ export default function KatalogeZuweisen({
             </button>
           </div>
         </div>
+
+        {/* ---------- Zentrierte Modals für Edit/Delete ---------- */}
+        {dialogOpen && (
+          <div
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30 backdrop-blur-sm p-4"
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className="w-full max-w-lg rounded-2xl bg-white shadow-xl ring-1 ring-black/5">
+              <div className="border-b border-slate-200 px-5 py-4">
+                <h3 className="text-[16px] font-semibold text-slate-900">
+                  {dialogMode === "create"
+                    ? "Neuen Katalog anlegen"
+                    : dialogMode === "edit"
+                      ? "Katalog bearbeiten"
+                      : "Katalog löschen"}
+                </h3>
+              </div>
+
+              {/* Body */}
+              <div className="px-5 py-4">
+                {dialogMode === "create" || dialogMode === "edit" ? (
+                  <form
+                    onSubmit={(e) => { e.preventDefault(); void submitDialog(); }}
+                    className="space-y-4"
+                  >
+                    <div className="space-y-1">
+                      <label className="text-sm font-medium text-slate-700">Titel</label>
+                      <input
+                        className="h-11 w-full rounded-lg border border-slate-300 px-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/10"
+                        value={formTitle}
+                        onChange={(e) => setFormTitle(e.target.value)}
+                        autoFocus
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-sm font-medium text-slate-700">Beschreibung</label>
+                      <textarea
+                        className="min-h-[96px] w-full resize-y rounded-lg border border-slate-300 px-3 py-2 text-sm placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/10"
+                        value={formDesc}
+                        onChange={(e) => setFormDesc(e.target.value)}
+                        placeholder="Optional…"
+                      />
+                    </div>
+                  </form>
+                ) : (
+                  <div className="space-y-2">
+                    <p className="text-sm text-slate-700">
+                      Soll der folgende Katalog wirklich gelöscht werden?
+                    </p>
+                    <div className="rounded-lg bg-slate-50 px-3 py-2 text-sm">
+                      <div className="font-medium text-slate-900">{dialogCatalog?.name}</div>
+                      {dialogCatalog?.subtitle && (
+                        <div className="text-slate-600 line-clamp-2">{dialogCatalog.subtitle}</div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="flex items-center justify-end gap-3 border-t border-slate-200 px-5 py-3">
+                <button
+                  type="button"
+                  onClick={closeDialog}
+                  className="h-10 rounded-lg border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                >
+                  Abbrechen
+                </button>
+
+                {dialogMode === "create" ? (
+                  <button onClick={() => void submitDialog()} className="h-10 rounded-lg bg-[#264555] px-4 text-sm font-medium text-white">
+                    Anlegen
+                  </button>
+                ) : dialogMode === "edit" ? (
+                  <button onClick={() => void submitDialog()} className="h-10 rounded-lg bg-[#264555] px-4 text-sm font-medium text-white">
+                    Speichern
+                  </button>
+                ) : (
+                  <button onClick={() => void submitDialog()} className="h-10 rounded-lg bg-red-600 px-4 text-sm font-medium text-white">
+                    Löschen
+                  </button>
+                )}
+
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </AdminLayout>
   );

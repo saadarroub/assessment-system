@@ -34,26 +34,62 @@ public class PublicQueryUtil {
     public Map<String, Object> findNextQuestion(UUID sessionId, UUID themaId) {
         return jdbcTemplate.query(
                 """
-                SELECT 
+                -- Recursive CTE für hierarchische Fragenreihenfolge
+                -- Sortiert nach: Vater -> Kinder -> Enkel -> ... (beliebig tief)
+                WITH RECURSIVE question_hierarchy AS (
+                  -- Basis: Root-Fragen (ohne Parent)
+                  SELECT 
+                    qn.id as node_id,
                     qn.question_id,
                     qn.order_index,
-                    q.text AS question_text,
-                    q.options,
-                    q.scoring_schema,
-                    qt.input_type,
-                    qt.name AS question_type_name
-                FROM public.question_node qn
-                JOIN public.question q ON q.id = qn.question_id
+                    qn.parent_node_id,
+                    0 as depth,
+                    -- sort_path: hierarchischer Pfad für Sortierung (z.B. "0010", "0010.0020", "0010.0020.0010")
+                    LPAD(qn.order_index::TEXT, 4, '0') as sort_path
+                  FROM public.question_node qn
+                  WHERE qn.thema_id = ? 
+                    AND qn.parent_node_id IS NULL
+                  
+                  UNION ALL
+                  
+                  -- Rekursion: Kinder der bereits gefundenen Nodes
+                  SELECT 
+                    child.id,
+                    child.question_id,
+                    child.order_index,
+                    child.parent_node_id,
+                    qh.depth + 1,
+                    -- Pfad erweitern: parent_path + "." + child_order_index
+                    qh.sort_path || '.' || LPAD(child.order_index::TEXT, 4, '0')
+                  FROM public.question_node child
+                  INNER JOIN question_hierarchy qh ON child.parent_node_id = qh.node_id
+                  WHERE child.thema_id = ?
+                )
+                SELECT 
+                  qh.question_id,
+                  qh.order_index,
+                  q.text AS question_text,
+                  q.options,
+                  q.scoring_schema,
+                  qt.input_type,
+                  qt.name AS question_type_name
+                FROM question_hierarchy qh
+                JOIN public.question q ON q.id = qh.question_id
                 JOIN public.question_type qt ON qt.id = q.type_id
-                WHERE qn.thema_id = ?
-                  AND NOT EXISTS (
-                    SELECT 1 FROM public.answer a 
-                    WHERE a.session_id = ? AND a.question_id = qn.question_id
-                  )
-                ORDER BY qn.order_index ASC
+                WHERE qh.question_id NOT IN (
+                  -- Bereits beantwortete Fragen ausschließen
+                  SELECT a.question_id 
+                  FROM public.answer a 
+                  WHERE a.session_id = ?
+                )
+                ORDER BY qh.sort_path ASC
                 LIMIT 1
                 """,
-                ps -> { ps.setObject(1, themaId); ps.setObject(2, sessionId); },
+                ps -> { 
+                    ps.setObject(1, themaId);  // Root-Fragen Filter
+                    ps.setObject(2, themaId);  // Kinder Filter (Rekursion)
+                    ps.setObject(3, sessionId); // Bereits beantwortet Filter
+                },
                 rs -> {
                     if (!rs.next()) return null;
                     
