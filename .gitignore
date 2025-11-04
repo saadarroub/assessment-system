@@ -62,3 +62,9 @@ TEST_EMAIL.txt
 # OS files
 .DS_Store
 Thumbs.db
+
+# DevOps - nicht für GitHub
+db/
+scripts/
+Dockerfile.allinone
+docker-compose.yml
