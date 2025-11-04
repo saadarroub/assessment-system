@@ -1,7 +1,7 @@
 // src/features/admin-panel/users/UserDetailsPage.tsx (Tailwind – angepasst wie Bild 1)
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import AdminPanelHeader from "@/apps/app/adminPanelHeader";
+import AdminLayout from "@/apps/app/AdminLayout";
 import { getUser, getUserRoles, type UserApi } from "@/features/service/userService";
 
 const CAP = {
@@ -69,7 +69,7 @@ export default function UserDetailsPage() {
   const displayName = loading ? "Loading…" : (user?.name || "—");
 
   return (
-    <AdminPanelHeader>
+    <AdminLayout>
       {/* ===== Hero ===== */}
       <header
         className="w-full border-b bg-white/90 [backdrop-filter:saturate(1.4)_blur(6px)]"
@@ -254,6 +254,6 @@ export default function UserDetailsPage() {
           </div>
         </div>
       </main>
-    </AdminPanelHeader>
+    </AdminLayout>
   );
 }

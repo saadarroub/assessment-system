@@ -4,20 +4,23 @@ import { useAuthCtx } from "@/core/auth/AuthContext";
 import { logoutApi } from "@/features/auth/logoutService";
 import logoCap from "@/assets/Logo_cap_consulting_RGB_Darkblue.svg";
 import "@/styles/worker.css";
+import { buildCatalogUrl, type CatalogLinkMeta } from "@/core/router/buildCatalogUrl";
+
+// Klassen-Helferhier methode wie bei NavLink
+const navCls = (active: boolean) =>
+  `nav-link${active ? " nav-link-active" : ""}`;
 
 export default function AppHeader() {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);          // <- Avatar-Menü
+  const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const navigate = useNavigate();
 
   const { isAuthenticated, token, logout } = useAuthCtx();
 
-  // Links mit Active-State
   const linkCls = ({ isActive }: { isActive: boolean }) =>
     `nav-link${isActive ? " nav-link-active" : ""}`;
 
-  // Klick außerhalb schließt das Menü
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
       if (!menuRef.current?.contains(e.target as Node)) setMenuOpen(false);
@@ -26,8 +29,36 @@ export default function AppHeader() {
     return () => document.removeEventListener("mousedown", onClick);
   }, [menuOpen]);
 
+  function getActiveAssignment(): CatalogLinkMeta | null {
+   
+  try {
+    const raw = localStorage.getItem("activeAssignmentMeta");
+    return raw ? (JSON.parse(raw) as CatalogLinkMeta) : null;
+  } catch {
+    return null;
+  }
+
+  }
+ 
+  const handleThemenClick = () => {
+    const meta = getActiveAssignment();
+    if (!meta) {
+      // Fallback, falls nichts vorhanden ist:
+      navigate("/app/help");
+      return;
+    }
+    const url = buildCatalogUrl(meta);
+    navigate(url);
+  };
+
+   const isThemenActive =
+    location.pathname.startsWith("/app/katalog-themen-public") ||
+    location.pathname.startsWith("/app/dashboard") ||
+    location.pathname.startsWith("/app/assessments");
+
   // Logout
   const handleLogout = async () => {
+    localStorage.removeItem("activeAssignmentMeta"); // aufräumen
     const t =
       token ??
       localStorage.getItem("accessToken") ??
@@ -54,23 +85,13 @@ export default function AppHeader() {
 
         {/* Mitte: Navigation */}
         <nav className="navigation">
-          <NavLink to="/" className={linkCls} end>
+          <NavLink to="/startseite" className={linkCls} end>
             StartSeite
           </NavLink>
-
-          {isAuthenticated ? (
-            <NavLink to="/app/dashboard" className={linkCls}>
-              Jetzt testen
-            </NavLink>
-          ) : (
-            <NavLink
-              to="/login"
-              state={{ from: "/app/dashboard" }}
-              className={linkCls}
-            >
-              Jetzt testen
-            </NavLink>
-          )}
+          
+          <button type="button" className={navCls(isThemenActive)} onClick={handleThemenClick}>
+            Themen
+          </button>
 
           {isAuthenticated ? (
             <NavLink to="/app/results/demo-session" className={linkCls}>
@@ -97,10 +118,9 @@ export default function AppHeader() {
 
         {/* Rechts: Titel + Profil */}
         <div className="right-section">
-    
           {/* Avatar + Dropdown */}
           <div className="profile-container" ref={menuRef}>
-             <div className="parallelogram-bg" />
+            <div className="parallelogram-bg" />
             <button
               type="button"
               className="profile-content"
@@ -127,21 +147,11 @@ export default function AppHeader() {
                   role="menuitem"
                   onClick={() => {
                     setMenuOpen(false);
-                    navigate("/profile"); // Passe die Zielroute bei dir an
+                    navigate("/profile");
                   }}
                 >
                   Profil
                 </button>
-
-                {isAuthenticated && (
-                  <button
-                    className="profile-menu-item danger"
-                    role="menuitem"
-                    onClick={handleLogout}
-                  >
-                    Logout
-                  </button>
-                )}
               </div>
             )}
           </div>
@@ -150,7 +160,7 @@ export default function AppHeader() {
             <p className="subtitle-main">Wählen Sie einen Katalog für Ihre Bewertung</p>
           </div>
         </div>
- 
+
         {/* Mobile Toggle */}
         <button
           className="mobile-menu-btn"
@@ -169,9 +179,11 @@ export default function AppHeader() {
           <NavLink to="/" className="mobile-nav-link" end>
             StartSeite
           </NavLink>
-          <button className="mobile-nav-button" onClick={() => navigate("/app/dashboard")}>
+
+          <button className="mobile-nav-button" onClick={handleThemenClick}>
             Jetzt testen
           </button>
+
           <NavLink to="/app/results/demo-session" className="mobile-nav-link">
             Ergebnisse
           </NavLink>

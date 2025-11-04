@@ -1,10 +1,16 @@
-// src/main/react/features/worker-area/KatalogThemenPublic.tsx
-import  { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import AppHeader from "@/apps/app/AppHeader";
 import { fetchThemenByCatalog } from "@/features/service/themaCatalogService";
 import type { ThemaDto } from "@/features/service/themaCatalogService";
 import { getState, calcProgressPct } from "@/features/service/publicAssessmentService";
+import { fetchAssignmentByAccessCode, fetchInviteMeta } from "@/features/service/inviteService";
+import CountdownTimer from "@/features/worker-area/CountdownTimer";
+import GreetingBanner from "@/features/worker-area/begruessung";
+import patternUrl from "@/assets/footer-pattern.svg"; 
+import  type {CatalogLinkMeta} from "@/core/router/buildCatalogUrl";
+
+
 
 /* ================== Style-/Card-Texte ================== */
 const DEFAULT_EST = "15–20 Min";
@@ -25,7 +31,7 @@ function readSnapshotIds(assignmentId: string): string[] | null {
 function writeSnapshotIds(assignmentId: string, ids: string[]) {
   try {
     localStorage.setItem(`${SNAP_PREFIX}${assignmentId}`, JSON.stringify(ids));
-  } catch {}
+  } catch { }
 }
 
 /* ================== Types ================== */
@@ -50,7 +56,7 @@ type AssessEntry = {
   sessionId?: string; // <- wichtig fürs Live-Update
 };
 
-/* ================== Card (unverändert optisch) ================== */
+/* ================== Card ================== */
 function CatalogCard({ data, onStart }: { data: TopicCardModel; onStart: () => void }) {
   const p = Math.max(0, Math.min(100, Math.round(data.effectiveProgress)));
   const running = p > 0 && p < 100;
@@ -88,7 +94,7 @@ function CatalogCard({ data, onStart }: { data: TopicCardModel; onStart: () => v
           </span>
         </div>
 
-        {completed && (
+        {p >= 100 && (
           <span className="absolute right-4 top-4 rotate-[-13deg] bg-red-500 text-white text-[10px] font-extrabold tracking-widest px-3 py-1 rounded shadow-md">
             COMPLETED
           </span>
@@ -162,21 +168,70 @@ export default function KatalogThemenPublic() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // token aus URL – wird fürs Live-Progress benötigt
-  const token = useMemo(() => {
-    const qs = new URLSearchParams(location.search);
-    return (qs.get("token") || qs.get("accessToken") || "").trim();
-  }, [location.search]);
+  /* --- Query einmal memoizen --- */
+  const query = useMemo(() => new URLSearchParams(location.search), [location.search]);
+  const token = useMemo(() => (query.get("token") || query.get("accessToken") || "").trim(), [query]);
+  const accessCode = useMemo(() => (query.get("code") || "").trim(), [query]);
+  const catalogTitleFromQuery = useMemo(() => (query.get("catalogTitle") || "").trim(), [query]);
+  const assignmentIdFromQuery = useMemo(() => (query.get("assignmentId") || "").trim(), [query]);
+
+  /* --- Willkommen-Name --- */
+  const [nameFromAssignment, setNameFromAssignment] = useState<string>("");
+  const welcomeName = useMemo(() => {
+    const nameInUrl = (query.get("name") || "").trim();
+    return nameInUrl || nameFromAssignment || "Teilnehmer";
+  }, [query, nameFromAssignment]);
+
+  // Token & Code aus der URL
+
+  const sp = new URLSearchParams(location.search);
+  const [expiresAt, setExpiresAt] = useState<string | null>(null);
+  //in expiresAt muss Z.b: 2025-11-05T18:00:00Z
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        if (token) {
+          const meta = await fetchInviteMeta(token);
+          if (!alive) return;
+          if (meta?.expiresAt) setExpiresAt(meta.expiresAt);
+        } else if (accessCode) {
+          const a = await fetchAssignmentByAccessCode(accessCode);
+          if (!alive) return;
+          if (a?.expiresAt) setExpiresAt(a.expiresAt);
+        }
+      } catch (e) {
+        console.warn("Kein expiresAt gefunden", e);
+      }
+    })();
+    return () => { alive = false; };
+  }, [token, accessCode]);
+
+  // Falls ein ?code= vorhanden ist, Worker-Namen einmal holen
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      if (!accessCode) return;
+      try {
+        const a = await fetchAssignmentByAccessCode(accessCode);
+        if (!alive) return;
+        setNameFromAssignment(a?.worker?.name || "");
+      } catch {
+        /* fallback bleibt "Teilnehmer" */
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [accessCode]);
 
   /* --- Themen laden: per ?catalogId=... (+ assignmentId Snapshot) --- */
   useEffect(() => {
     let alive = true;
     (async () => {
       try {
-        const qs = new URLSearchParams(location.search);
-        const catalogId = (qs.get("catalogId") || "").trim();
-        const assignmentId = (qs.get("assignmentId") || "").trim();
-        const wantsRefresh = (qs.get("refresh") || "").trim() === "1";
+        const catalogId = (query.get("catalogId") || "").trim();
+        const wantsRefresh = (query.get("refresh") || "").trim() === "1";
 
         if (!catalogId) {
           setThemen([]);
@@ -188,19 +243,19 @@ export default function KatalogThemenPublic() {
         if (!alive) return;
         const list = Array.isArray(live) ? live : [];
 
-        if (assignmentId) {
+        if (assignmentIdFromQuery) {
           if (wantsRefresh) {
-            writeSnapshotIds(assignmentId, list.map(t => t.id));
+            writeSnapshotIds(assignmentIdFromQuery, list.map((t) => t.id));
             setThemen(list);
             return;
           }
-          const snapIds = readSnapshotIds(assignmentId);
+          const snapIds = readSnapshotIds(assignmentIdFromQuery);
           if (snapIds && snapIds.length) {
             const setIds = new Set(snapIds);
-            setThemen(list.filter(t => setIds.has(t.id)));
+            setThemen(list.filter((t) => setIds.has(t.id)));
             return;
           } else {
-            writeSnapshotIds(assignmentId, list.map(t => t.id));
+            writeSnapshotIds(assignmentIdFromQuery, list.map((t) => t.id));
             setThemen(list);
             return;
           }
@@ -210,8 +265,10 @@ export default function KatalogThemenPublic() {
         if (alive) setThemen([]);
       }
     })();
-    return () => { alive = false; };
-  }, [location.search]);
+    return () => {
+      alive = false;
+    };
+  }, [query, assignmentIdFromQuery]);
 
   /* --- assessments aus localStorage --- */
   const assessments = useMemo(() => {
@@ -230,7 +287,6 @@ export default function KatalogThemenPublic() {
       const entry = assessments[dashKey] ?? {};
       let effectiveProgress = typeof entry.progress === "number" ? entry.progress : 0;
 
-      // Nur wenn token + sessionId vorhanden → echten Stand holen
       if (token && entry.sessionId) {
         getState(token, entry.sessionId)
           .then((state) => {
@@ -238,11 +294,10 @@ export default function KatalogThemenPublic() {
             if (newProgress !== effectiveProgress) {
               const next = { ...assessments, [dashKey]: { ...entry, progress: newProgress } };
               localStorage.setItem("assessments", JSON.stringify(next));
-              // Re-Render auslösen
               setTick((t) => t + 1);
             }
           })
-          .catch(() => {});
+          .catch(() => { });
       }
 
       return {
@@ -262,52 +317,71 @@ export default function KatalogThemenPublic() {
   }, [themen, assessments, token]);
 
   /* --- Tabs --- */
-  const available = topicCards.filter(c => !(c.effectiveProgress > 0 && c.effectiveProgress < 100) && c.effectiveProgress < 100);
-  const planned   = topicCards.filter(c =>  c.effectiveProgress > 0 && c.effectiveProgress < 100);
-  const done      = topicCards.filter(c =>  c.effectiveProgress >= 100);
+  const available = topicCards.filter((c) => !(c.effectiveProgress > 0 && c.effectiveProgress < 100) && c.effectiveProgress < 100);
+  const planned = topicCards.filter((c) => c.effectiveProgress > 0 && c.effectiveProgress < 100);
+  const done = topicCards.filter((c) => c.effectiveProgress >= 100);
 
   /* --- Start/Fortsetzen: bestehenden sessionId-Wert NICHT überschreiben --- */
-const handleStart = (card: TopicCardModel) => {
-  const dashKey = card.dashKey;
-  const storeRaw = localStorage.getItem("assessments");
-  const store: Record<string, AssessEntry> = storeRaw ? JSON.parse(storeRaw) : {};
-  const prev = store[dashKey] ?? {};
-  const current = typeof prev.progress === "number" && prev.progress > 0 ? prev.progress : 1;
+  const handleStart = (card: TopicCardModel) => {
+    const dashKey = card.dashKey;
+    const storeRaw = localStorage.getItem("assessments");
+    const store: Record<string, AssessEntry> = storeRaw ? JSON.parse(storeRaw) : {};
+    const prev = store[dashKey] ?? {};
+    const current = typeof prev.progress === "number" && prev.progress > 0 ? prev.progress : 1;
 
-  // Progress + evtl. vorhandene Session-ID beibehalten
-  store[dashKey] = {
-    started: prev.started ?? new Date().toISOString(),
-    progress: current,
-    currentQuestion: prev.currentQuestion ?? 0,
-    sessionId: prev.sessionId,
+    store[dashKey] = {
+      started: prev.started ?? new Date().toISOString(),
+      progress: current,
+      currentQuestion: prev.currentQuestion ?? 0,
+      sessionId: prev.sessionId, // beibehalten
+    };
+    localStorage.setItem("assessments", JSON.stringify(store));
+
+    // Original-Query übernehmen + Name weiterreichen
+    const qp = new URLSearchParams({
+      topicId: card.topicId,
+      topicName: card.topicName,
+      ...(token ? { accessToken: token } : {}),
+      ...(query.get("catalogId") ? { catalogId: (query.get("catalogId") || "").trim() } : {}),
+      ...(query.get("catalogTitle") ? { catalogTitle: (query.get("catalogTitle") || "").trim() } : {}),
+      ...(query.get("assignmentId") ? { assignmentId: (query.get("assignmentId") || "").trim() } : {}),
+      ...(welcomeName ? { name: welcomeName } : {}),
+    });
+
+    navigate(`/app/assessments?${qp.toString()}`);
   };
-  localStorage.setItem("assessments", JSON.stringify(store));
 
-  // ---- HIER minimal erweitern: die Original-Query übernehmen ----
-  const qs = new URLSearchParams(location.search);
-  const tk           = (qs.get("token") || qs.get("accessToken") || "").trim();
-  const catalogId    = (qs.get("catalogId") || "").trim();
-  const catalogTitle = (qs.get("catalogTitle") || "").trim();
-  const assignmentId = (qs.get("assignmentId") || "").trim();
+  useEffect(() => {
+  // wir lesen alles, was wir brauchen, aus der URL
+  const tokenInUrl       = (query.get("token") || "").trim();
+  const accessTokenInUrl = (query.get("accessToken") || tokenInUrl).trim();
+  const catalogId        = (query.get("catalogId") || "").trim();
+  const catalogTitle     = (query.get("catalogTitle") || "").trim();
+  const assignmentId     = (query.get("assignmentId") || "").trim();
+  const name             = (query.get("name") || welcomeName || "Teilnehmer").trim();
+  const code             = (query.get("code") || "").trim();
 
-  // Alles an die AssessmentPage mitgeben, damit sie später korrekt zurücknavigieren kann
-  const qp = new URLSearchParams({
-    topicId:   card.topicId,
-    topicName: card.topicName,
-    ...(tk ? { accessToken: tk } : {}),
-    ...(catalogId ? { catalogId } : {}),
-    ...(catalogTitle ? { catalogTitle } : {}),
-    ...(assignmentId ? { assignmentId } : {}),
-  });
-
-  navigate(`/app/assessments?${qp.toString()}`);
-};
-
+   // nur speichern, wenn die wichtigsten Felder da sind
+  if ( (tokenInUrl || accessTokenInUrl) && catalogId && assignmentId ) {
+    const meta: CatalogLinkMeta = {
+      token: tokenInUrl || accessTokenInUrl,
+      accessToken: accessTokenInUrl || tokenInUrl,
+      catalogId,
+      catalogTitle,
+      assignmentId,
+      name,
+      code,
+    };
+    localStorage.setItem("activeAssignmentMeta", JSON.stringify(meta));
+  }
+}, [query, welcomeName]);
 
   /* --- Storage-/Visibility-Listener --- */
   useEffect(() => {
     const onShow = () => setTick((t) => t + 1);
-    const onStorage = (e: StorageEvent) => { if (e.key === "assessments") setTick((t) => t + 1); };
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === "assessments") setTick((t) => t + 1);
+    };
     document.addEventListener("visibilitychange", onShow);
     window.addEventListener("pageshow", onShow);
     window.addEventListener("storage", onStorage);
@@ -318,7 +392,7 @@ const handleStart = (card: TopicCardModel) => {
     };
   }, []);
 
-  /* --- UI (unverändert) --- */
+  /* --- UI --- */
   const tabBtnBase = "relative -bottom-[2px] px-6 py-3 border-b-[3px] font-medium transition-all";
   const tabBtn = (key: TabKey) =>
     `${tabBtnBase} ${activeTab === key ? "border-blue-700 text-blue-700" : "border-transparent text-slate-500 hover:text-slate-700"}`;
@@ -331,16 +405,25 @@ const handleStart = (card: TopicCardModel) => {
     </div>
   );
 
+
   return (
     <div className="bg-[#f7f8fb] text-[#333] min-h-screen">
       <AppHeader />
 
+      {/* EIN gemeinsamer Intro-Header mit Willkommen + optionalem Katalogtitel */}
       <section className="text-center pt-10 pb-2 px-5">
-        <h1 className="text-[24px] font-semibold mb-3">Assessment Plattform</h1>
-        <p className="max-w-[620px] mx-auto text-slate-600">
-          Bewerten Sie Ihre Unternehmensreife in verschiedenen Bereichen durch
-          interaktive Umfragen und erhalten Sie detaillierte Analysen.
-        </p>
+        <GreetingBanner firstName={welcomeName} />
+         {/**<p className="max-w-[740px] mx-auto text-slate-600">
+          Sie sehen den Katalog <strong>{catalogTitleFromQuery}</strong>. Wählen Sie unten ein Thema, um zu starten oder fortzusetzen.
+        </p> */}
+      </section>
+      <section>
+        {/* Countdown nur anzeigen, wenn wir expiresAt haben */}
+        {expiresAt && (
+          <div className="mt-1 flex items-center justify-center">
+            <CountdownTimer expiresAt={expiresAt} />
+          </div>
+        )}
       </section>
 
       <section className="pt-6 pb-6">
@@ -363,9 +446,15 @@ const handleStart = (card: TopicCardModel) => {
       <section className="mb-8">
         <div className="max-w-[1280px] mx-auto px-4">
           <div className="flex flex-wrap gap-2 justify-center border-b-2 border-slate-200">
-            <button className={tabBtn("available")} onClick={() => setActiveTab("available")}>Offene Themen</button>
-            <button className={tabBtn("planned")} onClick={() => setActiveTab("planned")}>Laufende Themen</button>
-            <button className={tabBtn("done")} onClick={() => setActiveTab("done")}>Abgeschlossene Themen</button>
+            <button className={tabBtn("available")} onClick={() => setActiveTab("available")}>
+              Offene Themen
+            </button>
+            <button className={tabBtn("planned")} onClick={() => setActiveTab("planned")}>
+              Laufende Themen
+            </button>
+            <button className={tabBtn("done")} onClick={() => setActiveTab("done")}>
+              Abgeschlossene Themen
+            </button>
           </div>
         </div>
       </section>
@@ -379,39 +468,119 @@ const handleStart = (card: TopicCardModel) => {
           ) : (
             <>
               {activeTab === "available" && <Grid list={available} />}
-              {activeTab === "planned"   && (planned.length ? <Grid list={planned} /> : (
-                <div className="text-center py-20 text-slate-500">
-                  <svg className="w-24 h-24 mx-auto mb-5 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" />
-                  </svg>
-                  <h2 className="text-xl font-semibold">Keine laufenden Themen</h2>
-                  <p>Starten Sie ein Thema, um es hier zu sehen.</p>
-                </div>
-              ))}
-              {activeTab === "done"      && (done.length ? <Grid list={done} /> : (
-                <div className="text-center py-20 text-slate-500">
-                  <svg className="w-24 h-24 mx-auto mb-5 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                  </svg>
-                  <h2 className="text-xl font-semibold">Noch nichts abgeschlossen</h2>
-                  <p>Abgeschlossene Themen erscheinen hier.</p>
-                </div>
-              ))}
+              {activeTab === "planned" &&
+                (planned.length ? (
+                  <Grid list={planned} />
+                ) : (
+                  <div className="text-center py-20 text-slate-500">
+                    <svg className="w-24 h-24 mx-auto mb-5 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" />
+                    </svg>
+                    <h2 className="text-xl font-semibold">Keine laufenden Themen</h2>
+                    <p>Starten Sie ein Thema, um es hier zu sehen.</p>
+                  </div>
+                ))}
+              {activeTab === "done" &&
+                (done.length ? (
+                  <Grid list={done} />
+                ) : (
+                  <div className="text-center py-20 text-slate-500">
+                    <svg className="w-24 h-24 mx-auto mb-5 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    <h2 className="text-xl font-semibold">Noch nichts abgeschlossen</h2>
+                    <p>Abgeschlossene Themen erscheinen hier.</p>
+                  </div>
+                ))}
             </>
           )}
         </div>
       </section>
 
-      <footer className="text-center bg-white py-8 shadow-[0_-2px_5px_rgba(0,0,0,.03)]">
-        <p>
-          Bereit loszulegen?
-          <br />
-          Wählen Sie eines der obigen Themen und starten Sie die Bewertung.
-        </p>
-        <div className="inline-block mt-2 bg-[#e6ffed] text-[#15803d] text-[14px] py-2 px-5 rounded-xl">
-          ✅ Ihre Daten sind sicher und werden vertraulich behandelt
+       <footer
+      id="cap-footer"
+      // wir übergeben die URL in eine CSS-Variable und lesen sie in der Klasse aus
+      style={{ ["--cap-pattern" as any]: `url(${patternUrl})` }}
+      className="
+        text-white
+        bg-[#264555]                    /* CAP primary */
+        [background-image:var(--cap-pattern)]
+        bg-repeat bg-left-top
+        [background-size:170px]         
+        py-16 pb-8
+      "
+    >
+      <div className="container mx-auto px-6">
+        {/* Headline */}
+        <div className="pb-6 text-center">
+          <h4 className="text-2xl font-semibold">cap consulting GmbH</h4>
         </div>
-      </footer>
+
+        {/* zwei Spalten */}
+        <div className="flex flex-col gap-8 md:flex-row md:items-start md:justify-between">
+          {/* Adresse / Kontakt */}
+          <div className="text-center md:text-left">
+            <p className="leading-relaxed">
+              Potsdamer Str. 150
+              <br />
+              33719 Bielefeld
+            </p>
+
+            <p className="mt-3">
+              <a
+                href="tel:+4952199988300"
+                className="underline-offset-2 hover:underline"
+              >
+                Tel.: +49 521 999 883 00
+              </a>
+            </p>
+
+            <p className="mt-1">
+              <a
+                href="mailto:kontakt@cap-consulting.de"
+                className="underline-offset-2 hover:underline"
+              >
+                kontakt@cap-consulting.de
+              </a>
+            </p>
+          </div>
+
+          {/* Newsletter CTA */}
+          <div className="text-center md:text-right">
+            <p className="font-semibold">
+              Up-to-date mit unserem IT-Newsletter
+            </p>
+            <a
+              href="https://www.cap-consulting.de/newsletter-anmeldung/"
+              className="
+                mt-2 inline-flex items-center
+                rounded-md bg-[#E3BB62] px-5 py-2
+                font-medium text-[#264555]
+                shadow hover:brightness-95
+              "
+            >
+              Ich möchte aktuell bleiben
+            </a>
+          </div>
+        </div>
+
+        {/* Untere Link-Leiste */}
+        <div className="mt-10  border-white/20 pt-4">
+          <div className="mx-auto flex max-w-4xl flex-col items-center gap-3 text-center text-white/90 lg:flex-row lg:justify-evenly">
+            <p className="m-0">©2022 cap consulting GmbH</p>
+            <a className="hover:underline underline-offset-2" href="https://www.cap-consulting.de/impressum/">
+              Impressum
+            </a>
+            <a className="hover:underline underline-offset-2" href="https://www.cap-consulting.de/datenschutzerklaerung/">
+              Datenschutz
+            </a>
+            <a className="hover:underline underline-offset-2" href="https://www.cap-consulting.de/haftungsausschluss/">
+              Haftungsausschluss
+            </a>
+          </div>
+        </div>
+      </div>
+    </footer>
     </div>
   );
 }

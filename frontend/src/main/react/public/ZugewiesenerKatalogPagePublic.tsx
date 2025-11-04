@@ -26,7 +26,7 @@ type TopicCardModel = {
   topicName: string;
   assignmentId?: string;
 };
-
+ 
 /* ================== Karten-Komponente ================== */
 function CatalogCard({ data, onStart }: { data: TopicCardModel; onStart: () => void }) {
   const [animate, setAnimate] = useState(false);

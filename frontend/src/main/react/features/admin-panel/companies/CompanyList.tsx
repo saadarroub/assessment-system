@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import AdminPanelHeader from "@/apps/app/adminPanelHeader";
+import AdminLayout from "@/apps/app/AdminLayout";
 import { Search, ArrowUpDown, Eye, Building2, Plus, Trash2, Pencil } from "lucide-react";
 import {
   getCompanies,
@@ -244,7 +244,7 @@ export default function CompaniesList() {
   }
 
   return (
-    <AdminPanelHeader>
+    <AdminLayout>
       {/* ===== Hero ===== */}
       <header className="w-full border-b bg-white/90 [backdrop-filter:saturate(1.4)_blur(6px)]" style={{ borderColor: CSS.adminBg }}>
         <div className="max-w-[1200px] mx-auto px-6">
@@ -614,6 +614,6 @@ export default function CompaniesList() {
           </div>
         </div>
       )}
-    </AdminPanelHeader>
+    </AdminLayout>
   );
 }

@@ -24,7 +24,6 @@ export default function LoginPage() {
   const doRedirect = (roles: string[]) => {
     if (from) { navigate(from, { replace: true }); return; }
     if (roles.includes("admin")) navigate("/admin", { replace: true });
-    else                         navigate("/app/dashboard", { replace: true });
   };
 
   // Offline-Login: KEIN Fetch, sofort lokal authentifizieren
@@ -40,45 +39,72 @@ export default function LoginPage() {
   };
 
   const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
+  e.preventDefault();
+  setError(null);
 
-    // 0) SHORT-CIRCUIT: Wenn Admin-Creds → direkt offline einloggen, OHNE Fetch
-    if (email === DEFAULT_ADMIN_EMAIL && password === DEFAULT_ADMIN_PW) {
-      offlineAdminLogin();
-      return;
+  // Offline-Admin
+  if (email === DEFAULT_ADMIN_EMAIL && password === DEFAULT_ADMIN_PW) {
+    offlineAdminLogin();
+    return;
+  }
+
+  setLoading(true);
+  try {
+    // Login 
+    const res = await fetch(`${API_URL}/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+    if (!res.ok) throw new Error(`Login fehlgeschlagen (HTTP ${res.status})`);
+
+    const rawUser = await res.json();        
+    delete (rawUser as any).password;   
+
+    const token: string = rawUser.accessToken ?? "dev-token";
+
+    // Rollen separat laden
+    const rolesRes = await fetch(`${API_URL}/users/${rawUser.id}/roles`, {
+      headers: {
+        "Content-Type": "application/json",
+        ...(token && token !== "dev-token" ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    });
+    if (!rolesRes.ok) throw new Error(`Rollenabfrage fehlgeschlagen (HTTP ${rolesRes.status})`);
+
+    const roleLinks = await rolesRes.json();
+    const roles: string[] = Array.isArray(roleLinks)
+      ? roleLinks
+          .map((r: any) => r.role.name)
+          .filter((n: unknown): n is string => typeof n === "string" && n.length > 0)
+      : [];
+
+    // Normalisiertes User-Objekt
+    const normalizedUser = {
+      id: rawUser.id,
+      name: rawUser.name,
+      email: rawUser.email,
+      accessToken: token,
+      roles,
+      createdAt: rawUser.createdAt,
+      updatedAt: rawUser.updatedAt,
+    };
+
+    // 4) Persistieren + AuthContext + Redirect
+    login(token, roles);
+    localStorage.setItem("user", JSON.stringify(normalizedUser));
+    if (normalizedUser.accessToken) {
+      localStorage.setItem("accessToken", normalizedUser.accessToken);
     }
 
-    // 1) sonst: normales Backend-Login
-    setLoading(true);
-    try {
-      const res = await fetch(`${API_URL}/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
+    doRedirect(roles);
+  } catch (err: any) {
+    setError(err?.message || "Unbekannter Fehler beim Login.");
+  } finally {
+    setLoading(false);
+  }
+};
 
-      if (!res.ok) {
-        throw new Error(`Login fehlgeschlagen (HTTP ${res.status})`);
-      }
-
-      const user = await res.json();
-      delete (user as any).password;
-
-      const token: string   = user.accessToken ?? "dev-token";
-      const roles: string[] = user.roles ?? [];
-
-      login(token, roles);
-      localStorage.setItem("user", JSON.stringify(user));
-      if (user.accessToken) localStorage.setItem("accessToken", user.accessToken);
-
-      doRedirect(roles);
-    } catch (err: any) {
-      setError(err?.message || "Unbekannter Fehler beim Login.");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#264555]">

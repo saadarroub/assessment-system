@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Search, ArrowUpDown, Copy, Check, Link as LinkIcon, X } from "lucide-react";
-import AdminPanelHeader from "@/apps/app/adminPanelHeader";
+import AdminLayout from "@/apps/app/AdminLayout";
 import { listAssignments, type AssignmentApi } from "@/features/service/assignmentService";
 
 type SortKey = "worker" | "catalog" | "status" | "assignedAt" | "expiresAt" | "completedAt";
@@ -143,7 +143,7 @@ export default function Zuweisungen() {
     };
 
     return (
-        <AdminPanelHeader>
+        <AdminLayout>
             {/* Header */}
             <header className="w-full border-b bg-white/90 [backdrop-filter:saturate(1.4)_blur(6px)]" style={{ borderColor: CSS.adminBg }}>
                 <div className="max-w-[1200px] mx-auto px-6">
@@ -407,6 +407,6 @@ export default function Zuweisungen() {
                 </div>
             )}
 
-        </AdminPanelHeader>
+        </AdminLayout>
     );
 }

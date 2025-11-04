@@ -1,10 +1,8 @@
-// src/features/admin-panel/users/UsersPage.tsx — Tailwind-only (100% Style-Match)
-// Neu: Edit-Icon + Edit-Modal (Name, Email, Password optional) mit updateUser()
-// Sonst unverändert.
+
 
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import AdminPanelHeader from "@/apps/app/adminPanelHeader";
+import AdminLayout from "@/apps/app/AdminLayout";
 import { Search, ArrowUpDown, Eye, Plus, Trash2, Pencil } from "lucide-react";
 import {
   getUsers,
@@ -270,7 +268,7 @@ export default function UsersPage() {
 }
 
   return (
-    <AdminPanelHeader>
+    <AdminLayout>
       {/* ===== Hero ===== */}
       <header className="w-full border-b bg-white/90 [backdrop-filter:saturate(1.4)_blur(6px)]" style={{ borderColor: CSS.adminBg }}>
         <div className="max-w-[1200px] mx-auto px-6">
@@ -652,6 +650,6 @@ className="inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-semi
           </div>
         </div>
       )}
-    </AdminPanelHeader>
+    </AdminLayout>
   );
 }

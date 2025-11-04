@@ -1,7 +1,7 @@
 // src/main/react/features/admin-panel/companies/CompanyDetails.tsx
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import AdminPanelHeader from "@/apps/app/adminPanelHeader";
+import AdminLayout from "@/apps/app/AdminLayout";
 import "@/styles/adminPanel.css";
 import "@/styles/adminCompanyDetails.css";
 import {
@@ -117,7 +117,7 @@ export default function CompanyDetails() {
   /* ---------- Loading/Errors ---------- */
   if (loading) {
     return (
-      <AdminPanelHeader>
+      <AdminLayout>
         <header className="main-header">
           <div className="header-content">
             <div className="header-center">
@@ -128,13 +128,13 @@ export default function CompanyDetails() {
             </div>
           </div>
         </header>
-      </AdminPanelHeader>
+      </AdminLayout>
     );
   }
 
   if (error || !company) {
     return (
-      <AdminPanelHeader>
+      <AdminLayout>
         <header className="main-header">
           <div className="header-content">
             <div className="header-center">
@@ -155,7 +155,7 @@ export default function CompanyDetails() {
             <span style={{ color: "hsl(var(--foreground))", fontWeight: 600 }}>Not found</span>
           </nav>
         </main>
-      </AdminPanelHeader>
+      </AdminLayout>
     );
   }
 
@@ -254,7 +254,7 @@ export default function CompanyDetails() {
 
   /* ---------- Render ---------- */
   return (
-    <AdminPanelHeader>
+    <AdminLayout>
       {/* === Hero === */}
       <header className="main-header">
         <div className="header-content">
@@ -623,6 +623,6 @@ export default function CompanyDetails() {
           </div>
         </div>
       )}
-    </AdminPanelHeader>
+    </AdminLayout>
   );
 }
