@@ -80,10 +80,10 @@ function goBackToTopics() {
       setSessionId(s.sessionId);
       setStatus(s.status);
 
-      /* >>>>>>>>>>>>>>>>>>>>>>>>>>
+      /* 
          MINIMALE ERGÄNZUNG: sessionId persistieren,
          damit die Themenliste Live-Progress per getState() ziehen kann.
-      >>>>>>>>>>>>>>>>>>>>>>>>>> */
+       */
       try {
         const dashKey = `topic:${tid}`;
         const raw = localStorage.getItem("assessments");
@@ -97,7 +97,6 @@ function goBackToTopics() {
         };
         localStorage.setItem("assessments", JSON.stringify(store));
       } catch {}
-      /* <<<<<<<<<<<<<<<<<<<<<<<<< */
 
       let first: UiQuestion | null = null;
       if (s.firstOrNextQuestion) {

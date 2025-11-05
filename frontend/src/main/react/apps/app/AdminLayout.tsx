@@ -48,24 +48,24 @@ function cx(...x: Array<string | false | null | undefined>) {
 }
 
 type NavId =
-  | "Admin-Area"
+  | "Themen Verwalten"
   | "catalog"
   | "Admin-Panel"
   | "users"
   | "companies"
-  | "Alle Zuweisungen"
+  | "Zuweisungen"
   | "sessions"
   | "Audit-log";
 
 const NAV_PRIMARY: Array<{ id: NavId; label: string; Icon: React.FC<any>; to: string }> = [
-  { id: "Admin-Area", label: "Admin-Area", Icon: LayoutDashboard, to: "/admin" },
-  { id: "catalog", label: "Katalog zuweisen", Icon: FileText, to: "/admin/katalogzuweisen" },
+  { id: "Themen Verwalten", label: "Themen Verwalten", Icon: LayoutDashboard, to: "/admin" },
+  { id: "catalog", label: "Katalogen", Icon: FileText, to: "/admin/katalogzuweisen" },
 ];
 const NAV_Panel: Array<{ id: NavId; label: string; Icon: React.FC<any>; to: string }> = [
   //{ id: "Admin-Panel", label: "Admin-Panel", Icon: BarChart3, to: "/admin/adminPanel" },
   { id: "users", label: "Users", Icon: ShoppingCart, to: "/admin/adminPanel/users" },
   { id: "companies", label: "Firmen", Icon: Building2, to: "/admin/adminPanel/companies" },
-  { id: "Alle Zuweisungen", label: "Alle Zuweisungen", Icon: FileText, to: "/admin/adminPanel/zuweisungen" },
+  { id: "Zuweisungen", label: "Zuweisungen", Icon: FileText, to: "/admin/adminPanel/zuweisungen" },
   //{ id: "Audit-log", label: "Audit-log", Icon: BarChart3, to: "/admin/adminPanel/audit" },
 ];
 
