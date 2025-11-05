@@ -90,7 +90,7 @@ export default function LoginPage() {
       updatedAt: rawUser.updatedAt,
     };
 
-    // 4) Persistieren + AuthContext + Redirect
+    // Persistieren + AuthContext + Redirect
     login(token, roles);
     localStorage.setItem("user", JSON.stringify(normalizedUser));
     if (normalizedUser.accessToken) {

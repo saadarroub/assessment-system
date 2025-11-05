@@ -1,7 +1,8 @@
-import React, { useEffect, useMemo, useState, useRef, type ReactNode } from "react";
+import React, { useEffect, useState, useRef, type ReactNode } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuthCtx } from "@/core/auth/AuthContext";
 import { logoutApi } from "@/features/auth/logoutService";
+import ProfileStrip from "@/apps/app/ProfileStrip";
 //import capLogo from "@/assets/Logo_cap_consulting_RGB_Darkblue.svg";
 
 import {
@@ -53,6 +54,7 @@ type NavId =
   | "users"
   | "companies"
   | "Alle Zuweisungen"
+  | "sessions"
   | "Audit-log";
 
 const NAV_PRIMARY: Array<{ id: NavId; label: string; Icon: React.FC<any>; to: string }> = [
@@ -64,7 +66,7 @@ const NAV_Panel: Array<{ id: NavId; label: string; Icon: React.FC<any>; to: stri
   { id: "users", label: "Users", Icon: ShoppingCart, to: "/admin/adminPanel/users" },
   { id: "companies", label: "Firmen", Icon: Building2, to: "/admin/adminPanel/companies" },
   { id: "Alle Zuweisungen", label: "Alle Zuweisungen", Icon: FileText, to: "/admin/adminPanel/zuweisungen" },
-  { id: "Audit-log", label: "Audit-log", Icon: BarChart3, to: "/admin/adminPanel/audit" },
+  //{ id: "Audit-log", label: "Audit-log", Icon: BarChart3, to: "/admin/adminPanel/audit" },
 ];
 
 
@@ -222,7 +224,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-3 [scrollbar-width:none] [-ms-overflow-style:none]">
+        <div className="flex-1 overflow-y-auto p-3 [scrollbar-width:none] [-ms-overflow-style:none] flex flex-col min-h-0">
           {/* Navigation */}
           <div className={cx(collapsed && "invisible")} aria-hidden={collapsed}>
             <h3
@@ -367,19 +369,36 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
               );
             })}
           </nav>
-
-
-
-          {/* Footer */}
-          {!collapsed && (
-            <div
-              className="mt-[34rem] pt-4 border-t text-[0.8rem]"
-              style={{ borderColor: `hsl(${TOKENS.sidebarBorder})`, color: `hsl(${TOKENS.sidebarMuted})` }}
-            >
-              <div>Fragenkatalog</div>
-              <div>Admin</div>
-            </div>
-          )}
+          {/* Profil-Leiste / Footer */}
+          <div className="mt-auto space-y-3">
+            {!collapsed && (    
+              <div
+                className="pt-2 border-t text-[0.8rem]"
+                style={{ borderColor: `hsl(${TOKENS.sidebarBorder})`, color: `hsl(${TOKENS.sidebarMuted})` }}
+              >
+                {/* 
+                 <div>Fragenkatalog</div>
+                <div>Admin</div>
+                */}
+              </div>
+            )}
+            <ProfileStrip
+              collapsed={collapsed}
+              name="admin"
+              email="admin@example.com"
+              avatarUrl="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=160&h=160&fit=crop&crop=face"
+              onSettings={() => alert("Einstellungen (noch nicht implementiert)")}
+              tokens={{
+                sidebarHSL: TOKENS.sidebarHSL,
+                sidebarStrong: TOKENS.sidebarStrong,
+                sidebarBorder: TOKENS.sidebarBorder,
+                sidebarFg: TOKENS.sidebarFg,
+                sidebarMuted: TOKENS.sidebarMuted,
+              }}
+            />
+            
+           
+          </div>
         </div>
       </aside>
 

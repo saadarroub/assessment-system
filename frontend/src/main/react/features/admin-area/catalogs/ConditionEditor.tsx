@@ -226,7 +226,8 @@ export default function ConditionEditor() {
     if (themaId) fetchAllQuestions();
   }, [themaId]);
 
-  // ✅ Neue Frage hinzufügen
+  // Neue Frage hinzufügen vilt später
+{/*
   const handleConfirm = () => {
     const newQuestion = {
       id: Date.now().toString(),
@@ -250,6 +251,7 @@ export default function ConditionEditor() {
 
     handleCancel();
   };
+  */}
 
   const handleAddQuestion = () => {
     setParentQuestion(null);

@@ -150,12 +150,14 @@ export default function InviteGate() {
         // Falls Lookup fehlschlägt, navigieren wir trotzdem weiter
       }
 
-      // 3) Redirect wie gehabt – jetzt mit assignmentId (falls vorhanden)
+      //  Redirect wie gehabt – jetzt mit assignmentId (falls vorhanden)
+      {/*
       const qp = new URLSearchParams({
         token,
         code: clean,
         ...(assignmentId ? { assignmentId } : {}),
       });
+      */}
       await navigateToTopics({ token, accessCode: clean }); //navigate(`${TARGET}?${qp.toString()}`, { replace: true });
     } catch (e: any) {
       setError(e?.message ?? String(e));

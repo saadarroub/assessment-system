@@ -255,19 +255,23 @@ export default function CompanyDetails() {
   /* ---------- Render ---------- */
   return (
     <AdminLayout>
-      {/* === Hero === */}
-      <header className="main-header">
-        <div className="header-content">
-          <div className="header-center">
-            <div className="header-text">
+      {/* === Hero (Tailwind) === */}
+      <header className="relative bg-[hsl(60_9%_97.8%)] border-b border-[hsl(214.3_31.8%_91.4%)] px-8 py-4">
+        <div className="pointer-events-none absolute left-0 right-0 top-[calc(64px-1px)] h-0 [box-shadow:0_10px_16px_-14px_rgba(15,23,42,.18)]" />
+        <div className="grid grid-cols-3 items-center gap-2 lg:grid-cols-1 lg:justify-items-center lg:text-center">
+          <div className="justify-self-start hidden lg:flex items-center lg:justify-self-center" />
+          <div className="justify-self-center">
+            <div className="[&>h1]:text-[clamp(28px,6vw,56px)] [&>h1]:font-extrabold [&>h1]:tracking-[-0.02em] [&>h1]:m-0 [&>h1]:mb-4 [&>h1]:leading-[1.05] [&>h1]:text-[#264555] [&>p]:mt-0 [&>p]:text-[#334155] [&>p]:opacity-90 [&>p]:text-[clamp(14px,1.6vw,18px)]">
               <h1>Company: {company.name}</h1>
-              <p>Details &amp; management</p>
+              <p>information</p>
             </div>
           </div>
+          <div className="justify-self-end inline-flex lg:justify-self-center" />
         </div>
       </header>
 
-      <main className="admin-main">
+      {/* >>> einzig relevante Klassenänderung für „kompakt“ <<< */}
+      <main className="admin-main company-details compact">
         {/* Breadcrumb */}
         <nav className="breadcrumb">
           <Link to="/admin/adminPanel">Admin Panel</Link>
@@ -279,11 +283,7 @@ export default function CompanyDetails() {
 
         {/* Kopf */}
         <div className="page-header details-page-header">
-          <Link to="/admin/adminPanel/companies" className="back-btn" aria-label="Zurück zu Companies">←</Link>
-          <div>
-            <h2 className="page-title">Company Details &amp; Management</h2>
-            <p className="page-description">{company.name}</p>
-          </div>
+          <Link to="/admin/adminPanel/companies" className="back-btn" aria-label="Zurück zu Companies">Zurück</Link>
         </div>
 
         <div className="content-grid">
@@ -301,9 +301,21 @@ export default function CompanyDetails() {
 
               {/* Stats */}
               <div className="stats-grid">
-                <div className="stat-card"><span className="stat-icon" aria-hidden>👥</span><span className="stat-number">{usersCount}</span><div className="stat-label">Users</div></div>
-                <div className="stat-card"><span className="stat-icon" aria-hidden>📂</span><span className="stat-number">{catalogsCount}</span><div className="stat-label">Catalogs</div></div>
-                <div className="stat-card"><span className="stat-icon" aria-hidden>📅</span><div className="stat-number stat-number-compact">{formatDate(company.created)}</div><div className="stat-label">Created</div></div>
+                <div className="stat-card">
+                  <span className="stat-icon" aria-hidden>👥</span>
+                  <span className="stat-number">{usersCount}</span>
+                  <div className="stat-label">Users</div>
+                </div>
+                <div className="stat-card">
+                  <span className="stat-icon" aria-hidden>📂</span>
+                  <span className="stat-number">{catalogsCount}</span>
+                  <div className="stat-label">Catalogs</div>
+                </div>
+                <div className="stat-card">
+                  <span className="stat-icon" aria-hidden>📅</span>
+                  <div className="stat-number stat-number-compact">{formatDate(company.created)}</div>
+                  <div className="stat-label">Created</div>
+                </div>
               </div>
 
               {/* Tabs */}

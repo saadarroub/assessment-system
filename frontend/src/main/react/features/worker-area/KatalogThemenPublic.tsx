@@ -172,7 +172,7 @@ export default function KatalogThemenPublic() {
   const query = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const token = useMemo(() => (query.get("token") || query.get("accessToken") || "").trim(), [query]);
   const accessCode = useMemo(() => (query.get("code") || "").trim(), [query]);
-  const catalogTitleFromQuery = useMemo(() => (query.get("catalogTitle") || "").trim(), [query]);
+  //const catalogTitleFromQuery = useMemo(() => (query.get("catalogTitle") || "").trim(), [query]);
   const assignmentIdFromQuery = useMemo(() => (query.get("assignmentId") || "").trim(), [query]);
 
   /* --- Willkommen-Name --- */
@@ -184,7 +184,7 @@ export default function KatalogThemenPublic() {
 
   // Token & Code aus der URL
 
-  const sp = new URLSearchParams(location.search);
+  //const sp = new URLSearchParams(location.search);
   const [expiresAt, setExpiresAt] = useState<string | null>(null);
   //in expiresAt muss Z.b: 2025-11-05T18:00:00Z
   useEffect(() => {

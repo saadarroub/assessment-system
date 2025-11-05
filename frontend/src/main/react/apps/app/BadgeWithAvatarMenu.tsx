@@ -1,10 +1,10 @@
 // BadgeWithAvatarMenu.tsx
-import React, { useState, useRef, useEffect } from "react";
+import  { useState, useRef, useEffect } from "react";
 import CornerBadge from "./CornerBadge";
-import { createPortal } from "react-dom";
+//import { createPortal } from "react-dom";
 
 
-type MenuItem = { id: string; label: string; onClick?: () => void };
+//type MenuItem = { id: string; label: string; onClick?: () => void };
 
 type Props = {
   width?: number;
@@ -24,7 +24,7 @@ export default function BadgeWithAvatarMenu({
   avatarUrl,
 }: Props) {
   const [open, setOpen] = useState(false);
-  const [menuPos, setMenuPos] = useState<{x:number;y:number}|null>(null);
+  const [, setMenuPos] = useState<{x:number;y:number}|null>(null);
   const boxRef = useRef<HTMLDivElement>(null);
 
   // Klick außerhalb schließt Menü

@@ -8,12 +8,14 @@ import type { LucideIcon } from "lucide-react";
 import { getThemen, type ThemaApi } from "../service/themaService";
 import { getCatalogs, type CatalogApi } from "../service/catalogService";
 import { assignTopicsToCatalog } from "../service/themaCatalogService";
+import { useNavigate } from "react-router-dom";
+
 
 
 /* ----------------------------- Types & Models ----------------------------- */
 
 type Topic = {
-    id: string;            // Backend-ID
+    id: string;            
     name: string;
     subtitle?: string;
     icon?: LucideIcon;
@@ -52,6 +54,9 @@ export default function KatalogVerwaltung({ }: Props) {
     // Auswahl
     const [selectedCatalogId, setSelectedCatalogId] = useState<string>("");
     const [selectedTopicIds, setSelectedTopicIds] = useState<Set<string>>(new Set());
+
+    const navigate =useNavigate();
+
 
     const DEFAULT_ICON: LucideIcon = Building2;
     const DEFAULT_COLOR = "#d2c9b9";
@@ -117,7 +122,8 @@ export default function KatalogVerwaltung({ }: Props) {
         if (!selectedCatalogId || selectedTopicIds.size === 0) return;
         try {
             await assignTopicsToCatalog(selectedCatalogId, Array.from(selectedTopicIds));
-            // TODO: Erfolgsmeldung / zurücknavigieren / Refresh
+            alert('zuordnung erfolgreich');
+             navigate("/admin/katalogzuweisen", { replace: true });
         } catch (e: any) {
             alert(`Zuordnung fehlgeschlagen: ${e?.message ?? e}`);
         }
@@ -278,7 +284,7 @@ export default function KatalogVerwaltung({ }: Props) {
                         </div>
                     </div>
                 </div>
-
+ 
                 {/* Sticky Footer Actions */}
                 <div className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60">
                     <div className="mx-auto flex max-w-7xl items-center justify-end gap-3 px-6 py-3">
