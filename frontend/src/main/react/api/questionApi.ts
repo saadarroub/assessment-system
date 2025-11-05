@@ -43,14 +43,34 @@ export async function updateQuestion(id: string, question: any) {
 
 // 🟢 Alle QuestionNodes laden
 export async function getAllQuestionNodes() {
-  const response = await axios.get(`${API_BASE}/question-nodes`);
-  return response.data;
+  try {
+    const response = await axios.get(`${API_BASE}/question-nodes`);
+    // ✅ Sicherstellen, dass immer ein Array zurückgegeben wird
+    return Array.isArray(response.data) ? response.data : [];
+  } catch (error: any) {
+    // Wenn 204 NO_CONTENT oder Fehler → leeres Array zurückgeben
+    if (error.response?.status === 204) {
+      return [];
+    }
+    console.error("❌ Fehler beim Laden der QuestionNodes:", error);
+    return []; // Fallback: leeres Array statt null
+  }
 }
 
 // 🔹 Holt ALLE Themen 
 export async function getAllThemas() {
-  const response = await axios.get(`${API_BASE}/themas`);
-  return response.data;
+  try {
+    const response = await axios.get(`${API_BASE}/themas`);
+    // ✅ Sicherstellen, dass immer ein Array zurückgegeben wird
+    return Array.isArray(response.data) ? response.data : [];
+  } catch (error: any) {
+    // Wenn 204 NO_CONTENT oder Fehler → leeres Array zurückgeben
+    if (error.response?.status === 204) {
+      return [];
+    }
+    console.error("❌ Fehler beim Laden der Themen:", error);
+    return []; // Fallback: leeres Array statt null
+  }
 }
 
 
