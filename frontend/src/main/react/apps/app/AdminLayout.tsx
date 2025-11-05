@@ -62,7 +62,7 @@ const NAV_PRIMARY: Array<{ id: NavId; label: string; Icon: React.FC<any>; to: st
   { id: "catalog", label: "Katalog zuweisen", Icon: FileText, to: "/admin/katalogzuweisen" },
 ];
 const NAV_Panel: Array<{ id: NavId; label: string; Icon: React.FC<any>; to: string }> = [
-  { id: "Admin-Panel", label: "Admin-Panel", Icon: BarChart3, to: "/admin/adminPanel" },
+  //{ id: "Admin-Panel", label: "Admin-Panel", Icon: BarChart3, to: "/admin/adminPanel" },
   { id: "users", label: "Users", Icon: ShoppingCart, to: "/admin/adminPanel/users" },
   { id: "companies", label: "Firmen", Icon: Building2, to: "/admin/adminPanel/companies" },
   { id: "Alle Zuweisungen", label: "Alle Zuweisungen", Icon: FileText, to: "/admin/adminPanel/zuweisungen" },
@@ -80,8 +80,8 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
 
   //genaue Position/Ausrichtung des Toggle-Buttons im collapsed State
   const collapsedSize = TOKENS.sizes.collapsedTile; // 48
-  const collapsedLeft = (TOKENS.sizes.sidebarClosed - collapsedSize) / 2; // 80 - 48 = 32 / 2 = 16
-  const collapsedTop = (TOKENS.sizes.header - collapsedSize) / 2; // 64 - 48 = 16 / 2 = 8
+  const collapsedLeft = (TOKENS.sizes.sidebarClosed - collapsedSize) / 2; 
+  const collapsedTop = (TOKENS.sizes.header - collapsedSize) / 2; 
 
   const { isAuthenticated, token, logout } = useAuthCtx();
   const [menuOpen, setMenuOpen] = useState(false);
