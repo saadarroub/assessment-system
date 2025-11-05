@@ -35,6 +35,8 @@ function goBackToTopics() {
     ...(catalogId ? { catalogId } : {}),
     ...(catalogTitle ? { catalogTitle } : {}),
     ...(assignmentId ? { assignmentId } : {}),
+     ...(name ? { name } : {}),         
+    ...(code ? { code } : {}),
   });
   navigate(`${THEMEN_ROUTE}?${qs.toString()}`);
 }
@@ -46,6 +48,8 @@ function goBackToTopics() {
   const topicName = query.get("topicName") || "";       // optional
   const accessToken = query.get("accessToken") || "";   // erforderlich
   const themaId = query.get("themaId") || query.get("topicId") || ""; // erforderlich
+  const name = query.get("name") || "";
+const code = query.get("code") || "";
 
   /* -------- UI/Flow-States -------- */
   const [sessionId, setSessionId] = useState("");
