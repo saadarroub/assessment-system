@@ -8,6 +8,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -20,6 +22,9 @@ public class UserService {
 
     @Autowired
     private UserRoleRepository userRoleRepository;
+
+    // Encoder pour les mots de passe
+    private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     public List<User> getAllUsers() {
         return userRepository.findAll();
@@ -34,21 +39,28 @@ public class UserService {
     }
 
     public User createUser(User user) {
+        //  Encode password before saving the user to the db
+        user.setPassword(passwordEncoder.encode(user.getPassword()));
+
+        System.out.println("ENCODED PASSWORD (create) = " + user.getPassword());
+
         return userRepository.save(user);
     }
+    
 
     public User updateUser(UUID id, User userDetails) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("User not found with id: " + id));
-        
+
         user.setName(userDetails.getName());
         user.setEmail(userDetails.getEmail());
-        
-        // Update password only if provided
+
+        // Update and encode password only if provided
         if (userDetails.getPassword() != null && !userDetails.getPassword().isEmpty()) {
-            user.setPassword(userDetails.getPassword());
+            user.setPassword(passwordEncoder.encode(userDetails.getPassword()));
+            System.out.println("ENCODED PASSWORD (update) = " + user.getPassword());
         }
-        
+
         return userRepository.save(user);
     }
 
@@ -71,4 +83,5 @@ public class UserService {
         return userRoleRepository.findByUserId(userId);
     }
 }
+
 
