@@ -1,10 +1,9 @@
-// src/features/admin-panel/users/UsersPage.tsx — Tailwind-only (100% Style-Match)
-// Neu: Edit-Icon + Edit-Modal (Name, Email, Password optional) mit updateUser()
-// Sonst unverändert.
+
 
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import AdminPanelHeader from "@/apps/app/adminPanelHeader";
+import AdminLayout from "@/apps/app/AdminLayout";
+import myLogo from "@/assets/Zero-6-icons-05.webp";
 import { Search, ArrowUpDown, Eye, Plus, Trash2, Pencil } from "lucide-react";
 import {
   getUsers,
@@ -55,7 +54,7 @@ export default function UsersPage() {
   const [items, setItems] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [rolesLoading, setRolesLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [, setError] = useState<string | null>(null);
 
   const [q, setQ] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("name");
@@ -236,125 +235,162 @@ export default function UsersPage() {
   };
 
   async function onEditSubmit(e: React.FormEvent) {
-  e.preventDefault();
-  if (!editUser) return;
+    e.preventDefault();
+    if (!editUser) return;
 
-  // Für PUT immer volle Felder nehmen (Eingabe oder bestehende Werte)
-  const full: { name: string; email: string; password?: string } = {
-    name: eName.trim() || editUser.name,
-    email: eEmail.trim() || editUser.email,
-    ...(ePassword.trim() ? { password: ePassword.trim() } : {}),
-  };
+    // Für PUT immer volle Felder nehmen (Eingabe oder bestehende Werte)
+    const full: { name: string; email: string; password?: string } = {
+      name: eName.trim() || editUser.name,
+      email: eEmail.trim() || editUser.email,
+      ...(ePassword.trim() ? { password: ePassword.trim() } : {}),
+    };
 
-  try {
-    setUpdating(true);
-    setUpdateError(null);
+    try {
+      setUpdating(true);
+      setUpdateError(null);
 
-    const updated = await updateUser(editUser.id, full);
+      const updated = await updateUser(editUser.id, full);
 
-    // Tabelle lokal aktualisieren
-    setItems(prev =>
-      prev.map(row =>
-        row.id === editUser.id
-          ? { ...row, name: updated.name ?? full.name, email: updated.email ?? full.email }
-          : row
-      )
-    );
+      // Tabelle lokal aktualisieren
+      setItems(prev =>
+        prev.map(row =>
+          row.id === editUser.id
+            ? { ...row, name: updated.name ?? full.name, email: updated.email ?? full.email }
+            : row
+        )
+      );
 
-    cancelEdit();
-  } catch (err: any) {
-    setUpdateError(err?.message ?? String(err));
-  } finally {
-    setUpdating(false);
+      cancelEdit();
+    } catch (err: any) {
+      setUpdateError(err?.message ?? String(err));
+    } finally {
+      setUpdating(false);
+    }
   }
-}
+  // === Pagination (wie in Zuweisungen) ===
+  const [page, setPage] = useState(1);
+  const pageSize = 6;
+
+  useEffect(() => { setPage(1); }, [q, sortKey, asc, items]);
+
+  const total = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const startIdx = total === 0 ? 0 : (page - 1) * pageSize + 1;
+  const endIdx = Math.min(total, page * pageSize);
+  const pageData = filtered.slice((page - 1) * pageSize, page * pageSize);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [totalPages, page]);
+
 
   return (
-    <AdminPanelHeader>
+    <AdminLayout>
       {/* ===== Hero ===== */}
-      <header className="w-full border-b bg-white/90 [backdrop-filter:saturate(1.4)_blur(6px)]" style={{ borderColor: CSS.adminBg }}>
-        <div className="max-w-[1200px] mx-auto px-6">
-          <div className="h-[84px] grid place-items-center text-center select-none">
-            <div>
-              <h1 className="m-0 text-[36px] font-extrabold leading-none tracking-[-0.01em] text-[color:var(--foreground,#264555)]">Users</h1>
-              <p className="m-0 mt-2 text-[15px] font-semibold text-[color:var(--muted-foreground,#6b7280)]">Manage user accounts, roles, and permissions.</p>
+      <header
+        className="relative bg-[hsl(60_9%_97.8%)] border-b border-[hsl(214.3_31.8%_91.4%)] px-8 py-4" //bg-[hsl(0_0%_92%)] min-h-[calc(100vh-64px)] mt-2 px-6 py-6 zum testen
+      >
+        <div className="pointer-events-none absolute left-0 right-0 top-[calc(64px-1px)] h-0 [box-shadow:0_10px_16px_-14px_rgba(15,23,42,.18)]" />
+        <div className="grid grid-cols-3 items-center gap-2 lg:grid-cols-1 lg:justify-items-center lg:text-center">
+          <div className="justify-self-start hidden lg:flex items-center lg:justify-self-center" />
+          <div className="justify-self-center">
+            <div className="[&>h1]:text-[clamp(28px,6vw,56px)] [&>h1]:font-extrabold [&>h1]:tracking-[-0.02em] [&>h1]:m-0 [&>h1]:mb-4 [&>h1]:leading-[1.05]
+             [&>h1]:text-[#264555] [&>p]:mt-0 [&>p]:text-[#334155] [&>p]:opacity-90 [&>p]:text-[clamp(14px,1.6vw,18px)]">
+               <div className="flex items-center justify-center gap-4">
+          <img
+            src={myLogo}
+            alt="Dein Logo"
+            className="h-[200px] w-[200px] object-contain shrink-0"
+            width={200}
+            height={200}
+          />
+          <div className="text-center">
+            <h1 className="text-[clamp(28px,6vw,56px)] font-extrabold tracking-[-0.02em] mb-2 leading-[1.05] text-[#264555]">
+              Benutzer Administration
+            </h1>
+            <p className="mt-0 text-[#334155]/90 text-[clamp(14px,1.6vw,18px)]">
+            Benutzerkonten von CapConsulting , Rollen und Berechtigungen verwalten
+            </p>
+          </div>
+        </div>
             </div>
           </div>
+          <div className="justify-self-end inline-flex lg:justify-self-center" />
         </div>
       </header>
 
       {/* ===== Außenbereich unter dem Hero ===== */}
-      <main className="px-6 py-6" style={{ background: CSS.adminBg }}>
-        {/* Breadcrumb */}
-        <nav className="max-w-[1200px] mx-auto mb-4 flex items-center gap-2 text-[0.9rem]" style={{ color: CSS.mutedFg }}>
-          <Link to="/admin/adminPanel" className="hover:underline" style={{ color: CSS.mutedFg }}>Admin Panel</Link>
-          <span className="opacity-60">›</span>
-          <span className="font-semibold" style={{ color: "hsl(var(--foreground))" }}>Users</span>
-        </nav>
+      <main className="bg-[hsl(0_0%_92%)] min-h-[calc(100vh-64px)] mt-2 px-6 py-6" style={{ background: CSS.adminBg }}>
+        {/* ===== Top-Bar: Breadcrumb + Add-Button (eine Zeile) ===== */}
+        <div className="max-w-[1400px] xl:max-w-[1600px] mx-auto mb-3 flex items-center justify-between">
+          {/* Breadcrumb links */}
+          <nav className="flex items-center gap-2 text-[0.9rem]" style={{ color: CSS.mutedFg }}>
+            <Link to="/admin/adminPanel" className="hover:underline" style={{ color: CSS.mutedFg }}>
+              Admin Panel
+            </Link>
+            <span className="opacity-60">›</span>
+            <span className="font-semibold" style={{ color: "hsl(var(--foreground))" }}>Users</span>
+          </nav>
 
-        {/* Seitenkopf */}
-        <header className="max-w-[1200px] mx-auto mb-[18px]">
-          <h2 className="m-0 mb-1 text-[2rem] font-bold" style={{ color: CSS.fg }}>Users</h2>
-          <p className="m-0 max-w-[720px] leading-[1.6]" style={{ color: CSS.mutedFg }}>Manage user accounts, roles, and permissions.</p>
-        </header>
-
-        {/* Add User */}
-        <div className="max-w-[1200px] mx-auto mb-3 flex items-center justify-end">
+          {/* Add User rechts – GELB wie in Zuweisungen */}
           <button
             type="button"
             onClick={() => setOpenCreate(true)}
-className="inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-semibold text-white shadow hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-[rgba(38,69,85,.35)] bg-[#264555]"
+            className="inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-semibold shadow hover:[filter:brightness(1.05)] focus:outline-none"
+            style={{
+              background: "hsl(40,60%,63%)",      // Gelb
+              color: "hsl(200,32%,22%)",          // dunkles Blau-Grau
+              boxShadow: "0 1px 2px rgba(0,0,0,.05)"
+            }}
+            aria-label="Add User"
           >
             <Plus size={16} />
             Add User
           </button>
         </div>
 
-        {/* ===== Card (um die Tabelle) ===== */}
-        <section className="max-w-[1200px] mx-auto rounded-[10px] border shadow-[0_4px_6px_-1px_rgba(38,69,85,.08)]" style={{ background: CSS.card, borderColor: CSS.border }}>
-          {/* Controls */}
-          <div className="flex flex-col gap-4 p-6 border-b" style={{ borderColor: CSS.border }}>
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              {/* Suche */}
-              <div className="relative max-w-[24rem] flex-1">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: CSS.mutedFg }} aria-hidden>
-                  <Search size={16} />
-                </span>
-                <input
-                  type="text"
-                  placeholder="Search users by name or email..."
-                  value={q}
-                  onChange={(e) => setQ(e.target.value)}
-                  aria-label="Search users"
-                  className="w-full rounded-md border px-3 py-2 pl-10 text-sm outline-none focus:ring-2"
-                  style={{
-                    borderColor: CSS.border,
-                    background: CSS.card,
-                    color: CSS.fg,
-                    boxShadow: "0 0 #0000",
-                  }}
-                  onFocus={(e) => {
-                    e.currentTarget.style.borderColor = CSS.primary;
-                    e.currentTarget.style.boxShadow = "0 0 0 3px hsl(var(--primary)/.2)";
-                  }}
-                  onBlur={(e) => {
-                    e.currentTarget.style.borderColor = CSS.border;
-                    e.currentTarget.style.boxShadow = "0 0 #0000";
-                  }}
-                />
-              </div>
+        {/* Suche + Count */}
+        <div
+          className="max-w-[1400px] xl:max-w-[1600px] mx-auto mb-4 rounded-[12px] border bg-white/85 [backdrop-filter:saturate(1.2)_blur(4px)] shadow-[0_1px_3px_rgba(0,0,0,0.06)]"
+          style={{ borderColor: CSS.border }}
+        >
+          <div className="p-4 md:p-5 flex flex-wrap items-center justify-between gap-3 md:gap-4">
+            {/* Suche */}
+            <div className="relative flex-1 min-w-[220px] max-w-[36rem]">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: CSS.mutedFg }}>
+                <Search size={16} />
+              </span>
+              <input
+                type="text"
+                placeholder="Suche Benutzer (Name oder E-Mail)…"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                className="w-full h-10 md:h-11 rounded-md border pl-10 pr-3 text-sm outline-none transition focus:ring-2"
+                style={{ borderColor: CSS.border, background: CSS.card, color: CSS.fg, boxShadow: '0 0 #0000' }}
+              />
+            </div>
 
-              {/* Right info */}
-              <div className="text-sm" style={{ color: CSS.mutedFg }}>
-                {loading ? "Loading…" : error ? "Error" : `Showing ${filtered.length} of ${items.length} users`}
-              </div>
+            {/* Zähler rechts */}
+            <div
+              className="inline-block text-sm font-medium px-3 md:px-4 py-2 rounded-lg border"
+              style={{ background: CSS.card, color: CSS.mutedFg, borderColor: CSS.border }}
+            >
+              Zeige <span className="font-semibold" style={{ color: CSS.fg }}>{filtered.length}</span> Benutzer
             </div>
           </div>
+        </div>
+
+
+        {/* ===== Card (um die Tabelle) ===== */}
+        <section className="max-w-[1400px] xl:max-w-[1600px] mx-auto rounded-[10px] border shadow-[0_4px_6px_-1px_rgba(38,69,85,.08)]" style={{ background: CSS.card, borderColor: CSS.border }}>
 
           {/* Table */}
           <div className="overflow-x-auto">
             <table className="w-full border-collapse bg-[hsl(var(--card))]">
-              <thead>
+              <thead
+                className="bg-[hsla(200,32%,22%,0.05)]"
+                style={{ borderBottom: "2px solid hsla(200,32%,22%,0.1)" }}
+              >
                 <tr>
                   {[
                     { k: "name", label: "Name" },
@@ -366,18 +402,18 @@ className="inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-semi
                   ].map((col, idx) => (
                     <th
                       key={idx}
-                      className="text-left text-[0.875rem] font-semibold px-4 py-4 border-b"
-                      style={{ background: "hsl(var(--muted))", color: CSS.mutedFg, borderColor: CSS.border }}
+                      className={`px-4 py-3 text-[0.85rem] font-semibold ${col.label === "Actions" ? "text-center" : "text-left"}`}
+                      style={{ color: CSS.fg }}
                     >
                       {col.k ? (
                         <button
                           type="button"
                           onClick={() => setSort(col.k as SortKey)}
-                          className="inline-flex items-center gap-1 hover:brightness-110"
+                          className="inline-flex items-center gap-2 hover:brightness-110"
                           style={{ color: "inherit" }}
                         >
                           <span>{col.label}</span>
-                          <ArrowUpDown size={14} />
+                          <ArrowUpDown size={14} className="opacity-60" />
                         </button>
                       ) : (
                         <span>{col.label}</span>
@@ -386,6 +422,7 @@ className="inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-semi
                   ))}
                 </tr>
               </thead>
+
               <tbody>
                 {loading ? (
                   <tr>
@@ -396,8 +433,8 @@ className="inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-semi
                     <td colSpan={6} className="px-4 py-4">Keine Einträge gefunden.</td>
                   </tr>
                 ) : (
-                  filtered.map((u) => (
-                    <tr key={u.id} className="hover:bg-[hsl(var(--muted)/.5)]">
+                  pageData.map((u) => (
+                    <tr key={u.id} className="transition border-l-[4px] border-transparent hover:bg-[hsla(40,60%,63%,0.05)] hover:border-[hsl(40,60%,63%)]">
                       <td className="px-4 py-4 font-semibold" style={{ borderBottom: `1px solid ${CSS.border}` }}>{u.name}</td>
                       <td className="px-4 py-4 text-[0.875rem]" style={{ color: CSS.mutedFg, borderBottom: `1px solid ${CSS.border}` }}>{u.email}</td>
                       <td className="px-4 py-4" style={{ borderBottom: `1px solid ${CSS.border}` }}>
@@ -419,8 +456,8 @@ className="inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-semi
                             u.status === "active"
                               ? "inline-flex items-center rounded-full px-2.5 py-1 text-[12px] font-semibold bg-[rgb(220,252,231)] text-[rgb(22,101,52)]"
                               : u.status === "invited"
-                              ? "inline-flex items-center rounded-full px-2.5 py-1 text-[12px] font-semibold bg-[rgb(254,243,199)] text-[rgb(146,64,14)]"
-                              : "inline-flex items-center rounded-full px-2.5 py-1 text-[12px] font-semibold bg-[rgb(254,226,226)] text-[rgb(153,27,27)]"
+                                ? "inline-flex items-center rounded-full px-2.5 py-1 text-[12px] font-semibold bg-[rgb(254,243,199)] text-[rgb(146,64,14)]"
+                                : "inline-flex items-center rounded-full px-2.5 py-1 text-[12px] font-semibold bg-[rgb(254,226,226)] text-[rgb(153,27,27)]"
                           }
                         >
                           {u.status}
@@ -429,13 +466,17 @@ className="inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-semi
                       <td className="px-4 py-4 text-[0.875rem]" style={{ color: CSS.mutedFg, borderBottom: `1px solid ${CSS.border}` }}>
                         {u.lastLogin ? new Date(u.lastLogin).toLocaleDateString("de-DE") : "Never"}
                       </td>
-                      <td className="px-4 py-4 text-right whitespace-nowrap" style={{ borderBottom: `1px solid ${CSS.border}` }}>
-                        <div className="inline-flex items-center gap-2">
+                      <td className="px-4 py-4 text-center whitespace-nowrap" style={{ borderBottom: `1px solid ${CSS.border}` }}>
+                        <div className="inline-flex items-center justify-center gap-2">
                           {/* View (wie bisher) */}
                           <Link
                             to={`/admin/adminPanel/users/${u.id}`}
                             title="View"
-                           className="inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-semibold text-white shadow hover:brightness-110 bg-[#264555]"
+                            className="inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-semibold text-white shadow hover:brightness-110 bg-[#264555]"
+                            style={{
+                              background: "hsl(40,60%,63%)",           // Gelb wie in Zuweisungen
+                              color: "hsl(200,32%,22%)"                 // dunkles Blau-Grau für Text/Icon
+                            }}
                           >
                             <Eye size={14} />
                             <span className="hidden sm:inline">View</span>
@@ -472,15 +513,40 @@ className="inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-semi
               </tbody>
             </table>
           </div>
+        </section>
+        {/* === Pagination (abgesetzt, wie Zuweisungen) === */}
+        <div
+          className="max-w-[1400px] xl:max-w-[1600px] mx-auto mt-4 rounded-[12px] border bg-white/85 px-4 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
+          style={{ borderColor: CSS.border }}
+        >
+          <div className="flex items-center justify-between">
+            <div className="text-sm" style={{ color: CSS.mutedFg }}>
+              Zeige {startIdx}-{endIdx} von {total} Einträgen
+            </div>
 
-          {/* Pagination */}
-          <div className="px-6 py-4">
             <div className="flex items-center gap-2">
-              <button className="rounded-md px-3 py-1.5 text-sm font-semibold text-gray-400 bg-gray-100 cursor-not-allowed">Prev</button>
-              <button className="rounded-md px-3 py-1.5 text-sm font-semibold text-gray-400 bg-gray-100 cursor-not-allowed">Next</button>
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page <= 1 || total === 0}
+                className="rounded-lg border px-3 py-1.5 text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[hsla(40,60%,63%,0.08)]"
+                style={{ borderColor: CSS.border, color: CSS.mutedFg }}
+              >
+                Zurück
+              </button>
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages || total === 0}
+                className="rounded-lg border px-3 py-1.5 text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[hsla(40,60%,63%,0.08)]"
+                style={{ borderColor: CSS.border, color: CSS.mutedFg }}
+              >
+                Weiter
+              </button>
             </div>
           </div>
-        </section>
+        </div>
+
       </main>
 
       {/* ===== Create User Modal ===== */}
@@ -652,6 +718,6 @@ className="inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-semi
           </div>
         </div>
       )}
-    </AdminPanelHeader>
+    </AdminLayout>
   );
 }

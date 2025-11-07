@@ -1,19 +1,22 @@
 // src/pages/admin/katalogVerwaltung.tsx
 
 import AdminLayout from "@/apps/app/AdminLayout";
-import  { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Building2 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import myLogo from "@/assets/Zero-6-icons-05.webp";
 
 import { getThemen, type ThemaApi } from "../service/themaService";
 import { getCatalogs, type CatalogApi } from "../service/catalogService";
 import { assignTopicsToCatalog } from "../service/themaCatalogService";
+import { useNavigate } from "react-router-dom";
+
 
 
 /* ----------------------------- Types & Models ----------------------------- */
 
 type Topic = {
-    id: string;            // Backend-ID
+    id: string;
     name: string;
     subtitle?: string;
     icon?: LucideIcon;
@@ -53,6 +56,9 @@ export default function KatalogVerwaltung({ }: Props) {
     const [selectedCatalogId, setSelectedCatalogId] = useState<string>("");
     const [selectedTopicIds, setSelectedTopicIds] = useState<Set<string>>(new Set());
 
+    const navigate = useNavigate();
+
+
     const DEFAULT_ICON: LucideIcon = Building2;
     const DEFAULT_COLOR = "#d2c9b9";
 
@@ -70,7 +76,7 @@ export default function KatalogVerwaltung({ }: Props) {
                     icon: DEFAULT_ICON,
                     color: DEFAULT_COLOR,
                 }));
-                setTopics(ui);
+                setTopics(ui.reverse());
             } catch (e) {
                 console.error(e);
                 setTopicError("Themen konnten nicht geladen werden.");
@@ -110,14 +116,15 @@ export default function KatalogVerwaltung({ }: Props) {
             return next;
         });
     }
-
+ 
     const canSave = !!selectedCatalogId && selectedTopicIds.size > 0;
 
     async function handleSave() {
         if (!selectedCatalogId || selectedTopicIds.size === 0) return;
         try {
             await assignTopicsToCatalog(selectedCatalogId, Array.from(selectedTopicIds));
-            // TODO: Erfolgsmeldung / zurücknavigieren / Refresh
+            alert('zuordnung erfolgreich');
+            navigate("/admin/katalogzuweisen", { replace: true });
         } catch (e: any) {
             alert(`Zuordnung fehlgeschlagen: ${e?.message ?? e}`);
         }
@@ -127,13 +134,39 @@ export default function KatalogVerwaltung({ }: Props) {
 
     return (
         <AdminLayout>
-            <div className="mx-auto w-full px-6 pt-6 pb-28 max-w-screen-xl 2xl:max-w-[1400px] 3xl:max-w-[1680px]">
-                {/* Header */}
-                <div className="mb-4">
-                    <h1 className="text-[22px] font-semibold tracking-[-0.01em] text-slate-900">
-                        Katalog verwalten
-                    </h1>
-                </div>
+             {/* Header */}
+                <header
+                    className="relative bg-[hsl(60_9%_97.8%)] border-b border-[hsl(214.3_31.8%_91.4%)] px-8 py-4" //bg-[hsl(0_0%_92%)] min-h-[calc(100vh-64px)] mt-2 px-6 py-6 zum testen
+                >
+                    <div className="pointer-events-none absolute left-0 right-0 top-[calc(64px-1px)] h-0 [box-shadow:0_10px_16px_-14px_rgba(15,23,42,.18)]" />
+                    <div className="grid grid-cols-3 items-center gap-2 lg:grid-cols-1 lg:justify-items-center lg:text-center">
+                        <div className="justify-self-start hidden lg:flex items-center lg:justify-self-center" />
+                        <div className="justify-self-center">
+                            <div className="[&>h1]:text-[clamp(28px,6vw,56px)] [&>h1]:font-extrabold [&>h1]:tracking-[-0.02em] [&>h1]:m-0 [&>h1]:mb-4 [&>h1]:leading-[1.05]
+             [&>h1]:text-[#264555] [&>p]:mt-0 [&>p]:text-[#334155] [&>p]:opacity-90 [&>p]:text-[clamp(14px,1.6vw,18px)]">
+                                <div className="flex items-center justify-center gap-4">
+                                    <img
+                                        src={myLogo}
+                                        alt="Dein Logo"
+                                        className="h-[200px] w-[200px] object-contain shrink-0"
+                                        width={200}
+                                        height={200}
+                                    />
+                                    <div className="text-center">
+                                        <h1 className="text-[clamp(28px,6vw,56px)] font-extrabold tracking-[-0.02em] mb-2 leading-[1.05] text-[#264555]">
+                                            Kataloginhalte ordnen
+                                        </h1>
+                                        <p className="mt-0 text-[#334155]/90 text-[clamp(14px,1.6vw,18px)]">
+                                            Themen im Katalog anordnen und verwalten
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="justify-self-end inline-flex lg:justify-self-center" />
+                    </div>
+                </header>
+            <div className="bg-[hsl(0_0%_92%)] min-h-[calc(100vh-64px)] mt-2 px-6 py-6">
 
                 <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
                     {/* Left: Katalog-Auswahl (Dropdown) */}

@@ -35,6 +35,8 @@ function goBackToTopics() {
     ...(catalogId ? { catalogId } : {}),
     ...(catalogTitle ? { catalogTitle } : {}),
     ...(assignmentId ? { assignmentId } : {}),
+     ...(name ? { name } : {}),         
+    ...(code ? { code } : {}),
   });
   navigate(`${THEMEN_ROUTE}?${qs.toString()}`);
 }
@@ -46,6 +48,8 @@ function goBackToTopics() {
   const topicName = query.get("topicName") || "";       // optional
   const accessToken = query.get("accessToken") || "";   // erforderlich
   const themaId = query.get("themaId") || query.get("topicId") || ""; // erforderlich
+  const name = query.get("name") || "";
+const code = query.get("code") || "";
 
   /* -------- UI/Flow-States -------- */
   const [sessionId, setSessionId] = useState("");
@@ -80,10 +84,10 @@ function goBackToTopics() {
       setSessionId(s.sessionId);
       setStatus(s.status);
 
-      /* >>>>>>>>>>>>>>>>>>>>>>>>>>
+      /* 
          MINIMALE ERGÄNZUNG: sessionId persistieren,
          damit die Themenliste Live-Progress per getState() ziehen kann.
-      >>>>>>>>>>>>>>>>>>>>>>>>>> */
+       */
       try {
         const dashKey = `topic:${tid}`;
         const raw = localStorage.getItem("assessments");
@@ -97,7 +101,6 @@ function goBackToTopics() {
         };
         localStorage.setItem("assessments", JSON.stringify(store));
       } catch {}
-      /* <<<<<<<<<<<<<<<<<<<<<<<<< */
 
       let first: UiQuestion | null = null;
       if (s.firstOrNextQuestion) {
@@ -261,7 +264,7 @@ function goBackToTopics() {
             </button>
           </div>
         </div>
-
+ 
         {/* Progress */}
         {!completed && (
           <div className="px-6 pt-4">

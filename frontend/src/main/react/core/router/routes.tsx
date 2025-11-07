@@ -35,8 +35,9 @@ import CatalogList from '@/features/admin-area/catalogs/CatalogList';
 export default function AppRoutes() {
   return (
     <Routes>
-      <Route path="/" element={<LandingPage />} />
-      <Route path="/login" element={<LoginPage />} />
+      <Route path="/" element={<Navigate to="/login" replace />} />
+      <Route path="/startseite" element={<LandingPage />} />
+    <Route path="/login" element={<LoginPage />} />
       <Route path="/invite/:token" element={<InviteGate />} />
        <Route path="/KatalogGate" element={<ZugewiesenerKatalog />} />
 

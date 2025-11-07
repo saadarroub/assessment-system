@@ -4,7 +4,6 @@ import { useNavigate, useParams } from "react-router-dom";
 import { fetchInviteMeta, verifyInvite, type InviteMeta } from "@/features/service/inviteService";
 // +++ NEU: Assignment anhand Access-Code laden +++
 import { fetchAssignmentByAccessCode } from "@/features/service/inviteService";
-
 export default function InviteGate() {
   const { token = "" } = useParams();
   const navigate = useNavigate();
@@ -16,7 +15,55 @@ export default function InviteGate() {
   const [verifying, setVerifying] = useState(false);
 
   // Ziel, wohin wir nach Erfolg leiten
-  const TARGET = "/KatalogGate";
+  const TARGET = "/app/katalog-themen-public";
+
+  /**--- Test--- */
+  async function navigateToTopics(opts: { token: string; accessCode?: string }) {
+  const { token, accessCode } = opts;
+
+  let assignmentId = "";
+  let catalogId = "";
+  let catalogTitle = "";
+  let workerName = "";
+
+  // Wenn wir einen Access-Code haben, Assignment laden → Katalog + Name holen
+  if (accessCode && accessCode.trim()) {
+    try {
+      const assign = await fetchAssignmentByAccessCode(accessCode.trim());
+      assignmentId = assign?.id || "";
+      catalogId = assign?.catalog?.id || "";
+      catalogTitle = assign?.catalog?.title || "";
+      workerName = assign?.worker?.name || "";
+    } catch {
+      // Fallback: wir navigieren trotzdem, KatalogThemenPublic kann per ?code= selbst nachladen
+    }
+  }
+
+  const qp = new URLSearchParams({
+    // Token für Live-Progress – KatalogThemenPublic akzeptiert token ODER accessToken
+    token,
+    accessToken: token,
+
+    // sehr wichtig, sonst gibt es keine Themen:
+    ...(catalogId ? { catalogId } : {}),
+
+    // hübsch für den Header:
+    ...(catalogTitle ? { catalogTitle } : {}),
+
+    // Snapshot/Lock:
+    ...(assignmentId ? { assignmentId } : {}),
+
+    // Name für "Willkommen, …":
+    ...(workerName ? { name: workerName } : {}),
+
+    // falls Name-Lookup oben scheitert: KatalogThemenPublic kann per code selbst nachladen
+    ...(accessCode ? { code: accessCode } : {}),
+  });
+
+  navigate(`${TARGET}?${qp.toString()}`, { replace: true });
+}
+
+/**---- end test ---- */
 
   useEffect(() => {
     let alive = true;
@@ -42,6 +89,8 @@ export default function InviteGate() {
         if (!m.requiresCode) {
           setVerifying(true);
           await verifyInvite(token);
+          await navigateToTopics({ token, accessCode: m.accessCode });
+
           
 
           // +++ NEU: Unlock setzen, wenn wir eine accessCode-Info haben +++
@@ -101,13 +150,15 @@ export default function InviteGate() {
         // Falls Lookup fehlschlägt, navigieren wir trotzdem weiter
       }
 
-      // 3) Redirect wie gehabt – jetzt mit assignmentId (falls vorhanden)
+      //  Redirect wie gehabt – jetzt mit assignmentId (falls vorhanden)
+      {/*
       const qp = new URLSearchParams({
         token,
         code: clean,
         ...(assignmentId ? { assignmentId } : {}),
       });
-      navigate(`${TARGET}?${qp.toString()}`, { replace: true });
+      */}
+      await navigateToTopics({ token, accessCode: clean }); //navigate(`${TARGET}?${qp.toString()}`, { replace: true });
     } catch (e: any) {
       setError(e?.message ?? String(e));
     } finally {

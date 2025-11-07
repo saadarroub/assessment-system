@@ -1,8 +1,9 @@
 // src/features/admin-panel/users/UserDetailsPage.tsx (Tailwind – angepasst wie Bild 1)
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import AdminPanelHeader from "@/apps/app/adminPanelHeader";
+import AdminLayout from "@/apps/app/AdminLayout";
 import { getUser, getUserRoles, type UserApi } from "@/features/service/userService";
+import myLogo from "@/assets/Zero-6-icons-05.webp";
 
 const CAP = {
   dark: "#264555",
@@ -69,25 +70,41 @@ export default function UserDetailsPage() {
   const displayName = loading ? "Loading…" : (user?.name || "—");
 
   return (
-    <AdminPanelHeader>
+    <AdminLayout>
       {/* ===== Hero ===== */}
-      <header
-        className="w-full border-b bg-white/90 [backdrop-filter:saturate(1.4)_blur(6px)]"
-        style={{ borderColor: CAP.mute }}
+         <header
+        className="relative bg-[hsl(60_9%_97.8%)] border-b border-[hsl(214.3_31.8%_91.4%)] px-8 py-4" //bg-[hsl(0_0%_92%)] min-h-[calc(100vh-64px)] mt-2 px-6 py-6 zum testen
       >
-        <div className="max-w-[1280px] mx-auto px-6">
-          <div className="h-[84px] flex items-center justify-center">
-            <div className="text-center select-none">
-              <h1 className="m-0 text-[36px] leading-none font-extrabold tracking-[-0.01em] text-[#264555]">Users</h1>
-              <p className="m-0 mt-2 text-[15px] text-[#264555]/70 font-semibold">
-                Manage user accounts, roles, and permissions.
-              </p>
+        <div className="pointer-events-none absolute left-0 right-0 top-[calc(64px-1px)] h-0 [box-shadow:0_10px_16px_-14px_rgba(15,23,42,.18)]" />
+        <div className="grid grid-cols-3 items-center gap-2 lg:grid-cols-1 lg:justify-items-center lg:text-center">
+          <div className="justify-self-start hidden lg:flex items-center lg:justify-self-center" />
+          <div className="justify-self-center">
+            <div className="[&>h1]:text-[clamp(28px,6vw,56px)] [&>h1]:font-extrabold [&>h1]:tracking-[-0.02em] [&>h1]:m-0 [&>h1]:mb-4 [&>h1]:leading-[1.05]
+             [&>h1]:text-[#264555] [&>p]:mt-0 [&>p]:text-[#334155] [&>p]:opacity-90 [&>p]:text-[clamp(14px,1.6vw,18px)]">
+               <div className="flex items-center justify-center gap-4">
+          <img
+            src={myLogo}
+            alt="Dein Logo"
+            className="h-[200px] w-[200px] object-contain shrink-0"
+            width={200}
+            height={200}
+          />
+          <div className="text-center">
+            <h1 className="text-[clamp(28px,6vw,56px)] font-extrabold tracking-[-0.02em] mb-2 leading-[1.05] text-[#264555]">
+              Users Administration
+            </h1>
+            <p className="mt-0 text-[#334155]/90 text-[clamp(14px,1.6vw,18px)]">
+             Benutzerkonten, Rollen und Berechtigungen verwalten
+            </p>
+          </div>
+        </div>
             </div>
           </div>
+          <div className="justify-self-end inline-flex lg:justify-self-center" />
         </div>
       </header>
 
-      <main className="w-full bg-[#EBEBEB] border-b border-[#e9ecef]">
+      <main className="bg-[hsl(0_0%_92%)] min-h-[calc(100vh-64px)] mt-2 px-6 py-6">
         <div className="max-w-[1280px] mx-auto px-6 py-6">
           {/* Breadcrumb */}
           <nav className="flex items-center gap-2 text-sm text-[#264555]/70 font-medium mb-5">
@@ -110,7 +127,6 @@ export default function UserDetailsPage() {
             </Link>
             <div>
               <h2 className="text-[28px] font-extrabold leading-tight m-0">{displayName}</h2>
-              <p className="text-sm text-[#264555]/70 m-0">User Details &amp; Management</p>
             </div>
           </div>
 
@@ -193,39 +209,27 @@ export default function UserDetailsPage() {
               {/* Associated Companies */}
               <section className="rounded-2xl border border-[#e9ecef] bg-white shadow-[0_10px_24px_-12px_rgba(0,0,0,.18)] p-5">
                 <div className="flex items-center gap-2 mb-3">
-                  <span aria-hidden className="text-[18px]">🏢</span>
-                  <h3 className="text-[17px] font-semibold tracking-tight m-0">Associated Companies</h3>
+                  <h3 className="text-[17px] font-semibold tracking-tight m-0">Noch nicht implementiert</h3>
                 </div>
 
                 <div className="space-y-3">
                   <div className="flex items-center justify-between rounded-xl border border-[#e9ecef] bg-white px-4 py-3">
                     <div>
-                      <h4 className="m-0 text-[15px] font-extrabold">—</h4>
-                      <p className="m-0 text-sm text-[#264555]/70">—</p>
+                    <p>Noch nicht implementiert</p>
                     </div>
-                    <button
-                      className="inline-flex items-center gap-1 text-sm font-bold rounded-lg border border-[#d1d5db] px-3 py-1.5 text-[#264555] bg-white hover:bg-[#f5f7f9]"
-                      disabled
-                      style={{ opacity: 0.6, cursor: "not-allowed" }}
-                    >
-                      View Company
-                    </button>
+                    
                   </div>
                 </div>
               </section>
 
               {/* Recent Activities */}
               <section className="rounded-2xl border border-[#e9ecef] bg-white shadow-[0_10px_24px_-12px_rgba(0,0,0,.18)] p-5">
-                <h3 className="text-[17px] font-semibold tracking-tight mb-4">Recent Activities</h3>
+                <h3 className="text-[17px] font-semibold tracking-tight mb-4">Noch nicht implementiert</h3>
                 <div className="space-y-3">
                   <div className="flex items-start gap-3 rounded-xl border border-[#e9ecef] bg-white px-4 py-3">
-                    <span aria-hidden className="mt-1 inline-block w-2.5 h-2.5 rounded-full bg-[#1f2937]"></span>
                     <div className="flex-1 min-w-0">
-                      <p className="m-0 text-[15px]"><strong>—</strong> on <span className="text-[#264555]/60">—</span></p>
-                      <p className="m-0 text-sm text-[#264555]/60">{fmtDate()} , {fmtTime()}</p>
-                      <p className="m-0 text-sm text-[#264555]/60">—</p>
+                      <p>Noch nicht implementiert</p>
                     </div>
-                    <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">—</span>
                   </div>
                 </div>
               </section>
@@ -236,24 +240,13 @@ export default function UserDetailsPage() {
               <section className="rounded-2xl border border-[#e9ecef] bg-white shadow-[0_10px_24px_-12px_rgba(0,0,0,.18)] p-5">
                 <h3 className="text-[16px] font-semibold tracking-tight">Actions</h3>
                 <div className="mt-4 grid gap-2">
-                  <button
-                    type="button"
-                    className="inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 font-bold text-sm text-white bg-[#264555] hover:brightness-110 shadow-[0_6px_14px_-8px_rgba(38,69,85,.45)]"
-                  >
-                    <span aria-hidden>🔄</span> Reset Password
-                  </button>
-                  <button
-                    type="button"
-                    className="inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 font-bold text-sm text-red-600 border border-red-300 bg-white hover:bg-red-50"
-                  >
-                    <span aria-hidden>🚫</span> Disable User
-                  </button>
+                <p>Noch nicht implementiert</p>
                 </div>
               </section>
             </aside>
           </div>
         </div>
       </main>
-    </AdminPanelHeader>
+    </AdminLayout>
   );
 }

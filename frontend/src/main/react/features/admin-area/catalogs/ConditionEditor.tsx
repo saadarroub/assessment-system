@@ -226,7 +226,32 @@ export default function ConditionEditor() {
     if (themaId) fetchAllQuestions();
   }, [themaId]);
 
+  // Neue Frage hinzufügen vilt später
+{/*
+  const handleConfirm = () => {
+    const newQuestion = {
+      id: Date.now().toString(),
+      text: questionText,
+      type: selectedType,
+      options,
+      children: [],
+      expanded: true,
+    };
 
+    if (parentQuestion) {
+      const updated = addChildToParent(
+        questions,
+        parentQuestion.id,
+        newQuestion
+      );
+      setQuestions(updated);
+    } else {
+      setQuestions([...questions, newQuestion]);
+    }
+
+    handleCancel();
+  };
+  */}
 
   const handleAddQuestion = () => {
     setParentQuestion(null);

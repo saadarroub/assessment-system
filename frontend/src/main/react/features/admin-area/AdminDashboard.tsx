@@ -19,10 +19,10 @@ import {
   createThema,
   deleteThema,
   updateThema,
-  
+
 } from "@/api/questionApi";
 
-// 🧩 Stats bleiben gleich
+//  Stats bleiben gleich
 type Stat = { label: string; value: string; tone?: "positive" | "neutral" };
 const STATS: Stat[] = [
   { label: "Themen", value: "–", tone: "positive" },
@@ -38,6 +38,7 @@ export default function AdminDashboard() {
   const [selectedTopic, setSelectedTopic] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
 
+
   // 🧩 States für Bearbeiten-Modal
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editThemaName, setEditThemaName] = useState("");
@@ -52,6 +53,8 @@ export default function AdminDashboard() {
   const titleInputRef = useRef<HTMLInputElement | null>(null);
 
   // ⏳ Wenn das Modal geöffnet wird → automatisch Fokus auf Titel
+
+  // Themen dynamisch laden
   useEffect(() => {
     if (isEditModalOpen && titleInputRef.current) {
       titleInputRef.current.focus();
@@ -94,6 +97,7 @@ export default function AdminDashboard() {
     fetchTopics();
   }, []);
 
+  {/*
   if (loading)
     return (
       <AdminLayout>
@@ -102,17 +106,20 @@ export default function AdminDashboard() {
         </div>
       </AdminLayout>
     );
+  */}
 
   return (
     <AdminLayout>
-        <header className="relative bg-[hsl(var(--card))] border-b border-[hsl(var(--border))] pt-4 pb-4 px-8">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-x-0"
-          style={{ top: "calc(var(--header-height) - 1px)", height: 0, boxShadow: "0 10px 16px -14px rgba(15,23,42,.18)" }}
-        />
-
-        <div className="flex items-center justify-center gap-4">
+      <header
+        className="relative bg-[hsl(60_9%_97.8%)] border-b border-[hsl(214.3_31.8%_91.4%)] px-8 py-4" //bg-[hsl(0_0%_92%)] min-h-[calc(100vh-64px)] mt-2 px-6 py-6 zum testen
+      >
+        <div className="pointer-events-none absolute left-0 right-0 top-[calc(64px-1px)] h-0 [box-shadow:0_10px_16px_-14px_rgba(15,23,42,.18)]" />
+        <div className="grid grid-cols-3 items-center gap-2 lg:grid-cols-1 lg:justify-items-center lg:text-center">
+          <div className="justify-self-start hidden lg:flex items-center lg:justify-self-center" />
+          <div className="justify-self-center">
+            <div className="[&>h1]:text-[clamp(28px,6vw,56px)] [&>h1]:font-extrabold [&>h1]:tracking-[-0.02em] [&>h1]:m-0 [&>h1]:mb-4 [&>h1]:leading-[1.05]
+             [&>h1]:text-[#264555] [&>p]:mt-0 [&>p]:text-[#334155] [&>p]:opacity-90 [&>p]:text-[clamp(14px,1.6vw,18px)]">
+               <div className="flex items-center justify-center gap-4">
           <img
             src={myLogo}
             alt="Dein Logo"
@@ -129,8 +136,17 @@ export default function AdminDashboard() {
             </p>
           </div>
         </div>
+            </div>
+          </div>
+          <div className="justify-self-end inline-flex lg:justify-self-center" />
+        </div>
+      </header>
+      
 
-        <div className="flex justify-end gap-3 px-8 mt-1">
+      {/* ====== Content ====== */}
+      <div className="dashboard-content bg-[hsl(0_0%_92%)] min-h-[calc(100vh-64px)] mt-2 px-6 py-6">
+
+         <div className="flex justify-end gap-3 px-8 mt-1">
           <button
             className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-[#264555] text-white text-sm font-semibold shadow-md hover:bg-[#223e4c] focus:outline-none focus:ring-2 focus:ring-white/30 active:translate-y-px"
             onClick={() => navigate("/admin/adminPanel")}
@@ -139,10 +155,6 @@ export default function AdminDashboard() {
             <span>Admin-Panal</span>
           </button>
         </div>
-      </header>
-
-      {/* ====== Content ====== */}
-      <div className="dashboard-content">
         {/* Stats */}
         <section className="stats-panel">
           <div className="grid grid-cols-4 gap-4">
@@ -156,11 +168,11 @@ export default function AdminDashboard() {
                         ? i === 0
                           ? topics.length
                           : i === 1
-                          ? topics.reduce(
+                            ? topics.reduce(
                               (sum, t) => sum + (t.questions || 0),
                               0
                             )
-                          : "–"
+                            : "–"
                         : s.value}
                     </p>
                   </div>
@@ -170,7 +182,14 @@ export default function AdminDashboard() {
           </div>
         </section>
 
+        {loading && (
+          <div className="p-10 text-center text-gray-500 text-lg">
+          ⏳ Themen werden geladen...
+        </div>
+        )}
+
         {/* Topics */}
+        {!loading && (
         <section className="topics-section">
           <div className="section-header">
             <h2>Themen</h2>
@@ -261,7 +280,7 @@ export default function AdminDashboard() {
                         if (hasQuestions) {
                           navigate(`/admin/catalogs/${t.id}/condition-editor`);
                         } else {
-                           navigate(`/admin/catalogs/${t.id}`);
+                          navigate(`/admin/catalogs/${t.id}`);
                         }
                       } catch (error) {
                         console.error(
@@ -284,6 +303,7 @@ export default function AdminDashboard() {
             ))}
           </div>
         </section>
+        )}
       </div>
 
       {/* ====== Edit Thema Modal ====== */}
@@ -334,10 +354,10 @@ export default function AdminDashboard() {
                       prev.map((t) =>
                         t.id === updated.id
                           ? {
-                              ...t,
-                              title: updated.name,
-                              subtitle: updated.description,
-                            }
+                            ...t,
+                            title: updated.name,
+                            subtitle: updated.description,
+                          }
                           : t
                       )
                     );
@@ -469,7 +489,7 @@ export default function AdminDashboard() {
                   }
                 }}
                 className="px-4 py-2 rounded-lg bg-red-600 text-white font-medium hover:bg-red-700 transition-all"
-                
+
               >
                 Löschen
               </button>

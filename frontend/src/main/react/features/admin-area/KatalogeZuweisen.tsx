@@ -3,6 +3,9 @@ import  { useMemo, useState, useEffect, useRef } from "react";
 import { Building2, Settings, Pencil, Wrench, Plus } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import myLogo from "@/assets/Zero-6-icons-05.webp";
+
 
 import { getCompanies, getWorkersByCompany, type WorkerApi } from "../service/companyService";
 import { getCatalogs, createCatalog, type CatalogApi, updateCatalog, deleteCatalog } from "../service/catalogService";
@@ -75,6 +78,9 @@ export default function KatalogeZuweisen({  }: KatalogeZuweisenProps) {
   const [recipientSearch, setRecipientSearch] = useState("");
   const dropdownRef = useRef<HTMLDivElement | null>(null);
 
+  // navigation
+  const navigate =useNavigate();
+
   // Modals
   type DialogMode = "create" | "edit" | "delete";
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -99,7 +105,7 @@ export default function KatalogeZuweisen({  }: KatalogeZuweisenProps) {
         icon: DEFAULT_ICON,
         color: DEFAULT_COLOR,
       }));
-      setCatalogs(ui);
+      setCatalogs(ui.reverse());
     } catch (e) {
       console.error(e);
       setCatalogError("Kataloge konnten nicht geladen werden.");
@@ -183,7 +189,7 @@ export default function KatalogeZuweisen({  }: KatalogeZuweisenProps) {
   }, []);
 
   /* ---------- Form/Actions ---------- */
-  const canAssign = !!companyId && recipientIds.length > 0 && !!selectedCatalogId;
+  const canAssign = !!companyId && recipientIds.length > 0 && !!selectedCatalogId && !!dueDate;
 
   function toggleRecipient(id: string) {
     setRecipientIds(prev => (prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]));
@@ -214,7 +220,7 @@ export default function KatalogeZuweisen({  }: KatalogeZuweisenProps) {
 
   async function handleAssign() {
     if (!canAssign) return;
-    // 1) userId (assignedById) aus localStorage lesen
+    // userId (assignedById) aus localStorage lesen
     let assignedById = "";
     try {
       const raw = localStorage.getItem("user");
@@ -225,11 +231,11 @@ export default function KatalogeZuweisen({  }: KatalogeZuweisenProps) {
       return;
     }
 
-    // 2) genau eine Katalog-ID ermitteln
+    // genau eine Katalog-ID ermitteln
     const catalogId = selectedCatalogId ;//Array.from(selectedCatalogIds)[0]
     if (!catalogId) return;
 
-    // 3) expiresAt erzeugen – du wolltest KEIN „end of day“,
+    // expiresAt erzeugen – du wolltest KEIN „end of day“,
     //    daher nehmen wir direkt das vom <input type='date'> kommende Datum
     //    und wandeln es schlicht in ISO um (ohne extra Tagesende-Logik):
     if (!dueDate) {
@@ -250,6 +256,7 @@ export default function KatalogeZuweisen({  }: KatalogeZuweisenProps) {
 
       const res = await assignWorkerCatalogBulk(payload);
       alert(`Zuweisung erfolgreich: ${res.success}/${res.total}`);
+      navigate("/admin/adminPanel/zuweisungen", { replace: true });
 
       // Optional: Formular zurücksetzen
       // setSelectedCatalogIds(new Set());
@@ -315,19 +322,46 @@ export default function KatalogeZuweisen({  }: KatalogeZuweisenProps) {
     closeDialog();
   }
 
-
+ 
   /* ------------------------------- RENDER -------------------------------- */
 
   return (
     <AdminLayout>
-      <div className="mx-auto w-full px-6 pt-6 pb-28 max-w-screen-xl 2xl:max-w-[1400px] 3xl:max-w-[1680px]">
-        {/* Header */}
-        <div className="mb-4">
-          <h1 className="text-[22px] font-semibold tracking-[-0.01em] text-slate-900">
-            Kataloge zuweisen
-          </h1>
+       {/* Header */}
+      <header
+        className="relative bg-[hsl(60_9%_97.8%)] border-b border-[hsl(214.3_31.8%_91.4%)] px-8 py-4" //bg-[hsl(0_0%_92%)] min-h-[calc(100vh-64px)] mt-2 px-6 py-6 zum testen
+      >
+        <div className="pointer-events-none absolute left-0 right-0 top-[calc(64px-1px)] h-0 [box-shadow:0_10px_16px_-14px_rgba(15,23,42,.18)]" />
+        <div className="grid grid-cols-3 items-center gap-2 lg:grid-cols-1 lg:justify-items-center lg:text-center">
+          <div className="justify-self-start hidden lg:flex items-center lg:justify-self-center" />
+          <div className="justify-self-center">
+            <div className="[&>h1]:text-[clamp(28px,6vw,56px)] [&>h1]:font-extrabold [&>h1]:tracking-[-0.02em] [&>h1]:m-0 [&>h1]:mb-4 [&>h1]:leading-[1.05]
+             [&>h1]:text-[#264555] [&>p]:mt-0 [&>p]:text-[#334155] [&>p]:opacity-90 [&>p]:text-[clamp(14px,1.6vw,18px)]">
+               <div className="flex items-center justify-center gap-4">
+          <img
+            src={myLogo}
+            alt="Dein Logo"
+            className="h-[200px] w-[200px] object-contain shrink-0"
+            width={200}
+            height={200}
+          />
+          <div className="text-center">
+            <h1 className="text-[clamp(28px,6vw,56px)] font-extrabold tracking-[-0.02em] mb-2 leading-[1.05] text-[#264555]">
+              Kataloge zuweisen 
+            </h1>
+            <p className="mt-0 text-[#334155]/90 text-[clamp(14px,1.6vw,18px)]">
+            Hier Kataloge an Kunden zuweisen
+            </p>
+          </div>
         </div>
+            </div>
+          </div>
+          <div className="justify-self-end inline-flex lg:justify-self-center" />
+        </div>
+      </header>
 
+      <div className="bg-[hsl(0_0%_92%)] min-h-[calc(100vh-64px)] mt-2 px-6 py-6">
+       
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
           {/* Left: Grundinformationen */}
           <div className="lg:col-span-5">
@@ -538,7 +572,7 @@ export default function KatalogeZuweisen({  }: KatalogeZuweisenProps) {
                     className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
                   >
                     <Settings size={16} />
-                    Katalog verwalten
+                   Themen zuordnen
                   </Link>
                 </div>
               </div>

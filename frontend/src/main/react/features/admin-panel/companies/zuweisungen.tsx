@@ -1,13 +1,13 @@
 // src/features/admin-panel/companies/zuweisungen.tsx
-
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Search, ArrowUpDown, Copy, Check, Link as LinkIcon, X } from "lucide-react";
-import AdminPanelHeader from "@/apps/app/adminPanelHeader";
+import AdminLayout from "@/apps/app/AdminLayout";
 import { listAssignments, type AssignmentApi } from "@/features/service/assignmentService";
+import myLogo from "@/assets/Zero-6-icons-05.webp";
 
 type SortKey = "worker" | "catalog" | "status" | "assignedAt" | "expiresAt" | "completedAt";
- 
+
 const CSS = {
     adminBg: "hsl(var(--admin-bg,0 0% 92%))",
     card: "hsl(var(--card,0 0% 98%))",
@@ -17,16 +17,18 @@ const CSS = {
     muted: "hsl(var(--muted,210 40% 97%))",
 };
 
-const fmt = (d?: string | null) => {
-    if (!d) return "—";
-    const dt = new Date(d);               // 'YYYY-MM-DDTHH:mm:ss' wird als lokal geparst – ok
-    return isNaN(dt.getTime()) ? d : dt.toLocaleString("de-DE");
+/* ===== Helper: Datum / Uhrzeit in zwei Zeilen ===== */
+const fmtParts = (d?: string | null) => {
+    if (!d) return { date: "—", time: "" };
+    const dt = new Date(d);
+    if (isNaN(dt.getTime())) return { date: d, time: "" };
+    return {
+        date: dt.toLocaleDateString("de-DE"),
+        time: dt.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
+    };
 };
 
-const clip = (s?: string | null, n = 60) => {
-    if (!s) return "—";
-    return s.length > n ? s.slice(0, n).trimEnd() + "…" : s;
-};
+//const clip = (s?: string | null, n = 60) => (!s ? "—" : s.length > n ? s.slice(0, n).trimEnd() + "…" : s);
 
 function Badge({ status }: { status?: string | null }) {
     const s = (status || "").toLowerCase();
@@ -36,15 +38,10 @@ function Badge({ status }: { status?: string | null }) {
             : s === "expired"
                 ? "bg-[rgb(254,226,226)] text-[rgb(153,27,27)]"
                 : "bg-[rgb(219,234,254)] text-[rgb(30,64,175)]";
-    return (
-        <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[12px] font-semibold ${cls}`}>
-            {status || "pending"}
-        </span>
-    );
+    return <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[12px] font-semibold ${cls}`}>{status || "pending"}</span>;
 }
 
 export default function Zuweisungen() {
-    //const navigate = useNavigate();
     const location = useLocation() as { state?: { assignments?: AssignmentApi[] } };
     const initial = location?.state?.assignments ?? [];
 
@@ -56,23 +53,13 @@ export default function Zuweisungen() {
     const [sortKey, setSortKey] = useState<SortKey>("assignedAt");
     const [asc, setAsc] = useState(false);
 
-    // Invite-Dialog
     const [inviteFor, setInviteFor] = useState<AssignmentApi | null>(null);
     const [copiedLink, setCopiedLink] = useState(false);
     const [copiedCode, setCopiedCode] = useState(false);
 
-    // Basis-URL für den öffentlichen Zugriff (z. B. Backend-Route /public/access/{token})
-    /**const PUBLIC_INVITE_BASE =
-        import.meta.env.VITE_PUBLIC_INVITE_BASE ?? "http://localhost:8080/public/access"; */
-     //Zum Testen   
-  /**  function buildAdminMetaUrl(a: AssignmentApi) {
-        const token = a.accessToken || "";
-        return `${PUBLIC_INVITE_BASE}/${token}/meta`;
-    } */
-
     function buildUserInviteUrl(a: AssignmentApi) {
         const token = a.accessToken || "";
-        const APP_ORIGIN = window.location.origin; // z.B. http://localhost:5173
+        const APP_ORIGIN = window.location.origin;
         return `${APP_ORIGIN}/invite/${token}`;
     }
 
@@ -90,12 +77,13 @@ export default function Zuweisungen() {
                 if (alive) setLoading(false);
             }
         })();
-        return () => { alive = false; };
+        return () => {
+            alive = false;
+        };
     }, []);
 
     const filtered = useMemo(() => {
         const term = q.trim().toLowerCase();
-
         const base = term
             ? rows.filter((r) => {
                 const pool = [
@@ -118,12 +106,18 @@ export default function Zuweisungen() {
 
         const val = (r: AssignmentApi) => {
             switch (sortKey) {
-                case "worker": return (r.worker?.name || r.worker?.id || "").toLowerCase();
-                case "catalog": return (r.catalog?.title || r.catalog?.id || "").toLowerCase();
-                case "status": return (r.status || "").toLowerCase();
-                case "assignedAt": return r.assignedAt ? new Date(r.assignedAt).getTime() : 0;
-                case "expiresAt": return r.expiresAt ? new Date(r.expiresAt).getTime() : 0;
-                case "completedAt": return r.completedAt ? new Date(r.completedAt).getTime() : 0;
+                case "worker":
+                    return (r.worker?.name || r.worker?.id || "").toLowerCase();
+                case "catalog":
+                    return (r.catalog?.title || r.catalog?.id || "").toLowerCase();
+                case "status":
+                    return (r.status || "").toLowerCase();
+                case "assignedAt":
+                    return r.assignedAt ? new Date(r.assignedAt).getTime() : 0;
+                case "expiresAt":
+                    return r.expiresAt ? new Date(r.expiresAt).getTime() : 0;
+                case "completedAt":
+                    return r.completedAt ? new Date(r.completedAt).getTime() : 0;
             }
         };
 
@@ -139,164 +133,251 @@ export default function Zuweisungen() {
 
     const setSort = (k: SortKey) => {
         if (k === sortKey) setAsc((v) => !v);
-        else { setSortKey(k); setAsc(true); }
+        else {
+            setSortKey(k);
+            setAsc(true);
+        }
     };
 
+    // Pagination: Seite & Seitengröße (anpassbar)
+    const [page, setPage] = useState(1);
+    const pageSize = 6; // oder 6, wenn du exakt wie im Screenshot willst
+
+    // Wenn sich die Filterliste ändert, zurück auf Seite 1
+    useEffect(() => { setPage(1); }, [q, sortKey, asc, rows]);
+
+    // Ableitungen
+    const total = filtered.length;
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    const startIdx = total === 0 ? 0 : (page - 1) * pageSize + 1;
+    const endIdx = Math.min(total, page * pageSize);
+    const pageData = filtered.slice((page - 1) * pageSize, page * pageSize);
+
+    // Seite einklemmen, falls Filter/Sort die Seitenanzahl reduzieren
+    useEffect(() => {
+        if (page > totalPages) setPage(totalPages);
+    }, [totalPages, page]);
+
+
     return (
-        <AdminPanelHeader>
-            {/* Header */}
-            <header className="w-full border-b bg-white/90 [backdrop-filter:saturate(1.4)_blur(6px)]" style={{ borderColor: CSS.adminBg }}>
-                <div className="max-w-[1200px] mx-auto px-6">
-                    <div className="h-[84px] grid place-items-center text-center">
-                        <div>
-                            <h1 className="m-0 text-[36px] font-extrabold tracking-[-0.01em]" style={{ color: CSS.fg }}>
-                                Zuweisungen
-                            </h1>
-                            <p className="m-0 mt-2 text-[15px] font-semibold" style={{ color: CSS.mutedFg }}>
-                                Alle Katalog-Zuweisungen an Worker.
-                            </p>
+        <AdminLayout>
+            {/* Kopfbereich (unverändert außer Breite) */}
+            <header
+                className="relative bg-[hsl(60_9%_97.8%)] border-b border-[hsl(214.3_31.8%_91.4%)] px-8 py-4" //bg-[hsl(0_0%_92%)] min-h-[calc(100vh-64px)] mt-2 px-6 py-6 zum testen
+            >
+                <div className="pointer-events-none absolute left-0 right-0 top-[calc(64px-1px)] h-0 [box-shadow:0_10px_16px_-14px_rgba(15,23,42,.18)]" />
+                <div className="grid grid-cols-3 items-center gap-2 lg:grid-cols-1 lg:justify-items-center lg:text-center">
+                    <div className="justify-self-start hidden lg:flex items-center lg:justify-self-center" />
+                    <div className="justify-self-center">
+                        <div className="[&>h1]:text-[clamp(28px,6vw,56px)] [&>h1]:font-extrabold [&>h1]:tracking-[-0.02em] [&>h1]:m-0 [&>h1]:mb-4 [&>h1]:leading-[1.05]
+             [&>h1]:text-[#264555] [&>p]:mt-0 [&>p]:text-[#334155] [&>p]:opacity-90 [&>p]:text-[clamp(14px,1.6vw,18px)]">
+                            <div className="flex items-center justify-center gap-4">
+                                <img
+                                    src={myLogo}
+                                    alt="Dein Logo"
+                                    className="h-[200px] w-[200px] object-contain shrink-0"
+                                    width={200}
+                                    height={200}
+                                />
+                                <div className="text-center">
+                                    <h1 className="text-[clamp(28px,6vw,56px)] font-extrabold tracking-[-0.02em] mb-2 leading-[1.05] text-[#264555]">
+                                        Zuweisungen Administration
+                                    </h1>
+                                    <p className="mt-0 text-[#334155]/90 text-[clamp(14px,1.6vw,18px)]">
+                                        Alle Katalog-Zuweisungen an Kunden verwalten
+                                    </p>
+                                </div>
+                            </div>
                         </div>
                     </div>
+                    <div className="justify-self-end inline-flex lg:justify-self-center" />
                 </div>
             </header>
 
-            <main className="px-6 pt-6 pb-8" style={{ background: CSS.adminBg }}>
-                <nav className="max-w-[1200px] mx-auto mb-4 flex items-center gap-2 text-[0.9rem]" style={{ color: CSS.mutedFg }}>
+            <main className="bg-[hsl(0_0%_92%)] min-h-[calc(100vh-64px)] mt-2 px-6 py-6" style={{ background: CSS.adminBg }}>
+                <nav className="max-w-[1400px] xl:max-w-[1600px] mx-auto mb-4 flex items-center gap-2 text-[0.9rem]" style={{ color: CSS.mutedFg }}>
                     <Link to="/admin/adminPanel" className="hover:underline" style={{ color: CSS.mutedFg }}>
                         Admin Panel
                     </Link>
                     <span className="opacity-60">›</span>
-                    <span className="font-semibold" style={{ color: CSS.fg }}>Zuweisungen</span>
+                    <span className="font-semibold" style={{ color: CSS.fg }}>
+                        Zuweisungen
+                    </span>
                 </nav>
 
-                <section
-                    className="max-w-[1200px] mx-auto rounded-[10px] border shadow-[0_4px_6px_-1px_rgba(38,69,85,.08)]"
-                    style={{ background: CSS.card, borderColor: CSS.border }}
+                {/* Suche + Count */}
+                <div
+                    className="max-w-[1400px] xl:max-w-[1600px] mx-auto mb-4 rounded-[12px] border bg-white/85 [backdrop-filter:saturate(1.2)_blur(4px)] shadow-[0_1px_3px_rgba(0,0,0,0.06)]"
+                    style={{ borderColor: CSS.border }}
                 >
-                    {/* Controls */}
-                    <div className="flex flex-col gap-4 p-6 border-b" style={{ borderColor: CSS.border }}>
-                        <div className="flex flex-wrap items-center justify-between gap-4">
-                            <div className="relative max-w-[24rem] flex-1">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: CSS.mutedFg }}>
-                                    <Search size={16} />
-                                </span>
-                                <input
-                                    type="text"
-                                    placeholder="Suche (Worker, Katalog, Status, Code, Token, Notiz)…"
-                                    value={q}
-                                    onChange={(e) => setQ(e.target.value)}
-                                    className="w-full rounded-md border px-3 py-2 pl-10 text-sm outline-none focus:ring-2"
-                                    style={{ borderColor: CSS.border, background: CSS.card, color: CSS.fg, boxShadow: "0 0 #0000" }}
-                                />
-                            </div>
-                            <div className="text-sm" style={{ color: CSS.mutedFg }}>
-                                {loading ? "Laden…" : error ? `Fehler: ${error}` : `Zeige ${filtered.length} Zuweisungen`}
-                            </div>
+                    <div className="p-4 md:p-5 flex flex-wrap items-center justify-between gap-3 md:gap-4">
+                        <div className="relative flex-1 min-w-[220px] max-w-[36rem]">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: CSS.mutedFg }}>
+                                <Search size={16} />
+                            </span>
+                            <input
+                                type="text"
+                                placeholder="Suche (Worker, Katalog, Status, Code, Token)…"
+                                value={q}
+                                onChange={(e) => setQ(e.target.value)}
+                                className="w-full h-10 md:h-11 rounded-md border pl-10 pr-3 text-sm outline-none transition focus:ring-2"
+                                style={{ borderColor: CSS.border, background: CSS.card, color: CSS.fg, boxShadow: "0 0 #0000" }}
+                            />
+                        </div>
+                        <div className="inline-block text-sm font-medium px-3 md:px-4 py-2 rounded-lg border" style={{ background: CSS.card, color: CSS.mutedFg, borderColor: CSS.border }}>
+                            Zeige <span className="font-semibold" style={{ color: CSS.fg }}>{filtered.length}</span> Zuweisungen
                         </div>
                     </div>
+                </div>
 
-                    {/* Table */}
-                    <div className="overflow-x-auto">
-                        {loading ? (
-                            <div className="px-6 py-6 text-sm" style={{ color: CSS.mutedFg }}>Lade Zuweisungen…</div>
-                        ) : error ? (
-                            <pre className="px-6 py-6 text-xs whitespace-pre-wrap text-red-700 bg-red-50 border-t border-red-200">
-                                {error}
-                            </pre>
-                        ) : filtered.length === 0 ? (
-                            <div className="px-6 py-6 text-sm" style={{ color: CSS.mutedFg }}>Keine Einträge gefunden.</div>
-                        ) : (
-                            <table className="w-full border-collapse" style={{ background: CSS.card }}>
-                                <thead>
-                                    <tr>
-                                        {[
-                                            { k: "worker", label: "Worker" },
-                                            { k: "catalog", label: "Catalog" },
-                                            { k: "status", label: "Status" },
-                                            { k: "assignedAt", label: "Zugewiesen am" },
-                                            { k: "expiresAt", label: "Fällig am" },
-                                            { k: null, label: "Notiz" },
-                                            { k: null, label: "Aktion" }
-                                        ].map((col, i) => (
-                                            <th
-                                                key={i}
-                                                className="text-left px-4 py-3 text-[0.875rem] font-semibold border-b"
-                                                style={{ background: CSS.muted, color: CSS.mutedFg, borderColor: CSS.border }}
-                                            >
-                                                {col.k ? (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setSort(col.k as SortKey)}
-                                                        className="inline-flex items-center gap-1 hover:brightness-110"
-                                                        style={{ color: "inherit" }}
-                                                    >
-                                                        <span>{col.label}</span>
-                                                        <ArrowUpDown size={14} />
-                                                    </button>
-                                                ) : (
+                {/* Tabelle */}
+                <section className="max-w-[1400px] xl:max-w-[1600px] mx-auto rounded-[12px] border bg-white shadow-[0_1px_3px_rgba(0,0,0,0.06)]" style={{ borderColor: CSS.border }}>
+                    <div className="overflow-x-auto md:overflow-x-visible rounded-[12px]" style={{ scrollbarGutter: "stable both-edges" as any }}>
+                        <table className="w-full border-collapse bg-[hsl(0,0%,100%)]">
+                            {/* Optional: kompakte Spaltenbreiten (passt zum Screenshot) */}
+                            <colgroup>
+                                <col style={{ width: "22%" }} />
+                                <col style={{ width: "22%" }} />
+                                <col style={{ width: "10%" }} />
+                                <col style={{ width: "16%" }} />
+                                <col style={{ width: "16%" }} />
+                                <col style={{ width: "24%" }} />
+                                <col style={{ width: "10%" }} />
+                            </colgroup>
+
+                            <thead className="bg-[hsla(200,32%,22%,0.05)]" style={{ borderBottom: "2px solid hsla(200,32%,22%,0.1)" }}>
+                                <tr>
+                                    {[
+                                        { k: "worker", label: "Worker" },
+                                        { k: "catalog", label: "Catalog" },
+                                        { k: "status", label: "Status" },
+                                        { k: "assignedAt", label: "Zugewiesen am" },
+                                        { k: "expiresAt", label: "Fällig am" },
+                                        { k: null, label: "Aktion" },
+                                    ].map((col, i) => (
+                                        <th key={i} className="text-left text-[0.85rem] font-semibold px-4 py-3" style={{ color: CSS.fg }}>
+                                            {col.k ? (
+                                                <button type="button" onClick={() => setSort(col.k as SortKey)} className="inline-flex items-center gap-2 hover:brightness-110" style={{ color: "inherit" }}>
                                                     <span>{col.label}</span>
-                                                )}
-                                            </th>
-                                        ))}
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {filtered.map((r) => {
+                                                    <ArrowUpDown size={14} className="opacity-60" />
+                                                </button>
+                                            ) : (
+                                                <span>{col.label}</span>
+                                            )}
+                                        </th>
+                                    ))}
+                                </tr>
+                            </thead>
+
+                            <tbody>
+                                {loading ? (
+                                    <tr><td className="px-4 py-4 text-sm" style={{ color: CSS.mutedFg }}>Lade Zuweisungen…</td></tr>
+                                ) : error ? (
+                                    <tr><td><pre className="px-4 py-4 text-xs whitespace-pre-wrap text-red-700 bg-red-50 border-t border-red-200">{error}</pre></td></tr>
+                                ) : filtered.length === 0 ? (
+                                    <tr><td className="px-4 py-4 text-sm" style={{ color: CSS.mutedFg }}>Keine Einträge gefunden.</td></tr>
+                                ) : (
+                                    pageData.map((r) => {
                                         const wName = r.worker?.name || "—";
                                         const wId = r.worker?.id || "—";
                                         const cTitle = r.catalog?.title || "—";
                                         const cId = r.catalog?.id || "—";
-                                        const note = r.notes || "";
+                                        const { date: aDate, time: aTime } = fmtParts(r.assignedAt);
+                                        const { date: eDate, time: eTime } = fmtParts(r.expiresAt);
+
                                         return (
-                                            <tr
-                                                key={r.id}
-                                                className="hover:bg-[hsl(var(--muted)/.5)] cursor-pointer" // onClick={() => navigate(`/admin/adminPanel/zuweisungen/${r.id}`, { state: { assignment: r } })
-                                            >
-                                                <td className="px-4 py-3" style={{ borderBottom: `1px solid ${CSS.border}` }}>
+                                            <tr key={r.id} className="transition border-l-[4px] border-transparent hover:bg-[hsla(40,60%,63%,0.05)] hover:border-[hsl(40,60%,63%)]">
+                                                {/* Worker */}
+                                                <td className="px-4 py-4 text-[0.95rem] border-t align-top" style={{ borderColor: CSS.border }}>
                                                     <div className="font-semibold" style={{ color: CSS.fg }}>{wName}</div>
-                                                    <div className="text-xs" style={{ color: CSS.mutedFg }}>{wId}</div>
+                                                    <div className="mt-1 inline-block rounded text-[0.75rem]" style={{ color: CSS.mutedFg, background: "hsla(40,15%,92%,0.5)" }}>
+                                                        <span className="px-2 py-1 font-mono">{wId}</span>
+                                                    </div>
                                                 </td>
 
-                                                <td className="px-4 py-3" style={{ borderBottom: `1px solid ${CSS.border}` }}>
+                                                {/* Catalog */}
+                                                <td className="px-4 py-4 text-[0.95rem] border-t align-top" style={{ borderColor: CSS.border }}>
                                                     <div className="font-semibold" style={{ color: CSS.fg }}>{cTitle}</div>
-                                                    <div className="text-xs" style={{ color: CSS.mutedFg }}>{cId}</div>
+                                                    <div className="mt-1 inline-block rounded text-[0.75rem]" style={{ color: CSS.mutedFg, background: "hsla(40,15%,92%,0.5)" }}>
+                                                        <span className="px-2 py-1 font-mono">{cId}</span>
+                                                    </div>
                                                 </td>
 
-                                                <td className="px-4 py-3" style={{ borderBottom: `1px solid ${CSS.border}` }}>
+                                                {/* Status */}
+                                                <td className="px-4 py-4 text-[0.95rem] border-t align-middle" style={{ borderColor: CSS.border }}>
                                                     <Badge status={r.status} />
                                                 </td>
 
-                                                <td className="px-4 py-3 text-[0.9rem]" style={{ color: CSS.mutedFg, borderBottom: `1px solid ${CSS.border}` }}>
-                                                    {fmt(r.assignedAt)}
+                                                {/* Zugewiesen am → Datum + Uhrzeit untereinander */}
+                                                <td className="px-4 py-4 text-[0.95rem] border-t align-middle whitespace-nowrap" style={{ borderColor: CSS.border }}>
+                                                    <div style={{ color: CSS.fg }}>{aDate}</div>
+                                                    <div className="text-[15px] opacity-70" style={{ color: CSS.mutedFg }}>{aTime}</div>
                                                 </td>
 
-                                                <td className="px-4 py-3 text-[0.9rem]" style={{ color: CSS.mutedFg, borderBottom: `1px solid ${CSS.border}` }}>
-                                                    {fmt(r.expiresAt)}
+                                                {/* Fällig am → Datum + Uhrzeit untereinander */}
+                                                <td className="px-4 py-4 text-[0.95rem] border-t align-middle whitespace-nowrap" style={{ borderColor: CSS.border }}>
+                                                    <div style={{ color: CSS.fg }}>{eDate}</div>
+                                                    <div className="text-[15px] opacity-70" style={{ color: CSS.mutedFg }}>{eTime}</div>
                                                 </td>
-                                                <td className="px-4 py-3 text-[0.9rem]" style={{ color: CSS.mutedFg, borderBottom: `1px solid ${CSS.border}` }} title={note}>
-                                                    {clip(note, 56)}
-                                                </td>
-                                                <td className="px-4 py-3" style={{ borderBottom: `1px solid ${CSS.border}` }}>
+
+                                                {/* Aktion */}
+                                                <td className="px-4 py-4 text-[0.95rem] border-t align-middle" style={{ borderColor: CSS.border }}>
                                                     <button
                                                         type="button"
                                                         onClick={() => { setInviteFor(r); setCopiedLink(false); setCopiedCode(false); }}
-                                                        className="inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-xs font-semibold hover:bg-slate-50"
-                                                        style={{ borderColor: CSS.border, color: CSS.fg }}
+                                                        className="inline-flex items-center gap-2 rounded-lg font-semibold px-3 py-2 transition shadow-[0_1px_3px_rgba(0,0,0,0.1)] hover:[box-shadow:0_4px_8px_rgba(0,0,0,0.15)]"
+                                                        style={{ background: "hsl(40,60%,63%)", color: "hsl(200,32%,22%)", borderColor: CSS.border }}
                                                         title="Einlade-Link erzeugen"
                                                     >
                                                         <LinkIcon size={14} />
-                                                        Einladen
+                                                        <span className="hidden sm:inline">Einladen</span>
                                                     </button>
                                                 </td>
                                             </tr>
                                         );
-                                    })}
-                                </tbody>
-                            </table>
-                        )}
+                                    })
+                                )}
+                            </tbody>
+                        </table>
                     </div>
                 </section>
+                {/* Externer Pagination-Container (NEU, außerhalb der Tabelle) */}
+                <div
+                    className="max-w-[1400px] xl:max-w-[1600px] mx-auto mt-4 rounded-[12px] border bg-white/85 px-4 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
+                    style={{ borderColor: CSS.border }}
+                >
+                    <div className="flex items-center justify-between">
+                        <div className="text-sm" style={{ color: CSS.mutedFg }}>
+                            Zeige {startIdx}-{endIdx} von {total} Einträgen
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                                disabled={page <= 1 || total === 0}
+                                className="rounded-lg border px-3 py-1.5 text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[hsla(40,60%,63%,0.08)]"
+                                style={{ borderColor: CSS.border, color: CSS.mutedFg }}
+                                aria-label="Zurück"
+                            >
+                                Zurück
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                                disabled={page >= totalPages || total === 0}
+                                className="rounded-lg border px-3 py-1.5 text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[hsla(40,60%,63%,0.08)]"
+                                style={{ borderColor: CSS.border, color: CSS.mutedFg }}
+                                aria-label="Weiter"
+                            >
+                                Weiter
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </main>
+
+            {/* Invite Modal (unverändert) */}
             {inviteFor && (
                 <div
                     className="fixed inset-0 z-[1000] bg-black/40 flex items-center justify-center p-4"
@@ -318,7 +399,6 @@ export default function Zuweisungen() {
                             </button>
                         </div>
 
-                        {/* Kontext */}
                         <div className="space-y-1 mb-4 text-sm" style={{ color: CSS.mutedFg }}>
                             <div>
                                 <span className="font-semibold" style={{ color: CSS.fg }}>
@@ -326,23 +406,13 @@ export default function Zuweisungen() {
                                 </span>{" "}
                                 · {inviteFor.catalog?.title || inviteFor.catalog?.id || "Katalog"}
                             </div>
-                            {inviteFor.company?.name && (
-                                <div>Firma: {inviteFor.company.name}</div>
-                            )}
-                            {inviteFor.expiresAt && (
-                                <div>Gültig bis: {new Date(inviteFor.expiresAt).toLocaleString("de-DE")}</div>
-                            )}
+                            {inviteFor.company?.name && <div>Firma: {inviteFor.company.name}</div>}
+                            {inviteFor.expiresAt && <div>Gültig bis: {new Date(inviteFor.expiresAt).toLocaleString("de-DE")}</div>}
                         </div>
 
-                        {/* Link-Zeile */}
                         <label className="block text-sm font-medium mb-1">Link</label>
                         <div className="flex items-center gap-2 mb-3">
-                            <input
-                                readOnly
-                                value={buildUserInviteUrl(inviteFor)}
-                                className="flex-1 rounded-md border px-3 py-2 text-sm"
-                                style={{ borderColor: CSS.border, color: CSS.fg, background: CSS.card }}
-                            />
+                            <input readOnly value={buildUserInviteUrl(inviteFor)} className="flex-1 rounded-md border px-3 py-2 text-sm" style={{ borderColor: CSS.border, color: CSS.fg, background: CSS.card }} />
                             <button
                                 type="button"
                                 onClick={async () => {
@@ -361,17 +431,11 @@ export default function Zuweisungen() {
                             </button>
                         </div>
 
-                        {/* Optional: Access Code (falls vorhanden / benötigt) */}
                         {inviteFor.accessCode && (
                             <>
                                 <label className="block text-sm font-medium mb-1">Access-Code</label>
                                 <div className="flex items-center gap-2">
-                                    <input
-                                        readOnly
-                                        value={inviteFor.accessCode}
-                                        className="flex-1 rounded-md border px-3 py-2 text-sm"
-                                        style={{ borderColor: CSS.border, color: CSS.fg, background: CSS.card }}
-                                    />
+                                    <input readOnly value={inviteFor.accessCode} className="flex-1 rounded-md border px-3 py-2 text-sm" style={{ borderColor: CSS.border, color: CSS.fg, background: CSS.card }} />
                                     <button
                                         type="button"
                                         onClick={async () => {
@@ -392,7 +456,6 @@ export default function Zuweisungen() {
                             </>
                         )}
 
-                        {/* Footer */}
                         <div className="flex justify-end gap-2 mt-5">
                             <button
                                 type="button"
@@ -406,7 +469,6 @@ export default function Zuweisungen() {
                     </div>
                 </div>
             )}
-
-        </AdminPanelHeader>
+        </AdminLayout>
     );
 }

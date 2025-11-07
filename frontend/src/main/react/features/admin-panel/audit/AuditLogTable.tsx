@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import AdminPanelHeader from "@/apps/app/adminPanelHeader";
+import AdminLayout from "@/apps/app/AdminLayout";
 import { Search, Filter, ArrowUpDown } from "lucide-react";
 import "@/styles/adminPanel.css";   // Grundlayout & Tokens inkl. Hero
 import "@/styles/AdminAudit.css";   // Seite/Toolbar/Tabelle
@@ -151,7 +151,7 @@ export default function AuditPage() {
   };
 
   return (
-    <AdminPanelHeader>
+    <AdminLayout>
       {/* === Hero-Header (wie bei den anderen Admin-Seiten) === */}
       <header className="main-header">
         <div className="header-content">
@@ -292,7 +292,7 @@ export default function AuditPage() {
           </div>
         </section>
       </main>
-    </AdminPanelHeader>
+    </AdminLayout>
   );
 }
 
