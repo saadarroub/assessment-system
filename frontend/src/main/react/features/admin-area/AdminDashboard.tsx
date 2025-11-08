@@ -47,6 +47,18 @@ export default function AdminDashboard() {
       t.subtitle?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // 🔹 Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const topicsPerPage = 6;
+
+  // Aktuelle Seite berechnen
+  const indexOfLast = currentPage * topicsPerPage;
+  const indexOfFirst = indexOfLast - topicsPerPage;
+  const currentTopics = filteredTopics.slice(indexOfFirst, indexOfLast);
+
+  // Seitenanzahl
+  const totalPages = Math.ceil(filteredTopics.length / topicsPerPage);
+
   // 🧩 States für Bearbeiten-Modal
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editThemaName, setEditThemaName] = useState("");
@@ -244,7 +256,7 @@ export default function AdminDashboard() {
             </div>
 
             <div className="topics-grid">
-              {filteredTopics.map((t) => (
+              {currentTopics.map((t) => (
                 <div
                   className="topic-card card-v2 kind-strategy flex flex-col justify-between h-full"
                   key={t.id}
@@ -345,6 +357,50 @@ export default function AdminDashboard() {
                 </div>
               ))}
             </div>
+
+            {/* 🔹 Pagination Navigation */}
+            {/* 🔹 Pagination Navigation */}
+            {totalPages > 1 && (
+              <div className="max-w-auto mx-auto mt-6 rounded-[12px] border bg-white/85 [backdrop-filter:saturate(1.2)_blur(4px)] shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+                <div className="p-4 flex items-center justify-center gap-6">
+                  {/* ← Zurück */}
+                  <button
+                    onClick={() =>
+                      setCurrentPage((prev) => Math.max(prev - 1, 1))
+                    }
+                    disabled={currentPage === 1}
+                    className={`px-5 py-2 rounded-lg font-semibold text-white transition-all ${
+                      currentPage === 1
+                        ? "bg-gray-400 cursor-not-allowed"
+                        : "bg-[#56768f] hover:bg-[#223e4c]"
+                    }`}
+                  >
+                    ← Zurück
+                  </button>
+
+                  {/* Seiteninfo */}
+                  <span className="text-gray-700 font-medium text-sm">
+                    Seite <span className="font-semibold">{currentPage}</span>{" "}
+                    von <span className="font-semibold">{totalPages}</span>
+                  </span>
+
+                  {/* Weiter → */}
+                  <button
+                    onClick={() =>
+                      setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+                    }
+                    disabled={currentPage === totalPages}
+                    className={`px-5 py-2 rounded-lg font-semibold text-white transition-all ${
+                      currentPage === totalPages
+                        ? "bg-gray-400 cursor-not-allowed"
+                        : "bg-[#56768f] hover:bg-[#223e4c]"
+                    }`}
+                  >
+                    Weiter →
+                  </button>
+                </div>
+              </div>
+            )}
           </section>
         )}
       </div>
@@ -454,16 +510,24 @@ export default function AdminDashboard() {
               type="text"
               placeholder="Thema-Name"
               value={newThemaName}
+              maxLength={50} // ✅ maximal 50 Zeichen
               onChange={(e) => setNewThemaName(e.target.value)}
               className="w-full border p-2 rounded mb-3"
             />
+            <p className="text-xs text-gray-500 text-right mb-2">
+              {newThemaName.length}/50 Zeichen
+            </p>
 
             <textarea
-              placeholder="Beschreibung"
+              placeholder="Beschreibung (max. 60 Zeichen)"
               value={newThemaDesc}
+              maxLength={60} // ✅ maximal 60 Zeichen
               onChange={(e) => setNewThemaDesc(e.target.value)}
-              className="w-full border p-2 rounded mb-4 h-24"
+              className="w-full border p-2 rounded mb-4"
             />
+            <p className="text-right text-xs text-gray-500 mb-4">
+              {newThemaDesc.length}/60 Zeichen
+            </p>
 
             <div className="flex justify-end gap-2">
               <button
