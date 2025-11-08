@@ -10,7 +10,7 @@ import {
   Trash2,
   Edit3,
   ListPlus,
-  FileText,
+  FileText,Search 
 } from "lucide-react";
 
 import {
@@ -31,12 +31,29 @@ const STATS: Stat[] = [
   { label: "Letzte Änderung", value: "Heute", tone: "neutral" },
 ];
 
+
+
 export default function AdminDashboard() {
+
+
+  const [searchTerm, setSearchTerm] = useState("");
+
+
+
   const navigate = useNavigate();
   const [topics, setTopics] = useState<any[]>([]);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedTopic, setSelectedTopic] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
+
+
+  // Themen filtern nach Suchbegriff
+const filteredTopics = (topics || []).filter(
+  (t) =>
+    t.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    t.subtitle?.toLowerCase().includes(searchTerm.toLowerCase())
+);
+
 
 
   // 🧩 States für Bearbeiten-Modal
@@ -193,6 +210,8 @@ export default function AdminDashboard() {
         <section className="topics-section">
           <div className="section-header">
             <h2>Themen</h2>
+
+  
             <button
               className="btn btn-caramel"
               onClick={() => setIsAddModalOpen(true)}
@@ -200,10 +219,42 @@ export default function AdminDashboard() {
               <Plus size={16} />
               <span >Neues Thema hinzufügen</span>
             </button>
+
+            
           </div>
 
+           {/* 🔍 Suche + Themenzähler */}
+<div
+  className="max-w-auto mx-auto mb-6 mt-3 rounded-[12px] border bg-white/85 [backdrop-filter:saturate(1.2)_blur(4px)] shadow-[0_1px_3px_rgba(0,0,0,0.06)]"
+>
+  <div className="p-4 flex flex-wrap items-center justify-between gap-3">
+    {/* Suchfeld */}
+    <div className="relative flex-1 min-w-[220px] max-w-auto">
+      <Search size={16} className=" absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+      <input
+        type="text"
+        placeholder="Suche Thema (Thema Titel oder Beschreibung)..."
+        value={searchTerm}
+        onChange={(e) => setSearchTerm(e.target.value)}
+        className="w-full h-10 rounded-md border pl-10 pr-3 text-sm outline-none transition focus:ring-2 focus:ring-amber-400"
+      />
+    </div>
+
+    {/* Themenzähler */}
+    <div className="text-sm font-medium px-4 py-2 rounded-md border bg-white text-gray-600">
+      Zeige{" "}
+      <span className="font-semibold text-gray-800">
+        {filteredTopics.length}
+      </span>{" "}
+      Themen
+    </div>
+  </div>
+</div>
+
+          
+
           <div className="topics-grid">
-            {topics.map((t) => (
+            {filteredTopics.map((t) => (
               <div
                 className="topic-card card-v2 kind-strategy flex flex-col justify-between h-full"
                 key={t.id}
@@ -308,29 +359,50 @@ export default function AdminDashboard() {
 
       {/* ====== Edit Thema Modal ====== */}
       {isEditModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 backdrop-blur-sm flex justify-center items-center z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-40 backdrop-blur-sm flex justify-center items-center z-[9999]">
           <div className="bg-white rounded-xl shadow-lg w-[420px] p-6 text-center">
             <h3 className="text-lg font-semibold mb-4 text-center text-gray-800">
               Thema bearbeiten
             </h3>
 
             {/* Titel (bearbeitbar) */}
-            <input
-              ref={titleInputRef}
-              type="text"
-              value={editThemaName}
-              onChange={(e) => setEditThemaName(e.target.value)}
-              className="w-full border p-2 rounded mb-3"
-              placeholder="Thema-Name"
-            />
+     <input
+  ref={titleInputRef}
+  type="text"
+  value={editThemaName}
+  onChange={(e) => {
+    if (e.target.value.length <= 50) {
+      setEditThemaName(e.target.value);
+    }
+  }}
+  maxLength={50}
+  className="w-full border p-2 rounded mb-1 focus:ring-1 focus:ring-brand-sand"
+  placeholder="Thema-Name (max. 50 Zeichen)"
+/>
+<p className="text-right text-xs text-gray-500 mb-3">
+  {editThemaName.length}/50 Zeichen
+</p>
 
-            {/* Beschreibung (bearbeitbar) */}
-            <textarea
-              value={editThemaDesc}
-              onChange={(e) => setEditThemaDesc(e.target.value)}
-              className="w-full border p-2 rounded mb-4 h-24"
-              placeholder="Beschreibung"
-            />
+
+          
+         {/* Beschreibung (bearbeitbar, max. 50 Zeichen) */}
+<textarea
+  value={editThemaDesc}
+  onChange={(e) => {
+    if (e.target.value.length <= 60) {
+      setEditThemaDesc(e.target.value);
+    }
+  }}
+  maxLength={60}
+  className="w-full border p-2 rounded mb-2 h-24 focus:ring-1 focus:ring-brand-sand"
+  placeholder="Beschreibung (max. 50 Zeichen)"
+/>
+
+{/* Zeichenanzeige */}
+<p className="text-right text-xs text-gray-500 mb-4">
+  {editThemaDesc.length}/60 Zeichen
+</p>
+
 
             <div className="flex justify-end gap-2">
               <button
@@ -383,7 +455,7 @@ export default function AdminDashboard() {
 
       {/* ====== Add Thema Modal ====== */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 backdrop-blur-sm flex justify-center items-center z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-40 backdrop-blur-sm flex justify-center items-center z-[9999]">
           <div className="bg-white rounded-xl shadow-lg w-[420px] p-6 text-center">
             <h3 className="text-lg font-semibold mb-4 text-center text-gray-800">
               Neues Thema hinzufügen
@@ -443,7 +515,7 @@ export default function AdminDashboard() {
 
       {/* ====== Delete Modal ====== */}
       {showDeleteModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 backdrop-blur-sm flex justify-center items-center z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-40 backdrop-blur-sm flex justify-center items-center z-[9999]">
           <div className="bg-white rounded-xl shadow-lg w-[420px] p-6 text-center">
             <h2 className="text-lg font-semibold text-gray-800 mb-4">
               Thema löschen

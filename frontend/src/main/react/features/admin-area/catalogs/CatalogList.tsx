@@ -250,8 +250,10 @@ const handleConfirm = async () => {
 
       {/* 🧩 MODAL */}
       {isModalOpen && (
-        <div className="absolute top-5 left-24  w-full h-full bg-black bg-opacity-20 flex justify-center items-center z-50 ">
-          <div className="bg-white rounded-xl shadow-lg w-[730px] max-h-[85vh] flex flex-col relative">
+     <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-[9999]">
+
+  <div className="bg-white rounded-xl shadow-lg w-[730px] max-h-[85vh] flex flex-col relative">
+
             {/* Header */}
             <div className="p-8 overflow-y-auto flex-1">
               <button
