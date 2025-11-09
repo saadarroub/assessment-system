@@ -4,7 +4,7 @@ import { Link, useParams } from "react-router-dom";
 import AdminLayout from "@/apps/app/AdminLayout";
 import "@/styles/adminPanel.css";
 import myLogo from "@/assets/Zero-6-icons-05.webp";
-import "@/styles/adminCompanyDetails.css";
+// adminCompanyDetails.css entfernt – alle Klassen unten via Tailwind umgesetzt
 import {
   getCompany,
   getWorkersByCompany,
@@ -12,18 +12,26 @@ import {
   updateWorker,
   deleteWorker,
   type WorkerApi,
+  getAssignmentsByCompany,
+  type AssignmentApi
 } from "@/features/service/companyService";
 import { Pencil, Loader2, Trash, UserPlus } from "lucide-react";
 
 /* ---------- API & UI Types ---------- */
-type CompanyApi = { id: string; name: string; description?: string; created_at?: string };
+type CompanyApi = { id: string; name: string; description?: string; created_at?: string; createdAt?: string; };
 type CompanyDetailsT = {
   id: string;
   name: string;
   status?: "active" | "inactive";
-  created: string;
+  created: string | null;
   usersCount?: number;
   catalogsCount?: number;
+};
+
+const toISOorNull = (s?: string) => {
+  if (!s) return null;
+  const d = new Date(s);
+  return isNaN(d.getTime()) ? null : d.toISOString();
 };
 
 function mapApiToDetails(x: CompanyApi): CompanyDetailsT {
@@ -31,15 +39,13 @@ function mapApiToDetails(x: CompanyApi): CompanyDetailsT {
     id: String(x.id),
     name: String(x.name ?? "Unbenannte Firma"),
     status: "active",
-    created: x.created_at ? new Date(x.created_at).toISOString() : new Date().toISOString(),
+    created: toISOorNull(x.created_at ?? x.createdAt),
   };
 }
-const formatDate = (iso: string) => new Date(iso).toLocaleDateString("de-DE");
+const formatDate = (iso?: string | null) =>
+  iso ? new Date(iso).toLocaleDateString("de-DE") : "—";
 type TabKey = "users" | "catalogs" | "settings";
 
-/* ================================ */
-/*           Component              */
-/* ================================ */
 export default function CompanyDetails() {
   const { id } = useParams<{ id: string }>();
 
@@ -73,6 +79,41 @@ export default function CompanyDetails() {
   const [toDelete, setToDelete] = useState<WorkerApi | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  // Catalog-Assignments (Liste)
+  const [assignments, setAssignments] = useState<AssignmentApi[]>([]);
+const [assignLoading, setAssignLoading] = useState(false);
+const [assignError, setAssignError] = useState<string | null>(null);
+
+  // Datum formatieren
+  const fmt = (iso?: string | null) => (iso ? new Date(iso).toLocaleDateString("de-DE") : "—");
+
+  // Status → Badge-Farben (wie bei Workers)
+  const statusBadge = (s: AssignmentApi["status"]) => {
+    if (s === "completed") return "bg-[rgb(220,252,231)] text-[rgb(22,101,52)]";      // grün
+    if (s === "in_progress") return "bg-[rgb(254,243,199)] text-[rgb(146,64,14)]";      // gelb
+    if (s === "expired") return "bg-[rgb(254,226,226)] text-[rgb(153,27,27)]";      // rot
+    return "bg-[rgb(229,231,235)] text-[rgb(55,65,81)]";                                 // grau: assigned
+  };
+
+  /* ---------- Assignments laden (nur wenn Tab "catalogs") ---------- */
+useEffect(() => {
+  if (!id) return;
+  let alive = true;
+  setAssignLoading(true);
+  setAssignError(null);
+  (async () => {
+    try {
+      const list = await getAssignmentsByCompany(id);
+      if (alive) setAssignments(Array.isArray(list) ? list : []);
+    } catch (e: any) {
+      if (alive) setAssignError(e?.message ?? String(e));
+    } finally {
+      if (alive) setAssignLoading(false);
+    }
+  })();
+  return () => { alive = false; };
+}, [id]); 
 
   /* ---------- Company laden ---------- */
   useEffect(() => {
@@ -119,14 +160,17 @@ export default function CompanyDetails() {
   if (loading) {
     return (
       <AdminLayout>
-        <header className="main-header">
-          <div className="header-content">
-            <div className="header-center">
-              <div className="header-text">
+        <header className="relative bg-[hsl(60_9%_97.8%)] border-b border-[hsl(214.3_31.8%_91.4%)] px-8 py-4">
+          <div className="pointer-events-none absolute left-0 right-0 top-[calc(64px-1px)] h-0 [box-shadow:0_10px_16px_-14px_rgba(15,23,42,.18)]" />
+          <div className="grid grid-cols-3 items-center gap-2 lg:grid-cols-1 lg:justify-items-center lg:text-center">
+            <div className="justify-self-start hidden lg:flex items-center lg:justify-self-center" />
+            <div className="justify-self-center">
+              <div className="[&>h1]:text-[clamp(28px,6vw,56px)] [&>h1]:font-extrabold [&>h1]:tracking-[-0.02em] [&>h1]:m-0 [&>h1]:mb-4 [&>h1]:leading-[1.05] [&>h1]:text-[#264555] [&>p]:mt-0 [&>p]:text-[#334155] [&>p]:opacity-90 [&>p]:text-[clamp(14px,1.6vw,18px)]">
                 <h1>Company</h1>
                 <p>Laden…</p>
               </div>
             </div>
+            <div className="justify-self-end inline-flex lg:justify-self-center" />
           </div>
         </header>
       </AdminLayout>
@@ -136,14 +180,17 @@ export default function CompanyDetails() {
   if (error || !company) {
     return (
       <AdminLayout>
-        <header className="main-header">
-          <div className="header-content">
-            <div className="header-center">
-              <div className="header-text">
+        <header className="relative bg-[hsl(60_9%_97.8%)] border-b border-[hsl(214.3_31.8%_91.4%)] px-8 py-4">
+          <div className="pointer-events-none absolute left-0 right-0 top-[calc(64px-1px)] h-0 [box-shadow:0_10px_16px_-14px_rgba(15,23,42,.18)]" />
+          <div className="grid grid-cols-3 items-center gap-2 lg:grid-cols-1 lg:justify-items-center lg:text-center">
+            <div className="justify-self-start hidden lg:flex items-center lg:justify-self-center" />
+            <div className="justify-self-center">
+              <div className="[&>h1]:text-[clamp(28px,6vw,56px)] [&>h1]:font-extrabold [&>h1]:tracking-[-0.02em] [&>h1]:m-0 [&>h1]:mb-4 [&>h1]:leading-[1.05] [&>h1]:text-[#264555] [&>p]:mt-0 [&>p]:text-[#334155] [&>p]:opacity-90 [&>p]:text-[clamp(14px,1.6vw,18px)]">
                 <h1>Companies</h1>
                 <p>{error ?? "Company not found. Check the URL or go back to the list."}</p>
               </div>
             </div>
+            <div className="justify-self-end inline-flex lg:justify-self-center" />
           </div>
         </header>
 
@@ -161,10 +208,20 @@ export default function CompanyDetails() {
   }
 
   /* ---------- abgeleitete Werte ---------- */
-  const usersCount = typeof company.usersCount === "number" ? company.usersCount : workers.length;
-  const catalogsCount = typeof company.catalogsCount === "number" ? company.catalogsCount : 0;
+const usersCount = typeof company?.usersCount === "number" ? company.usersCount : workers.length;
+const totalAssignmentsCount = assignments.length;
+  //const catalogsCount = typeof company.catalogsCount === "number" ? company.catalogsCount : 0;
+  const catalogsCount = (() => {
+  const ids = new Set<string>();
+  for (const a of assignments) if (a?.catalog?.id) ids.add(a.catalog.id);
+  return ids.size;
+})();
   const statusLabel = (company.status ?? "active") === "active" ? "Active" : "Inactive";
-  const statusClass = (company.status ?? "active") === "active" ? "status-active" : "status-inactive";
+  const statusClass =
+    (company.status ?? "active") === "active"
+      ? "bg-[rgb(220_252_231)] text-[rgb(22_101_52)]"
+      : "bg-[rgb(254_226_226)] text-[rgb(153_27_27)]";
+// total = alle Zuweisungen
 
   /* ---------- Invite ---------- */
   function openInviteModal() {
@@ -209,11 +266,10 @@ export default function CompanyDetails() {
   function cancelEdit() { if (!saving) { setEditing(null); setSaveError(null); } }
   async function onSave(e: React.FormEvent) {
     e.preventDefault();
-    if (!editing|| !company) return;
+    if (!editing || !company) return;
     setSaving(true);
     setSaveError(null);
 
-    // Optimistic
     const optimistic = { ...editing, name: formName, email: formEmail, workSpaceRef: formWs };
     setWorkers(prev => prev.map(x => (x.id === editing.id ? optimistic : x)));
 
@@ -256,40 +312,37 @@ export default function CompanyDetails() {
   /* ---------- Render ---------- */
   return (
     <AdminLayout>
-      {/* === Hero (Tailwind) === */}
-       <header
-        className="relative bg-[hsl(60_9%_97.8%)] border-b border-[hsl(214.3_31.8%_91.4%)] px-8 py-4" //bg-[hsl(0_0%_92%)] min-h-[calc(100vh-64px)] mt-2 px-6 py-6 zum testen
-      >
+      {/* === Hero === */}
+      <header className="relative bg-[hsl(60_9%_97.8%)] border-b border-[hsl(214.3_31.8%_91.4%)] px-8 py-4">
         <div className="pointer-events-none absolute left-0 right-0 top-[calc(64px-1px)] h-0 [box-shadow:0_10px_16px_-14px_rgba(15,23,42,.18)]" />
         <div className="grid grid-cols-3 items-center gap-2 lg:grid-cols-1 lg:justify-items-center lg:text-center">
           <div className="justify-self-start hidden lg:flex items-center lg:justify-self-center" />
           <div className="justify-self-center">
-            <div className="[&>h1]:text-[clamp(28px,6vw,56px)] [&>h1]:font-extrabold [&>h1]:tracking-[-0.02em] [&>h1]:m-0 [&>h1]:mb-4 [&>h1]:leading-[1.05]
-             [&>h1]:text-[#264555] [&>p]:mt-0 [&>p]:text-[#334155] [&>p]:opacity-90 [&>p]:text-[clamp(14px,1.6vw,18px)]">
-               <div className="flex items-center justify-center gap-4">
-          <img
-            src={myLogo}
-            alt="Dein Logo"
-            className="h-[200px] w-[200px] object-contain shrink-0"
-            width={200}
-            height={200}
-          />
-          <div className="text-center">
-            <h1 className="text-[clamp(28px,6vw,56px)] font-extrabold tracking-[-0.02em] mb-2 leading-[1.05] text-[#264555]">
-             Firmen Details
-            </h1>
-            <p className="mt-0 text-[#334155]/90 text-[clamp(14px,1.6vw,18px)]">
-            {company.name}
-            </p>
-          </div>
-        </div>
+            <div className="[&>h1]:text-[clamp(28px,6vw,56px)] [&>h1]:font-extrabold [&>h1]:tracking-[-0.02em] [&>h1]:m-0 [&>h1]:mb-4 [&>h1]:leading-[1.05] [&>h1]:text-[#264555] [&>p]:mt-0 [&>p]:text-[#334155] [&>p]:opacity-90 [&>p]:text-[clamp(14px,1.6vw,18px)]">
+              <div className="flex items-center justify-center gap-4">
+                <img
+                  src={myLogo}
+                  alt="Dein Logo"
+                  className="h-[200px] w-[200px] object-contain shrink-0"
+                  width={200}
+                  height={200}
+                />
+                <div className="text-center">
+                  <h1 className="text-[clamp(28px,6vw,56px)] font-extrabold tracking-[-0.02em] mb-2 leading-[1.05] text-[#264555]">
+                    Firmen Details
+                  </h1>
+                  <p className="mt-0 text-[#334155]/90 text-[clamp(14px,1.6vw,18px)]">
+                    {company.name}
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
           <div className="justify-self-end inline-flex lg:justify-self-center" />
         </div>
       </header>
 
-      {/* >>> einzig relevante Klassenänderung für „kompakt“ <<< */}
+      {/* === Main === */}
       <main className="admin-main company-details compact bg-[hsl(0_0%_92%)] min-h-[calc(100vh-64px)] mt-2 px-6 py-6">
         {/* Breadcrumb */}
         <nav className="breadcrumb">
@@ -301,109 +354,187 @@ export default function CompanyDetails() {
         </nav>
 
         {/* Kopf */}
-        <div className="page-header details-page-header">
-          <Link to="/admin/adminPanel/companies" className="back-btn" aria-label="Zurück zu Companies">Zurück</Link>
+        <div className="mb-6">
+          <Link
+            to="/admin/adminPanel/companies"
+            className="back-btn inline-flex items-center rounded-md border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-2 text-sm font-semibold text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))]"
+            aria-label="Zurück zu Companies"
+          >
+            Zurück
+          </Link>
         </div>
 
-        <div className="content-grid">
+        {/* Content Grid: mobil 1 Spalte, ab lg 1fr + 20rem (Sidebar rechts) */}
+        <div className="grid grid-cols-1 gap-6 lg:[grid-template-columns:1fr_20rem]">
           {/* Hauptspalte */}
-          <div className="main-column">
-            <section className="admin-card company-section">
+          <div className="flex flex-col gap-6">
+            <section className="admin-card p-6">
               {/* Company Kopf */}
-              <div className="company-header">
-                <div className="company-info">
-                  <div className="company-icon" aria-hidden>🏢</div>
-                  <div className="company-text"><h2>{company.name}</h2></div>
-                </div>
-                <span className={`status-badge ${statusClass}`}>{statusLabel}</span>
-              </div>
+              {/* Company Kopf – Name + Badge in EINER Zeile */}
+              {/* Company Kopf – Name links, Badge ganz rechts */}
+              <div className="mb-6">
+                <div className="flex items-center gap-4">
+                  <div
+                    className="w-12 h-12 rounded-lg bg-[hsl(var(--primary)/0.1)] text-[hsl(var(--primary))] grid place-items-center text-[1.5rem]"
+                    aria-hidden
+                  >
+                    🏢
+                  </div>
 
-              {/* Stats */}
-              <div className="stats-grid">
-                <div className="stat-card">
-                  <span className="stat-icon" aria-hidden>👥</span>
-                  <span className="stat-number">{usersCount}</span>
-                  <div className="stat-label">Workers</div>
-                </div>
-                <div className="stat-card">
-                  <span className="stat-icon" aria-hidden>📂</span>
-                  <span className="stat-number">{catalogsCount}</span>
-                  <div className="stat-label">Catalogs</div>
-                </div>
-                <div className="stat-card">
-                  <span className="stat-icon" aria-hidden>📅</span>
-                  <div className="stat-number stat-number-compact">{formatDate(company.created)}</div>
-                  <div className="stat-label">Created</div>
+                  {/* Linke Seite: Name (nimmt den Platz ein) */}
+                  <div className="flex-1 min-w-0">
+                    <h2 className="text-[1.25rem] font-semibold m-0 truncate">{company.name}</h2>
+                  </div>
+
+                  {/* Rechte Seite: Badge, fixierte Breite, kein Umbruch */}
+                  <span
+                    className={`shrink-0 inline-flex items-center px-3 py-2 rounded-full text-[0.875rem] font-medium ${statusClass}`}
+                  >
+                    {statusLabel}
+                  </span>
                 </div>
               </div>
-
+              {/* Stats (mit farbigen Top-Akzenten wie im Screenshot) */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                {/* Workers */}
+                <div className="text-center p-4 border border-[hsl(var(--border))] rounded-lg border-t-4 border-t-[#94a3b8]">
+                  <span className="text-2xl text-[hsl(var(--primary))] mb-2 block" aria-hidden>👥</span>
+                  <span className="block text-[1.5rem] font-extrabold text-[hsl(var(--foreground))]">{usersCount}</span>
+                  <div className="text-[0.875rem] text-[hsl(var(--muted-foreground))]">Workers</div>
+                </div>
+                {/* Catalogs */}
+                <div className="text-center p-4 border border-[hsl(var(--border))] rounded-lg border-t-4 border-t-[#60a5fa]">
+                  <span className="text-2xl text-[hsl(var(--primary))] mb-2 block" aria-hidden>📂</span>
+                  <span className="block text-[1.5rem] font-extrabold text-[hsl(var(--foreground))]">{catalogsCount}</span>
+                  <div className="text-[0.875rem] text-[hsl(var(--muted-foreground))]">Catalogs</div>
+                </div>
+                {/* Created */}
+                <div className="text-center p-4 border border-[hsl(var(--border))] rounded-lg border-t-4 border-t-[#86efac]">
+                  <span className="text-2xl text-[hsl(var(--primary))] mb-2 block" aria-hidden>📅</span>
+                  <div className="text-[1rem] font-semibold text-[hsl(var(--foreground))] mt-1">{formatDate(company.created)}</div>
+                  <div className="text-[0.875rem] text-[hsl(var(--muted-foreground))]">Created</div>
+                </div>
+              </div>
               {/* Tabs */}
-              <div className="tabs" role="tablist" aria-label="Company Tabs">
-                <div className="tab-list">
-                  <button type="button" className={`tab-button ${tab === "users" ? "active" : ""}`} aria-selected={tab === "users"} onClick={() => setTab("users")}>
+              {/* Tabs */}
+              <div className="border-b border-[hsl(var(--border))] mb-6" role="tablist" aria-label="Company Tabs">
+                <div className="flex gap-2">
+                  {/* Workers */}
+                  <button
+                    type="button"
+                    aria-selected={tab === "users"}
+                    onClick={() => setTab("users")}
+                    className={
+                      "flex items-center gap-2 px-4 py-2 rounded-full font-semibold transition border-0 " +
+                      (tab === "users"
+                        ? "shadow hover:[filter:brightness(1.05)]"
+                        : "text-[hsl(var(--muted-foreground))] hover:bg-[hsla(40,60%,63%,0.12)] hover:text-[hsl(var(--foreground))]")
+                    }
+                    style={
+                      tab === "users"
+                        ? { background: "hsl(40,60%,63%)", color: "hsl(200,32%,22%)", boxShadow: "0 1px 2px rgba(0,0,0,.05)" }
+                        : {}
+                    }
+                  >
                     <span aria-hidden>👥</span> Workers ({usersCount})
                   </button>
-                  <button type="button" className={`tab-button ${tab === "catalogs" ? "active" : ""}`} aria-selected={tab === "catalogs"} onClick={() => setTab("catalogs")}>
-                    <span aria-hidden>📂</span> Catalogs ({catalogsCount})
+
+                  {/* Catalogs */}
+                  <button
+                    type="button"
+                    aria-selected={tab === "catalogs"}
+                    onClick={() => setTab("catalogs")}
+                    className={
+                      "flex items-center gap-2 px-4 py-2 rounded-full font-semibold transition border-0 " +
+                      (tab === "catalogs"
+                        ? "shadow hover:[filter:brightness(1.05)]"
+                        : "text-[hsl(var(--muted-foreground))] hover:bg-[hsla(40,60%,63%,0.12)] hover:text-[hsl(var(--foreground))]")
+                    }
+                    style={
+                      tab === "catalogs"
+                        ? { background: "hsl(40,60%,63%)", color: "hsl(200,32%,22%)", boxShadow: "0 1px 2px rgba(0,0,0,.05)" }
+                        : {}
+                    }
+                  >
+                    <span aria-hidden>📂</span> Catalogs ({totalAssignmentsCount})
                   </button>
                 </div>
               </div>
+
+
 
               {/* USERS TAB */}
               {tab === "users" && (
                 <div>
                   {workersLoading ? (
-                    <div className="empty-state">
-                      <div className="empty-icon" aria-hidden>⏳</div>
-                      <p className="empty-title">Lade Worker…</p>
+                    <div className="text-center py-12 text-[hsl(var(--muted-foreground))]">
+                      <div className="text-[56px] leading-none mb-3 opacity-80" aria-hidden>⏳</div>
+                      <p className="text-[1.125rem] text-[hsl(var(--foreground))] m-0">Lade Worker…</p>
                     </div>
                   ) : workersError ? (
                     <div className="admin-error" role="alert" style={{ margin: "0.75rem 0" }}>
                       {workersError}
                     </div>
                   ) : workers.length === 0 ? (
-                    <div className="empty-state">
-                      <div className="empty-icon" aria-hidden>👥</div>
-                      <p className="empty-title">Keine User-Daten verfügbar.</p>
-                      <p className="empty-sub">Füge über „Invite User“ neue Worker hinzu.</p>
+                    <div className="text-center py-12 text-[hsl(var(--muted-foreground))]">
+                      <div className="text-[56px] leading-none mb-3 opacity-80" aria-hidden>👥</div>
+                      <p className="text-[1.125rem] text-[hsl(var(--foreground))] mb-1">Keine User-Daten verfügbar.</p>
+                      <p className="text-[.95rem] m-0">Füge über „Invite User“ neue Worker hinzu.</p>
                     </div>
                   ) : (
                     <div className="overflow-x-auto">
-                      <table className="admin-table subtable">
-                        <thead>
+                      <table className="w-full border-collapse bg-white">
+                        {/* Header: leichtes Blau-Grau + Unterkante */}
+                        <thead className="bg-[hsla(200,32%,22%,0.05)] border-b-2 border-b-[hsla(200,32%,22%,0.10)]">
                           <tr>
-                            <th>Name</th>
-                            <th>Email</th>
-                            <th>Workspace</th>
-                            <th>Created</th>
-                            <th className="w-28">Actions</th>
+                            <th className="px-4 py-3 text-[0.85rem] font-semibold text-[hsl(205_35%_24%)] text-left">Name</th>
+                            <th className="px-4 py-3 text-[0.85rem] font-semibold text-[hsl(205_35%_24%)] text-left">Email</th>
+                            <th className="px-4 py-3 text-[0.85rem] font-semibold text-[hsl(205_35%_24%)] text-left">Workspace</th>
+                            <th className="px-4 py-3 text-[0.85rem] font-semibold text-[hsl(205_35%_24%)] text-left">Created</th>
+                            <th className="px-4 py-3 text-[0.85rem] font-semibold text-[hsl(205_35%_24%)] text-left">Actions</th>
                           </tr>
                         </thead>
+
                         <tbody>
                           {workers.map((w) => (
-                            <tr key={w.id}>
-                              <td style={{ fontWeight: 600 }}>{w.name || "—"}</td>
-                              <td className="cell-muted">{w.email || "—"}</td>
-                              <td className="cell-muted">{w.workSpaceRef || "—"}</td>
-                              <td className="cell-muted">
+                            <tr
+                              key={w.id}
+                              className="group transition border-l-4 border-transparent hover:bg-[hsla(40,60%,63%,0.05)] hover:border-[hsl(40,60%,63%)]"
+                            >
+                              <td className="px-4 py-4 text-sm font-semibold border-b border-b-[hsl(30_15%_85%)]">
+                                {w.name || "—"}
+                              </td>
+
+                              <td className="px-4 py-4 text-sm text-[hsl(0_0%_50%)] border-b border-b-[hsl(30_15%_85%)]">
+                                {w.email || "—"}
+                              </td>
+
+                              <td className="px-4 py-4 text-sm text-[hsl(0_0%_50%)] border-b border-b-[hsl(30_15%_85%)]">
+                                {w.workSpaceRef || "—"}
+                              </td>
+
+                              <td className="px-4 py-4 text-sm text-[hsl(0_0%_50%)] border-b border-b-[hsl(30_15%_85%)]">
                                 {w.createdAt ? new Date(w.createdAt).toLocaleDateString("de-DE") : "—"}
                               </td>
-                              <td>
+
+                              <td className="px-4 py-4 text-sm border-b border-b-[hsl(30_15%_85%)]">
                                 <div className="flex items-center gap-2">
+                                  {/* Edit: neutraler Border, dunkles FG */}
                                   <button
                                     type="button"
                                     onClick={() => openEdit(w)}
-                                    className="inline-flex items-center gap-1 rounded-md border border-slate-300 px-2 py-1 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                                    className="inline-flex items-center gap-1 rounded-md border border-[hsl(30_15%_85%)] px-2 py-1 text-sm font-semibold text-[hsl(205_35%_24%)] hover:bg-slate-50"
                                     title="Bearbeiten"
                                   >
                                     <Pencil size={14} />
                                     Edit
                                   </button>
 
+                                  {/* Delete: roter Border, roter Text */}
                                   <button
                                     type="button"
                                     onClick={() => askDelete(w)}
-                                    className="inline-flex items-center gap-1 rounded-md border border-red-300 px-2 py-1 text-sm font-semibold text-red-600 hover:bg-red-50"
+                                    className="inline-flex items-center gap-1 rounded-md border border-[rgb(254_202_202)] px-2 py-1 text-sm font-semibold text-red-600 hover:bg-red-50"
                                     title="Löschen"
                                   >
                                     <Trash size={14} />
@@ -416,58 +547,131 @@ export default function CompanyDetails() {
                         </tbody>
                       </table>
                     </div>
+
                   )}
                 </div>
               )}
 
               {tab === "catalogs" && (
-                <div className="empty-state">
-                  <div className="empty-icon" aria-hidden>📁</div>
-                  <p className="empty-title">Catalog management would be implemented here.</p>
-                  <p className="empty-sub">This company has {catalogsCount} catalogs.</p>
+                <div>
+                  {assignLoading ? (
+                    <div className="text-center py-12 text-[hsl(var(--muted-foreground))]">
+                      <div className="text-[56px] leading-none mb-3 opacity-80" aria-hidden>📁</div>
+                      <p className="text-[1.125rem] text-[hsl(var(--foreground))] m-0">Lade Zuweisungen…</p>
+                    </div>
+                  ) : assignError ? (
+                    <div className="admin-error" role="alert" style={{ margin: "0.75rem 0" }}>
+                      {assignError}
+                    </div>
+                  ) : assignments.length === 0 ? (
+                    <div className="text-center py-12 text-[hsl(var(--muted-foreground))]">
+                      <div className="text-[56px] leading-none mb-3 opacity-80" aria-hidden>📁</div>
+                      <p className="text-[1.125rem] text-[hsl(var(--foreground))] mb-1">
+                        Keine Katalog-Zuweisungen vorhanden.
+                      </p>
+                      <p className="text-[.95rem] m-0">Lege über „Assign Catalog“ neue Zuweisungen an.</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="admin-table subtable w-full border-collapse text-left">
+                        <thead className="bg-[hsl(var(--muted))]">
+                          <tr>
+                            <th className="px-3 py-2 text-sm font-semibold">Worker</th>
+                            <th className="px-3 py-2 text-sm font-semibold">Email</th>
+                            <th className="px-3 py-2 text-sm font-semibold">Workspace</th>
+                            <th className="px-3 py-2 text-sm font-semibold">Catalog</th>
+                            <th className="px-3 py-2 text-sm font-semibold">Status</th>
+                            <th className="px-3 py-2 text-sm font-semibold">Assigned</th>
+                            <th className="px-3 py-2 text-sm font-semibold">Expires</th>
+                            <th className="px-3 py-2 text-sm font-semibold">Last Access</th>
+                            <th className="px-3 py-2 text-sm font-semibold">Completed</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {assignments.map((a) => (
+                            <tr key={a.id} className="border-b border-[hsl(var(--border))] last:border-b-0">
+                              <td className="px-3 py-2 text-sm font-semibold">{a.worker?.name ?? "—"}</td>
+                              <td className="px-3 py-2 text-sm text-[hsl(var(--muted-foreground))]">{a.worker?.email ?? "—"}</td>
+                              <td className="px-3 py-2 text-sm text-[hsl(var(--muted-foreground))]">{a.worker?.workSpaceRef ?? "—"}</td>
+                              <td className="px-3 py-2 text-sm">{a.catalog?.title ?? "—"}</td>
+                              <td className="px-3 py-2 text-sm">
+                                <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[12px] font-semibold ${statusBadge(a.status)}`}>
+                                  {a.status}
+                                </span>
+                              </td>
+                              <td className="px-3 py-2 text-sm text-[hsl(var(--muted-foreground))]">{fmt(a.assignedAt)}</td>
+                              <td className="px-3 py-2 text-sm text-[hsl(var(--muted-foreground))]">{fmt(a.expiresAt)}</td>
+                              <td className="px-3 py-2 text-sm text-[hsl(var(--muted-foreground))]">{fmt(a.lastAccessAt)}</td>
+                              <td className="px-3 py-2 text-sm text-[hsl(var(--muted-foreground))]">{fmt(a.completedAt)}</td>
+
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </div>
               )}
 
               {tab === "settings" && (
-                <div className="settings-wrap">
-                  <div className="settings-grid">
-                    <div className="input-ctrl">
-                      <label htmlFor="c-name">Company Name</label>
-                      <input id="c-name" value={company.name} readOnly />
+                <div className="pt-2">
+                  <div className="grid grid-cols-1 md:[grid-template-columns:repeat(2,minmax(220px,1fr))] gap-x-5 gap-y-4 pt-3">
+                    <div className="flex flex-col gap-2">
+                      <label htmlFor="c-name" className="text-[.95rem] font-bold text-[hsl(var(--foreground))]">Company Name</label>
+                      <input
+                        id="c-name"
+                        value={company.name}
+                        readOnly
+                        className="px-4 py-3 rounded-lg border border-[hsl(var(--border))] bg-[#eee] text-[hsl(var(--foreground))] outline-none"
+                      />
                     </div>
                   </div>
-                  <p className="settings-hint">Settings management würde hier später implementiert.</p>
+                  <p className="mt-4 text-[hsl(var(--muted-foreground))]">Settings management würde hier später implementiert.</p>
                 </div>
               )}
             </section>
           </div>
 
-          {/* Sidebar */}
-          <aside className="sidebar-column">
-            <section className="admin-card actions-card">
-              <h2 className="actions-title">Actions</h2>
-              <div className="actions-list">
+          {/* Sidebar (rechts) */}
+          <aside className="w-full lg:w-[20rem] flex flex-col gap-6">
+            <section className="admin-card p-6">
+              <h2 className="text-[1.125rem] font-bold mb-4">Actions</h2>
+              <div className="flex flex-col gap-3">
                 <button
                   type="button"
-                  className="btn btn-primary inline-flex items-center gap-2"
                   onClick={openInviteModal}
+                  className="flex w-full items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-semibold shadow hover:[filter:brightness(1.05)] focus:outline-none"
+                  style={{
+                    background: "hsl(40,60%,63%)",
+                    color: "hsl(200,32%,22%)",
+                    boxShadow: "0 1px 2px rgba(0,0,0,.05)",
+                  }}
                 >
                   <UserPlus size={16} />
-                  Invite User
-                </button>
-                <button type="button" className="btn btn-secondary">
-                  <span aria-hidden>⚙️</span> Edit Settings
+                  Worker hinzüfügen
                 </button>
               </div>
             </section>
 
-            <section className="admin-card stats-card">
-              <h2 className="stats-title">Company Stats</h2>
-              <div className="stats-list">
-                <div className="stat-row"><span className="stat-label-row">Total Users:</span><span className="stat-value">{usersCount}</span></div>
-                <div className="stat-row"><span className="stat-label-row">Total Catalogs:</span><span className="stat-value">{catalogsCount}</span></div>
-                <div className="stat-row"><span className="stat-label-row">Status:</span><span className="stat-value">{statusLabel}</span></div>
-                <div className="stat-row"><span className="stat-label-row">Created:</span><span className="stat-value">{formatDate(company.created)}</span></div>
+            <section className="admin-card p-5 rounded-xl">
+              <h2 className="text-[1.05rem] font-bold mb-3">Company Stats</h2>
+              <div className="flex flex-col gap-2 text-[0.95rem]">
+                <div className="flex items-baseline justify-between">
+                  <span className="text-[0.92rem] tracking-[.1px] text-[hsl(var(--muted-foreground))]">Total Users:</span>
+                  <span className="text-[1.05rem] leading-[1.1] font-bold text-[hsl(var(--foreground))] whitespace-nowrap [font-variant-numeric:tabular-nums]">{usersCount}</span>
+                </div>
+                <div className="flex items-baseline justify-between">
+                  <span className="text-[0.92rem] tracking-[.1px] text-[hsl(var(--muted-foreground))]">Total Catalogs:</span>
+                  <span className="text-[1.05rem] leading-[1.1] font-bold text-[hsl(var(--foreground))] whitespace-nowrap [font-variant-numeric:tabular-nums]">{catalogsCount}</span>
+                </div>
+                <div className="flex items-baseline justify-between">
+                  <span className="text-[0.92rem] tracking-[.1px] text-[hsl(var(--muted-foreground))]">Status:</span>
+                  <span className="text-[1.05rem] leading-[1.1] font-bold text-[hsl(var(--foreground))] whitespace-nowrap [font-variant-numeric:tabular-nums]">{statusLabel}</span>
+                </div>
+                <div className="flex items-baseline justify-between">
+                  <span className="text-[0.92rem] tracking-[.1px] text-[hsl(var(--muted-foreground))]">Created:</span>
+                  <span className="text-[1.05rem] leading-[1.1] font-bold text-[hsl(var(--foreground))] whitespace-nowrap [font-variant-numeric:tabular-nums]">{formatDate(company.created)}</span>
+                </div>
               </div>
             </section>
           </aside>
@@ -532,7 +736,8 @@ export default function CompanyDetails() {
                 </button>
                 <button
                   type="submit"
-                  className="inline-flex items-center gap-2 rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow hover:brightness-110 disabled:opacity-60"
+                  className="inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-semibold shadow hover:[filter:brightness(1.05)] disabled:opacity-60"
+                  style={{ background: "hsl(40,60%,63%)", color: "hsl(200,32%,22%)" }}
                   disabled={creating}
                 >
                   {creating && <Loader2 size={16} className="animate-spin" />}
@@ -602,7 +807,8 @@ export default function CompanyDetails() {
                 </button>
                 <button
                   type="submit"
-                  className="inline-flex items-center gap-2 rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow hover:brightness-110 disabled:opacity-60"
+                  className="inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-semibold shadow hover:[filter:brightness(1.05)] disabled:opacity-60"
+                  style={{ background: "hsl(40,60%,63%)", color: "hsl(200,32%,22%)" }}
                   disabled={saving}
                 >
                   {saving && <Loader2 size={16} className="animate-spin" />}

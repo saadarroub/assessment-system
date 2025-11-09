@@ -1,4 +1,3 @@
-// src/services/companyService.ts
 //worker pro companies 
 export type WorkerApi = {
   id: string;
@@ -110,4 +109,40 @@ export async function deleteWorker(id: string): Promise<void> {
     headers: { Accept: "application/json" },
   });
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
+}
+
+// ========= Worker–Catalog Assignments einer Company =========
+export type AssignmentApi = {
+  id: string;
+  worker: {
+    id: string;
+    name: string;
+    email: string;
+    workSpaceRef?: string;
+  };
+  catalog: {
+    id: string;
+    title: string;
+    description?: string;
+  };
+  status: "assigned" | "in_progress" | "completed" | "expired";
+  accessCode?: string;
+  accessToken?: string;
+  assignedAt?: string;
+  expiresAt?: string;
+  firstAccessAt?: string | null;
+  lastAccessAt?: string | null;
+  completedAt?: string | null;
+  notes?: string | null;
+};
+
+export async function getAssignmentsByCompany(companyId: string): Promise<AssignmentApi[]> {
+  const resp = await fetch(
+    `http://localhost:8080/api/worker-catalog/company/${encodeURIComponent(companyId)}`,
+    { headers: { Accept: "application/json" } }
+  );
+   // 204 oder 200 mit leerem Body => als []
+  if (resp.status === 204) return [];
+  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+  return resp.json();
 }

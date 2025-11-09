@@ -6,7 +6,7 @@
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 1.5rem;
-}
+} 
 
 .main-column {
   display: flex;

@@ -6,7 +6,7 @@ import AdminLayout from "@/apps/app/AdminLayout";
 import { Search, ArrowUpDown, Eye, Building2, Plus, Trash2, Pencil } from "lucide-react";
 import myLogo from "@/assets/Zero-6-icons-05.webp";
 import {
-  getCompanies,
+  getCompanies, 
   getWorkersByCompany,
   createCompany,
   deleteCompany,
