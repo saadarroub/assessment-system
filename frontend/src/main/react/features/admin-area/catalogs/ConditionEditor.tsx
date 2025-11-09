@@ -721,7 +721,7 @@ export default function ConditionEditor() {
 
       {/* 🗑️ Lösch-Bestätigungs-Modal */}
       {isDeleteModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-[9999]">
           <div className="bg-white rounded-xl shadow-lg w-[420px] p-6">
             <h2 className="text-lg font-semibold text-gray-800 mb-4">
               Frage wirklich löschen?
@@ -758,7 +758,7 @@ export default function ConditionEditor() {
 
       {/* 🧱 Modal: Neue Frage hinzufügen */}
       {isModalOpen && (
-        <div className="fixed top-5 left-24 w-full h-full bg-black bg-opacity-20 flex justify-center items-center z-50">
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-[9999]">
           <div className="bg-white rounded-xl shadow-lg w-[730px] max-h-[80vh] flex flex-col relative">
             <div className="p-8 overflow-y-auto flex-1">
               {/* ❌ Schließen-Button */}
