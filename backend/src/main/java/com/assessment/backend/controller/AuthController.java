@@ -1,5 +1,6 @@
 package com.assessment.backend.controller;
-
+import com.assessment.backend.dto.LoginRequest;
+import com.assessment.backend.dto.LoginResponseDTO;
 import com.assessment.backend.service.AuthService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -16,14 +17,24 @@ public class AuthController {
     private AuthService authService;
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody Map<String, String> loginRequest) {
-        String email = loginRequest.get("email");
-        String password = loginRequest.get("password");
-        
+    public ResponseEntity<?> login(@RequestBody LoginRequest loginRequest) {
+        String email = loginRequest.getEmail();
+        String password = loginRequest.getPassword();
+
         return authService.login(email, password)
-                .<ResponseEntity<?>>map(user -> ResponseEntity.ok(user))
+              .map(user -> {
+                    LoginResponseDTO dto = new LoginResponseDTO(
+                            user.getId(),
+                            user.getName(),
+                            user.getEmail(),
+                            user.getCreatedAt(),
+                            user.getUpdatedAt()
+                    );
+                    return ResponseEntity.ok(dto);
+                })
                 .orElse(ResponseEntity.status(401).body(Map.of("error", "Invalid credentials")));
     }
+    
 
     @PostMapping("/logout")
     public ResponseEntity<?> logout(@RequestBody Map<String, String> logoutRequest) {
