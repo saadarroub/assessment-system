@@ -1,12 +1,15 @@
 package com.assessment.backend.controller;
+
 import com.assessment.backend.dto.LoginRequest;
 import com.assessment.backend.dto.LoginResponseDTO;
+import com.assessment.backend.entity.User;
 import com.assessment.backend.service.AuthService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -21,18 +24,26 @@ public class AuthController {
         String email = loginRequest.getEmail();
         String password = loginRequest.getPassword();
 
-        return authService.login(email, password)
-              .map(user -> {
-                    LoginResponseDTO dto = new LoginResponseDTO(
-                            user.getId(),
-                            user.getName(),
-                            user.getEmail(),
-                            user.getCreatedAt(),
-                            user.getUpdatedAt()
-                    );
-                    return ResponseEntity.ok(dto);
-                })
-                .orElse(ResponseEntity.status(401).body(Map.of("error", "Invalid credentials")));
+        Optional<User> userOpt = authService.login(email, password);
+
+        if (userOpt.isPresent()) {
+            User user = userOpt.get();
+
+
+            LoginResponseDTO responseDTO = new LoginResponseDTO(
+                    user.getId(),
+                    user.getName(),
+                    user.getEmail(),
+                    user.getCreatedAt(),
+                    user.getUpdatedAt()
+            );
+            return ResponseEntity.ok(responseDTO);
+        } else {
+            return ResponseEntity.status(401)
+                                 .body(Map.of("error", "Invalid credentials"));
+        }
+
+    
     }
     
 
