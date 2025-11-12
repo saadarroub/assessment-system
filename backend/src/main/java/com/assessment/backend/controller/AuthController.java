@@ -4,6 +4,7 @@ import com.assessment.backend.dto.LoginRequest;
 import com.assessment.backend.dto.LoginResponseDTO;
 import com.assessment.backend.entity.User;
 import com.assessment.backend.service.AuthService;
+import com.assessment.backend.security.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -19,6 +20,9 @@ public class AuthController {
     @Autowired
     private AuthService authService;
 
+    @Autowired
+    private JwtUtil jwtUtil;
+
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest loginRequest) {
         String email = loginRequest.getEmail();
@@ -28,6 +32,7 @@ public class AuthController {
 
         if (userOpt.isPresent()) {
             User user = userOpt.get();
+            String token = jwtUtil.generateToken(user);
 
 
             LoginResponseDTO responseDTO = new LoginResponseDTO(
@@ -36,7 +41,7 @@ public class AuthController {
                     user.getEmail(),
                     user.getCreatedAt(),
                     user.getUpdatedAt(),
-                    "DUMMY_TOKEN"
+                    token
             );
             return ResponseEntity.ok(responseDTO);
         } else {
