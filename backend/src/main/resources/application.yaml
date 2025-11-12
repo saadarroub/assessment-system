@@ -13,6 +13,12 @@ spring:
 server:
   port: 8080
 
+security:
+  jwt:
+    secret: "my-super-secret-key-for-jwt-123456"
+    expiration-ms: 3600000  # 1 hour
+
+
 ---
 spring:
   config:
