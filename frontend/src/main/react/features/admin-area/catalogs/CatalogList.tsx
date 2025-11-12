@@ -129,7 +129,7 @@ const handleConfirm = async () => {
             case "range":
               icon = <BarChart3 size={18} />;
               break;
-            case "ranking":
+            case "order":
               icon = <ListOrdered size={18} />;
               break;
             default:
@@ -159,7 +159,7 @@ const handleConfirm = async () => {
             case "range":
               label = "Bewertung";
               break;
-            case "ranking":
+            case "order":
               label = "Reihenfolge";
               break;
             default:

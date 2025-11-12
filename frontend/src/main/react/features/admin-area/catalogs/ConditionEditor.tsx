@@ -141,7 +141,7 @@ export default function ConditionEditor() {
             case "range":
               icon = <BarChart3 size={18} />;
               break;
-            case "ranking":
+            case "order":
               icon = <ListOrdered size={18} />;
               break;
             default:
@@ -171,7 +171,7 @@ export default function ConditionEditor() {
             case "range":
               label = "Bewertung";
               break;
-            case "ranking":
+            case "order":
               label = "Reihenfolge";
               break;
             default:
@@ -518,7 +518,7 @@ export default function ConditionEditor() {
 
   // 🔹 Fragetypen
 
-  const typesWithOptions = ["radio", "checkbox", "select"];
+  const typesWithOptions = ["radio", "checkbox", "select", "order"];
   const showOptions = typesWithOptions.includes(selectedType);
 
   // 🧱 Sortable Item Component
