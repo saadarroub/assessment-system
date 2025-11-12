@@ -35,7 +35,8 @@ public class AuthController {
                     user.getName(),
                     user.getEmail(),
                     user.getCreatedAt(),
-                    user.getUpdatedAt()
+                    user.getUpdatedAt(),
+                    "DUMMY_TOKEN"
             );
             return ResponseEntity.ok(responseDTO);
         } else {

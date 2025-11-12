@@ -11,16 +11,19 @@ public class LoginResponseDTO {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
+    private String token;
+
     public LoginResponseDTO() {
     }
 
     public LoginResponseDTO(UUID id, String name, String email,
-                            LocalDateTime createdAt, LocalDateTime updatedAt) {
+                            LocalDateTime createdAt, LocalDateTime updatedAt, String token) {
         this.id = id;
         this.name = name;
         this.email = email;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
+        this.token = token;
     }
 
     public UUID getId() {
@@ -61,5 +64,11 @@ public class LoginResponseDTO {
 
     public void setUpdatedAt(LocalDateTime updatedAt) {
         this.updatedAt = updatedAt;
+    }
+    public String getToken() {
+        return token;
+    }
+    public void setToken(String token) {
+        this.token = token;
     }
 }
