@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import AdminLayout from "@/apps/app/AdminLayout";
 import "@/styles/admin.css";
@@ -29,7 +29,8 @@ import {
   deleteQuestion,
   createQuestion,
   createQuestionNode,
-  getQuestionTypes,updateQuestion
+  getQuestionTypes,
+  updateQuestion,
 } from "@/api/questionApi";
 
 // 🧩 Drag & Drop Imports
@@ -70,7 +71,7 @@ export default function ConditionEditor() {
   // 🧩 States
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [questionText, setQuestionText] = useState("");
-  const [selectedType, setSelectedType] = useState("");
+  const [selectedType, setSelectedType] = useState<any | null>(null);
   const [options, setOptions] = useState<{ label: string; score: number }[]>(
     []
   );
@@ -84,6 +85,9 @@ export default function ConditionEditor() {
 
   const [questionTypes, setQuestionTypes] = useState<any[]>([]);
 
+  // 👇 Scroll-Referenz für den Antwortmöglichkeiten-Block
+  const optionsRef = useRef<HTMLDivElement | null>(null);
+
   // 🔁 Rekursive Funktion, die ALLE Kinder bis zur tiefsten Ebene lädt
   async function fetchChildrenRecursive(parentId: string): Promise<any[]> {
     try {
@@ -94,14 +98,42 @@ export default function ConditionEditor() {
 
       // Wenn es Kinder gibt -> lade auch deren Unterfragen rekursiv
       const enriched = await Promise.all(
-        children.map(async (child: any) => ({
-          id: child.id, // QuestionNode-ID
-          questionId: child.question?.id, // ✅ echte Question-ID
-          text: child.question?.text || "Ohne Text",
-          type: child.question?.questionType?.inputType || "unknown",
-          expanded: false,
-          children: await fetchChildrenRecursive(child.id),
-        }))
+        children.map(async (child: any) => {
+          const rawOptions = child.question?.options;
+          const rawScoring = child.question?.scoringSchema;
+
+          let parsedOptions = [];
+          let parsedScoring = {};
+
+          try {
+            parsedOptions =
+              typeof rawOptions === "string"
+                ? JSON.parse(rawOptions)
+                : rawOptions || [];
+          } catch {
+            parsedOptions = [];
+          }
+
+          try {
+            parsedScoring =
+              typeof rawScoring === "string"
+                ? JSON.parse(rawScoring)
+                : rawScoring || {};
+          } catch {
+            parsedScoring = {};
+          }
+
+          return {
+            id: child.id,
+            questionId: child.question?.id,
+            text: child.question?.text || "Ohne Text",
+            type: child.question?.questionType?.inputType || "unknown",
+            options: parsedOptions, // ✅
+            scoringSchema: parsedScoring, // ✅
+            expanded: false,
+            children: await fetchChildrenRecursive(child.id),
+          };
+        })
       );
 
       return enriched;
@@ -110,6 +142,49 @@ export default function ConditionEditor() {
       return [];
     }
   }
+
+  // 🔹 Wenn Fragetyp gewechselt wird → automatisch 2 leere Antwortoptionen erzeugen (wenn hasOptions = true)
+useEffect(() => {
+  if (!selectedType) return;
+
+  if (selectedType.hasOptions) {
+    // 👇 Wenn schon Optionen vorhanden → nichts tun
+    if (options.length === 0) {
+      // Versuche, alte Optionen wiederherzustellen
+      const saved = sessionStorage.getItem("lastOptions");
+      if (saved) {
+        setOptions(JSON.parse(saved));
+        sessionStorage.removeItem("lastOptions");
+      } else {
+        // Wenn nichts gespeichert → Standardfelder setzen
+        setOptions([
+          { label: "", score: 0 },
+          { label: "", score: 0 },
+        ]);
+      }
+    }
+  } else {
+    // 👇 Nur speichern, wenn aktuell Optionen existieren
+    if (options.length > 0) {
+      sessionStorage.setItem("lastOptions", JSON.stringify(options));
+      setOptions([]);
+    }
+  }
+}, [selectedType]);
+
+
+// 👇 Wenn wieder zu einem Typ mit Optionen gewechselt wird → alte Werte zurückholen
+useEffect(() => {
+  if (selectedType?.hasOptions && options.length === 0) {
+    const saved = sessionStorage.getItem("lastOptions");
+    if (saved) {
+      setOptions(JSON.parse(saved));
+      sessionStorage.removeItem("lastOptions"); // 🧹 einmalig verwenden
+    }
+  }
+}, [selectedType]);
+
+
 
   // 🔹 Fragetypen aus der API laden (wie in CatalogList)
   useEffect(() => {
@@ -206,14 +281,43 @@ export default function ConditionEditor() {
 
         // 2️⃣ Für jede Root-Frage alle Kinder (rekursiv) laden
         const fullHierarchy = await Promise.all(
-          roots.map(async (root: any) => ({
-            id: root.id,
-            questionId: root.question?.id, // ✅ echte Question-ID
-            text: root.question?.text || "Ohne Text",
-            type: root.question?.questionType?.inputType || "unknown",
-            expanded: false,
-            children: await fetchChildrenRecursive(root.id),
-          }))
+          roots.map(async (root: any) => {
+            // 🧩 Prüfen, ob options/scoringSchema Strings sind:
+            const rawOptions = root.question?.options;
+            const rawScoring = root.question?.scoringSchema;
+
+            let parsedOptions = [];
+            let parsedScoring = {};
+
+            try {
+              parsedOptions =
+                typeof rawOptions === "string"
+                  ? JSON.parse(rawOptions)
+                  : rawOptions || [];
+            } catch {
+              parsedOptions = [];
+            }
+
+            try {
+              parsedScoring =
+                typeof rawScoring === "string"
+                  ? JSON.parse(rawScoring)
+                  : rawScoring || {};
+            } catch {
+              parsedScoring = {};
+            }
+
+            return {
+              id: root.id,
+              questionId: root.question?.id,
+              text: root.question?.text || "Ohne Text",
+              type: root.question?.questionType?.inputType || "unknown",
+              options: parsedOptions, // ✅ korrigiert
+              scoringSchema: parsedScoring, // ✅ korrigiert
+              expanded: false,
+              children: await fetchChildrenRecursive(root.id),
+            };
+          })
         );
 
         // 3️⃣ In State speichern
@@ -227,7 +331,8 @@ export default function ConditionEditor() {
   }, [themaId]);
 
   // Neue Frage hinzufügen vilt später
-{/*
+  {
+    /*
   const handleConfirm = () => {
     const newQuestion = {
       id: Date.now().toString(),
@@ -251,7 +356,8 @@ export default function ConditionEditor() {
 
     handleCancel();
   };
-  */}
+  */
+  }
 
   const handleAddQuestion = () => {
     setParentQuestion(null);
@@ -347,16 +453,13 @@ export default function ConditionEditor() {
       return;
     }
 
-    const hasOptions = questionTypes.find(
-      (t) => t.value === selectedType
-    )?.hasOptions;
+    // ✅ Da selectedType jetzt ein Objekt ist:
+    const hasOptions = selectedType.hasOptions;
 
     // 🧱 2. Payload für API
     const payload = {
       text: questionText,
-      questionType: {
-        id: questionTypes.find((t) => t.value === selectedType)?.id,
-      },
+      questionType: { id: selectedType.id }, // ✅ direkt aus Objekt
       options: hasOptions ? options.map((o) => o.label) : null,
       scoringSchema: hasOptions
         ? Object.fromEntries(options.map((o) => [o.label, o.score]))
@@ -411,45 +514,50 @@ export default function ConditionEditor() {
     }
   };
 
-
   const handleUpdateQuestion = async () => {
-  if (!editingQuestion) return;
-  try {
-    const hasOptions = questionTypes.find((t) => t.value === selectedType)
-      ?.hasOptions;
+    if (!editingQuestion) return;
 
-    const payload = {
-      text: questionText,
-      questionType: {
-        id: questionTypes.find((t) => t.value === selectedType)?.id,
-      },
-      options: hasOptions ? options.map((o) => o.label) : null,
-      scoringSchema: hasOptions
-        ? Object.fromEntries(options.map((o) => [o.label, o.score]))
-        : null,
-    };
+    try {
+      const hasOptions = selectedType?.hasOptions;
 
-    // Backend-Update aufrufen
-    await updateQuestion(editingQuestion.questionId, payload);
+      const payload = {
+        text: questionText,
+        questionType: { id: selectedType?.id },
+        options: hasOptions ? options.map((o) => o.label) : null,
+        scoringSchema: hasOptions
+          ? Object.fromEntries(options.map((o) => [o.label, o.score]))
+          : null,
+      };
 
-    // UI aktualisieren
-    const updateQuestionInTree = (list: any[]): any[] =>
-      list.map((q) =>
-        q.id === editingQuestion.id
-          ? { ...q, text: questionText, type: selectedType, options }
-          : {
-              ...q,
-              children: q.children ? updateQuestionInTree(q.children) : [],
-            }
-      );
+      await updateQuestion(editingQuestion.questionId, payload);
 
-    setQuestions((prev) => updateQuestionInTree(prev));
-    handleCancel();
-  } catch (err) {
-    console.error("❌ Fehler beim Bearbeiten der Frage:", err);
-  }
-};
+      // ✅ UI aktualisieren inkl. scoringSchema
+      const updateQuestionInTree = (list: any[]): any[] =>
+        list.map((q) =>
+          q.id === editingQuestion.id
+            ? {
+                ...q,
+                text: questionText,
+                type: selectedType?.value || q.type,
+                options: hasOptions ? options : [],
+                scoringSchema: hasOptions
+                  ? Object.fromEntries(options.map((o) => [o.label, o.score]))
+                  : {}, // ✅ hinzugefügt
+              }
+            : {
+                ...q,
+                children: q.children ? updateQuestionInTree(q.children) : [],
+              }
+        );
 
+      setQuestions((prev) => updateQuestionInTree(prev));
+
+      handleCancel();
+    } catch (err) {
+      console.error("❌ Fehler beim Bearbeiten der Frage:", err);
+      alert("❌ Fehler beim Bearbeiten der Frage!");
+    }
+  };
 
   // 🔁 Ein- & Ausklappen von Fragen (vollständig rekursiv)
   const toggleExpand = async (id: string) => {
@@ -517,9 +625,7 @@ export default function ConditionEditor() {
   }
 
   // 🔹 Fragetypen
-
-  const typesWithOptions = ["radio", "checkbox", "select", "order"];
-  const showOptions = typesWithOptions.includes(selectedType);
+  const showOptions = selectedType?.hasOptions === true;
 
   // 🧱 Sortable Item Component
   function SortableQuestion({ q, level = 0 }: { q: any; level?: number }) {
@@ -601,8 +707,41 @@ export default function ConditionEditor() {
                 setEditingQuestion(q);
                 setParentQuestion(null);
                 setQuestionText(q.text);
-                setSelectedType(q.type);
-                setOptions(q.options || []);
+
+                // ✅ Fragetyp laden
+                const matchedType = questionTypes.find(
+                  (t) => t.value === q.type
+                );
+                setSelectedType(matchedType || null);
+
+                // ✅ Antwortoptionen + Scores laden
+                if (q.options && Array.isArray(q.options)) {
+                  if (q.scoringSchema) {
+                    const combined = q.options.map((opt: any) => {
+                      const label =
+                        typeof opt === "string" ? opt : opt.label || "";
+                      const currentScore =
+                        typeof opt === "object" ? opt.score : undefined;
+                      return {
+                        label,
+                        score: currentScore ?? q.scoringSchema[label] ?? 0, // ✅ nimmt zuerst aktuellen Wert
+                      };
+                    });
+                    setOptions(combined);
+                  } else {
+                    const simple = q.options.map(
+                      (opt: { label?: string } | string) => ({
+                        label: typeof opt === "string" ? opt : opt.label || "",
+                        score: 0,
+                      })
+                    );
+
+                    setOptions(simple);
+                  }
+                } else {
+                  setOptions([]);
+                }
+
                 setIsModalOpen(true);
               }}
               className="text-gray-600 hover:text-brand-sand transition-all"
@@ -815,9 +954,20 @@ export default function ConditionEditor() {
                   {questionTypes.map((type) => (
                     <button
                       key={type.value}
-                      onClick={() => setSelectedType(type.value)}
+                      onClick={() => {
+                        setSelectedType(type);
+                        if (type.hasOptions) {
+                          // 👇 kleine Verzögerung, damit React erst rendert, dann scrollt
+                          setTimeout(() => {
+                            optionsRef.current?.scrollIntoView({
+                              behavior: "smooth",
+                              block: "start",
+                            });
+                          }, 150);
+                        }
+                      }}
                       className={`flex items-center justify-start gap-3 border rounded-lg py-3 px-4 text-left font-medium text-sm transition-all duration-150 ${
-                        selectedType === type.value
+                        selectedType?.id === type.id
                           ? "bg-brand-sand border-brand-sand text-white shadow-md"
                           : "border-gray-300 text-gray-800 hover:bg-gray-50"
                       }`}
@@ -831,7 +981,10 @@ export default function ConditionEditor() {
 
               {/* 🔸 Antwortoptionen (nur falls nötig) */}
               {showOptions && (
-                <div className="border-t border-gray-200 pt-4 mt-4">
+                <div
+                  ref={optionsRef}
+                  className="border-t border-gray-200 pt-4 mt-4"
+                >
                   <h3 className="text-md font-semibold text-gray-800 mb-3">
                     Antwortmöglichkeiten
                   </h3>

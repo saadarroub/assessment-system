@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import AdminLayout from "@/apps/app/AdminLayout";
 import "@/styles/admin.css";
@@ -32,59 +32,88 @@ export default function CatalogList() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [questionText, setQuestionText] = useState("");
   const [selectedType, setSelectedType] = useState<any | null>(null);
-
-  const [options, setOptions] = useState<{ label: string; score: number }[]>(
-    []
-  );
+  const [options, setOptions] = useState<{ label: string; score: string | number }[]>([]);
   const [questionTypes, setQuestionTypes] = useState<any[]>([]);
 
-  // 🔹 Fragetypen
+  const [errorQuestionText, setErrorQuestionText] = useState<string | null>(null);
+  const [errorType, setErrorType] = useState<string | null>(null);
+  const [errorOptions, setErrorOptions] = useState<string | null>(null);
 
   const showOptions = selectedType?.hasOptions === true;
+  const optionsRef = useRef<HTMLDivElement | null>(null);
+  const { id: themaId } = useParams();
+  const [thema, setThema] = useState<{ name: string; description: string } | null>(null);
+
+  // oben bei den States hinzufügen:
+const [hasSubmitted, setHasSubmitted] = useState(false);
+
 
   // 🔹 Frage speichern → anlegen + mit Thema verknüpfen
-const handleConfirm = async () => {
-  if (!questionText.trim() || !selectedType) {
-    alert("❌ Bitte Fragetext und Typ auswählen!");
-    return;
-  }
+  const handleConfirm = async () => {
+    setHasSubmitted(true);
+    let hasError = false;
 
-  const hasOptions = selectedType?.hasOptions;
+    // 🔸 Frage prüfen
+    if (!questionText.trim()) {
+      setErrorQuestionText("Bitte Fragetext ausfüllen.");
+      hasError = true;
+    } else setErrorQuestionText(null);
 
-  const payload = {
-    text: questionText,
-    questionType: { id: selectedType.id },
-    options: hasOptions ? options.map((o) => o.label) : null,
-    scoringSchema: hasOptions
-      ? Object.fromEntries(options.map((o) => [o.label, o.score]))
-      : null,
+    // 🔸 Typ prüfen
+    if (!selectedType) {
+      setErrorType("Bitte Fragetyp auswählen.");
+      hasError = true;
+    } else setErrorType(null);
+
+    // 🔸 Antwortoptionen prüfen
+    const hasOptions = selectedType?.hasOptions;
+    if (hasOptions) {
+      const missingLabel = options.some((o) => !o.label.trim());
+      const missingScore = options.some((o) => o.score === "" || isNaN(Number(o.score)));
+
+      if (options.length < 2) {
+        setErrorOptions("Mindestens zwei Antwortmöglichkeiten erforderlich.");
+        hasError = true;
+      } else if (missingLabel && missingScore) {
+        setErrorOptions("Bitte alle Antworttexte und Scores ausfüllen.");
+        hasError = true;
+      } else if (missingLabel) {
+        setErrorOptions("Bitte alle Antworttexte ausfüllen.");
+        hasError = true;
+      } else if (missingScore) {
+        setErrorOptions("Bitte alle Scores ausfüllen.");
+        hasError = true;
+      } else {
+        setErrorOptions(null);
+      }
+    } else setErrorOptions(null);
+
+    if (hasError) return;
+
+    const payload = {
+      text: questionText,
+      questionType: { id: selectedType.id },
+      options: hasOptions ? options.map((o) => o.label) : null,
+      scoringSchema: hasOptions
+        ? Object.fromEntries(options.map((o) => [o.label, Number(o.score)]))
+        : null,
+    };
+
+    try {
+      const question = await createQuestion(payload);
+      await createQuestionNode(themaId!, question.id);
+
+      setIsModalOpen(false);
+      setQuestionText("");
+      setSelectedType(null);
+      setOptions([]);
+
+      navigate(`/admin/catalogs/${themaId}/condition-editor`);
+    } catch (error) {
+      console.error("❌ Fehler beim Hinzufügen der Frage:", error);
+      alert("❌ Fehler beim Hinzufügen der Frage!");
+    }
   };
-
-  try {
-  
-    const question = await createQuestion(payload);
-  
-
-    // ➕ Frage mit Thema verknüpfen
-    console.log("🔗 Verknüpfe Frage mit Thema:", themaId);
-    await createQuestionNode(themaId!, question.id);
-
-    console.log("✅ QuestionNode erfolgreich erstellt!");
-
-    // 🧹 UI zurücksetzen
-    setIsModalOpen(false);
-    setQuestionText("");
-    setSelectedType(null);
-    setOptions([]);
-
-    // 🚀 Direkt weiterleiten — kein alert mehr!
-    navigate(`/admin/catalogs/${themaId}/condition-editor`);
-  } catch (error) {
-    console.error("❌ Fehler beim Hinzufügen der Frage:", error);
-    alert("❌ Fehler beim Hinzufügen der Frage!");
-  }
-};
-
 
   const handleCancel = () => {
     setQuestionText("");
@@ -93,18 +122,32 @@ const handleConfirm = async () => {
     setIsModalOpen(false);
   };
 
-  const { id: themaId } = useParams();
-  const [thema, setThema] = useState<{
-    name: string;
-    description: string;
-  } | null>(null);
+useEffect(() => {
+  if (selectedType?.hasOptions) {
+    if (options.length === 0) {
+      setOptions([
+        { label: "", score: "" }, // 👈 statt 0 bitte leer lassen!
+        { label: "", score: "" },
+      ]);
+    }
+  } else {
+    setOptions([]);
+  }
+}, [selectedType]);
+
+
+  useEffect(() => {
+    if (selectedType?.hasOptions && optionsRef.current) {
+      setTimeout(() => {
+        optionsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 200);
+    }
+  }, [selectedType]);
 
   useEffect(() => {
     const fetchTypes = async () => {
       try {
         const types = await getQuestionTypes();
-
-        // 🔹 Icons zuordnen und API-Daten aufbereiten
         const mapped = types.map((t: any) => {
           let icon;
           switch (t.inputType) {
@@ -163,7 +206,7 @@ const handleConfirm = async () => {
               label = "Reihenfolge";
               break;
             default:
-              label = t.name; // Fallback, falls neuer Typ aus DB kommt
+              label = t.name;
           }
 
           return {
@@ -174,7 +217,6 @@ const handleConfirm = async () => {
             icon,
           };
         });
-
         setQuestionTypes(mapped);
       } catch (err) {
         console.error("❌ Fehler beim Laden der Fragetypen:", err);
@@ -206,9 +248,7 @@ const handleConfirm = async () => {
           onClick={() => navigate("/admin")}
         >
           <ArrowLeft size={22} />
-          <span className="text-sm font-medium text-gray-800">
-            Zurück zur Übersicht
-          </span>
+          <span className="text-sm font-medium text-gray-800">Zurück zur Übersicht</span>
         </div>
 
         <div className="mt-6 text-center">
@@ -216,14 +256,10 @@ const handleConfirm = async () => {
             <div className="bg-brand-sand p-3 rounded-xl shadow">
               <FileText size={26} className="text-white" />
             </div>
-
-            {/* Dynamischer Titel */}
             <h1 className="text-2xl md:text-6xl font-bold">
               {thema ? thema.name : "Lade Thema..."}
             </h1>
           </div>
-
-          {/* Dynamische Beschreibung */}
           <p className="text-gray-600 mt-4">{thema ? thema.description : ""}</p>
         </div>
       </div>
@@ -232,13 +268,8 @@ const handleConfirm = async () => {
       <div className="bg-white mx-10 mt-12 p-10 rounded-xl shadow text-center">
         <div className="flex flex-col items-center justify-center">
           <MessageSquare size={36} className="text-gray-400 mb-3" />
-          <h2 className="text-lg font-semibold text-gray-800">
-            Noch keine Fragen
-          </h2>
-          <p className="text-gray-500 mt-1 mb-6">
-            Beginnen Sie mit dem Erstellen der ersten Hauptfrage.
-          </p>
-
+          <h2 className="text-lg font-semibold text-gray-800">Noch keine Fragen</h2>
+          <p className="text-gray-500 mt-1 mb-6">Beginnen Sie mit dem Erstellen der ersten Hauptfrage.</p>
           <button
             onClick={() => setIsModalOpen(true)}
             className="bg-brand-sand text-white font-medium px-5 py-2 rounded-lg shadow hover:shadow-md hover:scale-105 transition-all duration-200"
@@ -250,11 +281,8 @@ const handleConfirm = async () => {
 
       {/* 🧩 MODAL */}
       {isModalOpen && (
-     <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-[9999]">
-
-  <div className="bg-white rounded-xl shadow-lg w-[730px] max-h-[85vh] flex flex-col relative">
-
-            {/* Header */}
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-[9999]">
+          <div className="bg-white rounded-xl shadow-lg w-[730px] max-h-[85vh] flex flex-col relative">
             <div className="p-8 overflow-y-auto flex-1">
               <button
                 onClick={handleCancel}
@@ -263,9 +291,7 @@ const handleConfirm = async () => {
                 <X size={20} />
               </button>
 
-              <h2 className="text-xl font-semibold text-gray-800 mb-6">
-                Erste Hauptfrage erstellen
-              </h2>
+              <h2 className="text-xl font-semibold text-gray-800 mb-6">Erste Hauptfrage erstellen</h2>
 
               {/* Frage */}
               <div>
@@ -274,11 +300,20 @@ const handleConfirm = async () => {
                 </label>
                 <textarea
                   value={questionText}
-                  onChange={(e) => setQuestionText(e.target.value)}
+                 onChange={(e) => {
+  setQuestionText(e.target.value);
+  if (errorQuestionText) setErrorQuestionText(null); // 💡 Roter Rand verschwindet sofort
+}}
+
                   placeholder="Frage eingeben..."
-                  className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-brand-sand focus:outline-none"
+                  className={`w-full border rounded-lg p-2 focus:ring-2 focus:ring-brand-sand focus:outline-none ${
+                    errorQuestionText ? "border-red-500" : "border-gray-300"
+                  }`}
                   rows={3}
                 ></textarea>
+                {errorQuestionText && (
+                  <p className="text-red-500 text-xs mt-1">{errorQuestionText}</p>
+                )}
               </div>
 
               {/* Fragetyp */}
@@ -290,10 +325,21 @@ const handleConfirm = async () => {
                   {questionTypes.map((type) => (
                     <button
                       key={type.id}
-                      onClick={() => setSelectedType(type)}
+onClick={() => {
+  setSelectedType(type);
+  if (errorType) setErrorType(null);
+
+  // 💡 Wenn ein neuer Typ gewählt wird → alte Fehler zurücksetzen
+  setErrorOptions(null);
+  setHasSubmitted(false);
+}}
+
+
                       className={`flex items-center justify-start gap-3 border rounded-lg py-3 px-4 text-left font-medium text-sm transition-all duration-150 ${
                         selectedType?.id === type.id
                           ? "bg-brand-sand border-brand-sand text-white shadow-md"
+                          : errorType
+                          ? "border-red-500 text-gray-800 hover:bg-gray-50"
                           : "border-gray-300 text-gray-800 hover:bg-gray-50"
                       }`}
                     >
@@ -302,31 +348,26 @@ const handleConfirm = async () => {
                     </button>
                   ))}
                 </div>
+                {errorType && <p className="text-red-500 text-xs mt-1">{errorType}</p>}
               </div>
 
               {/* Antwortmöglichkeiten */}
               {showOptions && (
-                <div className="border-t border-gray-200 pt-4 mt-4">
-                  <h3 className="text-md font-semibold text-gray-800 mb-3">
-                    Antwortmöglichkeiten
-                  </h3>
+                <div ref={optionsRef} className="border-t border-gray-200 pt-4 mt-4">
+                  <h3 className="text-md font-semibold text-gray-800 mb-3">Antwortmöglichkeiten</h3>
                   {options.map((opt, i) => (
-                    <div
-                      key={i}
-                      className="flex items-center gap-3 mb-3 border border-gray-200 p-2 rounded-lg"
-                    >
+                    <div key={i} className="flex items-center gap-3 mb-3 border border-gray-200 p-2 rounded-lg">
                       <input
                         type="text"
                         placeholder="Antworttext..."
                         value={opt.label}
                         onChange={(e) =>
-                          setOptions(
-                            options.map((o, j) =>
-                              j === i ? { ...o, label: e.target.value } : o
-                            )
-                          )
+                          setOptions(options.map((o, j) => (j === i ? { ...o, label: e.target.value } : o)))
                         }
-                        className="flex-1 border border-gray-300 rounded-md px-2 py-1 focus:ring-1 focus:ring-brand-sand focus:outline-none"
+                       className={`flex-1 border rounded-md px-2 py-1 focus:ring-1 focus:ring-brand-sand focus:outline-none ${
+  hasSubmitted && !opt.label.trim() ? "border-red-500" : "border-gray-300"
+}`}
+
                       />
                       <input
                         type="number"
@@ -336,27 +377,29 @@ const handleConfirm = async () => {
                           setOptions(
                             options.map((o, j) =>
                               j === i
-                                ? { ...o, score: Number(e.target.value) }
+                                ? { ...o, score: e.target.value === "" ? "" : Number(e.target.value) }
                                 : o
                             )
                           )
                         }
-                        className="w-24 border border-gray-300 rounded-md px-2 py-1 text-center focus:ring-1 focus:ring-brand-sand focus:outline-none"
+                        className={`w-24 border rounded-md px-2 py-1 text-center focus:ring-1 focus:ring-brand-sand focus:outline-none ${
+  hasSubmitted && (opt.score === "" || opt.score === null || isNaN(Number(opt.score)))
+    ? "border-red-500"
+    : "border-gray-300"
+}`}
+
                       />
                       <button
-                        onClick={() =>
-                          setOptions(options.filter((_, j) => j !== i))
-                        }
+                        onClick={() => setOptions(options.filter((_, j) => j !== i))}
                         className="text-gray-500 hover:text-red-500 transition-all"
                       >
                         <Trash2 size={18} />
                       </button>
                     </div>
                   ))}
+                  {errorOptions && <p className="text-red-500 text-xs mt-1">{errorOptions}</p>}
                   <button
-                    onClick={() =>
-                      setOptions([...options, { label: "", score: 0 }])
-                    }
+                    onClick={() => setOptions([...options, { label: "", score: "" }])}
                     className="flex items-center gap-2 text-sm text-brand-sand font-medium hover:underline mt-2"
                   >
                     <Plus size={14} /> Neue Option hinzufügen
