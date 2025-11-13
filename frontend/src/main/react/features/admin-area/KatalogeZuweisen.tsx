@@ -1,6 +1,6 @@
 import AdminLayout from "@/apps/app/AdminLayout";
 import { useMemo, useState, useEffect, useRef } from "react";
-import { Building2, Settings, Pencil, Wrench, Plus } from "lucide-react";
+import { Building2, Settings, Pencil, Wrench, Plus, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
@@ -662,7 +662,6 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
                   {loadingCatalogs ? "Kataloge werden geladen…" : "Wählen Sie die Kataloge aus, die Sie zuweisen möchten"}
                 </span>
 
-
                 <button
                   type="button"
                   onClick={openCreateDialog}
@@ -675,10 +674,8 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
 
               </p>
 
-
-
               {/* Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 ">
                 {catalogs.map((k) => {
                   const Icon = k.icon ?? Building2;
                   const selected = selectedCatalogId === k.id;//selectedCatalogIds.has(k.id)
@@ -688,13 +685,10 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
 
                   // Card-Klick: normal -> Auswahl; im editMode -> Delete-Dialog
                   const onCardClick = () => {
-                    if (editMode) openDeleteDialog(k);
-                    else selectOrToggleCatalog(k.id);
+                    if (!editMode) selectOrToggleCatalog(k.id);
                   };
                   const isHighlight = highlightIds.has(k.id);
                   const isBadge = badgeIds.has(k.id);
-
-
                   return (
                     <div
                       key={k.id}
@@ -710,30 +704,37 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
                             ? "border-[#E3BB62] bg-[#ebebec]"
                             : "border-[#ebebec] hover:border-[#56768f]/50 hover:bg-[#ebebec]/50",
                         //  kurzer grüner Glow + leichtes Pop
-                       isHighlight
-  ? [
-      "scale-[1.02]",                         // leichtes Pop
-      "ring-2 ring-green-500 ring-offset-2",  // grüner Ring
-      "[animation:blinkBg_.9s_ease-in-out_infinite]",   // BG blinkt grün↔weiß
-      "[box-shadow:0_0_0_0_rgba(34,197,94,0.35)]",       // Start-Glow
-      "[animation:glowRing_1.2s_ease-in-out_infinite]"   // Ring pulsiert
-    ].join(" ")
-  : ""
+                        isHighlight
+                          ? [
+                            "scale-[1.02]",                         // leichtes Pop
+                            "ring-2 ring-green-500 ring-offset-2",  // grüner Ring
+                            "[animation:blinkBg_.9s_ease-in-out_infinite]",   // BG blinkt grün↔weiß
+                            "[box-shadow:0_0_0_0_rgba(34,197,94,0.35)]",       // Start-Glow
+                            "[animation:glowRing_1.2s_ease-in-out_infinite]"   // Ring pulsiert
+                          ].join(" ")
+                          : ""
                       ].join(" ")}
                       onClick={onCardClick}
                     >
                       {/* rechter Indikator: Auswahl-Kreis ODER X im editMode */}
-                      <span
-                        className={[
-                          "absolute right-3 top-3 inline-flex h-5 w-5 items-center justify-center rounded-full border-2",
-                          editMode ? "border-[#E3BB62] text-[#E3BB62]" : "border-[#56768f]",
-                        ].join(" ")}
-                      >
-                        {editMode
-                          ? "×"
-                          : (selected && <span className="h-3.5 w-3.5 rounded-full bg-[#E3BB62]" />)
-                        }
-                      </span>
+                      {editMode ? (
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); openDeleteDialog(k); }}
+                          className="absolute right-3 top-3 inline-flex h-6 w-6 items-center justify-center
+               rounded-full border-2 border-[#E11D48] text-[#E11D48] bg-white
+               hover:bg-red-50"
+                          title="Katalog löschen"
+                          aria-label="Katalog löschen"
+                        >
+                          <X size={12} />
+                        </button>
+                      ) : (
+                        <span className="absolute right-3 top-3 inline-flex h-5 w-5 items-center justify-center rounded-full border-2 border-[#56768f]">
+                          {selected && <span className="h-3.5 w-3.5 rounded-full bg-[#E3BB62]" />}
+                        </span>
+                      )}
+
                       {isBadge && (
                         <span className="absolute -left-1 -top-1 rounded-md bg-amber-500 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white shadow">
                           Neu
@@ -754,8 +755,8 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
                           </div>
 
                           {k.subtitle && (
-                            <div className="mt-1 text-xs text-slate-600 leading-5 line-clamp-2">
-                              {k.subtitle}
+                            <div className="mt-1 mb-2 text-xs text-slate-600 leading-5 line-clamp-2 min-h-[2.5rem]">
+                              {k.subtitle ?? "\u00A0"}
                             </div>
                           )}
 
@@ -896,7 +897,6 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
                     Löschen
                   </button>
                 )}
-
               </div>
             </div>
           </div>

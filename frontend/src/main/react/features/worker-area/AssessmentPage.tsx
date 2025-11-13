@@ -11,6 +11,10 @@ import {
   type UiQuestion,
   type ApiState,
 } from "@/features/service/publicAssessmentService";
+import AssessmentCompleted from "@/features/worker-area/AssessmentCompleted";
+//Test
+import AssessmentResults from "@/features/worker-area/AssessmentResults";
+
 
 const STORAGE_KEY = "assessments";
 
@@ -70,6 +74,11 @@ export default function AssessmentPage() {
   const [progress, setProgress] = useState<{ answered: number; total: number }>({ answered: 0, total: 0 });
   const [loading, setLoading] = useState(false);
   const [fatal, setFatal] = useState<string | null>(null);
+const [score, setScore] = useState<{ totalScore: number | null; maxTotalScore: number | null }>({
+  totalScore: null,
+  maxTotalScore: null,
+});
+
 
   const q: UiQuestion | null = pos >= 0 ? trail[pos] : null;
   const step = progress.total
@@ -204,13 +213,20 @@ export default function AssessmentPage() {
 
       // Sonst nächste Frage vom Server holen
       const apiQ = await getNextQuestion(accessToken, sessionId);
-      if (!apiQ) {
-        try { await completeSession(accessToken, sessionId); } catch { }
-        setCompleted(true);
-        setStatus("completed");
-        refreshState(accessToken, sessionId);
-        return;
-      }
+    if (!apiQ) {
+  try {
+    const done = await completeSession(accessToken, sessionId);
+    setScore({
+      totalScore: done?.totalScore ?? null,
+      maxTotalScore: done?.maxPossibleScore ?? null,
+    });
+  } catch {}
+  setCompleted(true);
+  setStatus("completed");
+  refreshState(accessToken, sessionId);
+  return;
+}
+
 
       const uiQ = normalizeApiQuestion(apiQ);
       setTrail(t => [...t, uiQ]);
@@ -272,7 +288,34 @@ export default function AssessmentPage() {
         </div>
       </div>
     );
-  }
+  }   
+if (completed) {
+  const totalScore     = score.totalScore ?? 0;       // <-- nur Score, keine Fragenzahl!
+  const maxTotalScore  = score.maxTotalScore ?? 0;
+
+  const percent = maxTotalScore > 0
+    ? Math.round((totalScore / maxTotalScore) * 100)
+    : pct;
+
+  return (
+    <AssessmentResults
+      topicName={topicName}
+      onRestart={restart}
+      onBackToTopics={goBackToTopics}
+
+      answered={progress.answered}   // nur für „Beantwortete Fragen“
+      total={progress.total}
+      totalScore={totalScore}         // echter Score
+      maxTotalScore={maxTotalScore}   // echtes Max
+
+      percent={percent}
+      overallLevel="Abgeschlossen"
+      completedAt={new Date().toISOString()}
+    />
+  );
+}
+
+
 
   /* -------- Render -------- */
   return (
@@ -322,8 +365,8 @@ export default function AssessmentPage() {
           </div>
         )}
 
-        {/* Inhalt */}
-        {!completed && q ? (
+        {/* Inhalt !completed*/}
+        {q && (
           <>
             <div className="px-6 pt-6">
               <div className="text-[18px] font-semibold text-[#1a1a1a] mb-6 leading-relaxed">{q.text}</div>
@@ -510,31 +553,12 @@ export default function AssessmentPage() {
               </div>
             </div>
           </>
-        ) : (
-          <div className="px-6 py-10 text-center">
-            <div className="text-6xl mb-5">✓</div>
-            <div className="text-[28px] font-bold text-[#1a1a1a] mb-2">Assessment abgeschlossen</div>
-            <div className="text-[16px] text-[#666] mb-8">
-              {`Vielen Dank für die Teilnahme am ${topicName || "Assessment"}. Ihre Antworten wurden gespeichert.`}
-            </div>
-
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-              <button
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold bg-blue-600 text-white hover:bg-blue-700 transition"
-                onClick={restart}
-              >
-                Assessment erneut starten
-              </button>
-              <button
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold bg-[#d4af37] text-[#333] hover:bg-[#c29d2f] transition"
-                onClick={goBackToTopics}
-              >
-                🏠 Zur Übersicht
-              </button>
-            </div>
-          </div>
         )}
+        
       </div>
+      
     </div>
+    
   );
+  
 }

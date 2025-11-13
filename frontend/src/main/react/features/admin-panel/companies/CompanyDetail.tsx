@@ -82,8 +82,8 @@ export default function CompanyDetails() {
 
   // Catalog-Assignments (Liste)
   const [assignments, setAssignments] = useState<AssignmentApi[]>([]);
-const [assignLoading, setAssignLoading] = useState(false);
-const [assignError, setAssignError] = useState<string | null>(null);
+  const [assignLoading, setAssignLoading] = useState(false);
+  const [assignError, setAssignError] = useState<string | null>(null);
 
   // Datum formatieren
   const fmt = (iso?: string | null) => (iso ? new Date(iso).toLocaleDateString("de-DE") : "—");

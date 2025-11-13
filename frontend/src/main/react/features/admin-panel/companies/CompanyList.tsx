@@ -1,24 +1,25 @@
-// src/features/admin-area/companies/CompaniesList.tsx — Final (Users/Zuweisungen Look)
 
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link ,useParams } from "react-router-dom";
 import AdminLayout from "@/apps/app/AdminLayout";
 import { Search, ArrowUpDown, Eye, Building2, Plus, Trash2, Pencil } from "lucide-react";
 import myLogo from "@/assets/Zero-6-icons-05.webp";
 import {
-  getCompanies, 
+  getCompanies,
+  getCompany,
   getWorkersByCompany,
   createCompany,
   deleteCompany,
   type CreateCompanyDto,
-  // NEW
   updateCompany,
   type UpdateCompanyDto,
+  getAssignmentsByCompany,
+  type AssignmentApi
 } from "@/features/service/companyService";
 
 /* ================= Types ================= */
 type CompanyApi = { id: string; name: string; description?: string; created_at?: string };
-type Company   = { id: string; name: string; status?: "active" | "inactive"; created: string };
+type Company = { id: string; name: string; status?: "active" | "inactive"; created: string };
 
 type SortKey = "name" | "workers" | "catalogs" | "status" | "created";
 
@@ -77,6 +78,9 @@ export default function CompaniesList() {
   const [updating, setUpdating] = useState(false);
   const [updateError, setUpdateError] = useState<string | null>(null);
 
+  const [catalogCounts, setCatalogCounts] = useState<Record<string, number>>({});
+  const [catalogsLoading, setCatalogsLoading] = useState(false);
+
   /* ============== Data load ============== */
   useEffect(() => {
     let alive = true;
@@ -94,7 +98,7 @@ export default function CompaniesList() {
     })();
     return () => { alive = false; };
   }, []);
- 
+
   // Worker counts (lazy per company list)
   useEffect(() => {
     if (!items.length) return;
@@ -121,6 +125,44 @@ export default function CompaniesList() {
     return () => { alive = false; };
   }, [items]);
 
+  useEffect(() => {
+    if (!items.length) return;
+    let alive = true;
+    setCatalogsLoading(true);
+
+    (async () => {
+      try {
+        const entries = await Promise.all(
+          items.map(async (c) => {
+            try {
+              const list = await getAssignmentsByCompany(c.id);
+              // Einzigartige Catalog-IDs zählen
+              const set = new Set<string>();
+              if (Array.isArray(list)) {
+                for (const a of list) {
+                  const cid =
+                    (a as any)?.catalog?.id ??
+                    (a as any)?.catalogId ??
+                    null;
+                  if (cid) set.add(String(cid));
+                }
+              }
+              return [c.id, set.size] as const;
+            } catch {
+              return [c.id, 0] as const;
+            }
+          })
+        );
+        if (alive) setCatalogCounts(Object.fromEntries(entries));
+      } finally {
+        if (alive) setCatalogsLoading(false);
+      }
+    })();
+
+    return () => { alive = false; };
+  }, [items]);
+
+
   /* ============== Filter + Sort ============== */
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
@@ -129,10 +171,10 @@ export default function CompaniesList() {
     base.sort((a, b) => {
       const dir = asc ? 1 : -1;
       const val = (c: Company): string | number => {
-        if (sortKey === "workers")  return workerCounts[c.id] ?? -1;
-        if (sortKey === "catalogs") return -1; // (keine Daten – lässt sich später erweitern)
-        if (sortKey === "status")   return c.status ?? "active";
-        if (sortKey === "created")  return new Date(c.created).getTime();
+        if (sortKey === "workers") return workerCounts[c.id] ?? -1;
+        if (sortKey === "catalogs") return catalogCounts[c.id] ?? -1;
+        if (sortKey === "status") return c.status ?? "active";
+        if (sortKey === "created") return new Date(c.created).getTime();
         return c.name.toLowerCase();
       };
       const av = val(a), bv = val(b);
@@ -242,7 +284,7 @@ export default function CompaniesList() {
   return (
     <AdminLayout>
       {/* ===== Hero (wie Users) ===== */}
-       <header
+      <header
         className="relative bg-[hsl(60_9%_97.8%)] border-b border-[hsl(214.3_31.8%_91.4%)] px-8 py-4" //bg-[hsl(0_0%_92%)] min-h-[calc(100vh-64px)] mt-2 px-6 py-6 zum testen
       >
         <div className="pointer-events-none absolute left-0 right-0 top-[calc(64px-1px)] h-0 [box-shadow:0_10px_16px_-14px_rgba(15,23,42,.18)]" />
@@ -251,29 +293,29 @@ export default function CompaniesList() {
           <div className="justify-self-center">
             <div className="[&>h1]:text-[clamp(28px,6vw,56px)] [&>h1]:font-extrabold [&>h1]:tracking-[-0.02em] [&>h1]:m-0 [&>h1]:mb-4 [&>h1]:leading-[1.05]
              [&>h1]:text-[#264555] [&>p]:mt-0 [&>p]:text-[#334155] [&>p]:opacity-90 [&>p]:text-[clamp(14px,1.6vw,18px)]">
-               <div className="flex items-center justify-center gap-4">
-          <img
-            src={myLogo}
-            alt="Dein Logo"
-            className="h-[200px] w-[200px] object-contain shrink-0"
-            width={200}
-            height={200}
-          />
-          <div className="text-center">
-            <h1 className="text-[clamp(28px,6vw,56px)] font-extrabold tracking-[-0.02em] mb-2 leading-[1.05] text-[#264555]">
-              Firmen Administration
-            </h1>
-            <p className="mt-0 text-[#334155]/90 text-[clamp(14px,1.6vw,18px)]">
-             Verwaltung von Unternehmenseinstellungen, Mitarbeitern und Konfigurationen
-            </p>
-          </div>
-        </div>
+              <div className="flex items-center justify-center gap-4">
+                <img
+                  src={myLogo}
+                  alt="Dein Logo"
+                  className="h-[200px] w-[200px] object-contain shrink-0"
+                  width={200}
+                  height={200}
+                />
+                <div className="text-center">
+                  <h1 className="text-[clamp(28px,6vw,56px)] font-extrabold tracking-[-0.02em] mb-2 leading-[1.05] text-[#264555]">
+                    Firmen Administration
+                  </h1>
+                  <p className="mt-0 text-[#334155]/90 text-[clamp(14px,1.6vw,18px)]">
+                    Verwaltung von Unternehmenseinstellungen, Mitarbeitern und Konfigurationen
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
           <div className="justify-self-end inline-flex lg:justify-self-center" />
         </div>
       </header>
- 
+
       {/* ===== Außenbereich ===== */}
       <main className="bg-[hsl(0_0%_92%)] min-h-[calc(100vh-64px)] mt-2 px-6 py-6" style={{ background: CSS.adminBg }}>
         {/* Top-Bar: Breadcrumb + gelber Button rechts */}
@@ -401,7 +443,18 @@ export default function CompaniesList() {
 
                         {/* Catalogs (Platzhalter) */}
                         <td className="px-4 py-4" style={{ borderBottom: `1px solid ${CSS.border}` }}>
-                          <span className="text-[0.875rem]" style={{ color: CSS.mutedFg }}>—</span>
+                          {catalogsLoading && !(c.id in catalogCounts) ? (
+                            <span className="text-[0.875rem]" style={{ color: CSS.mutedFg }}>…</span>
+                          ) : typeof catalogCounts[c.id] === "number" ? (
+                            <span
+                              className="inline-flex items-center rounded-md px-2 py-1 text-[12px] font-semibold"
+                              style={{ background: CSS.muted, color: CSS.mutedFg }}
+                            >
+                              {catalogCounts[c.id]} catalog{catalogCounts[c.id] === 1 ? "" : "s"}
+                            </span>
+                          ) : (
+                            <span className="text-[0.875rem]" style={{ color: CSS.mutedFg }}>—</span>
+                          )}
                         </td>
 
                         {/* Status */}
@@ -419,42 +472,42 @@ export default function CompaniesList() {
 
                         {/* Created */}
                         <td className="px-4 py-4 text-[0.875rem]" style={{ color: CSS.mutedFg, borderBottom: `1px solid ${CSS.border}` }}>
-                          {new Date(c.created).toLocaleDateString("de-DE")}
+                        -
                         </td>
 
                         {/* Actions */}
                         <td className="px-4 py-4 text-center whitespace-nowrap" style={{ borderBottom: `1px solid ${CSS.border}` }}>
                           <div className="inline-flex items-center justify-center gap-2">
-                          <Link
-                            to={`/admin/adminPanel/companies/${c.id}`}
-                            className="inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-semibold shadow hover:brightness-110"
-                            style={{ background: "hsl(40,60%,63%)", color: "hsl(200,32%,22%)" }}
-                            title="View"
-                          >
-                            <Eye size={14} /> <span className="hidden sm:inline">View</span>
-                          </Link>
+                            <Link
+                              to={`/admin/adminPanel/companies/${c.id}`}
+                              className="inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-semibold shadow hover:brightness-110"
+                              style={{ background: "hsl(40,60%,63%)", color: "hsl(200,32%,22%)" }}
+                              title="View"
+                            >
+                              <Eye size={14} /> <span className="hidden sm:inline">View</span>
+                            </Link>
 
-                          <button
-                            type="button"
-                            aria-label="Edit company"
-                            title="Edit"
-                            onClick={() => openEditFor(c)}
-                            className="ml-2 inline-flex h-8 w-8 items-center justify-center rounded-md border hover:bg-slate-50 align-middle"
-                            style={{ borderColor: CSS.border, color: CSS.fg }}
-                          >
-                            <Pencil size={16} />
-                          </button>
+                            <button
+                              type="button"
+                              aria-label="Edit company"
+                              title="Edit"
+                              onClick={() => openEditFor(c)}
+                              className="ml-2 inline-flex h-8 w-8 items-center justify-center rounded-md border hover:bg-slate-50 align-middle"
+                              style={{ borderColor: CSS.border, color: CSS.fg }}
+                            >
+                              <Pencil size={16} />
+                            </button>
 
-                          <button
-                            type="button"
-                            aria-label="Delete company"
-                            title="Löschen"
-                            onClick={() => askDelete(c)}
-                            className="ml-2 inline-flex h-8 w-8 items-center justify-center rounded-md border text-red-600 hover:bg-red-50 align-middle"
-                            style={{ borderColor: "rgb(254 202 202)" }}
-                          >
-                            <Trash2 size={16} />
-                          </button>
+                            <button
+                              type="button"
+                              aria-label="Delete company"
+                              title="Löschen"
+                              onClick={() => askDelete(c)}
+                              className="ml-2 inline-flex h-8 w-8 items-center justify-center rounded-md border text-red-600 hover:bg-red-50 align-middle"
+                              style={{ borderColor: "rgb(254 202 202)" }}
+                            >
+                              <Trash2 size={16} />
+                            </button>
                           </div>
                         </td>
                       </tr>
