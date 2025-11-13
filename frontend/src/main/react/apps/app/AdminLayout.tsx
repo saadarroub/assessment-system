@@ -6,7 +6,7 @@ import ProfileStrip from "@/apps/app/ProfileStrip";
 //import capLogo from "@/assets/Logo_cap_consulting_RGB_Darkblue.svg";
 
 import {
-  Settings, BarChart3, FileText, ShoppingCart, Building2,
+  Settings, FileText, ShoppingCart, Building2,
   ChevronRight, ChevronLeft, LayoutDashboard
 } from "lucide-react";
 import BadgeWithAvatarMenu from "@/apps/app/BadgeWithAvatarMenu";

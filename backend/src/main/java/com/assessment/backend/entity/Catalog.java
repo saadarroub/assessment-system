@@ -22,6 +22,9 @@ public class Catalog {
     @Column(nullable = false)
     private String description;
 
+    @Column(length = 20, nullable = false)
+    private String status = "active";
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -36,6 +39,7 @@ public class Catalog {
     public Catalog(String title, String description) {
         this.title = title;
         this.description = description;
+        this.status = "active";
     }
 
     // Getters and Setters
@@ -77,6 +81,14 @@ public class Catalog {
 
     public void setUpdatedAt(LocalDateTime updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
     }
 
 }

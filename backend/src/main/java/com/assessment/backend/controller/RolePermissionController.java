@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.assessment.backend.dto.RolePermissionResponseDTO;
 import com.assessment.backend.entity.Permission;
 import com.assessment.backend.entity.RolePermission;
 import com.assessment.backend.service.RolePermissionService;
@@ -27,11 +28,11 @@ public class RolePermissionController {
     @Autowired
     private RolePermissionService rolePermissionService;
 
-    // GET /api/role-permissions/roles/{roleId}/permissions - Get all permissions for a role
+    // GET /api/role-permissions/roles/{roleId}/permissions - Get all permissions for a role (Clean DTO)
     @GetMapping("/roles/{roleId}/permissions")
     public ResponseEntity<?> getPermissionsForRole(@PathVariable UUID roleId) {
         try {
-            List<RolePermission> rolePermissions = rolePermissionService.getPermissionsForRole(roleId);
+            List<RolePermissionResponseDTO> rolePermissions = rolePermissionService.getPermissionsForRoleDTO(roleId);
             return ResponseEntity.ok(rolePermissions);
         } catch (RuntimeException e) {
             return ResponseEntity.notFound().build();
@@ -111,6 +112,55 @@ public class RolePermissionController {
             @PathVariable String permissionName) {
         boolean hasPermission = rolePermissionService.userHasPermission(userId, permissionName);
         return ResponseEntity.ok(Map.of("hasPermission", hasPermission));
+    }
+
+    // POST /api/role-permissions/grant-multiple - Grant multiple permissions to role (Clean DTO Response)
+    @PostMapping("/grant-multiple")
+    public ResponseEntity<?> grantMultiplePermissionsToRole(@RequestBody Map<String, Object> request) {
+        try {
+            UUID roleId = UUID.fromString(request.get("roleId").toString());
+            @SuppressWarnings("unchecked")
+            List<String> permissionIdStrings = (List<String>) request.get("permissionIds");
+            
+            if (roleId == null || permissionIdStrings == null || permissionIdStrings.isEmpty()) {
+                return ResponseEntity.badRequest().body("roleId and permissionIds are required");
+            }
+            
+            List<UUID> permissionIds = permissionIdStrings.stream()
+                    .map(UUID::fromString)
+                    .toList();
+            
+            List<RolePermissionResponseDTO> granted = rolePermissionService.grantMultiplePermissionsToRole(roleId, permissionIds);
+            return ResponseEntity.status(HttpStatus.CREATED).body(granted);
+        } catch (RuntimeException e) {
+            if (e.getMessage().contains("not found")) {
+                return ResponseEntity.notFound().build();
+            }
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(e.getMessage());
+        }
+    }
+
+    // DELETE /api/role-permissions/revoke-multiple - Revoke multiple permissions from role
+    @DeleteMapping("/revoke-multiple")
+    public ResponseEntity<?> revokeMultiplePermissionsFromRole(@RequestBody Map<String, Object> request) {
+        try {
+            UUID roleId = UUID.fromString(request.get("roleId").toString());
+            @SuppressWarnings("unchecked")
+            List<String> permissionIdStrings = (List<String>) request.get("permissionIds");
+            
+            if (roleId == null || permissionIdStrings == null || permissionIdStrings.isEmpty()) {
+                return ResponseEntity.badRequest().body("roleId and permissionIds are required");
+            }
+            
+            List<UUID> permissionIds = permissionIdStrings.stream()
+                    .map(UUID::fromString)
+                    .toList();
+            
+            rolePermissionService.revokeMultiplePermissionsFromRole(roleId, permissionIds);
+            return ResponseEntity.ok(Map.of("message", "Revoked " + permissionIds.size() + " permissions"));
+        } catch (RuntimeException e) {
+            return ResponseEntity.notFound().build();
+        }
     }
 }
 

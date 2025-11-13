@@ -19,11 +19,6 @@ function fmtDate(d?: string) {
   const dt = new Date(d);
   return isNaN(+dt) ? "—" : dt.toLocaleDateString("de-DE");
 }
-function fmtTime(d?: string) {
-  if (!d) return "—";
-  const dt = new Date(d);
-  return isNaN(+dt) ? "—" : dt.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
-}
 
 export default function UserDetailsPage() {
   const { id } = useParams<{ id: string }>();
