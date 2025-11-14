@@ -72,9 +72,10 @@ export default function ConditionEditor() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [questionText, setQuestionText] = useState("");
   const [selectedType, setSelectedType] = useState<any | null>(null);
-  const [options, setOptions] = useState<{ label: string; score: number }[]>(
-    []
-  );
+  const [options, setOptions] = useState<
+    { label: string; score: number | null }[]
+  >([]);
+
   const [questions, setQuestions] = useState<any[]>([]);
   const [parentQuestion, setParentQuestion] = useState<any | null>(null);
   const [editingQuestion, setEditingQuestion] = useState<any | null>(null);
@@ -87,6 +88,18 @@ export default function ConditionEditor() {
 
   // 👇 Scroll-Referenz für den Antwortmöglichkeiten-Block
   const optionsRef = useRef<HTMLDivElement | null>(null);
+
+  const modalRef = useRef<HTMLDivElement | null>(null);
+
+  // ❌ Fehlerzustände für Validierungen
+
+  const [errorQuestionText, setErrorQuestionText] = useState<string | null>(
+    null
+  );
+  const [errorType, setErrorType] = useState<string | null>(null);
+  const [errorOptions, setErrorOptions] = useState<string | null>(null);
+
+  const [hasSubmitted, setHasSubmitted] = useState(false);
 
   // 🔁 Rekursive Funktion, die ALLE Kinder bis zur tiefsten Ebene lädt
   async function fetchChildrenRecursive(parentId: string): Promise<any[]> {
@@ -144,47 +157,44 @@ export default function ConditionEditor() {
   }
 
   // 🔹 Wenn Fragetyp gewechselt wird → automatisch 2 leere Antwortoptionen erzeugen (wenn hasOptions = true)
-useEffect(() => {
-  if (!selectedType) return;
+  useEffect(() => {
+    if (!selectedType) return;
 
-  if (selectedType.hasOptions) {
-    // 👇 Wenn schon Optionen vorhanden → nichts tun
-    if (options.length === 0) {
-      // Versuche, alte Optionen wiederherzustellen
+    if (selectedType.hasOptions) {
+      // 👇 Wenn schon Optionen vorhanden → nichts tun
+      if (options.length === 0) {
+        // Versuche, alte Optionen wiederherzustellen
+        const saved = sessionStorage.getItem("lastOptions");
+        if (saved) {
+          setOptions(JSON.parse(saved));
+          sessionStorage.removeItem("lastOptions");
+        } else {
+          // Wenn nichts gespeichert → Standardfelder setzen
+          setOptions([
+            { label: "", score: null },
+            { label: "", score: null },
+          ]);
+        }
+      }
+    } else {
+      // 👇 Nur speichern, wenn aktuell Optionen existieren
+      if (options.length > 0) {
+        sessionStorage.setItem("lastOptions", JSON.stringify(options));
+        setOptions([]);
+      }
+    }
+  }, [selectedType]);
+
+  // 👇 Wenn wieder zu einem Typ mit Optionen gewechselt wird → alte Werte zurückholen
+  useEffect(() => {
+    if (selectedType?.hasOptions && options.length === 0) {
       const saved = sessionStorage.getItem("lastOptions");
       if (saved) {
         setOptions(JSON.parse(saved));
-        sessionStorage.removeItem("lastOptions");
-      } else {
-        // Wenn nichts gespeichert → Standardfelder setzen
-        setOptions([
-          { label: "", score: 0 },
-          { label: "", score: 0 },
-        ]);
+        sessionStorage.removeItem("lastOptions"); // 🧹 einmalig verwenden
       }
     }
-  } else {
-    // 👇 Nur speichern, wenn aktuell Optionen existieren
-    if (options.length > 0) {
-      sessionStorage.setItem("lastOptions", JSON.stringify(options));
-      setOptions([]);
-    }
-  }
-}, [selectedType]);
-
-
-// 👇 Wenn wieder zu einem Typ mit Optionen gewechselt wird → alte Werte zurückholen
-useEffect(() => {
-  if (selectedType?.hasOptions && options.length === 0) {
-    const saved = sessionStorage.getItem("lastOptions");
-    if (saved) {
-      setOptions(JSON.parse(saved));
-      sessionStorage.removeItem("lastOptions"); // 🧹 einmalig verwenden
-    }
-  }
-}, [selectedType]);
-
-
+  }, [selectedType]);
 
   // 🔹 Fragetypen aus der API laden (wie in CatalogList)
   useEffect(() => {
@@ -229,7 +239,7 @@ useEffect(() => {
               label = "Textfeld";
               break;
             case "radio":
-              label = "Ja/Nein";
+              label = "Einzelauswahl";
               break;
             case "select":
               label = "Auswahl";
@@ -238,13 +248,13 @@ useEffect(() => {
               label = "Mehrfach";
               break;
             case "number":
-              label = "Zahl";
+              label = "Zahl Eingabe";
               break;
             case "date":
               label = "Datum";
               break;
             case "range":
-              label = "Bewertung";
+              label = "Skala";
               break;
             case "order":
               label = "Reihenfolge";
@@ -365,12 +375,19 @@ useEffect(() => {
   };
 
   const handleCancel = () => {
-    setQuestionText("");
-    setSelectedType("");
-    setOptions([]);
-    setParentQuestion(null);
-    setEditingQuestion(null); // ✅ hinzugefügt
-    setIsModalOpen(false);
+      setQuestionText("");
+  setSelectedType("");
+  setOptions([]);
+  setParentQuestion(null);
+  setEditingQuestion(null);
+
+  // ❗❗ FIX: Fehlerstatus komplett zurücksetzen
+  setHasSubmitted(false);
+  setErrorQuestionText(null);
+  setErrorType(null);
+  setErrorOptions(null);
+
+  setIsModalOpen(false);
   };
 
   // 🔁 Rekursiv Unterfrage einfügen
@@ -447,43 +464,91 @@ useEffect(() => {
   };
 
   const handleCreateQuestion = async () => {
-    // 🧩 1. Eingaben prüfen
-    if (!questionText.trim() || !selectedType) {
-      alert("❌ Bitte Fragetext und Typ auswählen!");
-      return;
+    setHasSubmitted(true);
+    let hasError = false;
+
+    // 🔸 Frage prüfen
+    if (!questionText.trim()) {
+      setErrorQuestionText("Bitte Fragetext ausfüllen.");
+      hasError = true;
+    } else setErrorQuestionText(null);
+
+    // 🔸 Typ prüfen
+    if (!selectedType) {
+      setErrorType("Bitte Fragetyp auswählen.");
+      hasError = true;
+    } else setErrorType(null);
+
+    // 🔸 Antwortoptionen prüfen
+    const hasOptions = selectedType?.hasOptions;
+    if (hasOptions) {
+      const missingLabel = options.some((o) => !o.label.trim());
+      const missingScore = options.some(
+        (o) =>
+          o.score === null || o.score === undefined || isNaN(Number(o.score))
+      );
+
+      if (options.length < 2) {
+        setErrorOptions("Mindestens zwei Antwortmöglichkeiten erforderlich.");
+        hasError = true;
+      } else if (missingLabel && missingScore) {
+        setErrorOptions("Bitte alle Antworttexte und Scores ausfüllen.");
+        hasError = true;
+      } else if (missingLabel) {
+        setErrorOptions("Bitte alle Antworttexte ausfüllen.");
+        hasError = true;
+      } else if (missingScore) {
+        setErrorOptions("Bitte alle Scores ausfüllen.");
+        hasError = true;
+      } else {
+        setErrorOptions(null);
+      }
+    } else setErrorOptions(null);
+
+    if (hasError && modalRef.current) {
+      let scrollPosition = 0;
+
+      // 🔹 Falls Fragetext-Fehler → ganz oben scrollen
+      if (errorQuestionText) {
+        scrollPosition = 0;
+      }
+      // 🔹 Falls Fragetyp-Fehler → leicht nach unten (z. B. 200px)
+      else if (errorType) {
+        scrollPosition = 200;
+      }
+      // 🔹 Falls Antwortoptionen Fehler → weiter unten (z. B. 600px)
+      else if (errorOptions) {
+        scrollPosition = 600;
+      }
+
+      modalRef.current.scrollTo({
+        top: scrollPosition,
+        behavior: "smooth",
+      });
+
+      return; // 🚫 Speichern abbrechen
     }
 
     // ✅ Da selectedType jetzt ein Objekt ist:
-    const hasOptions = selectedType.hasOptions;
-
-    // 🧱 2. Payload für API
     const payload = {
       text: questionText,
-      questionType: { id: selectedType.id }, // ✅ direkt aus Objekt
+      questionType: { id: selectedType.id },
       options: hasOptions ? options.map((o) => o.label) : null,
       scoringSchema: hasOptions
-        ? Object.fromEntries(options.map((o) => [o.label, o.score]))
+        ? Object.fromEntries(options.map((o) => [o.label, Number(o.score)]))
         : null,
     };
 
     try {
-      // 🧩 3. Frage erstellen
       const question = await createQuestion(payload);
-      console.log("✅ Frage erstellt:", question);
-
-      // 🔗 4. QuestionNode mit Thema verknüpfen
-      console.log("🔗 Verknüpfe Frage mit Thema:", themaId);
       const node = await createQuestionNode(
         themaId!,
         question.id,
         parentQuestion ? parentQuestion.id : null
       );
 
-      console.log("✅ QuestionNode erfolgreich erstellt:", node);
-
-      // 🧩 5. Neue Frage lokal in UI einfügen
       const newQuestion = {
-        id: node.id, // Node-ID
+        id: node.id,
         questionId: question.id,
         text: question.text,
         type: selectedType,
@@ -502,7 +567,7 @@ useEffect(() => {
         setQuestions([...questions, newQuestion]);
       }
 
-      // 🧹 6. Modal & Felder zurücksetzen
+      // 🧹 Felder zurücksetzen
       setIsModalOpen(false);
       setQuestionText("");
       setSelectedType("");
@@ -517,9 +582,81 @@ useEffect(() => {
   const handleUpdateQuestion = async () => {
     if (!editingQuestion) return;
 
-    try {
-      const hasOptions = selectedType?.hasOptions;
+    setHasSubmitted(true);
+    let hasError = false;
 
+    // 🔸 Fragetext prüfen
+    if (!questionText.trim()) {
+      setErrorQuestionText("Bitte Fragetext ausfüllen.");
+      hasError = true;
+    } else {
+      setErrorQuestionText(null);
+    }
+
+    // 🔸 Typ prüfen
+    if (!selectedType) {
+      setErrorType("Bitte Fragetyp auswählen.");
+      hasError = true;
+    } else {
+      setErrorType(null);
+    }
+
+    // 🔸 Antwortoptionen prüfen (wenn Typ Optionen hat)
+    const hasOptions = selectedType?.hasOptions;
+    if (hasOptions) {
+      const missingLabel = options.some((o) => !o.label.trim());
+      const missingScore = options.some(
+        (o) =>
+          o.score === null || o.score === undefined || isNaN(Number(o.score))
+      );
+
+      if (options.length < 2) {
+        setErrorOptions("Mindestens zwei Antwortmöglichkeiten erforderlich.");
+        hasError = true;
+      } else if (missingLabel && missingScore) {
+        setErrorOptions("Bitte alle Antworttexte und Scores ausfüllen.");
+        hasError = true;
+      } else if (missingLabel) {
+        setErrorOptions("Bitte alle Antworttexte ausfüllen.");
+        hasError = true;
+      } else if (missingScore) {
+        setErrorOptions("Bitte alle Scores ausfüllen.");
+        hasError = true;
+      } else {
+        setErrorOptions(null);
+      }
+    } else {
+      setErrorOptions(null);
+    }
+
+    if (hasError && modalRef.current) {
+      let scrollPosition = 0;
+
+      // 🔹 Falls Fragetext-Fehler → ganz oben scrollen
+      if (errorQuestionText) {
+        scrollPosition = 0;
+      }
+      // 🔹 Falls Fragetyp-Fehler → leicht nach unten (z. B. 200px)
+      else if (errorType) {
+        scrollPosition = 200;
+      }
+      // 🔹 Falls Antwortoptionen Fehler → weiter unten (z. B. 600px)
+      else if (errorOptions) {
+        scrollPosition = 600;
+      }
+
+      modalRef.current.scrollTo({
+        top: scrollPosition,
+        behavior: "smooth",
+      });
+
+      return; // 🚫 Speichern abbrechen
+    }
+
+    // ❌ Abbrechen, wenn Fehler existieren
+
+    // ✅ Wenn alles korrekt, dann Update starten
+    try {
       const payload = {
         text: questionText,
         questionType: { id: selectedType?.id },
@@ -531,7 +668,7 @@ useEffect(() => {
 
       await updateQuestion(editingQuestion.questionId, payload);
 
-      // ✅ UI aktualisieren inkl. scoringSchema
+      // 🧱 UI aktualisieren (auch scoringSchema)
       const updateQuestionInTree = (list: any[]): any[] =>
         list.map((q) =>
           q.id === editingQuestion.id
@@ -542,7 +679,7 @@ useEffect(() => {
                 options: hasOptions ? options : [],
                 scoringSchema: hasOptions
                   ? Object.fromEntries(options.map((o) => [o.label, o.score]))
-                  : {}, // ✅ hinzugefügt
+                  : {},
               }
             : {
                 ...q,
@@ -552,6 +689,7 @@ useEffect(() => {
 
       setQuestions((prev) => updateQuestionInTree(prev));
 
+      // 🧹 Felder & Fehler zurücksetzen
       handleCancel();
     } catch (err) {
       console.error("❌ Fehler beim Bearbeiten der Frage:", err);
@@ -899,7 +1037,7 @@ useEffect(() => {
       {isModalOpen && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-[9999]">
           <div className="bg-white rounded-xl shadow-lg w-[730px] max-h-[80vh] flex flex-col relative">
-            <div className="p-8 overflow-y-auto flex-1">
+            <div className="p-8 overflow-y-auto flex-1" ref={modalRef}>
               {/* ❌ Schließen-Button */}
               <button
                 onClick={handleCancel}
@@ -938,13 +1076,24 @@ useEffect(() => {
                 </label>
                 <textarea
                   value={questionText}
-                  onChange={(e) => setQuestionText(e.target.value)}
+                  onChange={(e) => {
+                    setQuestionText(e.target.value);
+                    if (errorQuestionText) setErrorQuestionText(null); // 🔥 Roter Rand verschwindet sofort
+                  }}
                   placeholder="Frage eingeben..."
-                  className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-brand-sand focus:outline-none"
+                  className={`w-full border rounded-lg p-2 focus:ring-2 focus:ring-brand-sand focus:outline-none ${
+                    errorQuestionText ? "border-red-500" : "border-gray-300"
+                  }`}
                   rows={3}
                 ></textarea>
+                {errorQuestionText && (
+                  <p className="text-red-500 text-xs mt-1">
+                    {errorQuestionText}
+                  </p>
+                )}
               </div>
 
+              {/* 🔸 Fragetyp */}
               {/* 🔸 Fragetyp */}
               <div className="mb-6 mt-6">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -953,11 +1102,14 @@ useEffect(() => {
                 <div className="grid grid-cols-2 gap-3">
                   {questionTypes.map((type) => (
                     <button
-                      key={type.value}
+                      key={type.id}
                       onClick={() => {
                         setSelectedType(type);
+                        if (errorType) setErrorType(null); // 🔥 Fehler zurücksetzen
+                        setErrorOptions(null);
+                        setHasSubmitted(false);
+
                         if (type.hasOptions) {
-                          // 👇 kleine Verzögerung, damit React erst rendert, dann scrollt
                           setTimeout(() => {
                             optionsRef.current?.scrollIntoView({
                               behavior: "smooth",
@@ -969,6 +1121,8 @@ useEffect(() => {
                       className={`flex items-center justify-start gap-3 border rounded-lg py-3 px-4 text-left font-medium text-sm transition-all duration-150 ${
                         selectedType?.id === type.id
                           ? "bg-brand-sand border-brand-sand text-white shadow-md"
+                          : errorType
+                          ? "border-red-500 text-gray-800 hover:bg-gray-50"
                           : "border-gray-300 text-gray-800 hover:bg-gray-50"
                       }`}
                     >
@@ -977,9 +1131,12 @@ useEffect(() => {
                     </button>
                   ))}
                 </div>
+                {errorType && (
+                  <p className="text-red-500 text-xs mt-1">{errorType}</p>
+                )}
               </div>
 
-              {/* 🔸 Antwortoptionen (nur falls nötig) */}
+              {/* 🔸 Antwortoptionen */}
               {showOptions && (
                 <div
                   ref={optionsRef}
@@ -993,34 +1150,81 @@ useEffect(() => {
                       key={i}
                       className="flex items-center gap-3 mb-3 border border-gray-200 p-2 rounded-lg"
                     >
+                      {/* Antworttext */}
                       <input
                         type="text"
                         placeholder="Antworttext..."
                         value={opt.label}
-                        onChange={(e) =>
+                        onChange={(e) => {
                           setOptions(
                             options.map((o, j) =>
                               j === i ? { ...o, label: e.target.value } : o
                             )
-                          )
-                        }
-                        className="flex-1 border border-gray-300 rounded-md px-2 py-1 focus:ring-1 focus:ring-brand-sand focus:outline-none"
+                          );
+                          if (errorOptions) setErrorOptions(null); // 🔥 hier hinzufügen
+                        }}
+                        className={`flex-1 border rounded-md px-2 py-1 focus:ring-1 focus:ring-brand-sand focus:outline-none ${
+                          hasSubmitted && !opt.label.trim()
+                            ? "border-red-500"
+                            : "border-gray-300"
+                        }`}
                       />
+
+                      {/* Score */}
                       <input
                         type="number"
                         placeholder="Score"
-                        value={opt.score}
-                        onChange={(e) =>
-                          setOptions(
-                            options.map((o, j) =>
-                              j === i
-                                ? { ...o, score: Number(e.target.value) }
-                                : o
-                            )
-                          )
+                        min={1}
+                        max={5}
+                        step={1}
+                        value={
+                          opt.score == null || Number.isNaN(opt.score)
+                            ? ""
+                            : opt.score
                         }
-                        className="w-24 border border-gray-300 rounded-md px-2 py-1 text-center focus:ring-1 focus:ring-brand-sand focus:outline-none"
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === "") {
+                            setOptions(
+                              options.map((o, j) =>
+                                j === i ? { ...o, score: null } : o
+                              )
+                            );
+                          } else if (Number(val) >= 1 && Number(val) <= 5) {
+                            setOptions(
+                              options.map((o, j) =>
+                                j === i ? { ...o, score: Number(val) } : o
+                              )
+                            );
+                          }
+                        }}
+                        onKeyDown={(e) => {
+                          // ✅ Nur Zahlen 1–5, Backspace, Tab, Delete und Pfeile erlauben
+                          const allowedKeys = [
+                            "1",
+                            "2",
+                            "3",
+                            "4",
+                            "5",
+                            "Backspace",
+                            "Tab",
+                            "Delete",
+                            "ArrowLeft",
+                            "ArrowRight",
+                          ];
+                          if (!allowedKeys.includes(e.key)) {
+                            e.preventDefault(); // ❌ blockiert alles andere (Buchstaben, Zeichen, 0, 6–9, Enter, etc.)
+                          }
+                        }}
+                        className={`w-24 border rounded-md px-2 py-1 text-center focus:ring-1 focus:ring-brand-sand focus:outline-none ${
+                          hasSubmitted &&
+                          (opt.score === null || Number.isNaN(opt.score))
+                            ? "border-red-500"
+                            : "border-gray-300"
+                        }`}
                       />
+
+                      {/* Löschen */}
                       <button
                         onClick={() =>
                           setOptions(options.filter((_, j) => j !== i))
@@ -1031,9 +1235,12 @@ useEffect(() => {
                       </button>
                     </div>
                   ))}
+                  {errorOptions && (
+                    <p className="text-red-500 text-xs mt-1">{errorOptions}</p>
+                  )}
                   <button
                     onClick={() =>
-                      setOptions([...options, { label: "", score: 0 }])
+                      setOptions([...options, { label: "", score: null }])
                     }
                     className="flex items-center gap-2 text-sm text-brand-sand font-medium hover:underline mt-2"
                   >
