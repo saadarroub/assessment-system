@@ -29,6 +29,12 @@ public interface QuestionNodeRepository extends JpaRepository<QuestionNode, UUID
     // Find all child nodes by parent node ordered by orderIndex
     List<QuestionNode> findByParentNodeIdOrderByOrderIndexAsc(UUID parentNodeId);
     
+    // ✅ NEU: Find siblings by Thema and Parent (für korrekten orderIndex bei Create/Move)
+    @Query("SELECT qn FROM QuestionNode qn WHERE qn.thema.id = :themaId AND " +
+           "((:parentNodeId IS NULL AND qn.parentNode IS NULL) OR qn.parentNode.id = :parentNodeId) " +
+           "ORDER BY qn.orderIndex ASC")
+    List<QuestionNode> findSiblingsByThemaAndParent(@Param("themaId") UUID themaId, @Param("parentNodeId") UUID parentNodeId);
+    
     // Find node by Question and Thema
     Optional<QuestionNode> findByQuestionIdAndThemaId(UUID questionId, UUID themaId);
     

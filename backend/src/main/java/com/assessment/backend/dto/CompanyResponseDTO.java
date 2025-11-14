@@ -1,79 +1,55 @@
-package com.assessment.backend.entity;
-
-import jakarta.persistence.*;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
+package com.assessment.backend.dto;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-@Entity
-@Table(name = "company")
-public class Company {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
+/**
+ * DTO für GET-Requests (Company-Daten an Frontend senden)
+ * Enthält alle Felder inklusive Status und Adresse
+ */
+public class CompanyResponseDTO {
+    
     private UUID id;
-
-    @Column(nullable = false)
     private String name;
-
-    @Column
     private String description;
-
+    
     // Status Field
-    @Column(length = 20, nullable = false)
-    private String status = "active";
-
+    private String status;
+    
     // Adress-Felder (strukturiert)
-    @Column
     private String street;
-
-    @Column(name = "postal_code", length = 10)
     private String postalCode;
-
-    @Column
     private String city;
-
-    @Column
     private String country;
-
+    
     // Kontakt-Felder
-    @Column
     private String website;
-
-    @Column
     private String phone;
-
-    @CreationTimestamp
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;   
-
-    @UpdateTimestamp
-    @Column(name = "updated_at")
+    
+    // Audit-Felder
+    private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
     // Constructors
-    public Company() {
+    public CompanyResponseDTO() {
     }
 
-    public Company(String name, String description) {
+    public CompanyResponseDTO(UUID id, String name, String description, String status,
+                             String street, String postalCode, String city, String country,
+                             String website, String phone, 
+                             LocalDateTime createdAt, LocalDateTime updatedAt) {
+        this.id = id;
         this.name = name;
         this.description = description;
-        this.status = "active";
-    }
-
-    public Company(String name, String description, String street, String postalCode, 
-                   String city, String country, String website, String phone) {
-        this.name = name;
-        this.description = description;
-        this.status = "active";
+        this.status = status;
         this.street = street;
         this.postalCode = postalCode;
         this.city = city;
         this.country = country;
         this.website = website;
         this.phone = phone;
+        this.createdAt = createdAt;
+        this.updatedAt = updatedAt;
     }
 
     // Getters and Setters
@@ -99,22 +75,6 @@ public class Company {
 
     public void setDescription(String description) {
         this.description = description;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
-    }
-
-    public LocalDateTime getUpdatedAt() {
-        return updatedAt;
-    }
-
-    public void setUpdatedAt(LocalDateTime updatedAt) {
-        this.updatedAt = updatedAt;
     }
 
     public String getStatus() {
@@ -172,5 +132,20 @@ public class Company {
     public void setPhone(String phone) {
         this.phone = phone;
     }
-}
 
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(LocalDateTime updatedAt) {
+        this.updatedAt = updatedAt;
+    }
+}

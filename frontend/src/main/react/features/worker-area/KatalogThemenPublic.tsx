@@ -102,7 +102,7 @@ function CatalogCard({ data, onStart }: { data: TopicCardModel; onStart: () => v
 
         <div className="relative z-[1]">
           <h2 className="text-xl font-bold mb-2">{data.title}</h2>
-          <p className="text-sm/6 opacity-95">{data.subtitle}</p>
+          <p className="text-sm/6 opacity-95 line-clamp-2">{data.subtitle}</p>
         </div>
       </div>
 

@@ -1,4 +1,3 @@
-// src/main/react/features/assessments/AssessmentPage.tsx
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
@@ -12,6 +11,20 @@ import {
   type UiQuestion,
   type ApiState,
 } from "@/features/service/publicAssessmentService";
+import AssessmentCompleted from "@/features/worker-area/AssessmentCompleted";
+//Test
+import AssessmentResults from "@/features/worker-area/AssessmentResults";
+
+
+const STORAGE_KEY = "assessments";
+
+function readStore(): any {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); }
+  catch { return {}; }
+}
+function writeStore(store: any) {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(store)); } catch { }
+}
 
 /** Query-Helper */
 function useQuery() {
@@ -23,23 +36,23 @@ export default function AssessmentPage() {
   const query = useQuery();
   const navigate = useNavigate();
 
-  const catalogId    = query.get("catalogId")    || ""; // optional
-const catalogTitle = query.get("catalogTitle") || ""; // optional
-const assignmentId = query.get("assignmentId") || ""; // optional
-const THEMEN_ROUTE = "/app/katalog-themen-public";
+  const catalogId = query.get("catalogId") || ""; // optional
+  const catalogTitle = query.get("catalogTitle") || ""; // optional
+  const assignmentId = query.get("assignmentId") || ""; // optional
+  const THEMEN_ROUTE = "/app/katalog-themen-public";
 
-// Einheitliche Rücknavigation zur Themenliste (mit ALLEN Parametern)
-function goBackToTopics() {
-  const qs = new URLSearchParams({
-    token: accessToken, // in der Public-Route heißt der Param "token"
-    ...(catalogId ? { catalogId } : {}),
-    ...(catalogTitle ? { catalogTitle } : {}),
-    ...(assignmentId ? { assignmentId } : {}),
-     ...(name ? { name } : {}),         
-    ...(code ? { code } : {}),
-  });
-  navigate(`${THEMEN_ROUTE}?${qs.toString()}`);
-}
+  // Einheitliche Rücknavigation zur Themenliste (mit ALLEN Parametern)
+  function goBackToTopics() {
+    const qs = new URLSearchParams({
+      token: accessToken, // in der Public-Route heißt der Param "token"
+      ...(catalogId ? { catalogId } : {}),
+      ...(catalogTitle ? { catalogTitle } : {}),
+      ...(assignmentId ? { assignmentId } : {}),
+      ...(name ? { name } : {}),
+      ...(code ? { code } : {}),
+    });
+    navigate(`${THEMEN_ROUTE}?${qs.toString()}`);
+  }
 
 
   /* -------- URL-Parameter -------- */
@@ -49,7 +62,7 @@ function goBackToTopics() {
   const accessToken = query.get("accessToken") || "";   // erforderlich
   const themaId = query.get("themaId") || query.get("topicId") || ""; // erforderlich
   const name = query.get("name") || "";
-const code = query.get("code") || "";
+  const code = query.get("code") || "";
 
   /* -------- UI/Flow-States -------- */
   const [sessionId, setSessionId] = useState("");
@@ -58,12 +71,19 @@ const code = query.get("code") || "";
   const [pos, setPos] = useState<number>(-1);           // Index im Trail (aktuelle Frage)
   const [completed, setCompleted] = useState(false);
   const [status, setStatus] = useState<"in_progress" | "completed">("in_progress");
-  const [progress, setProgress] = useState<{answered: number; total: number}>({ answered: 0, total: 0 });
+  const [progress, setProgress] = useState<{ answered: number; total: number }>({ answered: 0, total: 0 });
   const [loading, setLoading] = useState(false);
   const [fatal, setFatal] = useState<string | null>(null);
+const [score, setScore] = useState<{ totalScore: number | null; maxTotalScore: number | null }>({
+  totalScore: null,
+  maxTotalScore: null,
+});
+
 
   const q: UiQuestion | null = pos >= 0 ? trail[pos] : null;
-  const step = pos + 1;
+  const step = progress.total
+    ? Math.min((progress.answered ?? 0) + 1, progress.total)
+    : (pos >= 0 ? pos + 1 : 1);
   const pct = progress.total ? Math.round((progress.answered / progress.total) * 100) : (step > 0 ? step * 5 : 0);
 
   /* -------- Helpers -------- */
@@ -76,36 +96,45 @@ const code = query.get("code") || "";
     }
   }, []);
 
-  const bootstrap = useCallback(async (token: string, tid: string) => {
+  const bootstrapOrResume = useCallback(async (token: string, tid: string) => {
     setLoading(true);
     setFatal(null);
     try {
+      const store = readStore();
+      const dashKey = `topic:${tid}`;
+      const existingSid: string | undefined = store?.[dashKey]?.sessionId;
+
+      // 1) Falls es bereits eine Session gibt → fortsetzen
+      if (existingSid) {
+        setSessionId(existingSid);
+        await refreshState(token, existingSid);
+
+        // „Nächste Frage“ vom Server holen => das ist genau die offene Frage
+        const apiQ = await getNextQuestion(token, existingSid);
+        if (apiQ) {
+          const uiQ = normalizeApiQuestion(apiQ);
+          setTrail([uiQ]);
+          setPos(0);
+        } else {
+          setCompleted(true);
+          setStatus("completed");
+        }
+        return;
+      }
+
+      // 2) Sonst neue Session starten
       const s = await startSession(token, tid);
       setSessionId(s.sessionId);
       setStatus(s.status);
 
-      /* 
-         MINIMALE ERGÄNZUNG: sessionId persistieren,
-         damit die Themenliste Live-Progress per getState() ziehen kann.
-       */
-      try {
-        const dashKey = `topic:${tid}`;
-        const raw = localStorage.getItem("assessments");
-        const store: Record<string, { started?: string; progress?: number; currentQuestion?: number; sessionId?: string }> =
-          raw ? JSON.parse(raw) : {};
-        const prev = store[dashKey] ?? {};
-        store[dashKey] = {
-          ...prev,
-          sessionId: s.sessionId,
-          started: prev.started ?? new Date().toISOString(),
-        };
-        localStorage.setItem("assessments", JSON.stringify(store));
-      } catch {}
+      // Session speichern
+      const prev = store[dashKey] ?? {};
+      store[dashKey] = { ...prev, sessionId: s.sessionId, started: prev.started ?? new Date().toISOString() };
+      writeStore(store);
 
       let first: UiQuestion | null = null;
-      if (s.firstOrNextQuestion) {
-        first = normalizeApiQuestion(s.firstOrNextQuestion);
-      } else {
+      if (s.firstOrNextQuestion) first = normalizeApiQuestion(s.firstOrNextQuestion);
+      else {
         const apiQ = await getNextQuestion(token, s.sessionId);
         if (apiQ) first = normalizeApiQuestion(apiQ);
       }
@@ -114,24 +143,24 @@ const code = query.get("code") || "";
         setTrail([first]);
         setPos(0);
       } else {
-        // keine Frage → fertig
         setCompleted(true);
         setStatus("completed");
       }
       refreshState(token, s.sessionId);
     } catch (e: any) {
-      setFatal(e?.message ?? "Konnte die Session nicht starten.");
+      setFatal(e?.message ?? "Konnte die Session nicht starten/fortsetzen.");
     } finally {
       setLoading(false);
     }
   }, [refreshState]);
 
+
   /* -------- Initial Load -------- */
   useEffect(() => {
     if (!accessToken || !themaId) return;
     // Session starten
-    bootstrap(accessToken, themaId);
-  }, [accessToken, themaId, bootstrap]);
+    bootstrapOrResume(accessToken, themaId);
+  }, [accessToken, themaId, bootstrapOrResume]);
 
   /* -------- Antworten setzen -------- */
   const setAnswer = (qid: string | number, val: any, mode: any) => {
@@ -164,7 +193,17 @@ const code = query.get("code") || "";
       await saveAnswer(accessToken, sessionId, String(q.id), value);
 
       // Fortschritt aktualisieren
+      // Fortschritt + sessionId persistieren (für Resume und Dashboard)
       refreshState(accessToken, sessionId);
+      try {
+        const store = readStore();
+        const dashKey = `topic:${themaId}`;
+        const prev = store[dashKey] ?? {};
+        // progress.answered ist VOR dem aktuellen Save evtl. noch „alt“,
+        // aber refreshState() oben holt den neuen Wert asynchron nach.
+        store[dashKey] = { ...prev, sessionId };
+        writeStore(store);
+      } catch { }
 
       // Wenn wir uns in der Mitte des Trails befinden → nur im Trail vorwärts springen
       if (pos < trail.length - 1) {
@@ -174,13 +213,20 @@ const code = query.get("code") || "";
 
       // Sonst nächste Frage vom Server holen
       const apiQ = await getNextQuestion(accessToken, sessionId);
-      if (!apiQ) {
-        try { await completeSession(accessToken, sessionId); } catch {}
-        setCompleted(true);
-        setStatus("completed");
-        refreshState(accessToken, sessionId);
-        return;
-      }
+    if (!apiQ) {
+  try {
+    const done = await completeSession(accessToken, sessionId);
+    setScore({
+      totalScore: done?.totalScore ?? null,
+      maxTotalScore: done?.maxPossibleScore ?? null,
+    });
+  } catch {}
+  setCompleted(true);
+  setStatus("completed");
+  refreshState(accessToken, sessionId);
+  return;
+}
+
 
       const uiQ = normalizeApiQuestion(apiQ);
       setTrail(t => [...t, uiQ]);
@@ -198,7 +244,13 @@ const code = query.get("code") || "";
     setPos(-1);
     setCompleted(false);
     setProgress({ answered: 0, total: 0 });
-    await bootstrap(accessToken, themaId);
+    try {
+      const store = readStore();
+      const dashKey = `topic:${themaId}`;
+      delete store[dashKey];
+      writeStore(store);
+    } catch { }
+    await bootstrapOrResume(accessToken, themaId);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -236,7 +288,34 @@ const code = query.get("code") || "";
         </div>
       </div>
     );
-  }
+  }   
+if (completed) {
+  const totalScore     = score.totalScore ?? 0;       // <-- nur Score, keine Fragenzahl!
+  const maxTotalScore  = score.maxTotalScore ?? 0;
+
+  const percent = maxTotalScore > 0
+    ? Math.round((totalScore / maxTotalScore) * 100)
+    : pct;
+
+  return (
+    <AssessmentResults
+      topicName={topicName}
+      onRestart={restart}
+      onBackToTopics={goBackToTopics}
+
+      answered={progress.answered}   // nur für „Beantwortete Fragen“
+      total={progress.total}
+      totalScore={totalScore}         // echter Score
+      maxTotalScore={maxTotalScore}   // echtes Max
+
+      percent={percent}
+      overallLevel="Abgeschlossen"
+      completedAt={new Date().toISOString()}
+    />
+  );
+}
+
+
 
   /* -------- Render -------- */
   return (
@@ -264,7 +343,7 @@ const code = query.get("code") || "";
             </button>
           </div>
         </div>
- 
+
         {/* Progress */}
         {!completed && (
           <div className="px-6 pt-4">
@@ -286,8 +365,8 @@ const code = query.get("code") || "";
           </div>
         )}
 
-        {/* Inhalt */}
-        {!completed && q ? (
+        {/* Inhalt !completed*/}
+        {q && (
           <>
             <div className="px-6 pt-6">
               <div className="text-[18px] font-semibold text-[#1a1a1a] mb-6 leading-relaxed">{q.text}</div>
@@ -358,7 +437,7 @@ const code = query.get("code") || "";
                   <div className="text-center text-[18px] font-semibold text-blue-500 mt-2">
                     {answers[q.id] ?? Math.floor((((q as any).min ?? 0) + ((q as any).max ?? 10)) / 2)}
                   </div>
-                  { (q as any).labels && (
+                  {(q as any).labels && (
                     <div className="flex justify-between mt-2 text-sm text-[#666]">
                       <span>{(q as any).labels[0]}</span>
                       <span>{(q as any).labels[1]}</span>
@@ -474,31 +553,12 @@ const code = query.get("code") || "";
               </div>
             </div>
           </>
-        ) : (
-          <div className="px-6 py-10 text-center">
-            <div className="text-6xl mb-5">✓</div>
-            <div className="text-[28px] font-bold text-[#1a1a1a] mb-2">Assessment abgeschlossen</div>
-            <div className="text-[16px] text-[#666] mb-8">
-              {`Vielen Dank für die Teilnahme am ${topicName || "Assessment"}. Ihre Antworten wurden gespeichert.`}
-            </div>
-
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-              <button
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold bg-blue-600 text-white hover:bg-blue-700 transition"
-                onClick={restart}
-              >
-                Assessment erneut starten
-              </button>
-              <button
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold bg-[#d4af37] text-[#333] hover:bg-[#c29d2f] transition"
-               onClick={goBackToTopics}
-              >
-                🏠 Zur Übersicht
-              </button>
-            </div>
-          </div>
         )}
+        
       </div>
+      
     </div>
+    
   );
+  
 }

@@ -20,8 +20,9 @@ import KatalogVerwaltung from '@/features/admin-area/KatalogVerwaltung';
 import Zuweisungen from '@/features/admin-panel/companies/zuweisungen';
 import InviteGate from "@/public/InviteGate";
 import ZugewiesenerKatalog from '@/public/ZugewiesenerKatalogPagePublic';
+import Ica3LandingSingle from '@/public/Ica3LandingSingle';
 
-// ⬇️ Topic-Seiten
+// Topic-Seiten
 import EamPage from '@/features/admin-area/topics/eam/EamPage';
 import OperatingModelPage from '@/features/admin-area/topics/operating-model/OperatingModelPage';
 import SourcingPage from '@/features/admin-area/topics/sourcing/SourcingPage';
@@ -223,6 +224,15 @@ export default function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/tests"
+        element={
+          <ProtectedRoute>
+            <Ica3LandingSingle />
+          </ProtectedRoute>
+        }
+      />
+
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

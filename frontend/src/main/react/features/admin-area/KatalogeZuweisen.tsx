@@ -1,12 +1,12 @@
 import AdminLayout from "@/apps/app/AdminLayout";
-import  { useMemo, useState, useEffect, useRef } from "react";
-import { Building2, Settings, Pencil, Wrench, Plus } from "lucide-react";
+import { useMemo, useState, useEffect, useRef } from "react";
+import { Building2, Settings, Pencil, Wrench, Plus, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
 import myLogo from "@/assets/Zero-6-icons-05.webp";
 
-
+import { getTopicCountForCatalog } from "../service/themaCatalogService";
 import { getCompanies, getWorkersByCompany, type WorkerApi } from "../service/companyService";
 import { getCatalogs, createCatalog, type CatalogApi, updateCatalog, deleteCatalog } from "../service/catalogService";
 import { assignWorkerCatalogBulk } from "../service/assignmentService";
@@ -30,6 +30,7 @@ export type KatalogItem = {
   subtitle?: string;   // aus description gemappt
   icon?: LucideIcon;
   color?: string;
+  topicCount?: number;
 };
 
 export type AssignPayload = {
@@ -47,7 +48,7 @@ export type KatalogeZuweisenProps = {
 
 /* --------------------------------- UI ------------------------------------ */
 
-export default function KatalogeZuweisen({  }: KatalogeZuweisenProps) {
+export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
   // Kataloge
   const [catalogs, setCatalogs] = useState<KatalogItem[]>([]);
   const [loadingCatalogs, setLoadingCatalogs] = useState(false);
@@ -78,8 +79,13 @@ export default function KatalogeZuweisen({  }: KatalogeZuweisenProps) {
   const [recipientSearch, setRecipientSearch] = useState("");
   const dropdownRef = useRef<HTMLDivElement | null>(null);
 
+  // Kurz grüner Glow (3–4 s)
+  const [highlightIds, setHighlightIds] = useState<Set<string>>(new Set());
+  // „Neu“-Badge (z. B. 60 s)
+  const [badgeIds, setBadgeIds] = useState<Set<string>>(new Set());
+
   // navigation
-  const navigate =useNavigate();
+  const navigate = useNavigate();
 
   // Modals
   type DialogMode = "create" | "edit" | "delete";
@@ -93,7 +99,7 @@ export default function KatalogeZuweisen({  }: KatalogeZuweisenProps) {
   const DEFAULT_COLOR = "#094c79ff";
 
   /* ---------- Kataloge laden ---------- */
-  async function loadCatalogs() {
+  async function loadCatalogs(): Promise<KatalogItem[]> {
     try {
       setLoadingCatalogs(true);
       setCatalogError(null);
@@ -105,10 +111,25 @@ export default function KatalogeZuweisen({  }: KatalogeZuweisenProps) {
         icon: DEFAULT_ICON,
         color: DEFAULT_COLOR,
       }));
-      setCatalogs(ui.reverse());
+      // setCatalogs(ui.reverse());
+      // Counts parallel laden (Promise.all)
+      const withCounts = await Promise.all(
+        ui.map(async (k) => {
+          try {
+            const n = await getTopicCountForCatalog(k.id);
+            return { ...k, topicCount: n };
+          } catch {
+            return { ...k, topicCount: 0 }; // Fallback
+          }
+        })
+      );
+      const finalList = withCounts.reverse();
+      setCatalogs(finalList);
+      return finalList; // damit wir nach dem Create die neuen IDs erkennen
     } catch (e) {
       console.error(e);
       setCatalogError("Kataloge konnten nicht geladen werden.");
+      return [];
     } finally {
       setLoadingCatalogs(false);
     }
@@ -164,6 +185,28 @@ export default function KatalogeZuweisen({  }: KatalogeZuweisenProps) {
       }
     })();
   }, [companyId]);
+
+  function flashNew(ids: string[], glowMs = 4000, badgeMs = 60000) {
+    // HIGHLIGHT (grüner Glow)
+    setHighlightIds(prev => {
+      const next = new Set(prev); ids.forEach(id => next.add(id)); return next;
+    });
+    window.setTimeout(() => {
+      setHighlightIds(prev => {
+        const next = new Set(prev); ids.forEach(id => next.delete(id)); return next;
+      });
+    }, glowMs);
+
+    // BADGE (NEU)
+    setBadgeIds(prev => {
+      const next = new Set(prev); ids.forEach(id => next.add(id)); return next;
+    });
+    window.setTimeout(() => {
+      setBadgeIds(prev => {
+        const next = new Set(prev); ids.forEach(id => next.delete(id)); return next;
+      });
+    }, badgeMs);
+  }
 
   /* ---------- Empfänger-Filter ---------- */
   const filteredRecipients = useMemo(() => {
@@ -232,7 +275,7 @@ export default function KatalogeZuweisen({  }: KatalogeZuweisenProps) {
     }
 
     // genau eine Katalog-ID ermitteln
-    const catalogId = selectedCatalogId ;//Array.from(selectedCatalogIds)[0]
+    const catalogId = selectedCatalogId;//Array.from(selectedCatalogIds)[0]
     if (!catalogId) return;
 
     // expiresAt erzeugen – du wolltest KEIN „end of day“,
@@ -304,30 +347,67 @@ export default function KatalogeZuweisen({  }: KatalogeZuweisenProps) {
         title: formTitle.trim() || dialogCatalog.name,
         description: formDesc.trim() ? formDesc.trim() : null,
       });
-    } else if (dialogMode === "delete" && dialogCatalog) {
+
+      await loadCatalogs();
+      closeDialog();
+      return;
+    }
+
+    if (dialogMode === "delete" && dialogCatalog) {
       await deleteCatalog(dialogCatalog.id);
-       setSelectedCatalogId(prev => (prev === dialogCatalog.id ? null : prev)); // setSelectedCatalogIds(prev => { const n = new Set(prev); n.delete(dialogCatalog.id); return n; })
-    } else if (dialogMode === "create") {
+      setSelectedCatalogId(prev => (prev === dialogCatalog.id ? null : prev));
+      await loadCatalogs();
+      closeDialog();
+      return;
+    }
+
+    // CREATE
+    if (dialogMode === "create") {
       if (!formTitle.trim()) {
-        // kleine UX: ohne Titel nicht absenden
-        return alert("Bitte einen Titel angeben.");
+        alert("Bitte einen Titel angeben.");
+        return;
       }
+
+      // IDs VOR dem Anlegen merken
+      const before = new Set(catalogs.map(c => c.id));
+
       await createCatalog({
         title: formTitle.trim(),
         description: formDesc.trim() ? formDesc.trim() : undefined,
       });
+
+      // Neu laden und NEUE IDs ermitteln
+      const latest: KatalogItem[] = await loadCatalogs();
+      const createdIds = latest.filter(k => !before.has(k.id)).map(k => k.id);
+
+      // Aufleuchten + „Neu“-Badge auslösen (4s Glow, 60s Badge)
+      if (createdIds.length > 0) {
+        flashNew(createdIds, 4000, 60000);
+      }
+
+      closeDialog();
+      return;
     }
-
-    await loadCatalogs();
-    closeDialog();
   }
-
- 
   /* ------------------------------- RENDER -------------------------------- */
 
   return (
+
     <AdminLayout>
-       {/* Header */}
+      {/* Header */}
+      <style>
+        {`
+  @keyframes blinkBg {
+    0%, 100% { background-color: #ffffff; }      /* weiß */
+    50%       { background-color: #ecfdf5; }     /* green-50 */
+  }
+  @keyframes glowRing {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(34,197,94,0.35); }
+    50%      { box-shadow: 0 0 0 8px rgba(34,197,94,0.0); }
+  }
+`}
+      </style>
+
       <header
         className="relative bg-[hsl(60_9%_97.8%)] border-b border-[hsl(214.3_31.8%_91.4%)] px-8 py-4" //bg-[hsl(0_0%_92%)] min-h-[calc(100vh-64px)] mt-2 px-6 py-6 zum testen
       >
@@ -337,23 +417,23 @@ export default function KatalogeZuweisen({  }: KatalogeZuweisenProps) {
           <div className="justify-self-center">
             <div className="[&>h1]:text-[clamp(28px,6vw,56px)] [&>h1]:font-extrabold [&>h1]:tracking-[-0.02em] [&>h1]:m-0 [&>h1]:mb-4 [&>h1]:leading-[1.05]
              [&>h1]:text-[#264555] [&>p]:mt-0 [&>p]:text-[#334155] [&>p]:opacity-90 [&>p]:text-[clamp(14px,1.6vw,18px)]">
-               <div className="flex items-center justify-center gap-4">
-          <img
-            src={myLogo}
-            alt="Dein Logo"
-            className="h-[200px] w-[200px] object-contain shrink-0"
-            width={200}
-            height={200}
-          />
-          <div className="text-center">
-            <h1 className="text-[clamp(28px,6vw,56px)] font-extrabold tracking-[-0.02em] mb-2 leading-[1.05] text-[#264555]">
-              Kataloge zuweisen 
-            </h1>
-            <p className="mt-0 text-[#334155]/90 text-[clamp(14px,1.6vw,18px)]">
-            Hier Kataloge an Kunden zuweisen
-            </p>
-          </div>
-        </div>
+              <div className="flex items-center justify-center gap-4">
+                <img
+                  src={myLogo}
+                  alt="Dein Logo"
+                  className="h-[200px] w-[200px] object-contain shrink-0"
+                  width={200}
+                  height={200}
+                />
+                <div className="text-center">
+                  <h1 className="text-[clamp(28px,6vw,56px)] font-extrabold tracking-[-0.02em] mb-2 leading-[1.05] text-[#264555]">
+                    Kataloge zuweisen
+                  </h1>
+                  <p className="mt-0 text-[#334155]/90 text-[clamp(14px,1.6vw,18px)]">
+                    Hier Kataloge an Kunden zuweisen
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
           <div className="justify-self-end inline-flex lg:justify-self-center" />
@@ -361,7 +441,7 @@ export default function KatalogeZuweisen({  }: KatalogeZuweisenProps) {
       </header>
 
       <div className="bg-[hsl(0_0%_92%)] min-h-[calc(100vh-64px)] mt-2 px-6 py-6">
-       
+
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
           {/* Left: Grundinformationen */}
           <div className="lg:col-span-5">
@@ -572,7 +652,7 @@ export default function KatalogeZuweisen({  }: KatalogeZuweisenProps) {
                     className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
                   >
                     <Settings size={16} />
-                   Themen zuordnen
+                    Themen zuordnen
                   </Link>
                 </div>
               </div>
@@ -582,59 +662,84 @@ export default function KatalogeZuweisen({  }: KatalogeZuweisenProps) {
                   {loadingCatalogs ? "Kataloge werden geladen…" : "Wählen Sie die Kataloge aus, die Sie zuweisen möchten"}
                 </span>
 
+                <button
+                  type="button"
+                  onClick={openCreateDialog}
+                  className="ml-3 shrink-0 inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 bg-white hover:bg-slate-50"
+                  title="Neuen Katalog anlegen"
+                  aria-label="Neuen Katalog anlegen"
+                >
+                  <Plus size={16} />
+                </button>
 
-                  <button
-                    type="button"
-                    onClick={openCreateDialog}
-                    className="ml-3 shrink-0 inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 bg-white hover:bg-slate-50"
-                    title="Neuen Katalog anlegen"
-                    aria-label="Neuen Katalog anlegen"
-                  >
-                    <Plus size={16} />
-                  </button>
-              
               </p>
 
-
-
               {/* Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 ">
                 {catalogs.map((k) => {
                   const Icon = k.icon ?? Building2;
                   const selected = selectedCatalogId === k.id;//selectedCatalogIds.has(k.id)
-                  const metaLabel = "– Themen";
+                  const metaLabel = (k.topicCount ?? 0) === 1
+                    ? "1 Thema"
+                    : `${k.topicCount ?? 0} Themen`;       //"– Themen";
 
                   // Card-Klick: normal -> Auswahl; im editMode -> Delete-Dialog
                   const onCardClick = () => {
-                    if (editMode) openDeleteDialog(k);
-                    else selectOrToggleCatalog(k.id);
+                    if (!editMode) selectOrToggleCatalog(k.id);
                   };
-
+                  const isHighlight = highlightIds.has(k.id);
+                  const isBadge = badgeIds.has(k.id);
                   return (
                     <div
                       key={k.id}
                       className={[
-                        "relative w-full text-left rounded-xl border p-4 transition-colors min-h-[132px] cursor-pointer",
+                        // Basisklassen
+                        "relative w-full text-left rounded-xl border p-4 min-h-[132px] cursor-pointer",
+                        // sanfte Animation
+                        "transition-transform transition-colors duration-300 ease-out",
+                        // bestehende Zustände
                         editMode
                           ? "border-[#E3BB62] bg-[#fff8e1]/60 hover:bg-[#fff3c4]/60"
                           : selected
                             ? "border-[#E3BB62] bg-[#ebebec]"
                             : "border-[#ebebec] hover:border-[#56768f]/50 hover:bg-[#ebebec]/50",
+                        //  kurzer grüner Glow + leichtes Pop
+                        isHighlight
+                          ? [
+                            "scale-[1.02]",                         // leichtes Pop
+                            "ring-2 ring-green-500 ring-offset-2",  // grüner Ring
+                            "[animation:blinkBg_.9s_ease-in-out_infinite]",   // BG blinkt grün↔weiß
+                            "[box-shadow:0_0_0_0_rgba(34,197,94,0.35)]",       // Start-Glow
+                            "[animation:glowRing_1.2s_ease-in-out_infinite]"   // Ring pulsiert
+                          ].join(" ")
+                          : ""
                       ].join(" ")}
                       onClick={onCardClick}
                     >
                       {/* rechter Indikator: Auswahl-Kreis ODER X im editMode */}
-                      <span
-                        className={[
-                          "absolute right-3 top-3 inline-flex h-5 w-5 items-center justify-center rounded-full border-2",
-                          editMode ? "border-[#E3BB62] text-[#E3BB62]" : "border-[#56768f]",
-                        ].join(" ")}
-                      >
-                        {editMode
-                          ? "×"
-                          : (selected && <span className="h-3.5 w-3.5 rounded-full bg-[#E3BB62]" />)
-                        }
-                      </span>
+                      {editMode ? (
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); openDeleteDialog(k); }}
+                          className="absolute right-3 top-3 inline-flex h-6 w-6 items-center justify-center
+               rounded-full border-2 border-[#E11D48] text-[#E11D48] bg-white
+               hover:bg-red-50"
+                          title="Katalog löschen"
+                          aria-label="Katalog löschen"
+                        >
+                          <X size={12} />
+                        </button>
+                      ) : (
+                        <span className="absolute right-3 top-3 inline-flex h-5 w-5 items-center justify-center rounded-full border-2 border-[#56768f]">
+                          {selected && <span className="h-3.5 w-3.5 rounded-full bg-[#E3BB62]" />}
+                        </span>
+                      )}
+
+                      {isBadge && (
+                        <span className="absolute -left-1 -top-1 rounded-md bg-amber-500 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white shadow">
+                          Neu
+                        </span>
+                      )}
 
                       <div className="flex items-start gap-3 pr-6">
                         <span
@@ -650,8 +755,8 @@ export default function KatalogeZuweisen({  }: KatalogeZuweisenProps) {
                           </div>
 
                           {k.subtitle && (
-                            <div className="mt-1 text-xs text-slate-600 leading-5 line-clamp-2">
-                              {k.subtitle}
+                            <div className="mt-1 mb-2 text-xs text-slate-600 leading-5 line-clamp-2 min-h-[2.5rem]">
+                              {k.subtitle ?? "\u00A0"}
                             </div>
                           )}
 
@@ -792,7 +897,6 @@ export default function KatalogeZuweisen({  }: KatalogeZuweisenProps) {
                     Löschen
                   </button>
                 )}
-
               </div>
             </div>
           </div>

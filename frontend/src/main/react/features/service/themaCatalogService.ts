@@ -75,4 +75,26 @@ export async function assignTopicsToCatalog(catalogId: string, topicIds: string[
     )
   );
 }
+// themaCatalogService.ts
+export async function getTopicCountForCatalog(catalogId: string): Promise<number> {
+  const resp = await fetch(
+    `http://localhost:8080/api/thema-catalogs/catalog/${encodeURIComponent(catalogId)}/count`,
+    { headers: { Accept: "application/json" } }
+  );
+  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
 
+  const data = await resp.json();
+  // Backend kann entweder eine Zahl ODER {count: number} schicken – beide Fälle abfangen:
+  return typeof data === "number" ? data : (data?.count ?? 0);
+}
+/** Anzahl der Fragen für ein Thema (UUID) laden */
+export async function getQuestionCountForThema(themaId: string): Promise<number> {
+  const resp = await fetch(`http://localhost:8080/api/question-nodes/count/thema/${encodeURIComponent(themaId)}`, {
+    headers: { Accept: "application/json" },
+  });
+  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+  const text = await resp.text();
+  const n = Number(text);
+  if (Number.isNaN(n)) throw new Error("Unerwartete Antwort (keine Zahl).");
+  return n;
+}

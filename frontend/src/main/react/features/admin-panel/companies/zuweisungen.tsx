@@ -18,6 +18,11 @@ const CSS = {
 };
 
 /* ===== Helper: Datum / Uhrzeit in zwei Zeilen ===== */
+
+/* Prüft, ob die Fälligkeit schon vorbei ist */
+const isExpired = (iso?: string | null) =>
+    !!iso && new Date(iso).getTime() < Date.now();
+
 const fmtParts = (d?: string | null) => {
     if (!d) return { date: "—", time: "" };
     const dt = new Date(d);
@@ -284,9 +289,13 @@ export default function Zuweisungen() {
                                         const cId = r.catalog?.id || "—";
                                         const { date: aDate, time: aTime } = fmtParts(r.assignedAt);
                                         const { date: eDate, time: eTime } = fmtParts(r.expiresAt);
+                                        const expired = isExpired(r.expiresAt);
 
                                         return (
-                                            <tr key={r.id} className="transition border-l-[4px] border-transparent hover:bg-[hsla(40,60%,63%,0.05)] hover:border-[hsl(40,60%,63%)]">
+                                            <tr key={r.id} className={`transition border-l-[4px] ${expired
+                                                    ? "border-[rgb(239,68,68)] bg-[rgba(254,226,226,0.3)]" // rot markiert
+                                                    : "border-transparent hover:bg-[hsla(40,60%,63%,0.05)] hover:border-[hsl(40,60%,63%)]"
+                                                }`}>
                                                 {/* Worker */}
                                                 <td className="px-4 py-4 text-[0.95rem] border-t align-top" style={{ borderColor: CSS.border }}>
                                                     <div className="font-semibold" style={{ color: CSS.fg }}>{wName}</div>

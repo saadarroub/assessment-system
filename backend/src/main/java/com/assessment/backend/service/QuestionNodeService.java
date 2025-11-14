@@ -61,14 +61,23 @@ public class QuestionNodeService {
             throw new RuntimeException("Question already exists in this Thema");
         }
         
-        // Always auto-assign orderIndex (ignore client value, always append to siblings with GAP strategy)
+        // ✅ WICHTIG: orderIndex IMMER ignorieren und neu berechnen
+        // Client-Wert wird bewusst überschrieben, um konsistente Sortierung zu garantieren
+        questionNode.setOrderIndex(null); // Explizit null setzen
+        
+        // ✅ FIX: Lade nur Geschwister im SELBEN Thema (nicht über alle Themen!)
         UUID parentId = questionNode.getParentNode() == null ? null : questionNode.getParentNode().getId();
-        List<QuestionNode> siblings = questionNodeRepository.findByParentNodeIdOrderByOrderIndexAsc(parentId);
+        UUID themaId = questionNode.getThema().getId();
+        List<QuestionNode> siblings = questionNodeRepository.findSiblingsByThemaAndParent(themaId, parentId);
+        
         final int GAP = 10;
+        
         if (siblings.isEmpty()) {
+            // Erste Frage in diesem Thema: Index 10
             questionNode.setOrderIndex(GAP);
         } else {
             Integer maxIndex = siblings.get(siblings.size() - 1).getOrderIndex();
+            // Normale Situation: Anhängen mit GAP
             questionNode.setOrderIndex(maxIndex + GAP);
         }
         
@@ -260,57 +269,44 @@ public class QuestionNodeService {
             }
         }
 
-        // load siblings under new parent ordered (EXCLUDE the node being moved!)
-        List<QuestionNode> siblings = questionNodeRepository.findByParentNodeIdOrderByOrderIndexAsc(
+        // ✅ NEUE STRATEGIE: Reindex IMMER nach Move für konsistente Indizes
+        // 1. Lade alle aktuellen Geschwister im SELBEN Thema (OHNE die zu verschiebende Frage)
+        UUID themaId = node.getThema().getId();
+        List<QuestionNode> siblings = questionNodeRepository.findSiblingsByThemaAndParent(
+                themaId, 
                 newParent == null ? null : newParent.getId());
         
-        // Remove the node being moved from siblings list (if it's already there)
+        // 2. Entferne die zu verschiebende Frage aus der Liste
         siblings.removeIf(s -> s.getId().equals(nodeId));
 
-        final int GAP = 10; // integer gap strategy to avoid frequent reindex
-        Integer newIndex;
-        if (siblings == null || siblings.isEmpty()) {
-            newIndex = GAP;
-        } else {
-            if (targetPosition == null || targetPosition >= siblings.size()) {
-                // append to end
-                Integer last = siblings.get(siblings.size() - 1).getOrderIndex();
-                newIndex = last + GAP;
-            } else if (targetPosition <= 0) {
-                Integer first = siblings.get(0).getOrderIndex();
-                newIndex = first - GAP;
-                if (newIndex <= 0) {
-                    // ensure positive orderIndex by reindexing
-                    reindexSiblings(newParent == null ? null : newParent.getId());
-                    siblings = questionNodeRepository.findByParentNodeIdOrderByOrderIndexAsc(
-                            newParent == null ? null : newParent.getId());
-                    newIndex = siblings.get(0).getOrderIndex() - GAP;
-                }
-            } else {
-                Integer prev = siblings.get(targetPosition - 1).getOrderIndex();
-                Integer next = siblings.get(targetPosition).getOrderIndex();
-                if (next - prev > 1) {
-                    newIndex = prev + (next - prev) / 2;
-                } else {
-                    // no gap -> reindex siblings to create gaps then recompute
-                    reindexSiblings(newParent == null ? null : newParent.getId());
-                    siblings = questionNodeRepository.findByParentNodeIdOrderByOrderIndexAsc(
-                            newParent == null ? null : newParent.getId());
-                    prev = siblings.get(targetPosition - 1).getOrderIndex();
-                    next = siblings.get(targetPosition).getOrderIndex();
-                    newIndex = prev + (next - prev) / 2;
-                    if (newIndex.equals(prev) || newIndex.equals(next)) {
-                        // fallback: place after prev
-                        newIndex = prev + GAP;
-                    }
-                }
-            }
+        // 3. Füge die verschobene Frage an der gewünschten Position ein
+        final int GAP = 10;
+        Integer targetPos = targetPosition;
+        
+        // Validiere Position
+        if (targetPos == null || targetPos < 0) {
+            targetPos = 0; // Anfang
+        } else if (targetPos > siblings.size()) {
+            targetPos = siblings.size(); // Ende
         }
-
-        // Apply move
+        
+        // 4. Erstelle temporäre Liste mit neuer Reihenfolge
+        siblings.add(targetPos, node);
+        
+        // 5. Reindexiere ALLE Geschwister (inkl. verschobener Frage) zu 10, 20, 30, ...
+        int idx = GAP;
+        for (QuestionNode s : siblings) {
+            s.setOrderIndex(idx);
+            idx += GAP;
+        }
+        
+        // 6. Update Parent falls geändert
         node.setParentNode(newParent);
-        node.setOrderIndex(newIndex);
-        return questionNodeRepository.save(node);
+        
+        // 7. Speichere alle geänderten Nodes
+        questionNodeRepository.saveAll(siblings);
+        
+        return node;
     }
 
     // Reindex siblings to 10,20,30,... to restore gaps
