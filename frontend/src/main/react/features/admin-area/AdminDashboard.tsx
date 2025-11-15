@@ -1,13 +1,20 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import {
+  useState,
+  useEffect,
+  useRef,
+  useMemo,
+  useCallback,
+} from "react";
 import { useNavigate } from "react-router-dom";
 import "@/styles/admin.css";
 import AdminLayout from "@/apps/app/AdminLayout";
 import TopicCard from "./TopicCard";
 
-
+// Icons
 import myLogo from "@/assets/Zero-6-icons-05.webp";
 import { Plus, MinusSquare, Search } from "lucide-react";
 
+// API
 import {
   getAllQuestionNodes,
   getAllThemas,
@@ -16,18 +23,16 @@ import {
   updateThema,
 } from "@/api/questionApi";
 
-// Topic type shared with TopicCard
+// TYPES
 type Topic = {
   id: string;
   title: string;
   subtitle: string;
   questions: number;
-  color?: string;       // optional
- 
+  color?: string;
 };
 
-
-// Stats
+// STATS
 type Stat = { label: string; value: string; tone?: "positive" | "neutral" };
 
 const STATS: Stat[] = [
@@ -38,15 +43,16 @@ const STATS: Stat[] = [
 ];
 
 export default function AdminDashboard() {
-  const [searchTerm, setSearchTerm] = useState("");
   const navigate = useNavigate();
 
+  // States
+  const [searchTerm, setSearchTerm] = useState("");
   const [topics, setTopics] = useState<Topic[]>([]);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [selectedTopic, setSelectedTopic] = useState<Topic | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Modal states
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [selectedTopic, setSelectedTopic] = useState<Topic | null>(null);
+
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editThemaName, setEditThemaName] = useState("");
   const [editThemaDesc, setEditThemaDesc] = useState("");
@@ -56,94 +62,77 @@ export default function AdminDashboard() {
   const [newThemaName, setNewThemaName] = useState("");
   const [newThemaDesc, setNewThemaDesc] = useState("");
 
+  // Modal Input Referenz
   const titleInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Filter
+  // Farben Rotation
+  const TOPIC_COLORS = useMemo(
+    () => ["#264555", "#56768f", "#808080", "#d2c9b9", "#E3BB62"],
+    []
+  );
+
+  // Fetch Themen
+  const fetchTopics = useCallback(async () => {
+    try {
+      const themas = await getAllThemas();
+      const nodes = await getAllQuestionNodes();
+
+      let colorIndex = 0;
+
+      const grouped: Topic[] = themas.map((thema: any) => {
+        const count = nodes.filter((n: any) => n.thema?.id === thema.id).length;
+
+        const color = TOPIC_COLORS[colorIndex];
+        colorIndex = (colorIndex + 1) % TOPIC_COLORS.length;
+
+        return {
+          id: thema.id,
+          title: thema.name,
+          subtitle: thema.description,
+          questions: count,
+          color,
+        };
+      });
+
+      setTopics(grouped.reverse());
+      setLoading(false);
+    } catch (err) {
+      console.error("Fehler beim Laden der Themen", err);
+      setLoading(false);
+    }
+  }, [TOPIC_COLORS]);
+
+  useEffect(() => {
+    fetchTopics();
+  }, [fetchTopics]);
+
+  // Suche & Filtering
   const filteredTopics = useMemo(() => {
+    if (!searchTerm.trim()) return topics;
+    const term = searchTerm.toLowerCase();
     return topics.filter(
       (t) =>
-        t.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        t.subtitle?.toLowerCase().includes(searchTerm.toLowerCase())
+        t.title.toLowerCase().includes(term) ||
+        t.subtitle.toLowerCase().includes(term)
     );
   }, [topics, searchTerm]);
 
   // Pagination
-  const [currentPage, setCurrentPage] = useState(1);
   const topicsPerPage = 6;
+  const [currentPage, setCurrentPage] = useState(1);
 
   const indexOfLast = currentPage * topicsPerPage;
   const indexOfFirst = indexOfLast - topicsPerPage;
 
-  const currentTopics = useMemo(() => {
-    return filteredTopics.slice(indexOfFirst, indexOfLast);
-  }, [filteredTopics, indexOfFirst, indexOfLast]);
+  const currentTopics = useMemo(
+    () => filteredTopics.slice(indexOfFirst, indexOfLast),
+    [filteredTopics, indexOfFirst, indexOfLast]
+  );
 
-  const totalPages = Math.ceil(filteredTopics.length / topicsPerPage);
-
-  const TOPIC_COLORS = [
-  "#264555", // brand-navy
-  "#56768f", // brand-steel
-  "#808080", // brand-gray
-  "#d2c9b9", // brand-sand
-  "#E3BB62", // brand-gold
-];
-
-  // Focus if edit modal opens
-  useEffect(() => {
-    if (isEditModalOpen && titleInputRef.current) {
-      titleInputRef.current.focus();
-    }
-  }, [isEditModalOpen]);
-
-  let colorIndex = 0;
-
-function getNextColor() {
-  const color = TOPIC_COLORS[colorIndex];
-  colorIndex++;
-
-  if (colorIndex >= TOPIC_COLORS.length) {
-    colorIndex = 0;
-  }
-
-  return color;
-}
-
-
-// Fetch topics & node count
-const fetchTopics = async () => {
-  try {
-    const themas = await getAllThemas();
-    const nodes = await getAllQuestionNodes();
-
-    const grouped: Topic[] = themas.map((thema: any) => {
-      const count = nodes.filter((n: any) => n.thema?.id === thema.id).length;
-
-      // Farbe pro Topic in Rotation
-      const color = getNextColor();
-
-      return {
-        id: thema.id,
-        title: thema.name,
-        subtitle: thema.description,
-        questions: count,
-        color, // nur 1 Farbe
-      };
-    });
-
-    setTopics(grouped.reverse());
-  } catch (err) {
-    console.error("Fehler beim Laden der Themen", err);
-  } finally {
-    setLoading(false);
-  }
-};
-
-
-
-
-  useEffect(() => {
-    fetchTopics();
-  }, []);
+  const totalPages = useMemo(
+    () => Math.ceil(filteredTopics.length / topicsPerPage),
+    [filteredTopics]
+  );
 
   // Callbacks (stable)
   const handleDelete = useCallback((t: Topic) => {
@@ -162,7 +151,9 @@ const fetchTopics = async () => {
     async (t: Topic) => {
       try {
         const nodes = await getAllQuestionNodes();
-        const hasQuestions = nodes.some((n) => n.thema && n.thema.id === t.id);
+        const hasQuestions = nodes.some(
+          (n) => n.thema && n.thema.id === t.id
+        );
 
         navigate(
           hasQuestions
@@ -190,7 +181,6 @@ const fetchTopics = async () => {
                 alt="Logo"
                 className="h-[200px] w-[200px] object-contain"
               />
-
               <div className="text-center">
                 <h1 className="text-[clamp(28px,6vw,56px)] font-extrabold text-[#264555] leading-[1.05]">
                   Fragenkatalog Administration
@@ -204,9 +194,9 @@ const fetchTopics = async () => {
         </div>
       </header>
 
-      {/* CONTENT */}
+      {/* BODY */}
       <div className="dashboard-content bg-[hsl(0_0%_92%)] min-h-[calc(100vh-64px)] px-6 py-6 mt-2">
-        {/* Admin Panel Button */}
+        {/* BUTTON */}
         <div className="flex justify-end px-8 mb-4">
           <button
             className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#264555] text-white shadow-md hover:bg-[#223e4c]"
@@ -217,7 +207,7 @@ const fetchTopics = async () => {
           </button>
         </div>
 
-        {/* Stats */}
+        {/* STATS */}
         <section className="stats-panel">
           <div className="grid grid-cols-4 gap-4">
             {STATS.map((s, i) => (
@@ -244,12 +234,11 @@ const fetchTopics = async () => {
           </div>
         </section>
 
-        {/* TOPICS */}
+        {/* THEMEN */}
         {!loading && (
           <section className="topics-section">
             <div className="section-header">
               <h2>Themen</h2>
-
               <button
                 className="btn btn-caramel"
                 onClick={() => setIsAddModalOpen(true)}
@@ -259,7 +248,7 @@ const fetchTopics = async () => {
               </button>
             </div>
 
-            {/* Search */}
+            {/* SEARCH */}
             <div className="mx-auto mb-6 mt-3 rounded-[12px] border bg-white/85 backdrop-blur-md shadow">
               <div className="p-4 flex items-center justify-between gap-3">
                 <div className="relative flex-1">
@@ -286,39 +275,33 @@ const fetchTopics = async () => {
               </div>
             </div>
 
-            {/* GRID */}
-           <div
-  className="
-    mt-6
-    rounded-3xl 
-    bg-[#f5f5f5] 
-    p-4 
-    shadow-[0_4px_20px_rgba(0,0,0,0.05)]
-    border border-gray-300/30
-  "
->
-  <div className="topics-grid">
-    {currentTopics.map((t) => (
-      <TopicCard
-        key={t.id}
-        t={t}
-        onDelete={handleDelete}
-        onEdit={handleEdit}
-        onManage={handleManage}
-      />
-    ))}
-  </div>
-</div>
-
+            {/* GRID (optimiert + lazy render) */}
+            <div
+              className="
+                mt-6 rounded-3xl bg-[#f5f5f5] p-4
+                shadow-[0_4px_20px_rgba(0,0,0,0.05)]
+                border border-gray-300/30
+              "
+            >
+              <div className="topics-grid">
+                {currentTopics.map((t) => (
+                  <TopicCard
+                    key={t.id}
+                    t={t}
+                    onDelete={handleDelete}
+                    onEdit={handleEdit}
+                    onManage={handleManage}
+                  />
+                ))}
+              </div>
+            </div>
 
             {/* PAGINATION */}
             {totalPages > 1 && (
               <div className="mx-auto mt-6 rounded-[12px] border bg-white/85 backdrop-blur-md shadow">
                 <div className="p-4 flex items-center justify-center gap-6">
                   <button
-                    onClick={() =>
-                      setCurrentPage((p) => Math.max(p - 1, 1))
-                    }
+                    onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
                     disabled={currentPage === 1}
                     className={`px-5 py-2 rounded-lg font-semibold text-white ${
                       currentPage === 1
@@ -335,9 +318,7 @@ const fetchTopics = async () => {
 
                   <button
                     onClick={() =>
-                      setCurrentPage((p) =>
-                        Math.min(p + 1, totalPages)
-                      )
+                      setCurrentPage((p) => Math.min(p + 1, totalPages))
                     }
                     disabled={currentPage === totalPages}
                     className={`px-5 py-2 rounded-lg font-semibold text-white ${
@@ -355,7 +336,7 @@ const fetchTopics = async () => {
         )}
       </div>
 
-      {/* ========= EDIT MODAL ========= */}
+      {/* === EDIT MODAL === */}
       {isEditModalOpen && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex justify-center items-center z-[9999]">
           <div className="bg-white rounded-xl shadow-lg w-[420px] p-6 text-center">
@@ -421,7 +402,7 @@ const fetchTopics = async () => {
         </div>
       )}
 
-      {/* ========= ADD MODAL ========= */}
+      {/* === ADD MODAL === */}
       {isAddModalOpen && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex justify-center items-center z-[9999]">
           <div className="bg-white rounded-xl shadow-lg w-[420px] p-6 text-center">
@@ -480,7 +461,7 @@ const fetchTopics = async () => {
         </div>
       )}
 
-      {/* ========= DELETE MODAL ========= */}
+      {/* === DELETE MODAL === */}
       {showDeleteModal && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex justify-center items-center z-[9999]">
           <div className="bg-white rounded-xl shadow-lg w-[420px] p-6 text-center">
