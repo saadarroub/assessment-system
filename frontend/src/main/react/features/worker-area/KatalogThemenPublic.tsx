@@ -7,8 +7,8 @@ import { getState, calcProgressPct } from "@/features/service/publicAssessmentSe
 import { fetchAssignmentByAccessCode, fetchInviteMeta } from "@/features/service/inviteService";
 import CountdownTimer from "@/features/worker-area/CountdownTimer";
 import GreetingBanner from "@/features/worker-area/begruessung";
-import patternUrl from "@/assets/footer-pattern.svg"; 
-import  type {CatalogLinkMeta} from "@/core/router/buildCatalogUrl";
+import patternUrl from "@/assets/footer-pattern.svg";
+import type { CatalogLinkMeta } from "@/core/router/buildCatalogUrl";
 
 
 
@@ -127,13 +127,7 @@ function CatalogCard({ data, onStart }: { data: TopicCardModel; onStart: () => v
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
             </svg>
-            <span>Geschätzte Zeit: {data.est}</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122"></path>
-            </svg>
-            <span>Interaktiv</span>
+            <span>Fragen : noch nicht implementiert</span>
           </div>
         </div>
 
@@ -283,7 +277,9 @@ export default function KatalogThemenPublic() {
   const topicCards: TopicCardModel[] = useMemo(() => {
     const list = Array.isArray(themen) ? themen : [];
     return list.map((t) => {
-      const dashKey = `topic:${t.id}`;
+      //const dashKey = `topic:${t.id}`;
+      const assignmentId = assignmentIdFromQuery || "unknown";
+      const dashKey = `assignment:${assignmentId}:topic:${t.id}`;
       const entry = assessments[dashKey] ?? {};
       let effectiveProgress = typeof entry.progress === "number" ? entry.progress : 0;
 
@@ -314,7 +310,7 @@ export default function KatalogThemenPublic() {
         topicName: t.name || "",
       };
     });
-  }, [themen, assessments, token]);
+  },[themen, assessments, token, assignmentIdFromQuery]);
 
   /* --- Tabs --- */
   const available = topicCards.filter((c) => !(c.effectiveProgress > 0 && c.effectiveProgress < 100) && c.effectiveProgress < 100);
@@ -352,29 +348,29 @@ export default function KatalogThemenPublic() {
   };
 
   useEffect(() => {
-  // wir lesen alles, was wir brauchen, aus der URL
-  const tokenInUrl       = (query.get("token") || "").trim();
-  const accessTokenInUrl = (query.get("accessToken") || tokenInUrl).trim();
-  const catalogId        = (query.get("catalogId") || "").trim();
-  const catalogTitle     = (query.get("catalogTitle") || "").trim();
-  const assignmentId     = (query.get("assignmentId") || "").trim();
-  const name             = (query.get("name") || welcomeName || "Teilnehmer").trim();
-  const code             = (query.get("code") || "").trim();
+    // wir lesen alles, was wir brauchen, aus der URL
+    const tokenInUrl = (query.get("token") || "").trim();
+    const accessTokenInUrl = (query.get("accessToken") || tokenInUrl).trim();
+    const catalogId = (query.get("catalogId") || "").trim();
+    const catalogTitle = (query.get("catalogTitle") || "").trim();
+    const assignmentId = (query.get("assignmentId") || "").trim();
+    const name = (query.get("name") || welcomeName || "Teilnehmer").trim();
+    const code = (query.get("code") || "").trim();
 
-   // nur speichern, wenn die wichtigsten Felder da sind
-  if ( (tokenInUrl || accessTokenInUrl) && catalogId && assignmentId ) {
-    const meta: CatalogLinkMeta = {
-      token: tokenInUrl || accessTokenInUrl,
-      accessToken: accessTokenInUrl || tokenInUrl,
-      catalogId,
-      catalogTitle,
-      assignmentId,
-      name,
-      code,
-    };
-    localStorage.setItem("activeAssignmentMeta", JSON.stringify(meta));
-  }
-}, [query, welcomeName]);
+    // nur speichern, wenn die wichtigsten Felder da sind
+    if ((tokenInUrl || accessTokenInUrl) && catalogId && assignmentId) {
+      const meta: CatalogLinkMeta = {
+        token: tokenInUrl || accessTokenInUrl,
+        accessToken: accessTokenInUrl || tokenInUrl,
+        catalogId,
+        catalogTitle,
+        assignmentId,
+        name,
+        code,
+      };
+      localStorage.setItem("activeAssignmentMeta", JSON.stringify(meta));
+    }
+  }, [query, welcomeName]);
 
   /* --- Storage-/Visibility-Listener --- */
   useEffect(() => {
@@ -413,7 +409,7 @@ export default function KatalogThemenPublic() {
       {/* EIN gemeinsamer Intro-Header mit Willkommen + optionalem Katalogtitel */}
       <section className="text-center pt-10 pb-2 px-5">
         <GreetingBanner firstName={welcomeName} />
-         {/**<p className="max-w-[740px] mx-auto text-slate-600">
+        {/**<p className="max-w-[740px] mx-auto text-slate-600">
           Sie sehen den Katalog <strong>{catalogTitleFromQuery}</strong>. Wählen Sie unten ein Thema, um zu starten oder fortzusetzen.
         </p> */}
       </section>
@@ -467,7 +463,18 @@ export default function KatalogThemenPublic() {
             <div className="text-center text-slate-500 py-20">Keine Themen im Katalog gefunden.</div>
           ) : (
             <>
-              {activeTab === "available" && <Grid list={available} />}
+              {activeTab === "available" && 
+               (available.length ? (
+                  <Grid list={available} />
+                ) : (
+                  <div className="text-center py-20 text-slate-500">
+                    <svg className="w-24 h-24 mx-auto mb-5 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" />
+                    </svg>
+                    <h2 className="text-xl font-semibold">Keine neuen Themen</h2>
+                    <p>kein themen hier.</p>
+                  </div>
+                ))}
               {activeTab === "planned" &&
                 (planned.length ? (
                   <Grid list={planned} />
@@ -497,11 +504,11 @@ export default function KatalogThemenPublic() {
         </div>
       </section>
 
-       <footer
-      id="cap-footer"
-      // wir übergeben die URL in eine CSS-Variable und lesen sie in der Klasse aus
-      style={{ ["--cap-pattern" as any]: `url(${patternUrl})` }}
-      className="
+      <footer
+        id="cap-footer"
+        // wir übergeben die URL in eine CSS-Variable und lesen sie in der Klasse aus
+        style={{ ["--cap-pattern" as any]: `url(${patternUrl})` }}
+        className="
         text-white
         bg-[#264555]                    /* CAP primary */
         [background-image:var(--cap-pattern)]
@@ -509,78 +516,78 @@ export default function KatalogThemenPublic() {
         [background-size:170px]         
         py-16 pb-8
       "
-    >
-      <div className="container mx-auto px-6">
-        {/* Headline */}
-        <div className="pb-6 text-center">
-          <h4 className="text-2xl font-semibold">cap consulting GmbH</h4>
-        </div>
-
-        {/* zwei Spalten */}
-        <div className="flex flex-col gap-8 md:flex-row md:items-start md:justify-between">
-          {/* Adresse / Kontakt */}
-          <div className="text-center md:text-left">
-            <p className="leading-relaxed">
-              Potsdamer Str. 150
-              <br />
-              33719 Bielefeld
-            </p>
-
-            <p className="mt-3">
-              <a
-                href="tel:+4952199988300"
-                className="underline-offset-2 hover:underline"
-              >
-                Tel.: +49 521 999 883 00
-              </a>
-            </p>
-
-            <p className="mt-1">
-              <a
-                href="mailto:kontakt@cap-consulting.de"
-                className="underline-offset-2 hover:underline"
-              >
-                kontakt@cap-consulting.de
-              </a>
-            </p>
+      >
+        <div className="container mx-auto px-6">
+          {/* Headline */}
+          <div className="pb-6 text-center">
+            <h4 className="text-2xl font-semibold">cap consulting GmbH</h4>
           </div>
 
-          {/* Newsletter CTA */}
-          <div className="text-center md:text-right">
-            <p className="font-semibold">
-              Up-to-date mit unserem IT-Newsletter
-            </p>
-            <a
-              href="https://www.cap-consulting.de/newsletter-anmeldung/"
-              className="
+          {/* zwei Spalten */}
+          <div className="flex flex-col gap-8 md:flex-row md:items-start md:justify-between">
+            {/* Adresse / Kontakt */}
+            <div className="text-center md:text-left">
+              <p className="leading-relaxed">
+                Potsdamer Str. 150
+                <br />
+                33719 Bielefeld
+              </p>
+
+              <p className="mt-3">
+                <a
+                  href="tel:+4952199988300"
+                  className="underline-offset-2 hover:underline"
+                >
+                  Tel.: +49 521 999 883 00
+                </a>
+              </p>
+
+              <p className="mt-1">
+                <a
+                  href="mailto:kontakt@cap-consulting.de"
+                  className="underline-offset-2 hover:underline"
+                >
+                  kontakt@cap-consulting.de
+                </a>
+              </p>
+            </div>
+
+            {/* Newsletter CTA */}
+            <div className="text-center md:text-right">
+              <p className="font-semibold">
+                Up-to-date mit unserem IT-Newsletter
+              </p>
+              <a
+                href="https://www.cap-consulting.de/newsletter-anmeldung/"
+                className="
                 mt-2 inline-flex items-center
                 rounded-md bg-[#E3BB62] px-5 py-2
                 font-medium text-[#264555]
                 shadow hover:brightness-95
               "
-            >
-              Ich möchte aktuell bleiben
-            </a>
+              >
+                Ich möchte aktuell bleiben
+              </a>
+            </div>
           </div>
-        </div>
 
-        {/* Untere Link-Leiste */}
-        <div className="mt-10  border-white/20 pt-4">
-          <div className="mx-auto flex max-w-4xl flex-col items-center gap-3 text-center text-white/90 lg:flex-row lg:justify-evenly">
-            <p className="m-0">©2022 cap consulting GmbH</p>
-            <a className="hover:underline underline-offset-2" href="https://www.cap-consulting.de/impressum/">
-              Impressum
-            </a>
-            <a className="hover:underline underline-offset-2" href="https://www.cap-consulting.de/datenschutzerklaerung/">
-              Datenschutz
-            </a>
-            <a className="hover:underline underline-offset-2" href="https://www.cap-consulting.de/haftungsausschluss/">
-              Haftungsausschluss
-            </a>
+          {/* Untere Link-Leiste */}
+          <div className="mt-10  border-white/20 pt-4">
+            <div className="mx-auto flex max-w-4xl flex-col items-center gap-3 text-center text-white/90 lg:flex-row lg:justify-evenly">
+              <p className="m-0">©2022 cap consulting GmbH</p>
+              <a className="hover:underline underline-offset-2" href="https://www.cap-consulting.de/impressum/">
+                Impressum
+              </a>
+              <a className="hover:underline underline-offset-2" href="https://www.cap-consulting.de/datenschutzerklaerung/">
+                Datenschutz
+              </a>
+              <a className="hover:underline underline-offset-2" href="https://www.cap-consulting.de/haftungsausschluss/">
+                Haftungsausschluss
+              </a>
+            </div>
           </div>
         </div>
-      </div>
-    </footer>
+      </footer>
     </div>
   );
 }

@@ -44,7 +44,7 @@ function mapApiToDetails(x: CompanyApi): CompanyDetailsT {
 }
 const formatDate = (iso?: string | null) =>
   iso ? new Date(iso).toLocaleDateString("de-DE") : "—";
-type TabKey = "users" | "catalogs" | "settings";
+type TabKey = "users" | "catalogs";
 
 export default function CompanyDetails() {
   const { id } = useParams<{ id: string }>();
@@ -97,23 +97,23 @@ export default function CompanyDetails() {
   };
 
   /* ---------- Assignments laden (nur wenn Tab "catalogs") ---------- */
-useEffect(() => {
-  if (!id) return;
-  let alive = true;
-  setAssignLoading(true);
-  setAssignError(null);
-  (async () => {
-    try {
-      const list = await getAssignmentsByCompany(id);
-      if (alive) setAssignments(Array.isArray(list) ? list : []);
-    } catch (e: any) {
-      if (alive) setAssignError(e?.message ?? String(e));
-    } finally {
-      if (alive) setAssignLoading(false);
-    }
-  })();
-  return () => { alive = false; };
-}, [id]); 
+  useEffect(() => {
+    if (!id) return;
+    let alive = true;
+    setAssignLoading(true);
+    setAssignError(null);
+    (async () => {
+      try {
+        const list = await getAssignmentsByCompany(id);
+        if (alive) setAssignments(Array.isArray(list) ? list : []);
+      } catch (e: any) {
+        if (alive) setAssignError(e?.message ?? String(e));
+      } finally {
+        if (alive) setAssignLoading(false);
+      }
+    })();
+    return () => { alive = false; };
+  }, [id]);
 
   /* ---------- Company laden ---------- */
   useEffect(() => {
@@ -208,20 +208,20 @@ useEffect(() => {
   }
 
   /* ---------- abgeleitete Werte ---------- */
-const usersCount = typeof company?.usersCount === "number" ? company.usersCount : workers.length;
-const totalAssignmentsCount = assignments.length;
+  const usersCount = typeof company?.usersCount === "number" ? company.usersCount : workers.length;
+  const totalAssignmentsCount = assignments.length;
   //const catalogsCount = typeof company.catalogsCount === "number" ? company.catalogsCount : 0;
   const catalogsCount = (() => {
-  const ids = new Set<string>();
-  for (const a of assignments) if (a?.catalog?.id) ids.add(a.catalog.id);
-  return ids.size;
-})();
+    const ids = new Set<string>();
+    for (const a of assignments) if (a?.catalog?.id) ids.add(a.catalog.id);
+    return ids.size;
+  })();
   const statusLabel = (company.status ?? "active") === "active" ? "Active" : "Inactive";
   const statusClass =
     (company.status ?? "active") === "active"
       ? "bg-[rgb(220_252_231)] text-[rgb(22_101_52)]"
       : "bg-[rgb(254_226_226)] text-[rgb(153_27_27)]";
-// total = alle Zuweisungen
+  // total = alle Zuweisungen
 
   /* ---------- Invite ---------- */
   function openInviteModal() {
@@ -367,7 +367,7 @@ const totalAssignmentsCount = assignments.length;
         {/* Content Grid: mobil 1 Spalte, ab lg 1fr + 20rem (Sidebar rechts) */}
         <div className="grid grid-cols-1 gap-6 lg:[grid-template-columns:1fr_20rem]">
           {/* Hauptspalte */}
-          <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-6 min-w-0">
             <section className="admin-card p-6">
               {/* Company Kopf */}
               {/* Company Kopf – Name + Badge in EINER Zeile */}
@@ -461,9 +461,7 @@ const totalAssignmentsCount = assignments.length;
                 </div>
               </div>
 
-
-
-              {/* USERS TAB */}
+              {/* Workers TAB */}
               {tab === "users" && (
                 <div>
                   {workersLoading ? (
@@ -556,8 +554,12 @@ const totalAssignmentsCount = assignments.length;
                 <div>
                   {assignLoading ? (
                     <div className="text-center py-12 text-[hsl(var(--muted-foreground))]">
-                      <div className="text-[56px] leading-none mb-3 opacity-80" aria-hidden>📁</div>
-                      <p className="text-[1.125rem] text-[hsl(var(--foreground))] m-0">Lade Zuweisungen…</p>
+                      <div className="text-[56px] leading-none mb-3 opacity-80" aria-hidden>
+                        📁
+                      </div>
+                      <p className="text-[1.125rem] text-[hsl(var(--foreground))] m-0">
+                        Lade Zuweisungen…
+                      </p>
                     </div>
                   ) : assignError ? (
                     <div className="admin-error" role="alert" style={{ margin: "0.75rem 0" }}>
@@ -565,68 +567,91 @@ const totalAssignmentsCount = assignments.length;
                     </div>
                   ) : assignments.length === 0 ? (
                     <div className="text-center py-12 text-[hsl(var(--muted-foreground))]">
-                      <div className="text-[56px] leading-none mb-3 opacity-80" aria-hidden>📁</div>
+                      <div className="text-[56px] leading-none mb-3 opacity-80" aria-hidden>
+                        📁
+                      </div>
                       <p className="text-[1.125rem] text-[hsl(var(--foreground))] mb-1">
                         Keine Katalog-Zuweisungen vorhanden.
                       </p>
-                      <p className="text-[.95rem] m-0">Lege über „Assign Catalog“ neue Zuweisungen an.</p>
+                      <p className="text-[.95rem] m-0">
+                        Lege über „Assign Catalog“ neue Zuweisungen an.
+                      </p>
                     </div>
                   ) : (
                     <div className="overflow-x-auto">
-                      <table className="admin-table subtable w-full border-collapse text-left">
-                        <thead className="bg-[hsl(var(--muted))]">
+                      <table className="w-full border-collapse bg-white">
+                        {/* Header: gleicher Look wie bei Workers */}
+                        <thead className="bg-[hsla(200,32%,22%,0.05)] border-b-2 border-b-[hsla(200,32%,22%,0.10)]">
                           <tr>
-                            <th className="px-3 py-2 text-sm font-semibold">Worker</th>
-                            <th className="px-3 py-2 text-sm font-semibold">Email</th>
-                            <th className="px-3 py-2 text-sm font-semibold">Workspace</th>
-                            <th className="px-3 py-2 text-sm font-semibold">Catalog</th>
-                            <th className="px-3 py-2 text-sm font-semibold">Status</th>
-                            <th className="px-3 py-2 text-sm font-semibold">Assigned</th>
-                            <th className="px-3 py-2 text-sm font-semibold">Expires</th>
-                            <th className="px-3 py-2 text-sm font-semibold">Last Access</th>
-                            <th className="px-3 py-2 text-sm font-semibold">Completed</th>
+                            <th className="px-4 py-3 text-[0.85rem] font-semibold text-[hsl(205_35%_24%)] text-left">
+                              Worker
+                            </th>
+                            <th className="px-4 py-3 text-[0.85rem] font-semibold text-[hsl(205_35%_24%)] text-left">
+                              Email
+                            </th>
+                            <th className="px-4 py-3 text-[0.85rem] font-semibold text-[hsl(205_35%_24%)] text-left">
+                              Workspace
+                            </th>
+                            <th className="px-4 py-3 text-[0.85rem] font-semibold text-[hsl(205_35%_24%)] text-left">
+                              Catalog
+                            </th>
+                            <th className="px-4 py-3 text-[0.85rem] font-semibold text-[hsl(205_35%_24%)] text-left">
+                              Status
+                            </th>
+                            <th className="px-4 py-3 text-[0.85rem] font-semibold text-[hsl(205_35%_24%)] text-left">
+                              Assigned
+                            </th>
+                            <th className="px-4 py-3 text-[0.85rem] font-semibold text-[hsl(205_35%_24%)] text-left">
+                              Expires
+                            </th>
+                            <th className="px-4 py-3 text-[0.85rem] font-semibold text-[hsl(205_35%_24%)] text-left">
+                              Completed
+                            </th>
                           </tr>
                         </thead>
+
                         <tbody>
                           {assignments.map((a) => (
-                            <tr key={a.id} className="border-b border-[hsl(var(--border))] last:border-b-0">
-                              <td className="px-3 py-2 text-sm font-semibold">{a.worker?.name ?? "—"}</td>
-                              <td className="px-3 py-2 text-sm text-[hsl(var(--muted-foreground))]">{a.worker?.email ?? "—"}</td>
-                              <td className="px-3 py-2 text-sm text-[hsl(var(--muted-foreground))]">{a.worker?.workSpaceRef ?? "—"}</td>
-                              <td className="px-3 py-2 text-sm">{a.catalog?.title ?? "—"}</td>
-                              <td className="px-3 py-2 text-sm">
-                                <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[12px] font-semibold ${statusBadge(a.status)}`}>
+                            <tr
+                              key={a.id}
+                              className="group transition border-l-4 border-transparent hover:bg-[hsla(40,60%,63%,0.05)] hover:border-[hsl(40,60%,63%)]"
+                            >
+                              <td className="px-4 py-4 text-sm font-semibold border-b border-b-[hsl(30_15%_85%)]">
+                                {a.worker?.name ?? "—"}
+                              </td>
+                              <td className="px-4 py-4 text-sm text-[hsl(0_0%_50%)] border-b border-b-[hsl(30_15%_85%)]">
+                                {a.worker?.email ?? "—"}
+                              </td>
+                              <td className="px-4 py-4 text-sm text-[hsl(0_0%_50%)] border-b border-b-[hsl(30_15%_85%)]">
+                                {a.worker?.workSpaceRef ?? "—"}
+                              </td>
+                              <td className="px-4 py-4 text-sm border-b border-b-[hsl(30_15%_85%)]">
+                                {a.catalog?.title ?? "—"}
+                              </td>
+                              <td className="px-4 py-4 text-sm border-b border-b-[hsl(30_15%_85%)]">
+                                <span
+                                  className={`inline-flex items-center rounded-full px-2.5 py-1 text-[12px] font-semibold ${statusBadge(
+                                    a.status
+                                  )}`}
+                                >
                                   {a.status}
                                 </span>
                               </td>
-                              <td className="px-3 py-2 text-sm text-[hsl(var(--muted-foreground))]">{fmt(a.assignedAt)}</td>
-                              <td className="px-3 py-2 text-sm text-[hsl(var(--muted-foreground))]">{fmt(a.expiresAt)}</td>
-                              <td className="px-3 py-2 text-sm text-[hsl(var(--muted-foreground))]">{fmt(a.lastAccessAt)}</td>
-                              <td className="px-3 py-2 text-sm text-[hsl(var(--muted-foreground))]">{fmt(a.completedAt)}</td>
-
+                              <td className="px-4 py-4 text-sm text-[hsl(0_0%_50%)] border-b border-b-[hsl(30_15%_85%)]">
+                                {fmt(a.assignedAt)}
+                              </td>
+                              <td className="px-4 py-4 text-sm text-[hsl(0_0%_50%)] border-b border-b-[hsl(30_15%_85%)]">
+                                {fmt(a.expiresAt)}
+                              </td>
+                              <td className="px-4 py-4 text-sm text-[hsl(0_0%_50%)] border-b border-b-[hsl(30_15%_85%)]">
+                                {fmt(a.completedAt)}
+                              </td>
                             </tr>
                           ))}
                         </tbody>
                       </table>
                     </div>
                   )}
-                </div>
-              )}
-
-              {tab === "settings" && (
-                <div className="pt-2">
-                  <div className="grid grid-cols-1 md:[grid-template-columns:repeat(2,minmax(220px,1fr))] gap-x-5 gap-y-4 pt-3">
-                    <div className="flex flex-col gap-2">
-                      <label htmlFor="c-name" className="text-[.95rem] font-bold text-[hsl(var(--foreground))]">Company Name</label>
-                      <input
-                        id="c-name"
-                        value={company.name}
-                        readOnly
-                        className="px-4 py-3 rounded-lg border border-[hsl(var(--border))] bg-[#eee] text-[hsl(var(--foreground))] outline-none"
-                      />
-                    </div>
-                  </div>
-                  <p className="mt-4 text-[hsl(var(--muted-foreground))]">Settings management würde hier später implementiert.</p>
                 </div>
               )}
             </section>

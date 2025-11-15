@@ -26,6 +26,25 @@ function writeStore(store: any) {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(store)); } catch { }
 }
 
+function resolveAssignmentId(query: URLSearchParams): string {
+  const fromUrl = (query.get("assignmentId") || "").trim();
+  if (fromUrl) return fromUrl;
+
+  try {
+    const raw = localStorage.getItem("activeAssignmentMeta");
+    if (!raw) return "unknown";
+    const meta = JSON.parse(raw);
+    return (meta?.assignmentId || "unknown").trim() || "unknown";
+  } catch {
+    return "unknown";
+  }
+}
+
+function makeDashKey(assignmentId: string, topicId: string) {
+  return `assignment:${assignmentId}:topic:${topicId}`;
+}
+
+
 /** Query-Helper */
 function useQuery() {
   const { search } = useLocation();
@@ -36,9 +55,9 @@ export default function AssessmentPage() {
   const query = useQuery();
   const navigate = useNavigate();
 
-  const catalogId = query.get("catalogId") || ""; // optional
-  const catalogTitle = query.get("catalogTitle") || ""; // optional
-  const assignmentId = query.get("assignmentId") || ""; // optional
+  const catalogId = query.get("catalogId") || ""; 
+  const catalogTitle = query.get("catalogTitle") || ""; 
+const assignmentKeyId = resolveAssignmentId(query);
   const THEMEN_ROUTE = "/app/katalog-themen-public";
 
   // Einheitliche Rücknavigation zur Themenliste (mit ALLEN Parametern)
@@ -47,7 +66,7 @@ export default function AssessmentPage() {
       token: accessToken, // in der Public-Route heißt der Param "token"
       ...(catalogId ? { catalogId } : {}),
       ...(catalogTitle ? { catalogTitle } : {}),
-      ...(assignmentId ? { assignmentId } : {}),
+      ...(assignmentKeyId ? {  assignmentId: assignmentKeyId } : {}),
       ...(name ? { name } : {}),
       ...(code ? { code } : {}),
     });
@@ -101,7 +120,7 @@ const [score, setScore] = useState<{ totalScore: number | null; maxTotalScore: n
     setFatal(null);
     try {
       const store = readStore();
-      const dashKey = `topic:${tid}`;
+     const dashKey = makeDashKey(assignmentKeyId, tid);
       const existingSid: string | undefined = store?.[dashKey]?.sessionId;
 
       // 1) Falls es bereits eine Session gibt → fortsetzen
@@ -152,7 +171,7 @@ const [score, setScore] = useState<{ totalScore: number | null; maxTotalScore: n
     } finally {
       setLoading(false);
     }
-  }, [refreshState]);
+  }, [refreshState , assignmentKeyId]);
 
 
   /* -------- Initial Load -------- */
@@ -197,7 +216,7 @@ const [score, setScore] = useState<{ totalScore: number | null; maxTotalScore: n
       refreshState(accessToken, sessionId);
       try {
         const store = readStore();
-        const dashKey = `topic:${themaId}`;
+        const dashKey = makeDashKey(assignmentKeyId, themaId); 
         const prev = store[dashKey] ?? {};
         // progress.answered ist VOR dem aktuellen Save evtl. noch „alt“,
         // aber refreshState() oben holt den neuen Wert asynchron nach.
@@ -246,7 +265,7 @@ const [score, setScore] = useState<{ totalScore: number | null; maxTotalScore: n
     setProgress({ answered: 0, total: 0 });
     try {
       const store = readStore();
-      const dashKey = `topic:${themaId}`;
+     const dashKey = makeDashKey(assignmentKeyId, themaId); 
       delete store[dashKey];
       writeStore(store);
     } catch { }

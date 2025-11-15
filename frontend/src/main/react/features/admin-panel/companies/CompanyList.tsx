@@ -1,12 +1,12 @@
 
 import { useEffect, useMemo, useState } from "react";
-import { Link ,useParams } from "react-router-dom";
+import { Link } from "react-router-dom";
 import AdminLayout from "@/apps/app/AdminLayout";
 import { Search, ArrowUpDown, Eye, Building2, Plus, Trash2, Pencil } from "lucide-react";
 import myLogo from "@/assets/Zero-6-icons-05.webp";
 import {
   getCompanies,
-  getCompany,
+  //getCompany,
   getWorkersByCompany,
   createCompany,
   deleteCompany,
@@ -14,12 +14,12 @@ import {
   updateCompany,
   type UpdateCompanyDto,
   getAssignmentsByCompany,
-  type AssignmentApi
+ // type AssignmentApi
 } from "@/features/service/companyService";
 
 /* ================= Types ================= */
-type CompanyApi = { id: string; name: string; description?: string; created_at?: string };
-type Company = { id: string; name: string; status?: "active" | "inactive"; created: string };
+type CompanyApi = { id: string; name: string; description?: string; createdAt?: string };
+type Company = { id: string; name: string; status?: "active" | "inactive"; description?:string; created: string | null };
 
 type SortKey = "name" | "workers" | "catalogs" | "status" | "created";
 
@@ -28,9 +28,14 @@ function mapApiToCompany(x: CompanyApi): Company {
     id: String(x.id),
     name: String(x.name ?? "Unbenannte Firma"),
     status: "active",
-    created: x.created_at ? new Date(x.created_at).toISOString() : new Date().toISOString(),
+    description: x.description ??"",
+    created: x.createdAt ? new Date(x.createdAt).toISOString() : null,
   };
 }
+const formatDate = (iso?: string | null) =>
+  iso ? new Date(iso).toLocaleDateString("de-DE") : "–";
+
+
 
 /* ============== Tokens wie bei Users/Zuweisungen ============== */
 const CSS = {
@@ -174,7 +179,7 @@ export default function CompaniesList() {
         if (sortKey === "workers") return workerCounts[c.id] ?? -1;
         if (sortKey === "catalogs") return catalogCounts[c.id] ?? -1;
         if (sortKey === "status") return c.status ?? "active";
-        if (sortKey === "created") return new Date(c.created).getTime();
+        if (sortKey === "created") c.created ? new Date(c.created).getTime() : 0;
         return c.name.toLowerCase();
       };
       const av = val(a), bv = val(b);
@@ -246,7 +251,7 @@ export default function CompaniesList() {
   const openEditFor = (c: Company) => {
     setEditCompany(c);
     setEName(c.name);
-    setEDesc("");
+    setEDesc(c.description ??"");
     setUpdateError(null);
     setOpenEdit(true);
   };
@@ -271,7 +276,14 @@ export default function CompaniesList() {
 
       setItems(prev =>
         prev.map(row =>
-          row.id === editCompany.id ? { ...row, name: (updated as any).name ?? payload.name } : row
+          row.id === editCompany.id ? {
+             ...row, 
+             name: (updated as any).name ?? payload.name,
+            description:
+            (updated as any).description ??
+            payload.description ??
+            row.description,
+            } : row
         )
       );
       cancelEdit();
@@ -472,7 +484,7 @@ export default function CompaniesList() {
 
                         {/* Created */}
                         <td className="px-4 py-4 text-[0.875rem]" style={{ color: CSS.mutedFg, borderBottom: `1px solid ${CSS.border}` }}>
-                        -
+                        {formatDate(c.created)}
                         </td>
 
                         {/* Actions */}
@@ -603,8 +615,8 @@ export default function CompaniesList() {
                 <input id="e-name" className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-300" value={eName} onChange={(e) => setEName(e.target.value)} placeholder="Firmenname" required />
               </div>
               <div>
-                <label htmlFor="e-desc" className="mb-1 block text-sm font-medium">Description</label>
-                <textarea id="e-desc" className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-300" rows={4} value={eDesc} onChange={(e) => setEDesc(e.target.value)} placeholder="Optional" />
+                <label htmlFor="e-desc" className="mb-1 block text-sm font-medium">Description *</label>
+                <textarea id="e-desc" className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-300" rows={4} value={eDesc} onChange={(e) => setEDesc(e.target.value)} placeholder="Beschreibung" />
               </div>
               <div className="flex justify-end gap-2 pt-1">
                 <button type="button" onClick={cancelEdit} className="inline-flex items-center rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60" disabled={updating}>Cancel</button>

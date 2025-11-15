@@ -79,7 +79,7 @@ export default function AppRoutes() {
       <Route
         path="/app/assessments"
         element={
-          <ProtectedRoute permission="user:dashboard:view">
+          <ProtectedRoute >
             <AssessmentPage />
           </ProtectedRoute>
         }

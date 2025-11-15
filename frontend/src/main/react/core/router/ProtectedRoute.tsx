@@ -21,7 +21,6 @@ export default function ProtectedRoute({ permission, children, allowWithToken = 
   //const inviteCode  = qs.get("code"); // optional
 
   // Wenn Route für Invite-Flow freigegeben ist und ein Token vorhanden ist → durchlassen
-  // (Wenn du strenger sein willst: !!inviteToken && !!inviteCode)
   if (allowWithToken && !!inviteToken) {
     return <>{children}</>;
   }
