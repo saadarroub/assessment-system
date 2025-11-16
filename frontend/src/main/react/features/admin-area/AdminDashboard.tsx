@@ -12,7 +12,7 @@ import TopicCard from "./TopicCard";
 
 // Icons
 import myLogo from "@/assets/Zero-6-icons-05.webp";
-import { Plus, MinusSquare, Search } from "lucide-react";
+import { Plus, MinusSquare, Search,Layers, ListOrdered, Users, Clock } from "lucide-react";
 
 // API
 import {
@@ -33,6 +33,16 @@ type Topic = {
 };
 
 // STATS
+
+const STAT_COLORS = ["#808080", "#56768f","#264555",  "#d2c9b9"];
+
+const STAT_ICONS = [
+  <Layers size={48} />,
+  <ListOrdered size={48} />,
+  <Users size={48} />,
+  <Clock size={48} />,
+];
+
 type Stat = { label: string; value: string; tone?: "positive" | "neutral" };
 
 const STATS: Stat[] = [
@@ -197,7 +207,7 @@ export default function AdminDashboard() {
       {/* BODY */}
       <div className="dashboard-content bg-[hsl(0_0%_92%)] min-h-[calc(100vh-64px)] px-6 py-6 mt-2">
         {/* BUTTON */}
-        <div className="flex justify-end px-8 mb-4">
+        <div className="flex justify-end mt-4">
           <button
             className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#264555] text-white shadow-md hover:bg-[#223e4c]"
             onClick={() => navigate("/admin/adminPanel")}
@@ -208,31 +218,56 @@ export default function AdminDashboard() {
         </div>
 
         {/* STATS */}
-        <section className="stats-panel">
-          <div className="grid grid-cols-4 gap-4">
-            {STATS.map((s, i) => (
-              <div key={i} className="stat-card">
-                <div className="stat-content">
-                  <div className="stat-info">
-                    <p className="stat-label">{s.label}</p>
-                    <p className="stat-value">
-                      {s.value === "–"
-                        ? i === 0
-                          ? topics.length
-                          : i === 1
-                          ? topics.reduce(
-                              (sum, t) => sum + (t.questions || 0),
-                              0
-                            )
-                          : "–"
-                        : s.value}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
+ <section className="stats-panel mt-4">
+  <div className="grid grid-cols-4 gap-4">
+
+    {STATS.map((s, i) => (
+      <div
+        key={i}
+        className="
+          relative
+          h-[110px]
+          rounded-2xl 
+          shadow-[0_4px_16px_rgba(0,0,0,0.15)]
+          overflow-hidden
+          p-5
+          flex flex-col justify-between
+        "
+        style={{ backgroundColor: STAT_COLORS[i] }}
+      >
+        {/* ICON BACKGROUND */}
+        <div
+          className="absolute right-3 bottom-3 opacity-[0.18]"
+          style={{ color: "white" }}
+        >
+          {STAT_ICONS[i]}
+        </div>
+
+        {/* LABEL */}
+        <p className="text-white/80 text-sm font-medium">
+          {s.label}
+        </p>
+
+        {/* VALUE */}
+        <p className="text-white text-4xl font-extrabold">
+          {s.value === "–"
+            ? i === 0
+              ? topics.length
+              : i === 1
+              ? topics.reduce(
+                  (sum, t) => sum + (t.questions || 0),
+                  0
+                )
+              : "–"
+            : s.value}
+        </p>
+      </div>
+    ))}
+
+  </div>
+</section>
+
+
 
         {/* THEMEN */}
         {!loading && (
@@ -283,7 +318,11 @@ export default function AdminDashboard() {
                 border border-gray-300/30
               "
             >
-              <div className="topics-grid">
+             <div
+  className="topics-grid grid gap-6"
+  style={{ gridTemplateColumns: "repeat(auto-fill, minmax(420px, 1fr))" }}
+>
+
                 {currentTopics.map((t) => (
                   <TopicCard
                     key={t.id}

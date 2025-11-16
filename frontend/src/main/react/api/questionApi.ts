@@ -169,6 +169,24 @@ export async function createQuestionNode(
   return response.data;
 }
 
+// 🔧 Frage verschieben (root)
+export async function moveRootNode(nodeId: string, position: number) {
+  const url = `${API_BASE}/question-nodes/${nodeId}/move?position=${position}`;
+  await axios.patch(url);
+}
+
+
+
+// 🔧 Unterfrage verschieben (parent bleibt gleich)
+export async function moveChildNode(
+  nodeId: string,
+  parentId: string,
+  position: number
+) {
+  const url = `${API_BASE}/question-nodes/${nodeId}/move?newParentId=${parentId}&position=${position}`;
+  await axios.patch(url);
+}
+
 
 
 

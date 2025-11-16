@@ -31,6 +31,8 @@ import {
   createQuestionNode,
   getQuestionTypes,
   updateQuestion,
+    moveRootNode,
+  moveChildNode
 } from "@/api/questionApi";
 
 // 🧩 Drag & Drop Imports
@@ -551,7 +553,7 @@ export default function ConditionEditor() {
         id: node.id,
         questionId: question.id,
         text: question.text,
-        type: selectedType,
+        type: selectedType.value,
         children: [],
         expanded: false,
       };
@@ -912,20 +914,107 @@ export default function ConditionEditor() {
   }
 
   // 🧩 DragEnd Handler (innerhalb einer Ebene)
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
-    setQuestions((prev) =>
-      moveQuestion(prev, String(active.id), String(over.id))
+// 🔧 DragEnd Handler (Root + Child)
+const handleDragEnd = async (event: DragEndEvent) => {
+  const { active, over } = event;
+  if (!over || active.id === over.id) return;
+
+  const activeId = String(active.id);
+  const overId = String(over.id);
+
+  // -----------------------------------------
+  // 1. Helper: finde Node + parentId + index
+  // -----------------------------------------
+  const findNode = (
+    list: any[],
+    id: string,
+    parentId: string | null = null
+  ): { node: any; parentId: string | null; index: number } | null => {
+    for (let i = 0; i < list.length; i++) {
+      const q = list[i];
+      if (q.id === id) return { node: q, parentId, index: i };
+
+      if (q.children?.length) {
+        const found = findNode(q.children, id, q.id);
+        if (found) return found;
+      }
+    }
+    return null;
+  };
+
+  const activeInfo = findNode(questions, activeId);
+  const overInfo = findNode(questions, overId);
+
+  if (!activeInfo || !overInfo) return;
+
+  // -----------------------------------------
+  // 2. UI bewegen
+  // -----------------------------------------
+  const reorder = (
+    list: any[],
+    activeId: string,
+    overId: string
+  ): any[] => {
+    const oldIndex = list.findIndex((x) => x.id === activeId);
+    const newIndex = list.findIndex((x) => x.id === overId);
+
+    if (oldIndex !== -1 && newIndex !== -1) {
+      return arrayMove(list, oldIndex, newIndex);
+    }
+
+    return list.map((q) =>
+      q.children?.length
+        ? { ...q, children: reorder(q.children, activeId, overId) }
+        : q
     );
   };
+
+  setQuestions((prev) => reorder(prev, activeId, overId));
+
+  // -----------------------------------------
+  // 3. Backend korrekt updaten
+  // -----------------------------------------
+
+  const newPosition = overInfo.index; // 0, 1, 2 ...
+
+  try {
+    // ROOT → ROOT
+    if (!activeInfo.parentId && !overInfo.parentId) {
+      await moveRootNode(activeId, newPosition);
+      console.log("📌 Root verschoben:", activeId, "→ Position", newPosition);
+      return;
+    }
+
+    // CHILD → CHILD (gleiche Ebene)
+    if (activeInfo.parentId === overInfo.parentId) {
+      await moveChildNode(activeId, activeInfo.parentId!, newPosition);
+      console.log(
+        "📌 Child verschoben in gleicher Ebene:",
+        activeId,
+        "→ Position",
+        newPosition
+      );
+      return;
+    }
+
+    // CHILD → anderer Parent (nicht erlaubt?)
+    console.warn(
+      "⚠️ Verschieben in andere Parent-Ebene ist deaktiviert (Absprache)."
+    );
+
+  } catch (err) {
+    console.error("❌ Fehler beim Reorder:", err);
+  }
+};
+
+
 
   // 🔧 Verschieben (rekursiv)
   const moveQuestion = (
     list: any[],
     activeId: string,
     overId: string
-  ): any[] => {
+   ): any[] => {
     const oldIndex = list.findIndex((item) => item.id === activeId);
     const newIndex = list.findIndex((item) => item.id === overId);
 

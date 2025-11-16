@@ -36,16 +36,15 @@ const TopicCard = ({ t, onDelete, onEdit, onManage }: TopicCardProps) => {
 
   return (
     <div
-      className="
-        relative flex flex-col rounded-xl overflow-hidden 
-        shadow-md
-        transition-transform duration-200
-        hover:-translate-y-1 hover:will-change-transform
-        p-5
-      "
-      style={{
-        background: baseColor,
-      }}
+    className="
+  relative flex flex-col rounded-xl overflow-hidden 
+  shadow-md
+  p-5
+"
+style={{
+  background: baseColor,
+}}
+
     >
       <div className="relative z-10 flex flex-col gap-4">
 
@@ -73,9 +72,9 @@ const TopicCard = ({ t, onDelete, onEdit, onManage }: TopicCardProps) => {
 
         {/* TITLE + SUBTITLE */}
         <div className="flex flex-col gap-1 min-h-[80px]">
-          <h3 className={`text-xl font-semibold leading-tight line-clamp-2 ${textColor}`}>
+          <h4 className={`text-xl font-semibold leading-tight line-clamp-2 ${textColor}`}>
             {t.title}
-          </h3>
+          </h4>
           <p className={`text-sm leading-relaxed line-clamp-2 ${textColorSoft}`}>
             {t.subtitle || "Keine Beschreibung vorhanden"}
           </p>
