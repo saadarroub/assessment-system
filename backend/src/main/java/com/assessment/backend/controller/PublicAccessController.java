@@ -1,5 +1,10 @@
 package com.assessment.backend.controller;
 
+import com.assessment.backend.dto.QuestionNavigationResponseDTO;
+import com.assessment.backend.dto.SaveAnswerResponseDTO;
+import com.assessment.backend.dto.SessionStateResponseDTO;
+import com.assessment.backend.dto.SessionSummaryResponseDTO;
+import com.assessment.backend.entity.Answer;
 import com.assessment.backend.entity.AssessmentSession;
 import com.assessment.backend.entity.Catalog;
 import com.assessment.backend.entity.Thema;
@@ -13,6 +18,7 @@ import com.assessment.backend.service.ThemaCatalogService;
 import com.assessment.backend.service.WorkerCatalogService;
 import com.assessment.backend.util.AccessGuardUtil;
 import com.assessment.backend.util.PublicQueryUtil;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -48,6 +54,12 @@ public class PublicAccessController {
 
     @Autowired
     private AutoScoringService autoScoringService;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    @Autowired
+    private com.assessment.backend.repository.ThemaRepository themaRepository;
 
     /**
      * Hilfsmethode: Ermittelt den input_type einer Frage
@@ -458,15 +470,21 @@ public class PublicAccessController {
 
             long answered = answerService.countAnswered(session.getId());
             int total = publicQueryUtil.countQuestionsByThema(session.getThemaId());
+            
+            // Berechne Progress-Prozent (0-100, ohne Nachkommastellen)
+            int progressPercent = total > 0 ? (int) Math.round((answered * 100.0) / total) : 0;
 
             AccessGuardUtil.touchLastAccess(workerCatalogService, assignment.getId());
 
-            return new ResponseEntity<>(Map.of(
-                "status", session.getStatus(),
-                "answeredCount", answered,
-                "totalCount", total,
-                "themaId", session.getThemaId()
-            ), HttpStatus.OK);
+            SessionStateResponseDTO response = new SessionStateResponseDTO(
+                session.getStatus(),
+                answered,
+                total,
+                progressPercent,
+                session.getThemaId()
+            );
+
+            return new ResponseEntity<>(response, HttpStatus.OK);
         } catch (Exception e) {
             return new ResponseEntity<>(Map.of("error", "Internal server error: " + e.getMessage()), HttpStatus.INTERNAL_SERVER_ERROR);
         }
@@ -505,6 +523,221 @@ public class PublicAccessController {
             return new ResponseEntity<>(next, HttpStatus.OK);
         } catch (Exception e) {
             return new ResponseEntity<>(Map.of("error", "Internal server error: " + e.getMessage()), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * GET /public/access/{accessToken}/sessions/{sessionId}/previous
+     * Liefert die vorherige (letzte beantwortete) Frage MIT gespeicherter Antwort
+     */
+    @GetMapping("/{accessToken}/sessions/{sessionId}/previous")
+    public ResponseEntity<?> previousQuestion(
+            @PathVariable("accessToken") String accessToken,
+            @PathVariable("sessionId") String sessionId) {
+        try {
+            Optional<WorkerCatalog> assignmentOpt = workerCatalogService.findByAccessToken(accessToken);
+            if (assignmentOpt.isEmpty()) {
+                return new ResponseEntity<>(Map.of("error", "Invalid access link"), HttpStatus.NOT_FOUND);
+            }
+            WorkerCatalog assignment = assignmentOpt.get();
+            ResponseEntity<?> denied = AccessGuardUtil.guardAssignment(assignment);
+            if (denied != null) return denied;
+
+            UUID sessionUuid = AccessGuardUtil.parseUuidOrNull(sessionId);
+            if (sessionUuid == null) {
+                return new ResponseEntity<>(Map.of("error", "Invalid sessionId format"), HttpStatus.BAD_REQUEST);
+            }
+
+            AssessmentSession session = assessmentSessionService.get(sessionUuid);
+            ResponseEntity<?> ownDenied = AccessGuardUtil.guardSessionOwnership(assignment, session, themaCatalogService);
+            if (ownDenied != null) return ownDenied;
+
+            // Finde vorherige Frage
+            Map<String, Object> previous = publicQueryUtil.findPreviousQuestion(session.getId(), session.getThemaId());
+            
+            if (previous == null) {
+                // Keine vorherige Frage vorhanden
+                return new ResponseEntity<>(Map.of("atStart", true), HttpStatus.NO_CONTENT);
+            }
+
+            // Hole die gespeicherte Antwort
+            UUID questionId = (UUID) previous.get("questionId");
+            Answer answer = answerService.getAnswer(session.getId(), questionId);
+            
+            if (answer != null) {
+                // Baue currentAnswer Objekt
+                Map<String, Object> currentAnswer = new HashMap<>();
+                currentAnswer.put("answerId", answer.getId());
+                
+                // Parse value (JSONB String -> Object)
+                try {
+                    Object parsedValue = objectMapper.readValue(answer.getValue(), Object.class);
+                    currentAnswer.put("value", parsedValue);
+                } catch (Exception e) {
+                    // Fallback: als String zurückgeben
+                    currentAnswer.put("value", answer.getValue());
+                }
+                
+                currentAnswer.put("score", answer.getScore());
+                currentAnswer.put("answeredAt", answer.getAnsweredAt());
+                
+                previous.put("currentAnswer", currentAnswer);
+            }
+
+            AccessGuardUtil.touchLastAccess(workerCatalogService, assignment.getId());
+
+            return new ResponseEntity<>(previous, HttpStatus.OK);
+        } catch (Exception e) {
+            return new ResponseEntity<>(
+                Map.of("error", "Internal server error: " + e.getMessage()), 
+                HttpStatus.INTERNAL_SERVER_ERROR
+            );
+        }
+    }
+
+    /**
+     * GET /public/access/{accessToken}/sessions/{sessionId}/summary
+     * Gibt Übersicht aller beantworteten Fragen mit Scores zurück
+     * Für finales Review vor dem Abschließen der Session
+     */
+    @GetMapping("/{accessToken}/sessions/{sessionId}/summary")
+    public ResponseEntity<?> getSessionSummary(
+            @PathVariable("accessToken") String accessToken,
+            @PathVariable("sessionId") String sessionId) {
+        try {
+            Optional<WorkerCatalog> assignmentOpt = workerCatalogService.findByAccessToken(accessToken);
+            if (assignmentOpt.isEmpty()) {
+                return new ResponseEntity<>(Map.of("error", "Invalid access link"), HttpStatus.NOT_FOUND);
+            }
+            WorkerCatalog assignment = assignmentOpt.get();
+            ResponseEntity<?> denied = AccessGuardUtil.guardAssignment(assignment);
+            if (denied != null) return denied;
+
+            UUID sessionUuid = AccessGuardUtil.parseUuidOrNull(sessionId);
+            if (sessionUuid == null) {
+                return new ResponseEntity<>(Map.of("error", "Invalid sessionId format"), HttpStatus.BAD_REQUEST);
+            }
+
+            AssessmentSession session = assessmentSessionService.get(sessionUuid);
+            ResponseEntity<?> ownDenied = AccessGuardUtil.guardSessionOwnership(assignment, session, themaCatalogService);
+            if (ownDenied != null) return ownDenied;
+
+            // Hole alle beantworteten Fragen
+            List<Map<String, Object>> answeredQuestionsData = publicQueryUtil.getAnsweredQuestionsWithDetails(sessionUuid);
+            
+            // Baue DTO
+            SessionSummaryResponseDTO summary = new SessionSummaryResponseDTO();
+            summary.setSessionId(session.getId());
+            summary.setStatus(session.getStatus());
+            summary.setThemaId(session.getThemaId());
+            
+            // Thema Name
+            themaRepository.findById(session.getThemaId()).ifPresent(thema -> 
+                summary.setThemaName(thema.getName())
+            );
+            
+            // Progress
+            int totalQuestions = publicQueryUtil.countQuestionsByThema(session.getThemaId());
+            int answeredCount = answeredQuestionsData.size();
+            int progressPercent = totalQuestions > 0 ? (int) Math.round((answeredCount * 100.0) / totalQuestions) : 0;
+            
+            summary.setAnsweredCount(answeredCount);
+            summary.setTotalQuestions(totalQuestions);
+            summary.setProgressPercent(progressPercent);
+            
+            // Scores
+            summary.setTotalScore(session.getTotalScore());
+            summary.setMaxPossibleScore(session.getMaxPossibleScore());
+            
+            // Konvertiere beantwortete Fragen
+            List<SessionSummaryResponseDTO.AnsweredQuestionSummary> answeredQuestions = answeredQuestionsData.stream()
+                .map(data -> {
+                    SessionSummaryResponseDTO.AnsweredQuestionSummary q = new SessionSummaryResponseDTO.AnsweredQuestionSummary();
+                    q.setQuestionId((UUID) data.get("questionId"));
+                    q.setQuestionText((String) data.get("questionText"));
+                    q.setInputType((String) data.get("inputType"));
+                    q.setScore((BigDecimal) data.get("score"));
+                    q.setAnsweredAt((LocalDateTime) data.get("answeredAt"));
+                    q.setOrderIndex((Integer) data.get("orderIndex"));
+                    
+                    // Parse answer value (JSONB String -> Object)
+                    String answerValueJson = (String) data.get("answerValue");
+                    try {
+                        Object parsedValue = objectMapper.readValue(answerValueJson, Object.class);
+                        q.setAnsweredValue(parsedValue);
+                    } catch (Exception e) {
+                        q.setAnsweredValue(answerValueJson); // Fallback
+                    }
+                    
+                    // Berechne maxScore für diese Frage (aus scoring_schema)
+                    String scoringSchemaJson = (String) data.get("scoringSchema");
+                    BigDecimal maxScore = calculateMaxScoreForQuestion(
+                        (String) data.get("inputType"), 
+                        scoringSchemaJson
+                    );
+                    q.setMaxScore(maxScore);
+                    
+                    return q;
+                })
+                .collect(Collectors.toList());
+            
+            summary.setAnsweredQuestions(answeredQuestions);
+            
+            AccessGuardUtil.touchLastAccess(workerCatalogService, assignment.getId());
+
+            return new ResponseEntity<>(summary, HttpStatus.OK);
+        } catch (Exception e) {
+            return new ResponseEntity<>(
+                Map.of("error", "Internal server error: " + e.getMessage()), 
+                HttpStatus.INTERNAL_SERVER_ERROR
+            );
+        }
+    }
+    
+    /**
+     * Hilfsmethode: Berechnet max mögliche Punkte für eine einzelne Frage
+     */
+    private BigDecimal calculateMaxScoreForQuestion(String inputType, String scoringSchemaJson) {
+        String normalized = normalizeInputType(inputType);
+        
+        if ("rating_scale".equals(normalized)) {
+            return BigDecimal.valueOf(5);
+        }
+        
+        if (scoringSchemaJson == null || scoringSchemaJson.isBlank()) {
+            return BigDecimal.valueOf(5); // Fallback
+        }
+        
+        try {
+            com.fasterxml.jackson.databind.JsonNode root = objectMapper.readTree(scoringSchemaJson);
+            
+            if ("multiple_select".equals(normalized)) {
+                // Summe aller positiven Werte
+                double sum = 0.0;
+                var iter = root.fields();
+                while (iter.hasNext()) {
+                    var entry = iter.next();
+                    if (entry.getValue().isNumber()) {
+                        double val = entry.getValue().asDouble(0.0);
+                        if (val > 0) sum += val;
+                    }
+                }
+                return BigDecimal.valueOf(sum);
+            } else {
+                // Maximum Wert
+                double max = 0.0;
+                var iter = root.fields();
+                while (iter.hasNext()) {
+                    var entry = iter.next();
+                    if (entry.getValue().isNumber()) {
+                        double val = entry.getValue().asDouble(0.0);
+                        if (val > max) max = val;
+                    }
+                }
+                return BigDecimal.valueOf(max);
+            }
+        } catch (Exception e) {
+            return BigDecimal.valueOf(5); // Fallback
         }
     }
 
@@ -579,12 +812,14 @@ public class PublicAccessController {
                 long answered = answerService.countAnswered(session.getId());
                 AccessGuardUtil.touchLastAccess(workerCatalogService, assignment.getId());
 
-                return new ResponseEntity<>(Map.of(
-                    "saved", true,
-                    "answerId", saved.getId(),
-                    "score", saved.getScore(),
-                    "answeredCount", answered
-                ), HttpStatus.OK);
+                SaveAnswerResponseDTO response = new SaveAnswerResponseDTO(
+                    true,
+                    saved.getId(),
+                    saved.getScore(),
+                    answered
+                );
+
+                return new ResponseEntity<>(response, HttpStatus.OK);
             }
 
             // Für alle anderen Typen: Auto-Scoring verwenden
@@ -598,12 +833,14 @@ public class PublicAccessController {
             long answered = answerService.countAnswered(session.getId());
             AccessGuardUtil.touchLastAccess(workerCatalogService, assignment.getId());
 
-            return new ResponseEntity<>(Map.of(
-                "saved", true,
-                "answerId", saved.getId(),
-                "score", saved.getScore(),
-                "answeredCount", answered
-            ), HttpStatus.OK);
+            SaveAnswerResponseDTO response = new SaveAnswerResponseDTO(
+                true,
+                saved.getId(),
+                saved.getScore(),
+                answered
+            );
+
+            return new ResponseEntity<>(response, HttpStatus.OK);
         } catch (Exception e) {
             return new ResponseEntity<>(Map.of("error", "Internal server error: " + e.getMessage()), HttpStatus.INTERNAL_SERVER_ERROR);
         }

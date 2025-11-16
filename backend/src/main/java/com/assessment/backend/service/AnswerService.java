@@ -41,4 +41,14 @@ public class AnswerService {
     public long countAnswered(UUID sessionId) {
         return repository.countBySessionId(sessionId);
     }
+
+    /**
+     * Holt eine gespeicherte Antwort für eine Frage in einer Session
+     * @param sessionId UUID der Session
+     * @param questionId UUID der Frage
+     * @return Answer Entity oder null
+     */
+    public Answer getAnswer(UUID sessionId, UUID questionId) {
+        return repository.findBySessionIdAndQuestionId(sessionId, questionId).orElse(null);
+    }
 }

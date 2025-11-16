@@ -141,6 +141,154 @@ public class PublicQueryUtil {
     }
 
     /**
+     * Findet die vorherige (letzte beantwortete) Frage in einer Session
+     * Nutzt die hierarchische Sortierung via sort_path (wie findNextQuestion)
+     * aber filtert nur auf bereits beantwortete Fragen und nimmt die letzte.
+     * 
+     * @param sessionId UUID der Session
+     * @param themaId UUID des Themas
+     * @return Map mit Frage-Details oder null wenn keine vorherige Frage existiert
+     */
+    @Nullable
+    public Map<String, Object> findPreviousQuestion(UUID sessionId, UUID themaId) {
+        return jdbcTemplate.query(
+                """
+                -- Recursive CTE für hierarchische Fragenreihenfolge (identisch zu findNextQuestion)
+                WITH RECURSIVE question_hierarchy AS (
+                  -- Basis: Root-Fragen (ohne Parent)
+                  SELECT 
+                    qn.id as node_id,
+                    qn.question_id,
+                    qn.order_index,
+                    qn.parent_node_id,
+                    0 as depth,
+                    LPAD(qn.order_index::TEXT, 4, '0') as sort_path
+                  FROM public.question_node qn
+                  WHERE qn.thema_id = ? 
+                    AND qn.parent_node_id IS NULL
+                  
+                  UNION ALL
+                  
+                  -- Rekursion: Kinder der bereits gefundenen Nodes
+                  SELECT 
+                    child.id,
+                    child.question_id,
+                    child.order_index,
+                    child.parent_node_id,
+                    qh.depth + 1,
+                    qh.sort_path || '.' || LPAD(child.order_index::TEXT, 4, '0')
+                  FROM public.question_node child
+                  INNER JOIN question_hierarchy qh ON child.parent_node_id = qh.node_id
+                  WHERE child.thema_id = ?
+                ),
+                answered_questions AS (
+                  -- Alle beantworteten Fragen mit Zeitstempel
+                  SELECT 
+                    a.question_id,
+                    a.answered_at
+                  FROM public.answer a
+                  WHERE a.session_id = ?
+                )
+                SELECT 
+                  qh.question_id,
+                  qh.order_index,
+                  q.text AS question_text,
+                  q.options,
+                  q.scoring_schema,
+                  qt.input_type,
+                  qt.name AS question_type_name,
+                  aq.answered_at
+                FROM question_hierarchy qh
+                JOIN public.question q ON q.id = qh.question_id
+                JOIN public.question_type qt ON qt.id = q.type_id
+                JOIN answered_questions aq ON aq.question_id = qh.question_id
+                -- Nur beantwortete Fragen (via JOIN mit answered_questions)
+                ORDER BY qh.sort_path DESC  -- Reverse: Letzte Frage zuerst
+                LIMIT 1
+                """,
+                ps -> { 
+                    ps.setObject(1, themaId);   // Root-Fragen Filter
+                    ps.setObject(2, themaId);   // Kinder Filter (Rekursion)
+                    ps.setObject(3, sessionId); // Beantwortete Fragen Filter
+                },
+                rs -> {
+                    if (!rs.next()) return null;
+                    
+                    Map<String, Object> result = new java.util.HashMap<>();
+                    result.put("questionId", UUID.fromString(rs.getString("question_id")));
+                    result.put("index", rs.getInt("order_index"));
+                    result.put("text", rs.getString("question_text"));
+                    result.put("inputType", rs.getString("input_type"));
+                    result.put("questionTypeName", rs.getString("question_type_name"));
+                    
+                    // Options als JSON String
+                    String options = rs.getString("options");
+                    result.put("options", options);
+                    
+                    // Scoring Schema als JSON String
+                    String scoringSchema = rs.getString("scoring_schema");
+                    result.put("scoringSchema", scoringSchema);
+                    
+                    // Bereits beantwortet
+                    result.put("answered", true);
+                    
+                    // Timestamp der Antwort
+                    java.sql.Timestamp timestamp = rs.getTimestamp("answered_at");
+                    if (timestamp != null) {
+                        result.put("answeredAt", timestamp.toLocalDateTime());
+                    }
+                    
+                    return result;
+                }
+        );
+    }
+
+    /**
+     * Holt alle beantworteten Fragen einer Session mit Details
+     * Sortiert nach answered_at (chronologisch)
+     * 
+     * @param sessionId UUID der Session
+     * @return List von Maps mit Frage-Details und Antworten
+     */
+    public java.util.List<Map<String, Object>> getAnsweredQuestionsWithDetails(UUID sessionId) {
+        return jdbcTemplate.query(
+                """
+                SELECT 
+                  q.id as question_id,
+                  q.text as question_text,
+                  qt.input_type,
+                  qt.name as question_type_name,
+                  q.scoring_schema,
+                  a.value as answer_value,
+                  a.score,
+                  a.answered_at,
+                  qn.order_index
+                FROM public.answer a
+                JOIN public.question q ON q.id = a.question_id
+                JOIN public.question_type qt ON qt.id = q.type_id
+                JOIN public.question_node qn ON qn.question_id = q.id
+                JOIN public.assessment_session s ON s.id = a.session_id AND qn.thema_id = s.thema_id
+                WHERE a.session_id = ?
+                ORDER BY a.answered_at ASC
+                """,
+                ps -> ps.setObject(1, sessionId),
+                (rs, rowNum) -> {
+                    Map<String, Object> result = new java.util.HashMap<>();
+                    result.put("questionId", UUID.fromString(rs.getString("question_id")));
+                    result.put("questionText", rs.getString("question_text"));
+                    result.put("inputType", rs.getString("input_type"));
+                    result.put("questionTypeName", rs.getString("question_type_name"));
+                    result.put("scoringSchema", rs.getString("scoring_schema"));
+                    result.put("answerValue", rs.getString("answer_value")); // JSONB String
+                    result.put("score", rs.getBigDecimal("score"));
+                    result.put("answeredAt", rs.getTimestamp("answered_at").toLocalDateTime());
+                    result.put("orderIndex", rs.getInt("order_index"));
+                    return result;
+                }
+        );
+    }
+
+    /**
      * Berechnet max_possible_score für ein Thema:
      * - Auto-Scoring: Summe aller max Punkte aus scoring_schema
      * - Manual Scoring: 5 Punkte pro Frage
