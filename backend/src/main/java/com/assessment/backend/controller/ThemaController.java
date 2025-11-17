@@ -151,4 +151,17 @@ public class ThemaController {
             return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
+
+    // Duplicate Thema - POST /api/themas/{id}/duplicate
+    @PostMapping("/{id}/duplicate")
+    public ResponseEntity<Thema> duplicateThema(@PathVariable("id") UUID id) {
+        try {
+            Thema duplicatedThema = themaService.duplicateThema(id);
+            return new ResponseEntity<>(duplicatedThema, HttpStatus.CREATED);
+        } catch (RuntimeException e) {
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        } catch (Exception e) {
+            return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
 }
