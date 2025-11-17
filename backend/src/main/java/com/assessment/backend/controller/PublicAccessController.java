@@ -34,6 +34,14 @@ import java.util.stream.Collectors;
 @CrossOrigin(origins = "*")
 public class PublicAccessController {
 
+    // Typen die manuelle Bewertung benötigen (score wird auf 0 gesetzt)
+    private static final Set<String> MANUAL_REVIEW_TYPES = Set.of(
+        "text_input", 
+        "number_input", 
+        "date_input", 
+        "ordering"
+    );
+
     @Autowired
     private WorkerCatalogService workerCatalogService;
 
@@ -645,43 +653,93 @@ public class PublicAccessController {
             summary.setTotalQuestions(totalQuestions);
             summary.setProgressPercent(progressPercent);
             
-            // Scores
+            // Scores: TotalScore aus Session, aber MaxPossibleScore dynamisch berechnen
             summary.setTotalScore(session.getTotalScore());
-            summary.setMaxPossibleScore(session.getMaxPossibleScore());
             
-            // Konvertiere beantwortete Fragen
-            List<SessionSummaryResponseDTO.AnsweredQuestionSummary> answeredQuestions = answeredQuestionsData.stream()
-                .map(data -> {
-                    SessionSummaryResponseDTO.AnsweredQuestionSummary q = new SessionSummaryResponseDTO.AnsweredQuestionSummary();
-                    q.setQuestionId((UUID) data.get("questionId"));
-                    q.setQuestionText((String) data.get("questionText"));
-                    q.setInputType((String) data.get("inputType"));
-                    q.setScore((BigDecimal) data.get("score"));
-                    q.setAnsweredAt((LocalDateTime) data.get("answeredAt"));
-                    q.setOrderIndex((Integer) data.get("orderIndex"));
-                    
-                    // Parse answer value (JSONB String -> Object)
-                    String answerValueJson = (String) data.get("answerValue");
-                    try {
-                        Object parsedValue = objectMapper.readValue(answerValueJson, Object.class);
-                        q.setAnsweredValue(parsedValue);
-                    } catch (Exception e) {
-                        q.setAnsweredValue(answerValueJson); // Fallback
-                    }
-                    
-                    // Berechne maxScore für diese Frage (aus scoring_schema)
+            // MaxPossibleScore = Alle required Fragen + beantwortete optionale Fragen
+            // 1. Basis: Alle required=true Fragen
+            BigDecimal maxPossibleScore = publicQueryUtil.calculateMaxPossibleScoreForRequiredQuestions(session.getThemaId());
+            
+            // 2. Addiere MaxScore für beantwortete optionale Fragen (required=false)
+            for (Map<String, Object> data : answeredQuestionsData) {
+                Boolean isRequired = (Boolean) data.get("isRequired");
+                String answerValueJson = (String) data.get("answerValue");
+                
+                // Nur optionale Fragen (required=false) die beantwortet wurden (value != null)
+                if (isRequired != null && !isRequired && answerValueJson != null && !"null".equals(answerValueJson)) {
                     String scoringSchemaJson = (String) data.get("scoringSchema");
                     BigDecimal maxScore = calculateMaxScoreForQuestion(
                         (String) data.get("inputType"), 
                         scoringSchemaJson
                     );
-                    q.setMaxScore(maxScore);
-                    
-                    return q;
-                })
-                .collect(Collectors.toList());
+                    maxPossibleScore = maxPossibleScore.add(maxScore);
+                }
+            }
+            summary.setMaxPossibleScore(maxPossibleScore);
             
-            summary.setAnsweredQuestions(answeredQuestions);
+            // Konvertiere beantwortete Fragen UND kategorisiere sie
+            List<SessionSummaryResponseDTO.AnsweredQuestionSummary> automatischBewertet = new ArrayList<>();
+            List<SessionSummaryResponseDTO.AnsweredQuestionSummary> manuellZuBewerten = new ArrayList<>();
+            List<SessionSummaryResponseDTO.AnsweredQuestionSummary> uebersprungen = new ArrayList<>();
+            
+            for (Map<String, Object> data : answeredQuestionsData) {
+                SessionSummaryResponseDTO.AnsweredQuestionSummary q = new SessionSummaryResponseDTO.AnsweredQuestionSummary();
+                q.setQuestionId((UUID) data.get("questionId"));
+                q.setQuestionText((String) data.get("questionText"));
+                q.setInputType((String) data.get("inputType"));
+                q.setScore((BigDecimal) data.get("score"));
+                q.setAnsweredAt((LocalDateTime) data.get("answeredAt"));
+                q.setOrderIndex((Integer) data.get("orderIndex"));
+                q.setIsRequired((Boolean) data.get("isRequired"));
+                
+                // Parse answer value (JSONB String -> Object)
+                String answerValueJson = (String) data.get("answerValue");
+                Object parsedValue = null;
+                try {
+                    parsedValue = objectMapper.readValue(answerValueJson, Object.class);
+                    q.setAnsweredValue(parsedValue);
+                } catch (Exception e) {
+                    q.setAnsweredValue(answerValueJson); // Fallback
+                }
+                
+                // Berechne maxScore für diese Frage (aus scoring_schema)
+                String scoringSchemaJson = (String) data.get("scoringSchema");
+                BigDecimal maxScore = calculateMaxScoreForQuestion(
+                    (String) data.get("inputType"), 
+                    scoringSchemaJson
+                );
+                q.setMaxScore(maxScore);
+                
+                // Kategorisierung:
+                // 1. Übersprungen: value ist null
+                // 2. Manuell zu bewerten: inputType in MANUAL_REVIEW_TYPES (score ist 0)
+                // 3. Automatisch bewertet: alles andere mit score
+                
+                if (answerValueJson == null || "null".equals(answerValueJson)) {
+                    uebersprungen.add(q);
+                } else if (MANUAL_REVIEW_TYPES.contains(q.getInputType())) {
+                    manuellZuBewerten.add(q);
+                } else {
+                    automatischBewertet.add(q);
+                }
+            }
+            
+            // Setze kategorisierte Listen
+            summary.setAutomatischBewerteteFragen(automatischBewertet);
+            summary.setManuellZuBewertendeFragen(manuellZuBewerten);
+            summary.setUebersprungeneFragen(uebersprungen);
+            
+            // Setze Zähler
+            summary.setAutomatischBewertetAnzahl(automatischBewertet.size());
+            summary.setManuellZuBewertenAnzahl(manuellZuBewerten.size());
+            summary.setUebersprungenAnzahl(uebersprungen.size());
+            
+            // Legacy: Alle Fragen in einer Liste (für Kompatibilität)
+            List<SessionSummaryResponseDTO.AnsweredQuestionSummary> allQuestions = new ArrayList<>();
+            allQuestions.addAll(automatischBewertet);
+            allQuestions.addAll(manuellZuBewerten);
+            allQuestions.addAll(uebersprungen);
+            summary.setAnsweredQuestions(allQuestions);
             
             AccessGuardUtil.touchLastAccess(workerCatalogService, assignment.getId());
 
@@ -794,6 +852,52 @@ public class PublicAccessController {
 
             // Typ normalisieren (wie in AutoScoringService)
             String normalizedType = normalizeInputType(inputType);
+            
+            // Spezialfall: Skip (value ist null) - nur bei optionalen Fragen erlaubt
+            if (value == null) {
+                // Prüfe ob Frage required ist
+                boolean isRequired = publicQueryUtil.isQuestionRequired(questionUuid, session.getThemaId());
+                if (isRequired) {
+                    return new ResponseEntity<>(
+                        Map.of("error", "Required question cannot be skipped. Please provide an answer."),
+                        HttpStatus.BAD_REQUEST
+                    );
+                }
+                
+                // Speichere Answer mit null value und null score (nur bei optionalen Fragen)
+                var saved = answerService.upsert(session.getId(), questionUuid, null, null);
+                assessmentSessionService.recalculateTotals(session.getId());
+
+                long answered = answerService.countAnswered(session.getId());
+                AccessGuardUtil.touchLastAccess(workerCatalogService, assignment.getId());
+
+                SaveAnswerResponseDTO response = new SaveAnswerResponseDTO(
+                    true,
+                    saved.getId(),
+                    null, // kein Score bei Skip
+                    answered
+                );
+
+                return new ResponseEntity<>(response, HttpStatus.OK);
+            }
+            
+            // Manuelle Review-Typen: Score = 0.0 (später von Admin bewertet)
+            if (MANUAL_REVIEW_TYPES.contains(inputType)) {
+                var saved = answerService.upsert(session.getId(), questionUuid, value, BigDecimal.ZERO);
+                assessmentSessionService.recalculateTotals(session.getId());
+
+                long answered = answerService.countAnswered(session.getId());
+                AccessGuardUtil.touchLastAccess(workerCatalogService, assignment.getId());
+
+                SaveAnswerResponseDTO response = new SaveAnswerResponseDTO(
+                    true,
+                    saved.getId(),
+                    BigDecimal.ZERO,
+                    answered
+                );
+
+                return new ResponseEntity<>(response, HttpStatus.OK);
+            }
 
             // Rating-Scala: Spezielle Validierung
             if ("rating_scale".equals(normalizedType)) {

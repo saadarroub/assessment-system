@@ -31,6 +31,16 @@ public class SessionSummaryResponseDTO {
     // Alle beantworteten Fragen
     private List<AnsweredQuestionSummary> answeredQuestions;
     
+    // Kategorisierte Fragen (NEU)
+    private List<AnsweredQuestionSummary> automatischBewerteteFragen;
+    private List<AnsweredQuestionSummary> manuellZuBewertendeFragen;
+    private List<AnsweredQuestionSummary> uebersprungeneFragen;
+    
+    // Zähler für Kategorien
+    private Integer automatischBewertetAnzahl;
+    private Integer manuellZuBewertenAnzahl;
+    private Integer uebersprungenAnzahl;
+    
     /**
      * Nested class für einzelne beantwortete Frage
      */
@@ -43,6 +53,7 @@ public class SessionSummaryResponseDTO {
         private BigDecimal maxScore;       // Max mögliche Punkte für diese Frage
         private LocalDateTime answeredAt;
         private Integer orderIndex;
+        private Boolean isRequired;        // Pflichtfrage ja/nein
         
         public AnsweredQuestionSummary() {}
         
@@ -109,6 +120,14 @@ public class SessionSummaryResponseDTO {
         
         public void setOrderIndex(Integer orderIndex) {
             this.orderIndex = orderIndex;
+        }
+        
+        public Boolean getIsRequired() {
+            return isRequired;
+        }
+        
+        public void setIsRequired(Boolean isRequired) {
+            this.isRequired = isRequired;
         }
     }
     
@@ -194,5 +213,53 @@ public class SessionSummaryResponseDTO {
     
     public void setAnsweredQuestions(List<AnsweredQuestionSummary> answeredQuestions) {
         this.answeredQuestions = answeredQuestions;
+    }
+    
+    public List<AnsweredQuestionSummary> getAutomatischBewerteteFragen() {
+        return automatischBewerteteFragen;
+    }
+    
+    public void setAutomatischBewerteteFragen(List<AnsweredQuestionSummary> automatischBewerteteFragen) {
+        this.automatischBewerteteFragen = automatischBewerteteFragen;
+    }
+    
+    public List<AnsweredQuestionSummary> getManuellZuBewertendeFragen() {
+        return manuellZuBewertendeFragen;
+    }
+    
+    public void setManuellZuBewertendeFragen(List<AnsweredQuestionSummary> manuellZuBewertendeFragen) {
+        this.manuellZuBewertendeFragen = manuellZuBewertendeFragen;
+    }
+    
+    public List<AnsweredQuestionSummary> getUebersprungeneFragen() {
+        return uebersprungeneFragen;
+    }
+    
+    public void setUebersprungeneFragen(List<AnsweredQuestionSummary> uebersprungeneFragen) {
+        this.uebersprungeneFragen = uebersprungeneFragen;
+    }
+    
+    public Integer getAutomatischBewertetAnzahl() {
+        return automatischBewertetAnzahl;
+    }
+    
+    public void setAutomatischBewertetAnzahl(Integer automatischBewertetAnzahl) {
+        this.automatischBewertetAnzahl = automatischBewertetAnzahl;
+    }
+    
+    public Integer getManuellZuBewertenAnzahl() {
+        return manuellZuBewertenAnzahl;
+    }
+    
+    public void setManuellZuBewertenAnzahl(Integer manuellZuBewertenAnzahl) {
+        this.manuellZuBewertenAnzahl = manuellZuBewertenAnzahl;
+    }
+    
+    public Integer getUebersprungenAnzahl() {
+        return uebersprungenAnzahl;
+    }
+    
+    public void setUebersprungenAnzahl(Integer uebersprungenAnzahl) {
+        this.uebersprungenAnzahl = uebersprungenAnzahl;
     }
 }

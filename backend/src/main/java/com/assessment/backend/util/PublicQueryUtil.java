@@ -29,6 +29,17 @@ public class PublicQueryUtil {
         );
         return c != null && c > 0;
     }
+    
+    /**
+     * Prüft ob eine Frage als Pflichtfrage (is_required=true) markiert ist
+     */
+    public boolean isQuestionRequired(UUID questionId, UUID themaId) {
+        Boolean required = jdbcTemplate.queryForObject(
+                "SELECT is_required FROM public.question_node WHERE thema_id = ? AND question_id = ?",
+                Boolean.class, themaId, questionId
+        );
+        return required != null && required;
+    }
 
     @Nullable
     public Map<String, Object> findNextQuestion(UUID sessionId, UUID themaId) {
@@ -262,7 +273,8 @@ public class PublicQueryUtil {
                   a.value as answer_value,
                   a.score,
                   a.answered_at,
-                  qn.order_index
+                  qn.order_index,
+                  qn.is_required
                 FROM public.answer a
                 JOIN public.question q ON q.id = a.question_id
                 JOIN public.question_type qt ON qt.id = q.type_id
@@ -283,9 +295,78 @@ public class PublicQueryUtil {
                     result.put("score", rs.getBigDecimal("score"));
                     result.put("answeredAt", rs.getTimestamp("answered_at").toLocalDateTime());
                     result.put("orderIndex", rs.getInt("order_index"));
+                    result.put("isRequired", rs.getBoolean("is_required"));
                     return result;
                 }
         );
+    }
+    
+    /**
+     * Berechnet max_possible_score NUR für required=true Fragen eines Themas
+     */
+    public java.math.BigDecimal calculateMaxPossibleScoreForRequiredQuestions(UUID themaId) {
+        return jdbcTemplate.query(
+                """
+                SELECT 
+                    q.id,
+                    qt.input_type,
+                    q.scoring_schema
+                FROM public.question_node qn
+                JOIN public.question q ON q.id = qn.question_id
+                JOIN public.question_type qt ON qt.id = q.type_id
+                WHERE qn.thema_id = ? AND qn.is_required = true
+                ORDER BY qn.order_index
+                """,
+                ps -> ps.setObject(1, themaId),
+                rs -> {
+                    java.math.BigDecimal total = java.math.BigDecimal.ZERO;
+                    while (rs.next()) {
+                        String inputType = rs.getString("input_type");
+                        String scoringSchemaJson = rs.getString("scoring_schema");
+                        
+                        // Berechne max Score für diese Frage
+                        java.math.BigDecimal maxForQuestion = calculateMaxForSingleQuestion(inputType, scoringSchemaJson);
+                        total = total.add(maxForQuestion);
+                    }
+                    return total;
+                }
+        );
+    }
+    
+    /**
+     * Helper: Berechnet max Score für eine einzelne Frage basierend auf inputType und scoringSchema
+     */
+    private java.math.BigDecimal calculateMaxForSingleQuestion(String inputType, String scoringSchemaJson) {
+        // Für rating_scale: max = 5
+        if ("rating_scale".equalsIgnoreCase(inputType) || "rating".equalsIgnoreCase(inputType)) {
+            return java.math.BigDecimal.valueOf(5);
+        }
+        
+        // Fallback wenn kein scoringSchema vorhanden
+        if (scoringSchemaJson == null || scoringSchemaJson.isBlank()) {
+            return java.math.BigDecimal.valueOf(5);
+        }
+        
+        // Parse scoringSchema JSON und finde Maximum
+        try {
+            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            com.fasterxml.jackson.databind.JsonNode root = mapper.readTree(scoringSchemaJson);
+            
+            double maxValue = 0.0;
+            var iter = root.fields();
+            while (iter.hasNext()) {
+                var entry = iter.next();
+                if (entry.getValue().isNumber()) {
+                    double val = entry.getValue().asDouble(0.0);
+                    if (val > maxValue) {
+                        maxValue = val;
+                    }
+                }
+            }
+            return java.math.BigDecimal.valueOf(maxValue > 0 ? maxValue : 5.0);
+        } catch (Exception e) {
+            return java.math.BigDecimal.valueOf(5);
+        }
     }
 
     /**
@@ -295,7 +376,9 @@ public class PublicQueryUtil {
      * 
      * @param themaId UUID des Themas
      * @return max_possible_score als BigDecimal
+     * @deprecated Use calculateMaxPossibleScoreForRequiredQuestions instead
      */
+    @Deprecated
     public java.math.BigDecimal calculateMaxPossibleScore(UUID themaId) {
         return jdbcTemplate.query(
                 """
