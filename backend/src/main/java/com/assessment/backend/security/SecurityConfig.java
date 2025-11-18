@@ -12,6 +12,7 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.http.HttpMethod;
 
 import java.util.Arrays;
 
@@ -32,12 +33,9 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers(
-                    "/api/auth/login",
-                    "/api/auth/logout",
-                    "/api/users"        // création user
-                ).permitAll()
-                .anyRequest().authenticated()
+                .requestMatchers("/api/auth/login", "/api/auth/logout").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/users").permitAll()   // création user
+                .anyRequest().authenticated()                                // tout le reste protégé
             )
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
@@ -62,3 +60,5 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 }
+
+

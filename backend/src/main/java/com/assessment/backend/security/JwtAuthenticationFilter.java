@@ -15,6 +15,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.Collections;
+import java.util.Optional;
 import java.util.UUID;
 
 @Component
@@ -35,22 +36,19 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
 
         String path = request.getServletPath();
-        System.out.println(">>> JwtAuthenticationFilter TRIGGERED for path = " + path);
+        String method = request.getMethod();
 
-      if (path.startsWith("/api/auth/login")
-            || path.startsWith("/api/auth/logout")
-            || path.startsWith("/api/users")) {
-                 System.out.println(">>> JwtAuthenticationFilter SKIPPED for path = " + path);
-        filterChain.doFilter(request, response);
-           return;
-    }
+        // Endpoints publics - pas besoin de JWT
+        if (isPublicPath(path, method)) {
+            filterChain.doFilter(request, response);
+            return;
+        }
 
-        String header = request.getHeader("Authorization"); 
-        System.out.println(">>> JwtAuthenticationFilter header = " + header);
+        // Récupérer le header Authorization
+        String header = request.getHeader("Authorization");
 
-      
+        // Pas de header ou pas de Bearer - on laisse passer sans authentifier
         if (!StringUtils.hasText(header) || !header.startsWith("Bearer ")) {
-            System.out.println(">>> JwtAuthenticationFilter: no Bearer token, continue without auth");
             filterChain.doFilter(request, response);
             return;
         }
@@ -59,37 +57,53 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         // Token invalide
         if (!jwtUtil.validateToken(token)) {
-             System.out.println(">>> JwtAuthenticationFilter: invalid token");
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             return;
         }
 
         UUID userId = jwtUtil.getUserIdFromToken(token);
         if (userId == null) {
-              System.out.println(">>> JwtAuthenticationFilter: userId null");
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             return;
         }
 
-        User user = userRepository.findById(userId).orElse(null);
-        if (user == null) {
-             System.out.println(">>> JwtAuthenticationFilter: user not found");
+        Optional<User> userOpt = userRepository.findById(userId);
+        if (userOpt.isEmpty()) {
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             return;
         }
 
-        var authentication = new UsernamePasswordAuthenticationToken(
-                user,
-                null,
-                Collections.emptyList()
-        );
+        User user = userOpt.get();
+
+        // Créer l’Authentication et la placer dans le SecurityContext
+        UsernamePasswordAuthenticationToken authentication =
+                new UsernamePasswordAuthenticationToken(
+                        user,
+                        null,
+                        Collections.emptyList()      // tu pourras plus tard mettre les rôles ici
+                );
 
         authentication.setDetails(
                 new WebAuthenticationDetailsSource().buildDetails(request)
         );
 
         SecurityContextHolder.getContext().setAuthentication(authentication);
-        System.out.println(">>> JwtAuthenticationFilter: authentication set, continue filter chain");
+
+        // continuer la chaîne de filtres
         filterChain.doFilter(request, response);
+    }
+
+    private boolean isPublicPath(String path, String method) {
+        // login et logout ouverts
+        if ("/api/auth/login".equals(path) || "/api/auth/logout".equals(path)) {
+            return true;
+        }
+
+        // création de user autorisée sans être loggé
+        if ("/api/users".equals(path) && "POST".equalsIgnoreCase(method)) {
+            return true;
+        }
+
+        return false;
     }
 }
