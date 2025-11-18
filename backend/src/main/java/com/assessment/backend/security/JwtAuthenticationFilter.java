@@ -20,7 +20,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Component
-public class JwtAuthenticationFilter extends OncePerRequestFilter {
+public class JwtAuthenticationFilter extends OncePerRequestFilter { 
 
     private final JwtUtil jwtUtil;
     private final UserRepository userRepository;
