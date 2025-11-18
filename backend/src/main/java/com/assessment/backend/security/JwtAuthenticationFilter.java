@@ -16,8 +16,10 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter { 
@@ -84,11 +86,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         User user = userOpt.get();
 
+        // Extract permissions from token and convert to GrantedAuthority
+        List<String> permissions = jwtUtil.getPermissionsFromToken(token);
+        List<org.springframework.security.core.GrantedAuthority> authorities = 
+                permissions.stream()
+                        .map(org.springframework.security.core.authority.SimpleGrantedAuthority::new)
+                        .collect(Collectors.toList());
+
         UsernamePasswordAuthenticationToken authentication =
                 new UsernamePasswordAuthenticationToken(
                         user,
                         null,
-                        Collections.emptyList()   
+                        authorities   // Use permissions as authorities
                 );
 
         authentication.setDetails(

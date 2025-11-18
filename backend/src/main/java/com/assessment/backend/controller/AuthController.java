@@ -2,15 +2,19 @@ package com.assessment.backend.controller;
 
 import com.assessment.backend.dto.LoginRequest;
 import com.assessment.backend.dto.LoginResponseDTO;
+import com.assessment.backend.entity.Permission;
 import com.assessment.backend.entity.User;
 import com.assessment.backend.service.AuthService;
+import com.assessment.backend.service.RolePermissionService;
 import com.assessment.backend.security.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -22,6 +26,9 @@ public class AuthController {
 
     @Autowired
     private JwtUtil jwtUtil;
+
+    @Autowired
+    private RolePermissionService rolePermissionService;
 
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest loginRequest) {
@@ -35,6 +42,11 @@ public class AuthController {
             User user = userOpt.get();
             String token = jwtUtil.generateToken(user);
 
+            // Load user permissions
+            List<String> permissions = rolePermissionService.getPermissionsForUser(user.getId())
+                    .stream()
+                    .map(Permission::getName)
+                    .collect(Collectors.toList());
 
             LoginResponseDTO responseDTO = new LoginResponseDTO(
                     user.getId(),
@@ -42,7 +54,8 @@ public class AuthController {
                     user.getEmail(),
                     user.getCreatedAt(),
                     user.getUpdatedAt(),
-                    token
+                    token,
+                    permissions
             );
             return ResponseEntity.ok(responseDTO);
         } else {
