@@ -12,6 +12,8 @@ import org.springframework.stereotype.Component;
 import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.util.Date;
+import java.util.UUID;
+
 
 @Component
 public class JwtUtil {
@@ -51,7 +53,7 @@ public class JwtUtil {
         if (subject == null) {
             return null;
         }
-        return Long.parseLong(subject);
+        return UUID.fromString(subject);
     }
     // Verify that the token is valid and not expired
     public boolean validateToken(String token) {
