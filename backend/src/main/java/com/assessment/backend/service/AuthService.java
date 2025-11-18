@@ -9,12 +9,18 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import com.assessment.backend.entity.User;
 import com.assessment.backend.repository.UserRepository;
 
+import com.assessment.backend.entity.RevokedToken;
+import com.assessment.backend.repository.RevokedTokenRepository;
+
+
 
 @Service
 public class AuthService {
 
     @Autowired
     private UserRepository userRepository;
+    @Autowired
+    private RevokedTokenRepository revokedTokenRepository;
 
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
@@ -31,9 +37,16 @@ public class AuthService {
     }
 
     public void logout(String token) {
-        // For simple prototype: logout logic musst be handled on frontend
-        // to do: implement token invalidation
-        // Later: implement token invalidation
+        if (token == null || token.isBlank()) {
+        return;
+    }
+     if (revokedTokenRepository.existsByToken(token)) {
+        return;
+    }
+    RevokedToken revokedToken = new RevokedToken();
+    revokedToken.setToken(token);
+
+    revokedTokenRepository.save(revokedToken);
     }
 }
 
