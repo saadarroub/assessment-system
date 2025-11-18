@@ -17,7 +17,7 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.UUID;
 
-//@Component
+@Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
@@ -48,7 +48,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String header = request.getHeader("Authorization"); 
         System.out.println(">>> JwtAuthenticationFilter header = " + header);
 
-        // Pas de header Authorization ou pas Bearer, on laisse passer sans authentifier
+      
         if (!StringUtils.hasText(header) || !header.startsWith("Bearer ")) {
             System.out.println(">>> JwtAuthenticationFilter: no Bearer token, continue without auth");
             filterChain.doFilter(request, response);
