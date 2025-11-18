@@ -34,7 +34,7 @@ public class SecurityConfig {
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .anyRequest().authenticated()
-            )
+            );
             
         return http.build();
     }
