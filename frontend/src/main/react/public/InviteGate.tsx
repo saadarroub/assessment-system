@@ -155,7 +155,7 @@ export default function InviteGate() {
         <p className="text-sm text-red-700">{error}</p>
       </div>
     );
-
+ 
   // --- Keyframes nur für Animationen (keine Globals) ---
   const Animations = (
     <style>{`

@@ -74,13 +74,15 @@ function CatalogCard({ data, onStart }: { data: TopicCardModel; onStart: () => v
   return (
     <div
       className="
-        catalog-card bg-white rounded-xl overflow-hidden
-        shadow-[0_4px_16px_rgba(0,0,0,.05)]
-        transition-all flex flex-col
-        hover:shadow-[0_10px_25px_rgba(0,0,0,.10)] hover:-translate-y-1.5
-        border border-black/5
-        min-h-[520px]
-      "
+      catalog-card relative overflow-hidden flex flex-col
+      rounded-[22px]
+      bg-white/90 backdrop-blur-xl
+      border border-[hsla(9, 21%, 88%, 0.60)]
+      shadow-[0_35px_80px_-30px_rgba(23,37,84,.35)]
+      transition-all duration-300
+      hover:-translate-y-1 hover:shadow-[0_40px_90px_-35px_rgba(23,37,84,.45)]
+      min-h-[520px]
+    "
       data-assessment-id={data.dashKey}
     >
       <div className="card-header p-6 text-white relative bg-[#264555]">
@@ -88,9 +90,6 @@ function CatalogCard({ data, onStart }: { data: TopicCardModel; onStart: () => v
         <div className="relative z-[1] flex items-center justify-between gap-2 flex-wrap mb-3">
           <span className="inline-block px-3 py-1 rounded-full text-sm font-medium bg-white/20 backdrop-blur">
             {data.tag}
-          </span>
-          <span className="inline-block px-3 py-1 rounded-full text-sm font-medium bg-white/20 backdrop-blur">
-            {data.questionsLabel}
           </span>
         </div>
 
@@ -107,14 +106,19 @@ function CatalogCard({ data, onStart }: { data: TopicCardModel; onStart: () => v
       </div>
 
       {p > 0 && (
-        <div className="px-6 py-4 bg-slate-50 border-b border-slate-200">
+        <div className="progress-section px-6 py-4 bg-slate-50 border-b border-slate-200">
           <div className="flex items-center justify-between text-sm text-slate-600 mb-2 font-medium">
             <span>Fortschritt</span>
             <span className="progress-percent">{p}%</span>
           </div>
+
           <div className="h-2 bg-slate-200 rounded-xl overflow-hidden">
             <div
-              className="h-full rounded-xl bg-white transition-all duration-500 ease-in-out"
+              className="
+                progress-bar h-full rounded-xl
+                bg-[linear-gradient(90deg,#3182ce_0%,#2b6cb0_100%)]
+                transition-all duration-500 ease-in-out
+              "
               style={{ width: `${animate ? p : 0}%` }}
             />
           </div>
@@ -151,6 +155,98 @@ function CatalogCard({ data, onStart }: { data: TopicCardModel; onStart: () => v
     </div>
   );
 }
+function StatsCard({
+  value,
+  label,
+}: {
+  value: number;
+  label: string;
+}) {
+  return (
+    <div
+      className="
+        rounded-xl border border-[hsla(215,20%,88%,0.6)]
+        bg-white/80 backdrop-blur-md
+        px-6 py-5 text-center
+        shadow-[0_10px_25px_-8px_rgba(15,23,42,.10)]
+        transition
+        hover:scale-[1.05]
+        hover:border-[hsla(45,60%,55%,0.5)]
+        hover:shadow-[0_20px_40px_-12px_rgba(15,23,42,.18)]
+      "
+    >
+      <div className="text-[28px] font-extrabold text-[#1e3a8a]">
+        {value}
+      </div>
+      <div className="mt-1 text-sm font-medium text-[hsl(215_20%_45%)]">
+        {label}
+      </div>
+    </div>
+  );
+}
+
+function CircleTimer({ daysLeft }: { daysLeft: number }) {
+  const clamped = Math.max(0, Math.min(99, daysLeft));
+
+  return (
+    <div className="relative h-[130px] w-[130px] select-none">
+      {/* weicher Schatten / Glow unten */}
+      <div className="absolute -inset-4 rounded-full bg-[radial-gradient(circle_at_50%_80%,rgba(15,23,42,0.10),transparent_60%)]" />
+
+      {/* äußerer weißer Ring mit Goldrand */}
+      <div
+        className="
+          absolute inset-0
+          rounded-full
+          bg-[#f9fafb]
+          border-[1.5px] border-[rgba(227,187,98,0.9)]
+          shadow-[0_26px_60px_rgba(15,23,42,0.30)]
+        "
+      />
+
+      {/* innerer dunkler Kreis mit Text */}
+      <div
+        className="
+          absolute inset-[18%]
+          rounded-full
+          bg-[#314856]
+          flex flex-col items-center justify-center
+          text-sky-100
+        "
+      >
+        <span className="text-[30px] font-extrabold leading-none tracking-tight tabular-nums">
+          {clamped}
+        </span>
+        <span className="mt-1 text-[10px] font-semibold tracking-[0.22em] uppercase text-slate-200">
+          Tage
+        </span>
+      </div>
+
+      {/* rechtes weißes Pillen-Rechteck, mittig am Kreis */}
+      <div
+        className="
+          absolute -right-4 top-1/2 -translate-y-1/2
+          h-[56px] w-[22px]
+          rounded-full bg-white
+          shadow-[0_18px_45px_rgba(15,23,42,0.45)]
+        "
+      />
+
+      {/* unteres goldenes Rechteck, zentriert */}
+      <div
+        className="
+          absolute left-1/2 -translate-x-1/2 bottom-[-10px]
+          h-[26px] w-[90px]
+          rounded-full
+          bg-[rgba(227,187,98,0.9)]
+          border border-[rgba(227,187,98,0.95)]
+          shadow-[0_20px_40px_rgba(15,23,42,0.55)]
+        "
+      />
+    </div>
+  );
+}
+
 
 /* ================== Seite: KatalogThemenPublic ================== */
 export default function KatalogThemenPublic() {
@@ -180,6 +276,19 @@ export default function KatalogThemenPublic() {
 
   //const sp = new URLSearchParams(location.search);
   const [expiresAt, setExpiresAt] = useState<string | null>(null);
+
+    const daysLeft = useMemo(() => {
+    if (!expiresAt) return null;
+
+    const target = new Date(expiresAt).getTime();
+    if (Number.isNaN(target)) return null;
+
+    const diffMs = target - Date.now();
+    const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+
+    return Math.max(0, diffDays);
+  }, [expiresAt]);
+
   //in expiresAt muss Z.b: 2025-11-05T18:00:00Z
   useEffect(() => {
     let alive = true;
@@ -310,7 +419,7 @@ export default function KatalogThemenPublic() {
         topicName: t.name || "",
       };
     });
-  },[themen, assessments, token, assignmentIdFromQuery]);
+  }, [themen, assessments, token, assignmentIdFromQuery]);
 
   /* --- Tabs --- */
   const available = topicCards.filter((c) => !(c.effectiveProgress > 0 && c.effectiveProgress < 100) && c.effectiveProgress < 100);
@@ -389,9 +498,15 @@ export default function KatalogThemenPublic() {
   }, []);
 
   /* --- UI --- */
-  const tabBtnBase = "relative -bottom-[2px] px-6 py-3 border-b-[3px] font-medium transition-all";
+  const tabBtnBase =
+    "relative -bottom-[2px] px-6 py-3 border-b-[3px] font-medium transition-all";
+
   const tabBtn = (key: TabKey) =>
-    `${tabBtnBase} ${activeTab === key ? "border-blue-700 text-blue-700" : "border-transparent text-slate-500 hover:text-slate-700"}`;
+    `${tabBtnBase} ${activeTab === key
+      ? "border-[#E3BB62] text-[#264555] bg-white rounded-t-xl"  // bg-white
+      : "border-transparent text-slate-500 hover:text-[#264555]/80"
+    }`;
+
 
   const Grid = ({ list }: { list: TopicCardModel[] }) => (
     <div className="grid gap-6 [grid-template-columns:repeat(auto-fill,minmax(350px,1fr))]">
@@ -403,47 +518,85 @@ export default function KatalogThemenPublic() {
 
 
   return (
-    <div className="bg-[#f7f8fb] text-[#333] min-h-screen">
-      <AppHeader />
 
-      {/* EIN gemeinsamer Intro-Header mit Willkommen + optionalem Katalogtitel */}
-      <section className="text-center pt-10 pb-2 px-5">
-        <GreetingBanner firstName={welcomeName} />
-        {/**<p className="max-w-[740px] mx-auto text-slate-600">
-          Sie sehen den Katalog <strong>{catalogTitleFromQuery}</strong>. Wählen Sie unten ein Thema, um zu starten oder fortzusetzen.
-        </p> */}
-      </section>
-      <section>
-        {/* Countdown nur anzeigen, wenn wir expiresAt haben */}
-        {expiresAt && (
-          <div className="mt-1 flex items-center justify-center">
-            <CountdownTimer expiresAt={expiresAt} />
+    <div className="
+        relative min-h-screen overflow-hidden
+        bg-[linear-gradient(135deg,hsl(0_0%_98%)_0%,hsl(215_20%_96%)_50%,hsl(0_0%_98%)_100%)]
+        text-[hsl(215_80%_15%)]
+      "
+    >
+      {/* Deko nur im Content-Bereich, NICHT hinter dem Footer */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 bottom-64">
+
+        {/* Goldener Glow oben rechts */}
+        <div className="absolute top-40 right-[-5rem] h-[26rem] w-[26rem] rounded-full blur-[90px] bg-[hsla(45,60%,55%,0.20)]" />
+        {/* Dunklerer blauer Glow unten links */}
+        <div className="absolute bottom-10 left-[-6rem] h-[22rem] w-[22rem] rounded-full blur-[90px] bg-[hsla(215,80%,15%,0.10)]" />
+
+        {/* Pünktchen */}
+        <div className="absolute left-[18%] top-[30%] h-2 w-2 rounded-full bg-[#E3BB62] opacity-80" />
+        <div className="absolute left-[26%] top-[42%] h-1.5 w-1.5 rounded-full bg-[#d2c9b9] opacity-75" />
+        <div className="absolute right-[22%] top-[36%] h-1.5 w-1.5 rounded-full bg-[#E3BB62] opacity-70" />
+
+        {/* Linkes Deko-Element: rotierendes Quadrat mit Schatten */}
+        {/* Kreis + Rechtecke – unten rechts, auf kleineren Screens weiter draußen */}
+        <div
+          className="
+    hidden lg:block
+    absolute
+    lg:bottom-[210px] lg:right-[-4rem]
+    xl:bottom-[195px] xl:right-[2%]
+    2xl:bottom-[180px] 2xl:right-[8%]
+    h-40 w-40
+  "
+        >
+          {/* innerer Kreis (dunkelblau, transparent) */}
+                  {daysLeft !== null && (
+          <div
+            className="
+              hidden lg:block
+              absolute bottom-[180px] right-[8%]
+            "
+          >
+            <CircleTimer daysLeft={daysLeft} />
           </div>
         )}
-      </section>
 
-      <section className="pt-6 pb-6">
-        <div className="max-w-[1120px] mx-auto px-4 grid grid-cols-1 sm:grid-cols-3 gap-6">
-          <div className="bg-white rounded-2xl shadow-[0_6px_20px_rgba(0,0,0,.06)] border border-slate-100 py-6 text-center">
-            <div className="text-[28px] font-extrabold text-[#1e3a8a]">{available.length}</div>
-            <div className="text-slate-600">Offene Themen</div>
+        </div>
+      </div>
+      {/* bg-[#f7f8fb] text-[#333] min-h-screen*/}
+      <AppHeader />
+
+      <section className="pt-10 pb-8 px-5">
+        <div className="max-w-[1120px] mx-auto flex flex-col gap-6">
+          {/* Greeting + Timer zusammen */}
+          <div className="relative">
+            <GreetingBanner firstName={welcomeName} />
+
+            {expiresAt && (
+              <div className="absolute left-1/2 bottom-4 -translate-x-1/2 translate-y-1/2">
+                <div className="inline-flex items-center gap-2 rounded-full bg-white/90 px-4 py-2 shadow-md text-sm text-slate-700">
+                  <CountdownTimer expiresAt={expiresAt} />
+                </div>
+              </div>
+            )}
           </div>
-          <div className="bg-white rounded-2xl shadow-[0_6px_20px_rgba(0,0,0,.06)] border border-slate-100 py-6 text-center">
-            <div className="text-[28px] font-extrabold text-[#1e3a8a]">{planned.length}</div>
-            <div className="text-slate-600">Laufende Themen</div>
-          </div>
-          <div className="bg-white rounded-2xl shadow-[0_6px_20px_rgba(0,0,0,.06)] border border-slate-100 py-6 text-center">
-            <div className="text-[28px] font-extrabold text-[#1e3a8a]">{done.length}</div>
-            <div className="text-slate-600">Abgeschlossene Themen</div>
+
+          {/* Stats-Cards direkt unter dem Banner */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6">
+            <StatsCard value={available.length} label="Verfügbare Themen" />
+            <StatsCard value={planned.length} label="Laufende Themen" />
+            <StatsCard value={done.length} label="Abgeschlossene Themen" />
           </div>
         </div>
       </section>
+
 
       <section className="mb-8">
         <div className="max-w-[1280px] mx-auto px-4">
           <div className="flex flex-wrap gap-2 justify-center border-b-2 border-slate-200">
             <button className={tabBtn("available")} onClick={() => setActiveTab("available")}>
-              Offene Themen
+              Verfügbare Themen
             </button>
             <button className={tabBtn("planned")} onClick={() => setActiveTab("planned")}>
               Laufende Themen
@@ -463,8 +616,8 @@ export default function KatalogThemenPublic() {
             <div className="text-center text-slate-500 py-20">Keine Themen im Katalog gefunden.</div>
           ) : (
             <>
-              {activeTab === "available" && 
-               (available.length ? (
+              {activeTab === "available" &&
+                (available.length ? (
                   <Grid list={available} />
                 ) : (
                   <div className="text-center py-20 text-slate-500">
@@ -472,7 +625,7 @@ export default function KatalogThemenPublic() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" />
                     </svg>
                     <h2 className="text-xl font-semibold">Keine neuen Themen</h2>
-                    <p>kein themen hier.</p>
+                    <p>Gibt es keine Themen hier</p>
                   </div>
                 ))}
               {activeTab === "planned" &&
@@ -484,7 +637,7 @@ export default function KatalogThemenPublic() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" />
                     </svg>
                     <h2 className="text-xl font-semibold">Keine laufenden Themen</h2>
-                    <p>Starten Sie ein Thema, um es hier zu sehen.</p>
+                    <p>Starten Sie ein Thema, um es hier zu sehen</p>
                   </div>
                 ))}
               {activeTab === "done" &&
@@ -496,7 +649,7 @@ export default function KatalogThemenPublic() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
                     </svg>
                     <h2 className="text-xl font-semibold">Noch nichts abgeschlossen</h2>
-                    <p>Abgeschlossene Themen erscheinen hier.</p>
+                    <p>Abgeschlossene Themen erscheinen hier</p>
                   </div>
                 ))}
             </>
@@ -506,7 +659,6 @@ export default function KatalogThemenPublic() {
 
       <footer
         id="cap-footer"
-        // wir übergeben die URL in eine CSS-Variable und lesen sie in der Klasse aus
         style={{ ["--cap-pattern" as any]: `url(${patternUrl})` }}
         className="
         text-white
