@@ -16,7 +16,7 @@ server:
 security:
   jwt:
     secret: "my-super-secret-key-for-jwt-123456"
-    expiration-ms: 10000 # 1 hour
+    expiration-ms: 20000 # 20 seconds
 
 
 ---
