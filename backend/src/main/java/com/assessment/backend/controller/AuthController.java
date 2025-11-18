@@ -25,6 +25,7 @@ public class AuthController {
 
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest loginRequest) {
+        System.out.println(">>> AuthController.login called with email = " + loginRequest.getEmail());
         String email = loginRequest.getEmail();
         String password = loginRequest.getPassword();
 
