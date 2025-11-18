@@ -14,40 +14,38 @@ import java.security.Key;
 import java.util.Date;
 import java.util.UUID;
 
-
 @Component
 public class JwtUtil {
 
-   
-   
-    private  final long expirationMs;
-
+    private final long expirationMs;
     private final Key key;
 
     public JwtUtil(
             @Value("${security.jwt.secret}") String secret,
-            @Value("${security.jwt.expiration-ms}") long expirationMs)
-             {
+            @Value("${security.jwt.expiration-ms}") long expirationMs) {
+
         this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
         this.expirationMs = expirationMs;
     }
 
-    // Generate a JWT token for the given user
+    
     public String generateToken(User user) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + expirationMs);
 
+        
         return Jwts.builder()
-                .setSubject(user.getId().toString())      // main subject: user id
-                .claim("email", user.getEmail())          // extra claims
+                .setSubject(user.getId().toString())
+                .claim("email", user.getEmail())
                 .claim("name", user.getName())
-                .setIssuedAt(now)                         // issued at
-                .setExpiration(expiryDate)                // expiration time
-                .signWith(key, SignatureAlgorithm.HS256)  // signing algorithm + key
+                .setIssuedAt(now)
+                .setExpiration(expiryDate)
+                .signWith(key, SignatureAlgorithm.HS256)
                 .compact();
     }
-    //get the user id from the token
-     public Long getUserIdFromToken(String token) {
+
+    
+    public UUID getUserIdFromToken(String token) {
         Claims claims = extractAllClaims(token);
         String subject = claims.getSubject();
         if (subject == null) {
@@ -55,7 +53,8 @@ public class JwtUtil {
         }
         return UUID.fromString(subject);
     }
-    // Verify that the token is valid and not expired
+
+    
     public boolean validateToken(String token) {
         try {
             Claims claims = extractAllClaims(token);
@@ -65,8 +64,9 @@ public class JwtUtil {
             return false;
         }
     }
-    // Extract all claims from the token
-     private Claims extractAllClaims(String token) {
+
+    
+    private Claims extractAllClaims(String token) {
         return Jwts.parserBuilder()
                 .setSigningKey(key)
                 .build()
@@ -74,3 +74,5 @@ public class JwtUtil {
                 .getBody();
     }
 }
+
+

@@ -36,15 +36,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         String header = request.getHeader("Authorization");
 
-        //no header or not bearer
-            if (!StringUtils.hasText(header) || !header.startsWith("Bearer ")) {
+        // Pas de header Authorization ou pas Bearer, on laisse passer sans authentifier
+        if (!StringUtils.hasText(header) || !header.startsWith("Bearer ")) {
             filterChain.doFilter(request, response);
             return;
         }
 
         String token = header.substring(7);
 
-        //  invalide token
+        // Token invalide
         if (!jwtUtil.validateToken(token)) {
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             return;
@@ -65,7 +65,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         var authentication = new UsernamePasswordAuthenticationToken(
                 user,
                 null,
-                Collections.emptyList()   
+                Collections.emptyList()
         );
 
         authentication.setDetails(
