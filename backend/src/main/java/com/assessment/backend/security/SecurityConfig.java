@@ -33,9 +33,10 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/auth/login", "/api/auth/logout").permitAll()
-                .requestMatchers(HttpMethod.POST, "/api/users").permitAll()   // création user
-                .anyRequest().authenticated()                                // tout le reste protégé
+                .requestMatchers("/api/auth/login").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/users").permitAll()
+                .requestMatchers("/public/access/**").permitAll()             // Public access mit eigenem Token
+                .anyRequest().authenticated()                                 // Admin API geschützt
             )
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 

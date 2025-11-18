@@ -100,13 +100,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     private boolean isPublicPath(String path, String method) {
-      
-        if ("/api/auth/login".equals(path) || "/api/auth/logout".equals(path)) {
+        // Login
+        if ("/api/auth/login".equals(path)) {
             return true;
         }
 
-        
+        // User Registration
         if ("/api/users".equals(path) && "POST".equalsIgnoreCase(method)) {
+            return true;
+        }
+
+        // Public Access Endpoints (eigenes Token-System)
+        if (path.startsWith("/public/access/")) {
             return true;
         }
 
