@@ -31,8 +31,8 @@ import {
   createQuestionNode,
   getQuestionTypes,
   updateQuestion,
-    moveRootNode,
-  moveChildNode
+  moveRootNode,
+  moveChildNode,
 } from "@/api/questionApi";
 
 // 🧩 Drag & Drop Imports
@@ -45,6 +45,7 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { restrictToParentElement } from "@dnd-kit/modifiers";
 
 export default function ConditionEditor() {
   const navigate = useNavigate();
@@ -102,6 +103,8 @@ export default function ConditionEditor() {
   const [errorOptions, setErrorOptions] = useState<string | null>(null);
 
   const [hasSubmitted, setHasSubmitted] = useState(false);
+
+  const containerRef = useRef<HTMLDivElement | null>(null);
 
   // 🔁 Rekursive Funktion, die ALLE Kinder bis zur tiefsten Ebene lädt
   async function fetchChildrenRecursive(parentId: string): Promise<any[]> {
@@ -377,19 +380,19 @@ export default function ConditionEditor() {
   };
 
   const handleCancel = () => {
-      setQuestionText("");
-  setSelectedType("");
-  setOptions([]);
-  setParentQuestion(null);
-  setEditingQuestion(null);
+    setQuestionText("");
+    setSelectedType("");
+    setOptions([]);
+    setParentQuestion(null);
+    setEditingQuestion(null);
 
-  // ❗❗ FIX: Fehlerstatus komplett zurücksetzen
-  setHasSubmitted(false);
-  setErrorQuestionText(null);
-  setErrorType(null);
-  setErrorOptions(null);
+    // ❗❗ FIX: Fehlerstatus komplett zurücksetzen
+    setHasSubmitted(false);
+    setErrorQuestionText(null);
+    setErrorType(null);
+    setErrorOptions(null);
 
-  setIsModalOpen(false);
+    setIsModalOpen(false);
   };
 
   // 🔁 Rekursiv Unterfrage einfügen
@@ -769,252 +772,264 @@ export default function ConditionEditor() {
 
   // 🧱 Sortable Item Component
   function SortableQuestion({ q, level = 0 }: { q: any; level?: number }) {
+    // -----------------------------
+    // 1️⃣ useSortable + Auto-Close
+    // -----------------------------
     const { attributes, listeners, setNodeRef, transform } = useSortable({
       id: q.id,
+      data: { parent: q.parentId || "root", node: q },
     });
 
-    const style = {
-      transform: CSS.Transform.toString(transform),
-      transition: transform ? "transform 0.15s ease" : "none",
-      willChange: "transform", // 🚀 GPU-Optimierung
-    };
+    // -----------------------------
+    // 2️⃣ Auto-Close beim Überfahren
+    // -----------------------------
+    useEffect(() => {
+      if (transform && q.expanded) {
+        // 🔥 Wenn man über eine offene Frage zieht → schließen
+        toggleExpand(q.id);
+      }
+    }, [transform]);
 
     return (
       <div
         ref={setNodeRef}
-        style={style}
-        className={`mt-3 ${level > 0 ? "ml-8" : ""}`}
+        style={{
+          transform: CSS.Transform.toString(transform),
+          transition: "0.15s ease",
+          marginLeft: level > 0 ? 25 : 0,
+        }}
+        className="mt-3"
       >
         <div className="flex items-center justify-between bg-white rounded-xl shadow-sm border border-gray-200 px-4 py-3">
-          {/* Links */}
+          {/* LINKS */}
           <div className="flex items-start gap-3">
-            <div className="flex items-center gap-3 mt-1">
-              {/* Drag Handle */}
-              <GripVertical
-                size={18}
-                className="text-gray-400 cursor-grab mt-1"
-                {...attributes}
-                {...listeners}
-              />
+            {/* Drag Handle */}
+            <GripVertical
+              size={18}
+              className="text-gray-400 cursor-grab mt-1"
+              {...attributes}
+              {...listeners}
+            />
 
-              {/* Pfeil */}
-              {q.children?.length > 0 ? (
-                q.expanded ? (
-                  <ChevronDown
-                    size={18}
-                    className="text-gray-600 cursor-pointer"
-                    onClick={() => toggleExpand(q.id)}
-                  />
-                ) : (
-                  <ChevronRight
-                    size={18}
-                    className="text-gray-600 cursor-pointer"
-                    onClick={() => toggleExpand(q.id)}
-                  />
-                )
+            {/* Klapp-Pfeil */}
+            {q.children?.length > 0 ? (
+              q.expanded ? (
+                <ChevronDown
+                  size={18}
+                  className="cursor-pointer"
+                  onClick={() => toggleExpand(q.id)}
+                />
               ) : (
-                <div className="w-[18px]" />
-              )}
-            </div>
+                <ChevronRight
+                  size={18}
+                  className="cursor-pointer"
+                  onClick={() => toggleExpand(q.id)}
+                />
+              )
+            ) : (
+              <div className="w-[18px]" />
+            )}
 
-            {/* Frage + Typ */}
+            {/* Frage */}
             <div className="flex flex-col mt-1">
-              <p className="font-semibold text-gray-800 text-base leading-tight">
-                {q.text}
-              </p>
-              <div className="mt-2">
-                <span className="text-xs text-[#4a65b9] bg-[#e6edff] px-2 py-0.5 rounded-full font-medium">
-                  {questionTypes.find((t) => t.value === q.type)?.label ||
-                    "Unbekannt"}
-                </span>
-              </div>
+              <p className="font-semibold">{q.text}</p>
+
+              <span className="inline-block w-fit text-xs mt-2 text-[#4a65b9] bg-[#e6edff] px-2 py-0.5 rounded-full whitespace-nowrap">
+                {questionTypes.find((t) => t.value === q.type)?.label}
+              </span>
             </div>
           </div>
 
-          {/* Rechts */}
+          {/* RECHTS */}
           <div className="flex items-center gap-6">
             <button
               onClick={() => {
                 setParentQuestion(q);
                 setIsModalOpen(true);
               }}
-              className="text-gray-600 hover:text-green-600 transition-all"
             >
               <Plus size={18} />
             </button>
+
             <button
               onClick={() => {
                 setEditingQuestion(q);
                 setParentQuestion(null);
                 setQuestionText(q.text);
-
-                // ✅ Fragetyp laden
-                const matchedType = questionTypes.find(
-                  (t) => t.value === q.type
-                );
-                setSelectedType(matchedType || null);
-
-                // ✅ Antwortoptionen + Scores laden
-                if (q.options && Array.isArray(q.options)) {
-                  if (q.scoringSchema) {
-                    const combined = q.options.map((opt: any) => {
-                      const label =
-                        typeof opt === "string" ? opt : opt.label || "";
-                      const currentScore =
-                        typeof opt === "object" ? opt.score : undefined;
-                      return {
-                        label,
-                        score: currentScore ?? q.scoringSchema[label] ?? 0, // ✅ nimmt zuerst aktuellen Wert
-                      };
-                    });
-                    setOptions(combined);
-                  } else {
-                    const simple = q.options.map(
-                      (opt: { label?: string } | string) => ({
-                        label: typeof opt === "string" ? opt : opt.label || "",
-                        score: 0,
-                      })
-                    );
-
-                    setOptions(simple);
-                  }
-                } else {
-                  setOptions([]);
-                }
-
+                setSelectedType(questionTypes.find((t) => t.value === q.type));
+                setOptions(q.options || []);
                 setIsModalOpen(true);
               }}
-              className="text-gray-600 hover:text-brand-sand transition-all"
             >
               <Edit3 size={18} />
             </button>
 
             <button
               onClick={() => handleDeleteQuestion(q)}
-              className="text-red-500 hover:text-red-600 transition-all"
+              className="text-red-500"
             >
               <Trash2 size={18} />
             </button>
           </div>
         </div>
 
-        {/* Unterfragen */}
+        {/* 🔥 Jede Ebene bekommt eigenen DnD-Kontext → kein Ruckeln */}
         {q.expanded && q.children?.length > 0 && (
-          <SortableContext
-            items={q.children.map((child: any) => child.id)}
-            strategy={verticalListSortingStrategy}
+          <div
+            ref={containerRef}
+            style={{
+              position: "relative",
+              overflow: "hidden",
+            }}
           >
-            {q.children.map((child: any) => (
-              <SortableQuestion key={child.id} q={child} level={level + 1} />
-            ))}
-          </SortableContext>
+            <DndContext
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+              onDragStart={({ active }) => {
+                const node = active?.data?.current;
+                if (!node) return;
+
+                // Wenn die gezogene Frage offen ist → schließen
+                if (node.node?.expanded) {
+                  toggleExpand(node.node.id);
+                }
+              }}
+              onDragMove={({ over }) => {
+                if (!over) return;
+
+                const hoveredNode = over?.data?.current?.node;
+                if (!hoveredNode) return;
+
+                // Wenn man über eine offene Frage zieht → schließen
+                if (hoveredNode.expanded) {
+                  toggleExpand(hoveredNode.id);
+                }
+              }}
+              modifiers={[restrictToParentElement]}
+            >
+              <SortableContext
+                id={q.id}
+                items={q.children.map((c: any) => c.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                {q.children.map((child: any) => (
+                  <SortableQuestion
+                    key={child.id}
+                    q={{ ...child, parentId: q.id }}
+                    level={level + 1}
+                  />
+                ))}
+              </SortableContext>
+            </DndContext>
+          </div>
         )}
       </div>
     );
   }
 
-  // 🧩 DragEnd Handler (innerhalb einer Ebene)
-// 🔧 DragEnd Handler (Root + Child)
-const handleDragEnd = async (event: DragEndEvent) => {
-  const { active, over } = event;
-  if (!over || active.id === over.id) return;
+  // 🔧 DragEnd Handler (Root + Child)
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
 
-  const activeId = String(active.id);
-  const overId = String(over.id);
+    // 🔥 HINZUGEFÜGT: Liste (Ebene) erkennen
+    const fromList = active.data?.current?.sortable?.containerId;
+    const toList = over.data?.current?.sortable?.containerId;
 
-  // -----------------------------------------
-  // 1. Helper: finde Node + parentId + index
-  // -----------------------------------------
-  const findNode = (
-    list: any[],
-    id: string,
-    parentId: string | null = null
-  ): { node: any; parentId: string | null; index: number } | null => {
-    for (let i = 0; i < list.length; i++) {
-      const q = list[i];
-      if (q.id === id) return { node: q, parentId, index: i };
+    // 🔥 HINZUGEFÜGT: Verschieben in andere Ebene blockieren
+    if (fromList !== toList) {
+      console.warn("⚠️ Verschieben in andere Parent-Ebene blockiert");
+      return;
+    }
 
-      if (q.children?.length) {
-        const found = findNode(q.children, id, q.id);
-        if (found) return found;
+    const activeId = String(active.id);
+    const overId = String(over.id);
+
+    // -----------------------------------------
+    // 1. Helper: finde Node + parentId + index
+    // -----------------------------------------
+    const findNode = (
+      list: any[],
+      id: string,
+      parentId: string | null = null
+    ): { node: any; parentId: string | null; index: number } | null => {
+      for (let i = 0; i < list.length; i++) {
+        const q = list[i];
+        if (q.id === id) return { node: q, parentId, index: i };
+
+        if (q.children?.length) {
+          const found = findNode(q.children, id, q.id);
+          if (found) return found;
+        }
       }
-    }
-    return null;
-  };
+      return null;
+    };
 
-  const activeInfo = findNode(questions, activeId);
-  const overInfo = findNode(questions, overId);
+    const activeInfo = findNode(questions, activeId);
+    const overInfo = findNode(questions, overId);
 
-  if (!activeInfo || !overInfo) return;
+    if (!activeInfo || !overInfo) return;
 
-  // -----------------------------------------
-  // 2. UI bewegen
-  // -----------------------------------------
-  const reorder = (
-    list: any[],
-    activeId: string,
-    overId: string
-  ): any[] => {
-    const oldIndex = list.findIndex((x) => x.id === activeId);
-    const newIndex = list.findIndex((x) => x.id === overId);
+    // -----------------------------------------
+    // 2. UI bewegen
+    // -----------------------------------------
+    const reorder = (list: any[], activeId: string, overId: string): any[] => {
+      const oldIndex = list.findIndex((x) => x.id === activeId);
+      const newIndex = list.findIndex((x) => x.id === overId);
 
-    if (oldIndex !== -1 && newIndex !== -1) {
-      return arrayMove(list, oldIndex, newIndex);
-    }
+      if (oldIndex !== -1 && newIndex !== -1) {
+        return arrayMove(list, oldIndex, newIndex);
+      }
 
-    return list.map((q) =>
-      q.children?.length
-        ? { ...q, children: reorder(q.children, activeId, overId) }
-        : q
-    );
-  };
-
-  setQuestions((prev) => reorder(prev, activeId, overId));
-
-  // -----------------------------------------
-  // 3. Backend korrekt updaten
-  // -----------------------------------------
-
-  const newPosition = overInfo.index; // 0, 1, 2 ...
-
-  try {
-    // ROOT → ROOT
-    if (!activeInfo.parentId && !overInfo.parentId) {
-      await moveRootNode(activeId, newPosition);
-      console.log("📌 Root verschoben:", activeId, "→ Position", newPosition);
-      return;
-    }
-
-    // CHILD → CHILD (gleiche Ebene)
-    if (activeInfo.parentId === overInfo.parentId) {
-      await moveChildNode(activeId, activeInfo.parentId!, newPosition);
-      console.log(
-        "📌 Child verschoben in gleicher Ebene:",
-        activeId,
-        "→ Position",
-        newPosition
+      return list.map((q) =>
+        q.children?.length
+          ? { ...q, children: reorder(q.children, activeId, overId) }
+          : q
       );
-      return;
+    };
+
+    setQuestions((prev) => reorder(prev, activeId, overId));
+
+    // -----------------------------------------
+    // 3. Backend korrekt updaten
+    // -----------------------------------------
+
+    const newPosition = overInfo.index; // 0, 1, 2 ...
+
+    try {
+      // ROOT → ROOT
+      if (!activeInfo.parentId && !overInfo.parentId) {
+        await moveRootNode(activeId, newPosition);
+        console.log("📌 Root verschoben:", activeId, "→ Position", newPosition);
+        return;
+      }
+
+      // CHILD → CHILD (gleiche Ebene)
+      if (activeInfo.parentId === overInfo.parentId) {
+        await moveChildNode(activeId, activeInfo.parentId!, newPosition);
+        console.log(
+          "📌 Child verschoben in gleicher Ebene:",
+          activeId,
+          "→ Position",
+          newPosition
+        );
+        return;
+      }
+
+      console.warn(
+        "⚠️ Verschieben in andere Parent-Ebene ist deaktiviert (Absprache)."
+      );
+    } catch (err) {
+      console.error("❌ Fehler beim Reorder:", err);
     }
-
-    // CHILD → anderer Parent (nicht erlaubt?)
-    console.warn(
-      "⚠️ Verschieben in andere Parent-Ebene ist deaktiviert (Absprache)."
-    );
-
-  } catch (err) {
-    console.error("❌ Fehler beim Reorder:", err);
-  }
-};
-
-
+  };
 
   // 🔧 Verschieben (rekursiv)
   const moveQuestion = (
     list: any[],
     activeId: string,
     overId: string
-   ): any[] => {
+  ): any[] => {
     const oldIndex = list.findIndex((item) => item.id === activeId);
     const newIndex = list.findIndex((item) => item.id === overId);
 
@@ -1069,21 +1084,32 @@ const handleDragEnd = async (event: DragEndEvent) => {
       </div>
 
       {/* Fragenliste mit DnD */}
-      <div className="px-10 pt-8">
-        <DndContext
-          collisionDetection={closestCenter}
-          onDragEnd={handleDragEnd}
-        >
-          <SortableContext
-            items={questions.map((q) => q.id)}
-            strategy={verticalListSortingStrategy}
-          >
-            {questions.map((q) => (
-              <SortableQuestion key={q.id} q={q} />
-            ))}
-          </SortableContext>
-        </DndContext>
-      </div>
+  <div className="px-10 pt-8">
+  <div
+    style={{
+      position: "relative",
+      overflow: "hidden",
+
+    }}
+  >
+    <DndContext
+      collisionDetection={closestCenter}
+      onDragEnd={handleDragEnd}
+      modifiers={[restrictToParentElement]}
+    >
+      <SortableContext
+        id="root"
+        items={questions.map((q) => q.id)}
+        strategy={verticalListSortingStrategy}
+      >
+        {questions.map((q) => (
+          <SortableQuestion key={q.id} q={q} />
+        ))}
+      </SortableContext>
+    </DndContext>
+  </div>
+</div>
+
 
       {/* 🗑️ Lösch-Bestätigungs-Modal */}
       {isDeleteModalOpen && (
