@@ -33,19 +33,24 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     HttpServletResponse response,
                                     FilterChain filterChain)
             throws ServletException, IOException {
+
         String path = request.getServletPath();
+        System.out.println(">>> JwtAuthenticationFilter TRIGGERED for path = " + path);
 
       if (path.startsWith("/api/auth/login")
             || path.startsWith("/api/auth/logout")
             || path.startsWith("/api/users")) {
+                 System.out.println(">>> JwtAuthenticationFilter SKIPPED for path = " + path);
         filterChain.doFilter(request, response);
            return;
     }
 
-        String header = request.getHeader("Authorization");
+        String header = request.getHeader("Authorization"); 
+        System.out.println(">>> JwtAuthenticationFilter header = " + header);
 
         // Pas de header Authorization ou pas Bearer, on laisse passer sans authentifier
         if (!StringUtils.hasText(header) || !header.startsWith("Bearer ")) {
+            System.out.println(">>> JwtAuthenticationFilter: no Bearer token, continue without auth");
             filterChain.doFilter(request, response);
             return;
         }
@@ -54,18 +59,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         // Token invalide
         if (!jwtUtil.validateToken(token)) {
+             System.out.println(">>> JwtAuthenticationFilter: invalid token");
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             return;
         }
 
         UUID userId = jwtUtil.getUserIdFromToken(token);
         if (userId == null) {
+              System.out.println(">>> JwtAuthenticationFilter: userId null");
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             return;
         }
 
         User user = userRepository.findById(userId).orElse(null);
         if (user == null) {
+             System.out.println(">>> JwtAuthenticationFilter: user not found");
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             return;
         }
@@ -81,6 +89,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         );
 
         SecurityContextHolder.getContext().setAuthentication(authentication);
+        System.out.println(">>> JwtAuthenticationFilter: authentication set, continue filter chain");
         filterChain.doFilter(request, response);
     }
 }
