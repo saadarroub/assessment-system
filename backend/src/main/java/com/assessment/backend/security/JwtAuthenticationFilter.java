@@ -2,6 +2,7 @@ package com.assessment.backend.security;
 
 import com.assessment.backend.entity.User;
 import com.assessment.backend.repository.UserRepository;
+import com.assessment.backend.repository.RevokedTokenRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -23,10 +24,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
     private final UserRepository userRepository;
+    private final RevokedTokenRepository revokedTokenRepository;
 
-    public JwtAuthenticationFilter(JwtUtil jwtUtil, UserRepository userRepository) {
+    public JwtAuthenticationFilter(JwtUtil jwtUtil,
+                                   UserRepository userRepository,
+                                   RevokedTokenRepository revokedTokenRepository) {
         this.jwtUtil = jwtUtil;
         this.userRepository = userRepository;
+        this.revokedTokenRepository = revokedTokenRepository;
     }
 
     @Override
@@ -38,16 +43,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String path = request.getServletPath();
         String method = request.getMethod();
 
-        // Endpoints publics - pas besoin de JWT
+       
         if (isPublicPath(path, method)) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        // Récupérer le header Authorization
         String header = request.getHeader("Authorization");
 
-        // Pas de header ou pas de Bearer - on laisse passer sans authentifier
+        
         if (!StringUtils.hasText(header) || !header.startsWith("Bearer ")) {
             filterChain.doFilter(request, response);
             return;
@@ -55,7 +59,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         String token = header.substring(7);
 
-        // Token invalide
+        //  (logout)
+        if (revokedTokenRepository.existsByToken(token)) {
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            return;
+        }
+
         if (!jwtUtil.validateToken(token)) {
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             return;
@@ -75,12 +84,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         User user = userOpt.get();
 
-        // Créer l’Authentication et la placer dans le SecurityContext
         UsernamePasswordAuthenticationToken authentication =
                 new UsernamePasswordAuthenticationToken(
                         user,
                         null,
-                        Collections.emptyList()      // tu pourras plus tard mettre les rôles ici
+                        Collections.emptyList()   
                 );
 
         authentication.setDetails(
@@ -88,18 +96,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         );
 
         SecurityContextHolder.getContext().setAuthentication(authentication);
-
-        // continuer la chaîne de filtres
         filterChain.doFilter(request, response);
     }
 
     private boolean isPublicPath(String path, String method) {
-        // login et logout ouverts
+      
         if ("/api/auth/login".equals(path) || "/api/auth/logout".equals(path)) {
             return true;
         }
 
-        // création de user autorisée sans être loggé
+        
         if ("/api/users".equals(path) && "POST".equalsIgnoreCase(method)) {
             return true;
         }
