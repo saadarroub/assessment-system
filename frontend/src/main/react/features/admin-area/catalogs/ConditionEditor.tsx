@@ -106,6 +106,7 @@ export default function ConditionEditor() {
 
   const containerRef = useRef<HTMLDivElement | null>(null);
 
+
   // 🔁 Rekursive Funktion, die ALLE Kinder bis zur tiefsten Ebene lädt
   async function fetchChildrenRecursive(parentId: string): Promise<any[]> {
     try {
@@ -557,6 +558,10 @@ export default function ConditionEditor() {
         questionId: question.id,
         text: question.text,
         type: selectedType.value,
+        options: options, // 🔥 WICHTIG!
+        scoringSchema: Object.fromEntries(
+          options.map((o) => [o.label, o.score])
+        ),
         children: [],
         expanded: false,
       };
@@ -800,7 +805,7 @@ export default function ConditionEditor() {
         }}
         className="mt-3"
       >
-        <div className="flex items-center justify-between bg-white rounded-xl shadow-sm border border-gray-200 px-4 py-3">
+        <div className="flex items-center justify-between bg-white rounded-xl shadow-sm border border-gray-300 px-4 py-3">
           {/* LINKS */}
           <div className="flex items-start gap-3">
             {/* Drag Handle */}
@@ -853,6 +858,7 @@ export default function ConditionEditor() {
 
             <button
               onClick={() => {
+                console.log("DEBUG OPTIONS:", q.options);
                 setEditingQuestion(q);
                 setParentQuestion(null);
                 setQuestionText(q.text);
@@ -882,45 +888,19 @@ export default function ConditionEditor() {
               overflow: "hidden",
             }}
           >
-            <DndContext
-              collisionDetection={closestCenter}
-              onDragEnd={handleDragEnd}
-              onDragStart={({ active }) => {
-                const node = active?.data?.current;
-                if (!node) return;
-
-                // Wenn die gezogene Frage offen ist → schließen
-                if (node.node?.expanded) {
-                  toggleExpand(node.node.id);
-                }
-              }}
-              onDragMove={({ over }) => {
-                if (!over) return;
-
-                const hoveredNode = over?.data?.current?.node;
-                if (!hoveredNode) return;
-
-                // Wenn man über eine offene Frage zieht → schließen
-                if (hoveredNode.expanded) {
-                  toggleExpand(hoveredNode.id);
-                }
-              }}
-              modifiers={[restrictToParentElement]}
+            <SortableContext
+              id={q.id}
+              items={q.children.map((c: any) => c.id)}
+              strategy={verticalListSortingStrategy}
             >
-              <SortableContext
-                id={q.id}
-                items={q.children.map((c: any) => c.id)}
-                strategy={verticalListSortingStrategy}
-              >
-                {q.children.map((child: any) => (
-                  <SortableQuestion
-                    key={child.id}
-                    q={{ ...child, parentId: q.id }}
-                    level={level + 1}
-                  />
-                ))}
-              </SortableContext>
-            </DndContext>
+              {q.children.map((child: any) => (
+                <SortableQuestion
+                  key={child.id}
+                  q={{ ...child, parentId: q.id }}
+                  level={level + 1}
+                />
+              ))}
+            </SortableContext>
           </div>
         )}
       </div>
@@ -1084,32 +1064,31 @@ export default function ConditionEditor() {
       </div>
 
       {/* Fragenliste mit DnD */}
-  <div className="px-10 pt-8">
-  <div
-    style={{
-      position: "relative",
-      overflow: "hidden",
-
-    }}
-  >
-    <DndContext
-      collisionDetection={closestCenter}
-      onDragEnd={handleDragEnd}
-      modifiers={[restrictToParentElement]}
-    >
-      <SortableContext
-        id="root"
-        items={questions.map((q) => q.id)}
-        strategy={verticalListSortingStrategy}
-      >
-        {questions.map((q) => (
-          <SortableQuestion key={q.id} q={q} />
-        ))}
-      </SortableContext>
-    </DndContext>
-  </div>
-</div>
-
+      <div className="px-10 pt-8">
+        <div
+          style={{
+            position: "relative",
+            overflow: "hidden",
+          }}
+        >
+          <DndContext
+            collisionDetection={closestCenter}
+            onDragStart={() => console.log("🔥 ROOT DND TRIGGERT")}
+            onDragEnd={handleDragEnd}
+            modifiers={[restrictToParentElement]}
+          >
+            <SortableContext
+              id="root"
+              items={questions.map((q) => q.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              {questions.map((q) => (
+                <SortableQuestion key={q.id} q={q} />
+              ))}
+            </SortableContext>
+          </DndContext>
+        </div>
+      </div>
 
       {/* 🗑️ Lösch-Bestätigungs-Modal */}
       {isDeleteModalOpen && (

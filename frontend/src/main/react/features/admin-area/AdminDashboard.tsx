@@ -1,10 +1,4 @@
-import {
-  useState,
-  useEffect,
-  useRef,
-  useMemo,
-  useCallback,
-} from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import "@/styles/admin.css";
 import AdminLayout from "@/apps/app/AdminLayout";
@@ -12,7 +6,15 @@ import TopicCard from "./TopicCard";
 
 // Icons
 import myLogo from "@/assets/Zero-6-icons-05.webp";
-import { Plus, MinusSquare, Search,Layers, ListOrdered, Users, Clock } from "lucide-react";
+import {
+  Plus,
+  MinusSquare,
+  Search,
+  Layers,
+  ListOrdered,
+  Users,
+  Clock,
+} from "lucide-react";
 
 // API
 import {
@@ -34,7 +36,7 @@ type Topic = {
 
 // STATS
 
-const STAT_COLORS = ["#808080", "#56768f","#264555",  "#d2c9b9"];
+const STAT_COLORS = ["#808080", "#56768f", "#264555", "#d2c9b9"];
 
 const STAT_ICONS = [
   <Layers size={48} />,
@@ -48,8 +50,8 @@ type Stat = { label: string; value: string; tone?: "positive" | "neutral" };
 const STATS: Stat[] = [
   { label: "Themen", value: "–", tone: "positive" },
   { label: "Gesamtfragen", value: "–", tone: "positive" },
-  { label: "Aktive Nutzer", value: "89", tone: "positive" },
-  { label: "Letzte Änderung", value: "Heute", tone: "neutral" },
+  { label: "Aktive Themen", value: "7", tone: "positive" },
+  { label: "Unaktive Themen", value: "0", tone: "neutral" },
 ];
 
 export default function AdminDashboard() {
@@ -76,14 +78,12 @@ export default function AdminDashboard() {
   const titleInputRef = useRef<HTMLInputElement | null>(null);
 
   // Farben Rotation
-  const TOPIC_COLORS = useMemo(
-    () => ["#264555", "#56768f", "#808080", "#d2c9b9", "#E3BB62"],
-    []
-  );
+  const TOPIC_COLORS = useMemo(() => ["#264555", "#56768f"], []);
 
   // Fetch Themen
   const fetchTopics = useCallback(async () => {
     try {
+      
       const themas = await getAllThemas();
       const nodes = await getAllQuestionNodes();
 
@@ -161,9 +161,7 @@ export default function AdminDashboard() {
     async (t: Topic) => {
       try {
         const nodes = await getAllQuestionNodes();
-        const hasQuestions = nodes.some(
-          (n) => n.thema && n.thema.id === t.id
-        );
+        const hasQuestions = nodes.some((n) => n.thema && n.thema.id === t.id);
 
         navigate(
           hasQuestions
@@ -176,6 +174,26 @@ export default function AdminDashboard() {
     },
     [navigate]
   );
+
+  // ⭐ Minimal Skeleton nur für den Zahlenwert (hell-blau)
+  function StatValueSkeleton() {
+    return (
+      <span className="inline-block h-4 w-16 rounded bg-[#cdd9e3] animate-pulse"></span>
+    );
+  }
+
+  function TopicCardSkeleton() {
+  return (
+    <div className="bg-white rounded-xl shadow p-5 h-[250px] animate-pulse flex flex-col gap-4">
+      <div className="h-6 w-40 bg-gray-300/60 rounded"></div>
+      <div className="h-4 w-64 bg-gray-300/50 rounded"></div>
+      <div className="h-4 w-52 bg-gray-300/40 rounded"></div>
+
+      <div className="mt-auto h-8 w-32 bg-gray-300/60 rounded"></div>
+    </div>
+  );
+}
+
 
   return (
     <AdminLayout>
@@ -218,13 +236,12 @@ export default function AdminDashboard() {
         </div>
 
         {/* STATS */}
- <section className="stats-panel mt-4">
-  <div className="grid grid-cols-4 gap-4">
-
-    {STATS.map((s, i) => (
-      <div
-        key={i}
-        className="
+        <section className="stats-panel mt-4">
+          <div className="grid grid-cols-4 gap-4">
+            {STATS.map((s, i) => (
+              <div
+                key={i}
+                className="
           relative
           h-[110px]
           rounded-2xl 
@@ -233,55 +250,53 @@ export default function AdminDashboard() {
           p-5
           flex flex-col justify-between
         "
-        style={{ backgroundColor: STAT_COLORS[i] }}
-      >
-        {/* ICON BACKGROUND */}
-        <div
-          className="absolute right-3 bottom-3 opacity-[0.18]"
-          style={{ color: "white" }}
-        >
-          {STAT_ICONS[i]}
-        </div>
+                style={{ backgroundColor: STAT_COLORS[i] }}
+              >
+                {/* ICON */}
+                <div
+                  className="absolute right-3 bottom-3 opacity-[0.18]"
+                  style={{ color: "white" }}
+                >
+                  {STAT_ICONS[i]}
+                </div>
 
-        {/* LABEL */}
-        <p className="text-white/80 text-sm font-medium">
-          {s.label}
-        </p>
+                {/* LABEL */}
+                <p className="text-white/80 text-sm font-medium">{s.label}</p>
 
-        {/* VALUE */}
-        <p className="text-white text-4xl font-extrabold">
-          {s.value === "–"
-            ? i === 0
-              ? topics.length
-              : i === 1
-              ? topics.reduce(
-                  (sum, t) => sum + (t.questions || 0),
-                  0
-                )
-              : "–"
-            : s.value}
-        </p>
-      </div>
-    ))}
-
-  </div>
-</section>
-
-
+                {/* VALUE (mit Skeleton nur während loading) */}
+                <p className="text-white text-4xl font-extrabold">
+                  {loading ? (
+                    <StatValueSkeleton />
+                  ) : s.value === "–" ? (
+                    i === 0 ? (
+                      topics.length
+                    ) : i === 1 ? (
+                      topics.reduce((sum, t) => sum + (t.questions || 0), 0)
+                    ) : (
+                      "–"
+                    )
+                  ) : (
+                    s.value
+                  )}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
 
         {/* THEMEN */}
-        {!loading && (
-          <section className="topics-section">
-            <div className="section-header">
-              <h2>Themen</h2>
-              <button
-                className="btn btn-caramel"
-                onClick={() => setIsAddModalOpen(true)}
-              >
-                <Plus size={16} />
-                Neues Thema
-              </button>
-            </div>
+        
+         <section className="topics-section">
+  <div className="section-header">
+    <h2>Themen</h2>
+    <button
+      className="btn btn-caramel"
+      onClick={() => setIsAddModalOpen(true)}
+    >
+      <Plus size={16} />
+      Neues Thema
+    </button>
+  </div>
 
             {/* SEARCH */}
             <div className="mx-auto mb-6 mt-3 rounded-[12px] border bg-white/85 backdrop-blur-md shadow">
@@ -302,9 +317,7 @@ export default function AdminDashboard() {
 
                 <div className="px-4 py-2 rounded-md border bg-white text-gray-600">
                   Zeige{" "}
-                  <span className="font-semibold">
-                    {filteredTopics.length}
-                  </span>{" "}
+                  <span className="font-semibold">{filteredTopics.length}</span>{" "}
                   Themen
                 </div>
               </div>
@@ -318,21 +331,28 @@ export default function AdminDashboard() {
                 border border-gray-300/30
               "
             >
-             <div
+           <div
   className="topics-grid grid gap-6"
   style={{ gridTemplateColumns: "repeat(auto-fill, minmax(420px, 1fr))" }}
 >
+  {loading
+    ? // ⭐ 6 Skeleton Cards anzeigen
+      Array.from({ length: 6 }).map((_, i) => (
+        <TopicCardSkeleton key={i} />
+      ))
+    : // ⭐ Echte Topics anzeigen
+      currentTopics.map((t) => (
+        <TopicCard
+          key={t.id}
+          t={t}
+          loading={loading}
+          onDelete={handleDelete}
+          onEdit={handleEdit}
+          onManage={handleManage}
+        />
+      ))}
+</div>
 
-                {currentTopics.map((t) => (
-                  <TopicCard
-                    key={t.id}
-                    t={t}
-                    onDelete={handleDelete}
-                    onEdit={handleEdit}
-                    onManage={handleManage}
-                  />
-                ))}
-              </div>
             </div>
 
             {/* PAGINATION */}
@@ -372,7 +392,7 @@ export default function AdminDashboard() {
               </div>
             )}
           </section>
-        )}
+        
       </div>
 
       {/* === EDIT MODAL === */}
@@ -508,9 +528,7 @@ export default function AdminDashboard() {
 
             <p className="text-gray-600 mb-6">
               Möchten Sie das Thema{" "}
-              <span className="font-semibold">
-                {selectedTopic?.title}
-              </span>{" "}
+              <span className="font-semibold">{selectedTopic?.title}</span>{" "}
               wirklich löschen?
             </p>
 

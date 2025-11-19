@@ -187,6 +187,16 @@ export async function moveChildNode(
   await axios.patch(url);
 }
 
+export async function duplicateThema(id: string) {
+  try {
+    const res = await axios.post(`${API_BASE}/themas/${id}/duplicate`);
+    return res.data;
+  } catch (error) {
+    console.error("❌ Fehler beim Duplizieren des Themas:", error);
+    throw error;
+  }
+}
+
 
 
 

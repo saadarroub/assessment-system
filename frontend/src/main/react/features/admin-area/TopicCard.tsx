@@ -1,5 +1,5 @@
 import React from "react";
-import { FileText, Edit3, Trash2, ArrowRight } from "lucide-react";
+import { FileText, Edit3, Trash2, ArrowRight, Copy } from "lucide-react";
 
 function isColorLight(hex: string) {
   const c = hex.replace("#", "");
@@ -11,107 +11,135 @@ function isColorLight(hex: string) {
   return brightness > 180;
 }
 
+// 🎨 3-Color Concept basierend auf #56768f
+const PRIMARY = "#303335ff"; // original brand-steel
+const SECONDARY = "#3f5a6eff"; // lighter
+const ACCENT = "#486c88de"; // darker
+
+const GRADIENT = `linear-gradient(145deg, ${PRIMARY}, ${SECONDARY}, ${ACCENT})`;
+
 type Topic = {
   id: string;
   title: string;
   subtitle: string;
   questions: number;
-
-  color?: string;
 };
 
 type TopicCardProps = {
   t: Topic;
+  loading?: boolean;   // HINZUFÜGEN!
   onDelete: (t: Topic) => void;
   onEdit: (t: Topic) => void;
   onManage: (t: Topic) => void;
 };
 
-const TopicCard = ({ t, onDelete, onEdit, onManage }: TopicCardProps) => {
-  const baseColor = t.color ?? "#264555";
-  const isLight = isColorLight(baseColor);
+const TopicCard = ({
+  t,
+  onDelete,
+  onEdit,
+  onManage,
+}: TopicCardProps) => {
+  const isLight = isColorLight(SECONDARY);
 
   const textColor = isLight ? "text-black" : "text-white";
-  const textColorSoft = isLight ? "text-black/70" : "text-white/80";
+  const textColorSoft = isLight ? "text-black/50" : "text-white/80";
+
+  
+ 
 
   return (
     <div
-    className="
-  relative flex flex-col rounded-xl overflow-hidden 
-  shadow-md
-  p-5
-"
-style={{
-  background: baseColor,
-}}
-
+      className="
+        relative flex flex-col rounded-xl overflow-hidden 
+        shadow-md p-5
+      "
+      style={{
+        background: GRADIENT,
+      }}
     >
       <div className="relative z-10 flex flex-col gap-4">
-
         {/* ICON + STATUS */}
         <div className="flex items-center justify-between">
           <div
             className="
               w-12 h-12 rounded-xl flex items-center justify-center
-              bg-white/10 border border-white/20 shadow-sm
+              bg-[#3f5568] border border-white/20 shadow-sm
             "
           >
-            <FileText size={23} className={isLight ? "text-black/70" : "text-white"} />
+            <FileText size={23} className={textColorSoft} />
           </div>
 
           <span
             className="
               px-3 py-1 rounded-xl 
               bg-green-500 text-white text-xs font-semibold
-              shadow-sm border border-white/20
+              shadow-sm
             "
           >
             Aktiv
           </span>
         </div>
 
-        {/* TITLE + SUBTITLE */}
+        {/* TITLE */}
         <div className="flex flex-col gap-1 min-h-[80px]">
-          <h4 className={`text-xl font-semibold leading-tight line-clamp-2 ${textColor}`}>
-            {t.title}
-          </h4>
-          <p className={`text-sm leading-relaxed line-clamp-2 ${textColorSoft}`}>
-            {t.subtitle || "Keine Beschreibung vorhanden"}
-          </p>
+       
+            <h4
+              className={`text-xl font-semibold leading-tight line-clamp-2 ${textColor}`}
+            >
+              {t.title}
+            </h4>
+          
+         
+            <p
+              className={`text-sm leading-relaxed line-clamp-2 ${textColorSoft}`}
+            >
+              {t.subtitle || "Keine Beschreibung vorhanden"}
+            </p>
+          
         </div>
 
-        {/* Fragenanzahl – enge Variante */}
+        {/* FRAGENANZAHL */}
         <div
           className="
             inline-flex items-center gap-2 px-3 py-2 rounded-lg
-            bg-white/10 shadow-sm w-fit
+            bg-[#486c88de] shadow-sm w-fit
           "
         >
           <span className={`text-sm ${textColorSoft}`}>Anzahl der Fragen:</span>
-          <span className={`text-lg font-semibold ${textColor}`}>{t.questions}</span>
+        
+            <span className={`text-lg font-semibold ${textColor}`}>
+              {t.questions}
+            </span>
+          
         </div>
 
         {/* BUTTONS */}
         <div className="flex items-center gap-2 mt-1">
-
-          {/* MANAGE */}
           <button
             onClick={() => onManage(t)}
             className="
               flex-1 bg-white text-gray-900 font-medium rounded-lg py-2
               flex items-center justify-center gap-2 shadow-sm
-              hover:bg-blue-50 active:bg-blue-100
-              transition-all text-sm
+              hover:bg-gray-100 transition-all text-sm
             "
           >
             Fragen Verwalten <ArrowRight size={16} />
           </button>
 
-          {/* EDIT */}
+          <button
+            className="
+    w-10 h-10 rounded-xl bg-[#3f5568]
+    flex items-center justify-center shadow-sm border border-white/20
+    hover:bg-blue-500/20 transition-all
+  "
+          >
+            <Copy size={18} className={textColor} />
+          </button>
+
           <button
             onClick={() => onEdit(t)}
             className="
-              w-10 h-10 rounded-xl bg-white/10
+              w-10 h-10 rounded-xl bg-[#3f5568]
               flex items-center justify-center shadow-sm border border-white/20
               hover:bg-green-500/20 transition-all
             "
@@ -119,11 +147,10 @@ style={{
             <Edit3 size={18} className={textColor} />
           </button>
 
-          {/* DELETE */}
           <button
             onClick={() => onDelete(t)}
             className="
-              w-10 h-10 rounded-xl bg-white/10
+              w-10 h-10 rounded-xl bg-[#3f5568]
               flex items-center justify-center shadow-sm border border-white/20
               hover:bg-red-500/20 transition-all
             "
