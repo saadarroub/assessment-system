@@ -537,11 +537,15 @@ public class PublicAccessController {
     /**
      * GET /public/access/{accessToken}/sessions/{sessionId}/previous
      * Liefert die vorherige (letzte beantwortete) Frage MIT gespeicherter Antwort
+     * 
+     * @param currentQuestionId Optional: Die aktuell angezeigte Frage (wird übersprungen)
+     * Wenn nicht angegeben, wird die absolut letzte beantwortete Frage zurückgegeben
      */
     @GetMapping("/{accessToken}/sessions/{sessionId}/previous")
     public ResponseEntity<?> previousQuestion(
             @PathVariable("accessToken") String accessToken,
-            @PathVariable("sessionId") String sessionId) {
+            @PathVariable("sessionId") String sessionId,
+            @RequestParam(required = false) String currentQuestionId) {
         try {
             Optional<WorkerCatalog> assignmentOpt = workerCatalogService.findByAccessToken(accessToken);
             if (assignmentOpt.isEmpty()) {
@@ -560,8 +564,18 @@ public class PublicAccessController {
             ResponseEntity<?> ownDenied = AccessGuardUtil.guardSessionOwnership(assignment, session, themaCatalogService);
             if (ownDenied != null) return ownDenied;
 
-            // Finde vorherige Frage
-            Map<String, Object> previous = publicQueryUtil.findPreviousQuestion(session.getId(), session.getThemaId());
+            // Parse optional currentQuestionId
+            UUID excludedQuestionId = null;
+            if (currentQuestionId != null && !currentQuestionId.isBlank()) {
+                excludedQuestionId = AccessGuardUtil.parseUuidOrNull(currentQuestionId);
+            }
+
+            // Finde vorherige Frage (optional excluding current)
+            Map<String, Object> previous = publicQueryUtil.findPreviousQuestion(
+                session.getId(), 
+                session.getThemaId(), 
+                excludedQuestionId
+            );
             
             if (previous == null) {
                 // Keine vorherige Frage vorhanden
