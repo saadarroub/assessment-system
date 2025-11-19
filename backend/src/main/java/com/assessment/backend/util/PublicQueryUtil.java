@@ -161,9 +161,30 @@ public class PublicQueryUtil {
      * @return Map mit Frage-Details oder null wenn keine vorherige Frage existiert
      */
     @Nullable
+    /**
+     * Findet die vorherige (letzte beantwortete) Frage einer Session.
+     * @param sessionId UUID der Session
+     * @param themaId UUID des Themas
+     * @return Map mit Frage-Details oder null wenn keine vorherige Frage existiert
+     */
     public Map<String, Object> findPreviousQuestion(UUID sessionId, UUID themaId) {
-        return jdbcTemplate.query(
-                """
+        return findPreviousQuestion(sessionId, themaId, null);
+    }
+    
+    /**
+     * Findet die vorherige beantwortete Frage VOR einer bestimmten Frage.
+     * @param sessionId UUID der Session
+     * @param themaId UUID des Themas
+     * @param excludedQuestionId Optional: Die aktuell angezeigte Frage (wird übersprungen)
+     * @return Map mit Frage-Details oder null wenn keine vorherige Frage existiert
+     */
+    public Map<String, Object> findPreviousQuestion(UUID sessionId, UUID themaId, @Nullable UUID excludedQuestionId) {
+        // Wenn excludedQuestionId gegeben ist, müssen wir filtern
+        String excludeCondition = excludedQuestionId != null 
+            ? "AND qh.question_id != ?" 
+            : "";
+        
+        String sql = """
                 -- Recursive CTE für hierarchische Fragenreihenfolge (identisch zu findNextQuestion)
                 WITH RECURSIVE question_hierarchy AS (
                   -- Basis: Root-Fragen (ohne Parent)
@@ -213,14 +234,22 @@ public class PublicQueryUtil {
                 JOIN public.question q ON q.id = qh.question_id
                 JOIN public.question_type qt ON qt.id = q.type_id
                 JOIN answered_questions aq ON aq.question_id = qh.question_id
+                WHERE 1=1
+                """ + excludeCondition + """
                 -- Nur beantwortete Fragen (via JOIN mit answered_questions)
                 ORDER BY qh.sort_path DESC  -- Reverse: Letzte Frage zuerst
                 LIMIT 1
-                """,
+                """;
+        
+        return jdbcTemplate.query(
+                sql,
                 ps -> { 
                     ps.setObject(1, themaId);   // Root-Fragen Filter
                     ps.setObject(2, themaId);   // Kinder Filter (Rekursion)
                     ps.setObject(3, sessionId); // Beantwortete Fragen Filter
+                    if (excludedQuestionId != null) {
+                        ps.setObject(4, excludedQuestionId); // Exclude current question
+                    }
                 },
                 rs -> {
                     if (!rs.next()) return null;
