@@ -106,6 +106,7 @@ export default function ConditionEditor() {
 
   const containerRef = useRef<HTMLDivElement | null>(null);
 
+  const [dragEnabled, setDragEnabled] = useState(true);
 
   // 🔁 Rekursive Funktion, die ALLE Kinder bis zur tiefsten Ebene lädt
   async function fetchChildrenRecursive(parentId: string): Promise<any[]> {
@@ -345,35 +346,6 @@ export default function ConditionEditor() {
 
     if (themaId) fetchAllQuestions();
   }, [themaId]);
-
-  // Neue Frage hinzufügen vilt später
-  {
-    /*
-  const handleConfirm = () => {
-    const newQuestion = {
-      id: Date.now().toString(),
-      text: questionText,
-      type: selectedType,
-      options,
-      children: [],
-      expanded: true,
-    };
-
-    if (parentQuestion) {
-      const updated = addChildToParent(
-        questions,
-        parentQuestion.id,
-        newQuestion
-      );
-      setQuestions(updated);
-    } else {
-      setQuestions([...questions, newQuestion]);
-    }
-
-    handleCancel();
-  };
-  */
-  }
 
   const handleAddQuestion = () => {
     setParentQuestion(null);
@@ -749,6 +721,29 @@ export default function ConditionEditor() {
     setQuestions(updated);
   };
 
+  function normalizeOptions(q: any) {
+    // Beispiel: ["Ja","Nein"]
+    if (Array.isArray(q.options) && typeof q.options[0] === "string") {
+      return q.options.map((label: string) => ({
+        label,
+        score: q.scoringSchema?.[label] ?? null,
+      }));
+    }
+
+    // Beispiel: { A: 1, B: 2 }
+    if (!Array.isArray(q.options) && typeof q.scoringSchema === "object") {
+      return Object.entries(q.scoringSchema).map(([label, score]) => ({
+        label,
+        score,
+      }));
+    }
+
+    // Beispiel: []
+    if (Array.isArray(q.options)) return q.options;
+
+    return [];
+  }
+
   // 🔁 Hilfsfunktion für rekursives Ein-/Ausklappen in Unterfragen
   async function toggleExpandInChild(node: any, id: string): Promise<any> {
     if (node.id === id) {
@@ -775,11 +770,11 @@ export default function ConditionEditor() {
   // 🔹 Fragetypen
   const showOptions = selectedType?.hasOptions === true;
 
-  // 🧱 Sortable Item Component
+  // -----------------------------
+  // 1️⃣ useSortable + Auto-Close
+  // -----------------------------
   function SortableQuestion({ q, level = 0 }: { q: any; level?: number }) {
-    // -----------------------------
-    // 1️⃣ useSortable + Auto-Close
-    // -----------------------------
+  
     const { attributes, listeners, setNodeRef, transform } = useSortable({
       id: q.id,
       data: { parent: q.parentId || "root", node: q },
@@ -812,8 +807,29 @@ export default function ConditionEditor() {
             <GripVertical
               size={18}
               className="text-gray-400 cursor-grab mt-1"
-              {...attributes}
-              {...listeners}
+              onMouseDown={async (e) => {
+                console.log("🟡 CLICK ON DRAG BUTTON");
+
+                e.stopPropagation();
+
+                console.log("➡ expanded?", q.expanded);
+
+                if (q.expanded) {
+                  console.log("🔴 SOFTCLOSE START");
+                  setDragEnabled(false);
+                  toggleExpand(q.id);
+                  console.log("🔵 toggleExpand CALLED");
+
+                  await new Promise((r) => setTimeout(r, 150));
+
+                  console.log("🟢 DRAG RE-ENABLED");
+                  setDragEnabled(true);
+                } else {
+                  console.log("⚪ Question already closed");
+                }
+              }}
+              {...(dragEnabled ? attributes : {})}
+              {...(dragEnabled ? listeners : {})}
             />
 
             {/* Klapp-Pfeil */}
@@ -863,7 +879,7 @@ export default function ConditionEditor() {
                 setParentQuestion(null);
                 setQuestionText(q.text);
                 setSelectedType(questionTypes.find((t) => t.value === q.type));
-                setOptions(q.options || []);
+                setOptions(normalizeOptions(q));
                 setIsModalOpen(true);
               }}
             >
@@ -906,6 +922,7 @@ export default function ConditionEditor() {
       </div>
     );
   }
+
 
   // 🔧 DragEnd Handler (Root + Child)
   const handleDragEnd = async (event: DragEndEvent) => {
@@ -1037,18 +1054,15 @@ export default function ConditionEditor() {
           </span>
         </div>
 
-        <div className="mt-6 text-center">
+        <div className="mt-6 text-center ">
           <div className="flex justify-center items-center gap-3">
-            <div className="bg-brand-sand p-3 rounded-xl shadow">
+            <div className="bg-brand-sand p-3 rounded-xl shadow mt-5">
               <FileText size={26} className="text-white" />
             </div>
-            <h1 className="text-2xl md:text-6xl font-bold">
+            <h1 className="text-2xl md:text-6xl font-bold mt-5">
               {thema?.name || "Lade Thema..."}
             </h1>
           </div>
-          <p className="text-gray-600 mt-4">
-            {thema?.description || "Beschreibung wird geladen..."}
-          </p>
         </div>
       </div>
 
@@ -1147,15 +1161,16 @@ export default function ConditionEditor() {
                 </h2>
               ) : parentQuestion ? (
                 <div className="mb-6">
-                  <p className="text-sm text-gray-500">
+                  <h2 className="text-xl font-semibold text-gray-800 mt-2">
+                    Neue Unterfrage hinzufügen
+                  </h2>
+
+                  <p className="text-sm text-gray-500 mt-2">
                     <span className="font-semibold text-gray-700">
                       Vaterfrage:
                     </span>{" "}
                     {parentQuestion.text}
                   </p>
-                  <h2 className="text-xl font-semibold text-gray-800 mt-2">
-                    Neue Unterfrage hinzufügen
-                  </h2>
                 </div>
               ) : (
                 <h2 className="text-xl font-semibold text-gray-800 mb-6">

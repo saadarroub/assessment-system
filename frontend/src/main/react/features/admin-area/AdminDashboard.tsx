@@ -178,7 +178,7 @@ export default function AdminDashboard() {
   // ⭐ Minimal Skeleton nur für den Zahlenwert (hell-blau)
   function StatValueSkeleton() {
     return (
-      <span className="inline-block h-4 w-16 rounded bg-[#cdd9e3] animate-pulse"></span>
+      <span className="inline-block h-3 w-16 rounded bg-[#cdd9e3] animate-pulse"></span>
     );
   }
 
@@ -188,7 +188,6 @@ export default function AdminDashboard() {
       <div className="h-6 w-40 bg-gray-300/60 rounded"></div>
       <div className="h-4 w-64 bg-gray-300/50 rounded"></div>
       <div className="h-4 w-52 bg-gray-300/40 rounded"></div>
-
       <div className="mt-auto h-8 w-32 bg-gray-300/60 rounded"></div>
     </div>
   );

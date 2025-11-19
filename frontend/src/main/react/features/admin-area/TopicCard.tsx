@@ -27,25 +27,17 @@ type Topic = {
 
 type TopicCardProps = {
   t: Topic;
-  loading?: boolean;   // HINZUFÜGEN!
+  loading?: boolean; // HINZUFÜGEN!
   onDelete: (t: Topic) => void;
   onEdit: (t: Topic) => void;
   onManage: (t: Topic) => void;
 };
 
-const TopicCard = ({
-  t,
-  onDelete,
-  onEdit,
-  onManage,
-}: TopicCardProps) => {
+const TopicCard = ({ t, onDelete, onEdit, onManage }: TopicCardProps) => {
   const isLight = isColorLight(SECONDARY);
 
   const textColor = isLight ? "text-black" : "text-white";
   const textColorSoft = isLight ? "text-black/50" : "text-white/80";
-
-  
- 
 
   return (
     <div
@@ -82,20 +74,17 @@ const TopicCard = ({
 
         {/* TITLE */}
         <div className="flex flex-col gap-1 min-h-[80px]">
-       
-            <h4
-              className={`text-xl font-semibold leading-tight line-clamp-2 ${textColor}`}
-            >
-              {t.title}
-            </h4>
-          
-         
-            <p
-              className={`text-sm leading-relaxed line-clamp-2 ${textColorSoft}`}
-            >
-              {t.subtitle || "Keine Beschreibung vorhanden"}
-            </p>
-          
+          <h4
+            className={`text-xl font-semibold leading-tight line-clamp-2 ${textColor}`}
+          >
+            {t.title}
+          </h4>
+
+          <p
+            className={`text-sm leading-relaxed line-clamp-2 ${textColorSoft}`}
+          >
+            {t.subtitle || "Keine Beschreibung vorhanden"}
+          </p>
         </div>
 
         {/* FRAGENANZAHL */}
@@ -106,11 +95,10 @@ const TopicCard = ({
           "
         >
           <span className={`text-sm ${textColorSoft}`}>Anzahl der Fragen:</span>
-        
-            <span className={`text-lg font-semibold ${textColor}`}>
-              {t.questions}
-            </span>
-          
+
+          <span className={`text-lg font-semibold ${textColor}`}>
+            {t.questions}
+          </span>
         </div>
 
         {/* BUTTONS */}
@@ -118,20 +106,24 @@ const TopicCard = ({
           <button
             onClick={() => onManage(t)}
             className="
-              flex-1 bg-white text-gray-900 font-medium rounded-lg py-2
-              flex items-center justify-center gap-2 shadow-sm
-              hover:bg-gray-100 transition-all text-sm
-            "
+    group flex-1 bg-white text-gray-900 font-medium rounded-lg py-2
+    flex items-center justify-center gap-2 shadow-sm
+    hover:bg-[#a6c9e4ff]  transition-all text-sm
+  "
           >
-            Fragen Verwalten <ArrowRight size={16} />
+            Fragen Verwalten
+            <ArrowRight
+              size={16}
+              className="transition-transform duration-200 group-hover:translate-x-2"
+            />
           </button>
 
           <button
             className="
-    w-10 h-10 rounded-xl bg-[#3f5568]
-    flex items-center justify-center shadow-sm border border-white/20
-    hover:bg-blue-500/20 transition-all
-  "
+                          w-10 h-10 rounded-xl bg-[#3f5568]
+                          flex items-center justify-center shadow-sm border border-white/20
+                          hover:bg-blue-500/20 transition-all
+                        "
           >
             <Copy size={18} className={textColor} />
           </button>
