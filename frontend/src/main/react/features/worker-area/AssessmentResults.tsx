@@ -388,12 +388,8 @@ export default function AssessmentResults(props: AssessmentResultsProps) {
 
         {/* Actions */}
         <div className="flex items-center justify-center gap-4 flex-wrap">
-          {onRestart && (
-            <button onClick={onRestart} className="inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium border border-slate-200 hover:bg-slate-50">
-              Assessment wiederholen
-            </button>
-          )}
-          {/* NEUER BUTTON: Abschließen -> completeSession */}
+        
+          {/*  Abschließen -> completeSession */}
           {onComplete && (
             <button
               onClick={onComplete}
@@ -402,12 +398,7 @@ export default function AssessmentResults(props: AssessmentResultsProps) {
               Ab­schließen
             </button>
           )}
-          {onBackToTopics && (
-            <button onClick={onBackToTopics} className="inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium bg-slate-900 text-white hover:bg-slate-800">
-              <Home className="w-5 h-5" />
-              Weitere Assessments
-            </button>
-          )}
+         
         </div>
       </div>
            {/* ===== Bearbeiten-Modal ===== */}
