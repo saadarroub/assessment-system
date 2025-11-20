@@ -277,7 +277,7 @@ export default function KatalogThemenPublic() {
   //const sp = new URLSearchParams(location.search);
   const [expiresAt, setExpiresAt] = useState<string | null>(null);
 
-    const daysLeft = useMemo(() => {
+  const daysLeft = useMemo(() => {
     if (!expiresAt) return null;
 
     const target = new Date(expiresAt).getTime();
@@ -538,10 +538,26 @@ export default function KatalogThemenPublic() {
         <div className="absolute left-[26%] top-[42%] h-1.5 w-1.5 rounded-full bg-[#d2c9b9] opacity-75" />
         <div className="absolute right-[22%] top-[36%] h-1.5 w-1.5 rounded-full bg-[#E3BB62] opacity-70" />
 
-        {/* Linkes Deko-Element: rotierendes Quadrat mit Schatten */}
-        {/* Kreis + Rechtecke – unten rechts, auf kleineren Screens weiter draußen */}
+          {/*
         <div
           className="
+           hidden lg:block absolute lg:bottom-[210px] lg:right-[-4rem] xl:bottom-[195px] xl:right-[2%] 2xl:bottom-[180px] 2xl:right-[8%] h-40 w-40"
+        >
+          {daysLeft !== null && (
+            <div
+              className="
+              hidden lg:block
+              absolute bottom-[180px] right-[8%]
+            "
+            >
+              <CircleTimer daysLeft={daysLeft} />
+            </div>
+          )}
+        </div>
+          */}
+          {/* Kreis + Rechtecke – unten rechts, auf kleineren Screens weiter draußen */}
+<div
+  className="
     hidden lg:block
     absolute
     lg:bottom-[210px] lg:right-[-4rem]
@@ -549,22 +565,58 @@ export default function KatalogThemenPublic() {
     2xl:bottom-[180px] 2xl:right-[8%]
     h-40 w-40
   "
-        >
-          {/* innerer Kreis (dunkelblau, transparent) */}
-                  {daysLeft !== null && (
-          <div
-            className="
-              hidden lg:block
-              absolute bottom-[180px] right-[8%]
-            "
-          >
-            <CircleTimer daysLeft={daysLeft} />
-          </div>
-        )}
+>
+  {/* äußerer Ring (Gold) */}
+  <div
+    className="
+      absolute inset-0
+      rounded-full
+      border border-[#E3BB62]
+      bg-transparent
+      opacity-90
+    "
+  />
 
-        </div>
+  {/* innerer Kreis */}
+  <div
+    className="
+      absolute inset-3
+      rounded-full
+      bg-[#314856]
+      border border-[rgba(210,201,185,0.45)]
+      shadow-[0_18px_40px_rgba(15,23,42,0.32)]
+    "
+  />
+
+  {/* schmales Rechteck rechts oben */}
+  <div
+    className="
+      absolute -right-8 top-4
+      h-20 w-8
+      rounded-[999px]
+      bg-[#fff]
+      border border-white/40
+      backdrop-blur-[2px]
+      shadow-[0_14px_28px_rgba(15,23,42,0.28)]
+    "
+  />
+
+  {/* langes Rechteck unten links */}
+  <div
+    className="
+      absolute -left-6 bottom-[-6px]
+      h-7 w-24
+      rounded-[999px]
+      bg-[rgba(227,187,98,0.20)]
+      border border-[rgba(227,187,98,0.55)]
+      shadow-[0_10px_24px_rgba(15,23,42,0.25)]
+    "
+  />
+</div>
+        <div className=" hidden lg:block absolute bottom-[180px] right-[8%] /* Position: unten rechts, über dem Footer */ h-40 w-40 " ></div>
       </div>
       {/* bg-[#f7f8fb] text-[#333] min-h-screen*/}
+      
       <AppHeader />
 
       <section className="pt-10 pb-8 px-5">

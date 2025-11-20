@@ -5,11 +5,15 @@ import {
   getNextQuestion,
   saveAnswer,
   completeSession,
+  getPreviousQuestion,
   getState,
   normalizeApiQuestion,
   buildSaveValue,
   type UiQuestion,
   type ApiState,
+  type ApiQuestion,
+   getSummary,                
+  type ApiSummaryResponse,   
 } from "@/features/service/publicAssessmentService";
 import AssessmentCompleted from "@/features/worker-area/AssessmentCompleted";
 import aa from '@/assets/aa.gif';
@@ -45,7 +49,30 @@ function resolveAssignmentId(query: URLSearchParams): string {
 function makeDashKey(assignmentId: string, topicId: string) {
   return `assignment:${assignmentId}:topic:${topicId}`;
 }
+function persistUiQuestionMeta(
+  assignmentId: string,
+  topicId: string,
+  uiQ: UiQuestion
+) {
+  try {
+    const store = readStore();
+    const dashKey = makeDashKey(assignmentId, topicId);
+    const prev = store[dashKey] ?? {};
+    const existingMap = prev.uiQuestionsById ?? {};
 
+    store[dashKey] = {
+      ...prev,
+      uiQuestionsById: {
+        ...existingMap,
+        [String(uiQ.id)]: uiQ,
+      },
+    };
+
+    writeStore(store);
+  } catch {
+    // im Zweifel einfach ignorieren
+  }
+}
 
 /** Query-Helper */
 function useQuery() {
@@ -89,6 +116,8 @@ export default function AssessmentPage() {
   const [sessionId, setSessionId] = useState("");
   const [answers, setAnswers] = useState<Record<string, any>>({});
   const [trail, setTrail] = useState<UiQuestion[]>([]); // Verlauf der bereits geladenen Fragen
+  const [questionsById, setQuestionsById] = useState<Record<string, UiQuestion>>({});
+  const [questionOrder, setQuestionOrder] = useState<string[] | null>(null); 
   const [pos, setPos] = useState<number>(-1);           // Index im Trail (aktuelle Frage)
   const [completed, setCompleted] = useState(false);
   const [status, setStatus] = useState<"in_progress" | "completed">("in_progress");
@@ -99,6 +128,29 @@ export default function AssessmentPage() {
     totalScore: null,
     maxTotalScore: null,
   });
+// Summary / Review-Modus
+const [summary, setSummary] = useState<ApiSummaryResponse | null>(null);
+const [showSummary, setShowSummary] = useState(false);
+const [summaryError, setSummaryError] = useState<string | null>(null);
+const [finalizing, setFinalizing] = useState(false);
+
+//Wenn man die Seite neu lädst (gleiche assignmentId + themaId),
+//dann ist questionsById sofort wieder gefüllt.
+useEffect(() => {
+  if (!assignmentKeyId || !themaId) return;
+
+  try {
+    const store = readStore();
+    const dashKey = makeDashKey(assignmentKeyId, themaId);
+    const uiMap = store[dashKey]?.uiQuestionsById;
+
+    if (uiMap && typeof uiMap === "object") {
+      setQuestionsById(uiMap);
+    }
+  } catch {
+    // ignore
+  }
+}, [assignmentKeyId, themaId]);
 
 
   const q: UiQuestion | null = pos >= 0 ? trail[pos] : null;
@@ -107,7 +159,7 @@ export default function AssessmentPage() {
     : (pos >= 0 ? pos + 1 : 1);
   const pct = progress.total ? Math.round((progress.answered / progress.total) * 100) : (step > 0 ? step * 5 : 0);
 
-  /* -------- Helpers -------- */
+  /*  Helpers  */
   const refreshState = useCallback(async (token: string, sid: string) => {
     try {
       const s: ApiState = await getState(token, sid);
@@ -117,73 +169,171 @@ export default function AssessmentPage() {
     }
   }, []);
 
-  const bootstrapOrResume = useCallback(async (token: string, tid: string) => {
-    setLoading(true);
-    setFatal(null);
-    try {
-      const store = readStore();
-      const dashKey = makeDashKey(assignmentKeyId, tid);
-      const existingSid: string | undefined = store?.[dashKey]?.sessionId;
+  function applyApiQuestion(
+  apiQ: ApiQuestion,
+  mode: "replace" | "append" | "prepend"
+) {
+  const uiQ = normalizeApiQuestion(apiQ);
 
-      // Falls es bereits eine Session gibt → fortsetzen
-      if (existingSid) {
-        setSessionId(existingSid);
-        await refreshState(token, existingSid);
+  // currentAnswer → answers-State mappen
+  if (apiQ.currentAnswer && apiQ.currentAnswer.value !== undefined) {
+    const raw = apiQ.currentAnswer.value;
 
-        // „Nächste Frage“ vom Server holen => das ist genau die offene Frage
-        const apiQ = await getNextQuestion(token, existingSid);
+    setAnswers(prev => {
+      let mapped: any = raw;
+
+      switch (uiQ.type) {
+        case "checkbox":
+        case "order":
+          mapped = Array.isArray(raw)
+            ? raw
+            : raw !== undefined && raw !== null && raw !== ""
+            ? [String(raw)]
+            : [];
+          break;
+
+        case "slider":
+        case "number":
+          mapped =
+            typeof raw === "number"
+              ? raw
+              : raw === "" || raw === null || raw === undefined
+              ? ""
+              : Number(raw);
+          break;
+
+        case "radio":
+        case "select":
+        case "text":
+        case "textarea":
+        case "date":
+        default:
+          mapped = Array.isArray(raw) ? (raw[0] ?? "") : String(raw);
+          break;
+      }
+
+      return {
+        ...prev,
+        [uiQ.id]: mapped,
+      };
+    });
+  }
+  
+
+  // trail + pos aktualisieren
+  setTrail(prevTrail => {
+    let nextTrail: UiQuestion[];
+
+    if (mode === "replace") nextTrail = [uiQ];
+    else if (mode === "append") nextTrail = [...prevTrail, uiQ];
+    else nextTrail = [uiQ, ...prevTrail]; // "prepend"
+
+    // pos korrekt setzen
+    setPos(mode === "append" ? nextTrail.length - 1 : 0);
+
+    return nextTrail;
+  });
+}
+
+
+ const bootstrapOrResume = useCallback(async (token: string, tid: string) => {
+  setLoading(true);
+  setFatal(null);
+  try {
+    const store = readStore();
+    const dashKey = makeDashKey(assignmentKeyId, tid);
+    const existingSid: string | undefined = store?.[dashKey]?.sessionId;
+
+    // ==== 1. Session existiert schon -> fortsetzen / Summary laden ====
+    if (existingSid) {
+      setSessionId(existingSid);
+      await refreshState(token, existingSid);
+
+      // Versuche nächste offene Frage zu holen
+      const apiQ = await getNextQuestion(token, existingSid);
+
         if (apiQ) {
-          const uiQ = normalizeApiQuestion(apiQ);
-          setTrail([uiQ]);
-          setPos(0);
-        } else {
-          setCompleted(true);
-          setStatus("completed");
-        }
-        return;
-      }
+    // Es gibt noch Fragen -> ganz normal wieder Fragenmodus
+    const uiQ = normalizeApiQuestion(apiQ);
+    setTrail([uiQ]);
+    setPos(0);
 
-      //  Sonst neue Session starten
-      const s = await startSession(token, tid);
-      setSessionId(s.sessionId);
-      setStatus(s.status);
-
-      // Session speichern
-      const prev = store[dashKey] ?? {};
-      store[dashKey] = { ...prev, sessionId: s.sessionId, started: prev.started ?? new Date().toISOString() };
-      writeStore(store);
-
-      let first: UiQuestion | null = null;
-      if (s.firstOrNextQuestion) first = normalizeApiQuestion(s.firstOrNextQuestion);
-      else {
-        const apiQ = await getNextQuestion(token, s.sessionId);
-        if (apiQ) first = normalizeApiQuestion(apiQ);
-      }
-
-      if (first) {
-        setTrail([first]);
-        setPos(0);
-      } else {
-        setCompleted(true);
-        setStatus("completed");
-      }
-      refreshState(token, s.sessionId);
-    } catch (e: any) {
-      setFatal(e?.message ?? "Konnte die Session nicht starten/fortsetzen.");
-    } finally {
-      setLoading(false);
+    // Metadaten merken (State + localStorage)
+    setQuestionsById(prev => ({
+      ...prev,
+      [String(uiQ.id)]: uiQ,
+    }));
+    persistUiQuestionMeta(assignmentKeyId, tid, uiQ);
+  } else {
+    // ❗ Keine weitere Frage -> wir sind im "Review/Result"-Modus
+    // => Summary erneut vom Backend holen
+    try {
+      const s = await getSummary(token, existingSid);
+      setSummary(s);
+      setScore({
+        totalScore: s.totalScore,
+        maxTotalScore: s.maxPossibleScore,
+      });
+    } catch (e) {
+      console.error("getSummary (resume) failed", e);
     }
-  }, [refreshState, assignmentKeyId]);
+
+    setCompleted(true);
+    setStatus("completed");
+  }
+  return;
+
+    }
+
+    //  Keine Session -> neue starten (dein vorhandener Code) 
+    const s = await startSession(token, tid);
+    setSessionId(s.sessionId);
+    setStatus(s.status);
+
+    const prev = store[dashKey] ?? {};
+    store[dashKey] = { ...prev, sessionId: s.sessionId, started: prev.started ?? new Date().toISOString() };
+    writeStore(store);
+
+    let first: UiQuestion | null = null;
+    if (s.firstOrNextQuestion) first = normalizeApiQuestion(s.firstOrNextQuestion);
+    else {
+      const apiQ = await getNextQuestion(token, s.sessionId);
+      if (apiQ) first = normalizeApiQuestion(apiQ);
+    }
+
+    if (first) {
+  setTrail([first]);
+  setPos(0);
+
+  // erste Frage ebenfalls merken
+  setQuestionsById(prev => ({
+    ...prev,
+    [String(first.id)]: first,
+  }));
+  persistUiQuestionMeta(assignmentKeyId, tid, first);
+} else {
+  setCompleted(true);
+  setStatus("completed");
+}
+refreshState(token, s.sessionId);
+
+  } catch (e: any) {
+    setFatal(e?.message ?? "Konnte die Session nicht starten/fortsetzen.");
+  } finally {
+    setLoading(false);
+  }
+}, [refreshState, assignmentKeyId]);
 
 
-  /* -------- Initial Load -------- */
+
+  /*  Initial Load  */
   useEffect(() => {
     if (!accessToken || !themaId) return;
     // Session starten
     bootstrapOrResume(accessToken, themaId);
   }, [accessToken, themaId, bootstrapOrResume]);
 
-  /* -------- Antworten setzen -------- */
+  /*  Antworten setzen  */
   const setAnswer = (qid: string | number, val: any, mode: any) => {
     setAnswers(prev => {
       const id = String(qid);
@@ -201,63 +351,170 @@ export default function AssessmentPage() {
     });
   };
 
-  /* -------- Navigation -------- */
+  /*  Navigation  */
   const prev = () => {
     if (pos > 0) setPos(p => p - 1);
   };
 
   const next = async () => {
-    if (!q || !sessionId) return;
+  if (!q || !sessionId) return;
+
+  try {
+    //aktuelle Antwort speichern
+    const value = buildSaveValue(q, answers[String(q.id)] ?? "");
+    await saveAnswer(accessToken, sessionId, String(q.id), value);
+
+    // Fortschritt aktualisieren + LocalStorage
+    refreshState(accessToken, sessionId);
     try {
-      // aktuelle Antwort speichern
-      const value = buildSaveValue(q, answers[String(q.id)] ?? "");
-      await saveAnswer(accessToken, sessionId, String(q.id), value);
+      const store = readStore();
+      const dashKey = makeDashKey(assignmentKeyId, themaId);
+      const prev = store[dashKey] ?? {};
+      store[dashKey] = { ...prev, sessionId };
+      writeStore(store);
+    } catch {}
 
-      // Fortschritt aktualisieren
-      // Fortschritt + sessionId persistieren (für Resume und Dashboard)
-      refreshState(accessToken, sessionId);
-      try {
-        const store = readStore();
-        const dashKey = makeDashKey(assignmentKeyId, themaId);
-        const prev = store[dashKey] ?? {};
-        // progress.answered ist VOR dem aktuellen Save evtl. noch „alt“,
-        // aber refreshState() oben holt den neuen Wert asynchron nach.
-        store[dashKey] = { ...prev, sessionId };
-        writeStore(store);
-      } catch { }
-
-      // Wenn wir uns in der Mitte des Trails befinden → nur im Trail vorwärts springen
-      if (pos < trail.length - 1) {
-        setPos(p => p + 1);
-        return;
-      }
-
-      // Sonst nächste Frage vom Server holen
-      const apiQ = await getNextQuestion(accessToken, sessionId);
-      if (!apiQ) {
-        try {
-          const done = await completeSession(accessToken, sessionId);
-          setScore({
-            totalScore: done?.totalScore ?? null,
-            maxTotalScore: done?.maxPossibleScore ?? null,
-          });
-        } catch { }
-        setCompleted(true);
-        setStatus("completed");
-        refreshState(accessToken, sessionId);
-        return;
-      }
-
-
-      const uiQ = normalizeApiQuestion(apiQ);
-      setTrail(t => [...t, uiQ]);
+    // Wenn wir im Trail noch vorwärts können → nur pos++ (History)
+    if (pos < trail.length - 1) {
       setPos(p => p + 1);
-    } catch (e) {
-      console.error("save/next failed", e);
+      return;
     }
-  };
 
-  /* -------- Restart (Assessment nochmal machen) -------- */
+    // Nächste Frage vom Server holen
+    const apiQ = await getNextQuestion(accessToken, sessionId);
+
+    // ======= KEINE NÄCHSTE FRAGE: Summary holen & ResultPage zeigen =======
+    if (!apiQ) {
+      try {
+        const s = await getSummary(accessToken, sessionId);
+        setSummary(s);
+
+        // Score direkt aus /summary übernehmen
+        setScore({
+          totalScore: s.totalScore,
+          maxTotalScore: s.maxPossibleScore,
+        });
+      } catch (e) {
+        console.error("getSummary failed", e);
+        // zur Not: ohne Score, nur „completed“ → Page rendert trotzdem
+      }
+
+      // → jetzt in den „completed“-Zweig springen (ResultPage)
+      setCompleted(true);
+      return;
+    }
+
+    // Es gibt noch eine Frage → normal weiter
+    const uiQ = normalizeApiQuestion(apiQ);
+    setTrail(t => [...t, uiQ]);
+    setPos(p => p + 1);
+    // 🔸 NEU: Metadaten für diese Frage merken
+setQuestionsById(prev => ({
+  ...prev,
+  [String(uiQ.id)]: uiQ,
+}));
+persistUiQuestionMeta(assignmentKeyId, themaId, uiQ);
+  } catch (e) {
+    console.error("save/next failed", e);
+  }
+};
+const changeAnswerFromResults = async (questionId: string, uiValue: any) => {
+  if (!sessionId) return;
+
+  const qMeta = questionsById[String(questionId)];
+  if (!qMeta) {
+    console.warn("Keine UiQuestion-Meta für", questionId);
+    return;
+  }
+
+  try {
+    // UI-Wert (Checkbox etc.) -> API-Value
+    const apiValue = buildSaveValue(qMeta, uiValue);
+
+    await saveAnswer(accessToken, sessionId, String(questionId), apiValue);
+
+    // lokale answers-Map aktualisieren
+    setAnswers(prev => ({
+      ...prev,
+      [String(qMeta.id)]: uiValue,
+    }));
+
+    // Summary neu laden, damit Punkte/Erfüllung aktualisiert werden
+    try {
+      const s = await getSummary(accessToken, sessionId);
+      setSummary(s);
+      setScore({
+        totalScore: s.totalScore,
+        maxTotalScore: s.maxPossibleScore,
+      });
+    } catch (e) {
+      console.error("getSummary after edit failed", e);
+    }
+  } catch (e) {
+    console.error("changeAnswerFromResults failed", e);
+    throw e;
+  }
+};
+
+
+
+const finalizeSession = async () => {
+  if (!sessionId || finalizing) return;
+
+   //  Bestätigungs-Dialog
+  const confirmed = window.confirm(
+    "Sind Sie sicher, dass Sie dieses Assessment endgültig abschließen möchten?\n" +
+    "Danach können die Antworten nicht mehr geändert werden."
+  );
+    if (!confirmed) {
+    // User hat auf "Abbrechen" geklickt → einfach abbrechen
+    return;
+  }
+
+  try {
+    setFinalizing(true);
+
+    //  Backend-Session wirklich abschließen
+    await completeSession(accessToken, sessionId);
+
+    // Status & Progress im State aktualisieren
+    setStatus("completed");
+    setProgress(prev => ({
+      ...prev,
+      answered: prev.total || prev.answered, // sicherheitshalber „voll“
+    }));
+
+    // 3Auch im LocalStorage „fertig“ markieren,
+    //    damit Katalog-Seite die 100 % sieht
+    try {
+      const store = readStore();
+      const dashKey = makeDashKey(assignmentKeyId, themaId);
+      
+      const prev = store[dashKey] ?? {};
+      store[dashKey] = {
+        ...prev,
+        progress: 100,
+        completedAt: new Date().toISOString(),
+        sessionId,
+      };
+      writeStore(store);
+    } catch {
+      // ignore einfach 
+    }
+    //  Erfolgs-Meldung
+    window.alert("Katalog erfolgreich abgeschlossen.");
+    goBackToTopics();
+  } catch (e) {
+    console.error("completeSession failed", e);
+    window.alert("Das Assessment konnte nicht abgeschlossen werden. Bitte versuchen Sie es später erneut.");
+  } finally {
+    setFinalizing(false);
+  }
+};
+
+
+
+  /*  Restart (Assessment nochmal machen)  */
   const restart = async () => {
     // State auf Anfang zurücksetzen und Session neu starten
     setAnswers({});
@@ -265,6 +522,8 @@ export default function AssessmentPage() {
     setPos(-1);
     setCompleted(false);
     setProgress({ answered: 0, total: 0 });
+    setSummary(null);
+    setQuestionsById({}); 
     try {
       const store = readStore();
       const dashKey = makeDashKey(assignmentKeyId, themaId);
@@ -275,11 +534,11 @@ export default function AssessmentPage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  /* -------- UI-Texte -------- */
+  /*  UI-Texte  */
   const headerTitle = topicName || "Assessment";
   const headerSubtitle = topicName ? `Thema: ${topicName}` : (type ? `Typ: ${type}` : "");
 
-  /* -------- Guards / Loader -------- */
+  /*  Guards / Loader  */
   if (!accessToken || !themaId) {
     return (
       <div className="min-h-screen bg-[#f5f5f5] pt-12 pb-16 px-5">
@@ -310,31 +569,42 @@ export default function AssessmentPage() {
       </div>
     );
   }
-  if (completed) {
-    const totalScore = score.totalScore ?? 0;       // <-- nur Score, keine Fragenzahl!
-    const maxTotalScore = score.maxTotalScore ?? 0;
+if (completed) {
+  const totalScore =
+    score.totalScore ?? summary?.totalScore ?? 0;
+  const maxTotalScore =
+    score.maxTotalScore ?? summary?.maxPossibleScore ?? 0;
 
-    const percent = maxTotalScore > 0
-      ? Math.round((totalScore / maxTotalScore) * 100)
-      : pct;
+  const percent = maxTotalScore > 0
+    ? Math.round((totalScore / maxTotalScore) * 100)
+    : (progress.total
+        ? Math.round((progress.answered / progress.total) * 100)
+        : pct);
 
-    return (
-      <AssessmentResults
-        topicName={topicName}
-        onRestart={restart}
-        onBackToTopics={goBackToTopics}
+  return (
+    <AssessmentResults
+      topicName={topicName}
+      onRestart={restart}
+      onBackToTopics={goBackToTopics}
+      onComplete={finalizeSession}
+      onChangeAnswer={changeAnswerFromResults}   // <<< NEU
+       questionsById={questionsById}
+      answerValues={answers}
 
-        answered={progress.answered}   // nur für „Beantwortete Fragen“
-        total={progress.total}
-        totalScore={totalScore}         // echter Score
-        maxTotalScore={maxTotalScore}   // echtes Max
+      answered={progress.answered}
+      total={progress.total}
+      totalScore={totalScore}
+      maxTotalScore={maxTotalScore}
 
-        percent={percent}
-        overallLevel="Abgeschlossen"
-        completedAt={new Date().toISOString()}
-      />
-    );
-  }
+      percent={percent}
+      // Noch nicht „serverseitig completed“, eher vorläufige Auswertung
+      overallLevel="Vorläufige Auswertung"
+      completedAt={new Date().toISOString()}
+      summary={summary}
+    />
+  );
+}
+
 
 
 
