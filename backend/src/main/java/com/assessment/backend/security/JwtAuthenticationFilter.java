@@ -45,16 +45,23 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String path = request.getServletPath();
         String method = request.getMethod();
 
+        System.out.println("=== JwtAuthenticationFilter START ===");
+        System.out.println("Path: " + path);
+        System.out.println("Method: " + method);
+
        
         if (isPublicPath(path, method)) {
+            System.out.println("Public path - skipping auth");
             filterChain.doFilter(request, response);
             return;
         }
 
         String header = request.getHeader("Authorization");
+        System.out.println("Authorization header: " + (header != null ? header.substring(0, Math.min(30, header.length())) + "..." : "MISSING"));
 
         
         if (!StringUtils.hasText(header) || !header.startsWith("Bearer ")) {
+            System.out.println("No valid Bearer token - continuing without auth");
             filterChain.doFilter(request, response);
             return;
         }
@@ -88,10 +95,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         // Extract permissions from token and convert to GrantedAuthority
         List<String> permissions = jwtUtil.getPermissionsFromToken(token);
+        
+        // DEBUG: Log permissions
+        System.out.println("=== JWT Filter Debug ===");
+        System.out.println("User: " + user.getEmail());
+        System.out.println("Permissions from token: " + permissions.size());
+        if (!permissions.isEmpty()) {
+            System.out.println("First 3 permissions: " + permissions.stream().limit(3).collect(Collectors.toList()));
+        }
+        
         List<org.springframework.security.core.GrantedAuthority> authorities = 
                 permissions.stream()
                         .map(org.springframework.security.core.authority.SimpleGrantedAuthority::new)
                         .collect(Collectors.toList());
+        
+        System.out.println("Authorities created: " + authorities.size());
 
         UsernamePasswordAuthenticationToken authentication =
                 new UsernamePasswordAuthenticationToken(
@@ -105,17 +123,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         );
 
         SecurityContextHolder.getContext().setAuthentication(authentication);
+        System.out.println("Authentication set in SecurityContext");
+        System.out.println("========================");
         filterChain.doFilter(request, response);
     }
 
     private boolean isPublicPath(String path, String method) {
         // Login
         if ("/api/auth/login".equals(path)) {
-            return true;
-        }
-
-        // User Registration
-        if ("/api/users".equals(path) && "POST".equalsIgnoreCase(method)) {
             return true;
         }
 
