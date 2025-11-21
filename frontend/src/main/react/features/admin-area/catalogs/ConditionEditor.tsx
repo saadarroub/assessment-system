@@ -104,9 +104,9 @@ export default function ConditionEditor() {
 
   const [hasSubmitted, setHasSubmitted] = useState(false);
 
-  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
 
-  const [dragEnabled, setDragEnabled] = useState(true);
+  
 
   // 🔁 Rekursive Funktion, die ALLE Kinder bis zur tiefsten Ebene lädt
   async function fetchChildrenRecursive(parentId: string): Promise<any[]> {
@@ -162,6 +162,7 @@ export default function ConditionEditor() {
       return [];
     }
   }
+
 
   // 🔹 Wenn Fragetyp gewechselt wird → automatisch 2 leere Antwortoptionen erzeugen (wenn hasOptions = true)
   useEffect(() => {
@@ -770,69 +771,71 @@ export default function ConditionEditor() {
   // 🔹 Fragetypen
   const showOptions = selectedType?.hasOptions === true;
 
+  
+
   // -----------------------------
   // 1️⃣ useSortable + Auto-Close
   // -----------------------------
   function SortableQuestion({ q, level = 0 }: { q: any; level?: number }) {
-  
+    const parentId = q.parentId || "root";
+
     const { attributes, listeners, setNodeRef, transform } = useSortable({
       id: q.id,
-      data: { parent: q.parentId || "root", node: q },
+      data: { parent: parentId, node: q },
     });
 
-    // -----------------------------
-    // 2️⃣ Auto-Close beim Überfahren
-    // -----------------------------
-    useEffect(() => {
-      if (transform && q.expanded) {
-        // 🔥 Wenn man über eine offene Frage zieht → schließen
-        toggleExpand(q.id);
+    const isThisDragging = draggingId === q.id;
+
+    const style = {
+      transform: CSS.Transform.toString(transform),
+
+      marginLeft: level > 0 ? 25 : 0,
+    };
+
+    const childContainerStyle = {
+      maxHeight: q.expanded && !isThisDragging ? "900px" : "0px",
+      opacity: q.expanded && !isThisDragging ? 1 : 0,
+      overflow: "hidden",
+    };
+
+    const handleGripDown = (e: any) => {
+      const isFirstChild = level === 1;
+      const isSecondChild = level === 2;
+
+      console.log("====== GRIP CLICK =======");
+      console.log("TEXT:", q.text);
+      console.log("LEVEL:", level);
+      console.log("expanded:", q.expanded);
+      console.log("parentId:", parentId);
+
+      if (isFirstChild) {
+        console.log("👉 FIRST CHILD GRIP (LEVEL 1)");
       }
-    }, [transform]);
+
+      if (isSecondChild) {
+        console.log("👉 SECOND CHILD GRIP (LEVEL 2)");
+      }
+
+      console.log("=========================");
+
+      // WICHTIG → Drag aktivieren
+      listeners?.onPointerDown?.(e);
+    };
 
     return (
-      <div
-        ref={setNodeRef}
-        style={{
-          transform: CSS.Transform.toString(transform),
-          transition: "0.15s ease",
-          marginLeft: level > 0 ? 25 : 0,
-        }}
-        className="mt-3"
-      >
+      <div ref={setNodeRef} style={style} className="mt-3">
+        {/* Karten-Header */}
         <div className="flex items-center justify-between bg-white rounded-xl shadow-sm border border-gray-300 px-4 py-3">
-          {/* LINKS */}
           <div className="flex items-start gap-3">
-            {/* Drag Handle */}
+            {/* Grip */}
             <GripVertical
               size={18}
               className="text-gray-400 cursor-grab mt-1"
-              onMouseDown={async (e) => {
-                console.log("🟡 CLICK ON DRAG BUTTON");
-
-                e.stopPropagation();
-
-                console.log("➡ expanded?", q.expanded);
-
-                if (q.expanded) {
-                  console.log("🔴 SOFTCLOSE START");
-                  setDragEnabled(false);
-                  toggleExpand(q.id);
-                  console.log("🔵 toggleExpand CALLED");
-
-                  await new Promise((r) => setTimeout(r, 150));
-
-                  console.log("🟢 DRAG RE-ENABLED");
-                  setDragEnabled(true);
-                } else {
-                  console.log("⚪ Question already closed");
-                }
-              }}
-              {...(dragEnabled ? attributes : {})}
-              {...(dragEnabled ? listeners : {})}
+              {...attributes}
+              onPointerDown={handleGripDown}
             />
 
-            {/* Klapp-Pfeil */}
+            {/* Pfeil */}
             {q.children?.length > 0 ? (
               q.expanded ? (
                 <ChevronDown
@@ -854,14 +857,13 @@ export default function ConditionEditor() {
             {/* Frage */}
             <div className="flex flex-col mt-1">
               <p className="font-semibold">{q.text}</p>
-
-              <span className="inline-block w-fit text-xs mt-2 text-[#4a65b9] bg-[#e6edff] px-2 py-0.5 rounded-full whitespace-nowrap">
+              <span className="inline-block w-fit text-xs mt-2 text-[#4a65b9] bg-[#e6edff] px-2 py-0.5 rounded-full">
                 {questionTypes.find((t) => t.value === q.type)?.label}
               </span>
             </div>
           </div>
 
-          {/* RECHTS */}
+          {/* Rechts */}
           <div className="flex items-center gap-6">
             <button
               onClick={() => {
@@ -874,7 +876,6 @@ export default function ConditionEditor() {
 
             <button
               onClick={() => {
-                console.log("DEBUG OPTIONS:", q.options);
                 setEditingQuestion(q);
                 setParentQuestion(null);
                 setQuestionText(q.text);
@@ -895,34 +896,29 @@ export default function ConditionEditor() {
           </div>
         </div>
 
-        {/* 🔥 Jede Ebene bekommt eigenen DnD-Kontext → kein Ruckeln */}
-        {q.expanded && q.children?.length > 0 && (
-          <div
-            ref={containerRef}
-            style={{
-              position: "relative",
-              overflow: "hidden",
-            }}
-          >
-            <SortableContext
-              id={q.id}
-              items={q.children.map((c: any) => c.id)}
-              strategy={verticalListSortingStrategy}
-            >
-              {q.children.map((child: any) => (
-                <SortableQuestion
-                  key={child.id}
-                  q={{ ...child, parentId: q.id }}
-                  level={level + 1}
-                />
-              ))}
-            </SortableContext>
-          </div>
-        )}
+        {/* Kinder */}
+        <div style={childContainerStyle}>
+          {q.expanded && q.children?.length > 0 && (
+            <div className="mt-2">
+              <SortableContext
+                id={q.id}
+                items={q.children.map((c: any) => c.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                {q.children.map((child: any) => (
+                  <SortableQuestion
+                    key={child.id}
+                    q={{ ...child, parentId: q.id }}
+                    level={level + 1}
+                  />
+                ))}
+              </SortableContext>
+            </div>
+          )}
+        </div>
       </div>
     );
   }
-
 
   // 🔧 DragEnd Handler (Root + Child)
   const handleDragEnd = async (event: DragEndEvent) => {
@@ -1079,16 +1075,14 @@ export default function ConditionEditor() {
 
       {/* Fragenliste mit DnD */}
       <div className="px-10 pt-8">
-        <div
-          style={{
-            position: "relative",
-            overflow: "hidden",
-          }}
-        >
+        <div style={{ position: "relative", overflow: "hidden" }}>
           <DndContext
             collisionDetection={closestCenter}
-            onDragStart={() => console.log("🔥 ROOT DND TRIGGERT")}
-            onDragEnd={handleDragEnd}
+            onDragStart={({ active }) => setDraggingId(String(active.id))}
+            onDragEnd={(event) => {
+              handleDragEnd(event); // 👈 Reihenfolge speichern
+              setDraggingId(null); // 👈 Sichtbarkeit fixen
+            }}
             modifiers={[restrictToParentElement]}
           >
             <SortableContext
@@ -1097,7 +1091,14 @@ export default function ConditionEditor() {
               strategy={verticalListSortingStrategy}
             >
               {questions.map((q) => (
-                <SortableQuestion key={q.id} q={q} />
+                <SortableQuestion
+                  key={q.id} // ✅ korrekt
+                  q={{
+                    ...q,
+                    parentId: "root",
+                  }}
+                  level={0}
+                />
               ))}
             </SortableContext>
           </DndContext>
