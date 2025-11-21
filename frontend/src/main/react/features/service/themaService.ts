@@ -1,3 +1,5 @@
+import { apiClient } from "@/api/client";
+
 export type ThemaApi = {
   id: string;
   name: string;
@@ -7,9 +9,8 @@ export type ThemaApi = {
 };
 
 export async function getThemen(): Promise<ThemaApi[]> {
-  const resp = await fetch("http://localhost:8080/api/themas", {
+  const { data } = await apiClient.get<ThemaApi[]>("/themas", {
     headers: { Accept: "application/json" },
   });
-  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-  return resp.json();
+  return data;
 }

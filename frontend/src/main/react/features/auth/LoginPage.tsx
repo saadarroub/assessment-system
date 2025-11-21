@@ -1,18 +1,15 @@
 import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuthCtx } from "@/core/auth/AuthContext";
+import { AuthService } from "@/core/auth/AuthService";
+import type { UserData } from "@/core/auth/AuthService";
 
 const API_URL = (import.meta as any)?.env?.VITE_API_URL ?? "http://localhost:8080/api";
-const ENV_EMAIL = (import.meta as any)?.env?.VITE_DEFAULT_ADMIN_EMAIL;
-const ENV_PW    = (import.meta as any)?.env?.VITE_DEFAULT_ADMIN_PASSWORD;
-
-// Fallback-Defaults, falls ENV nicht gesetzt ist
-const DEFAULT_ADMIN_EMAIL = (ENV_EMAIL && String(ENV_EMAIL)) || "admin@example.com";
-const DEFAULT_ADMIN_PW    = (ENV_PW && String(ENV_PW))       || "admin123";
 
 export default function LoginPage() {
   const [email, setEmail]       = useState("");
   const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState<string | null>(null);
 
@@ -21,97 +18,92 @@ export default function LoginPage() {
   const from = (location.state as any)?.from as string | undefined;
   const { login } = useAuthCtx();
 
-  const doRedirect = (roles: string[]) => {
-    if (from) { navigate(from, { replace: true }); return; }
-    if (roles.includes("admin")) navigate("/admin", { replace: true });
-  };
-
-  // Offline-Login: KEIN Fetch, sofort lokal authentifizieren
-  const offlineAdminLogin = () => {
-    const payload = { sub: email, roles: ["admin"], offline: true, ts: Date.now() };
-    const fakeJwt = `fake.${btoa(JSON.stringify(payload))}.token`;
-    const roles = ["admin"];
-
-    login(fakeJwt, roles);
-    localStorage.setItem("user", JSON.stringify({ email, roles, accessToken: fakeJwt, note: "offline-admin" }));
-    localStorage.setItem("accessToken", fakeJwt);
-    doRedirect(roles);
+  const doRedirect = () => {
+    if (from) { 
+      navigate(from, { replace: true }); 
+      return; 
+    }
+    // Alle User gehen zum Admin-Panel
+    // Permissions aus DB bestimmen, was sie sehen/tun können
+    navigate("/admin", { replace: true });
   };
 
   const handleLogin = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setError(null);
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+    try {
+      // === Login Request an neues Backend-API ===
+      const res = await fetch(`${API_URL}/auth/login`, {
+        method: "POST",
+        credentials: 'include', // WICHTIG: Für httpOnly Cookies
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
 
-  // Offline-Admin
-  if (email === DEFAULT_ADMIN_EMAIL && password === DEFAULT_ADMIN_PW) {
-    offlineAdminLogin();
-    return;
-  }
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || `Login fehlgeschlagen (HTTP ${res.status})`);
+      }
 
-  setLoading(true);
-  try {
-    // Login 
-    const res = await fetch(`${API_URL}/auth/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
-    if (!res.ok) throw new Error(`Login fehlgeschlagen (HTTP ${res.status})`);
+      // Parse Enhanced Login Response
+      const data = await res.json();
+      
+      // Validiere Response-Struktur
+      if (!data.accessToken || !data.expiresAt) {
+        throw new Error('Ungültige Server-Response: accessToken oder expiresAt fehlt');
+      }
 
-    const rawUser = await res.json();        
-    delete (rawUser as any).password;   
+      // Erstelle UserData-Objekt
+      const user: UserData = {
+        id: data.id,
+        username: data.username || data.name, // Fallback für name → username
+        email: data.email,
+        roles: data.roles || [],
+        permissions: data.permissions || [],
+      };
 
-    const token: string = rawUser.accessToken ?? "dev-token";
+      // === Speichere Token in AuthService (In-Memory + optional localStorage) ===
+      AuthService.setTokens(
+        { 
+          accessToken: data.accessToken, 
+          expiresAt: data.expiresAt 
+        },
+        user,
+        rememberMe
+      );
 
-    // Rollen separat laden
-    const rolesRes = await fetch(`${API_URL}/users/${rawUser.id}/roles`, {
-      headers: {
-        "Content-Type": "application/json",
-        ...(token && token !== "dev-token" ? { Authorization: `Bearer ${token}` } : {}),
-      },
-    });
-    if (!rolesRes.ok) throw new Error(`Rollenabfrage fehlgeschlagen (HTTP ${rolesRes.status})`);
+      // === Update React Context (für Re-Rendering) ===
+      login(user, rememberMe);
 
-    const roleLinks = await rolesRes.json();
-    const roles: string[] = Array.isArray(roleLinks)
-      ? roleLinks
-          .map((r: any) => r.role.name)
-          .filter((n: unknown): n is string => typeof n === "string" && n.length > 0)
-      : [];
+      // === Cleanup: Entferne Legacy localStorage-Keys ===
+      // Diese Keys werden nicht mehr verwendet (AuthService managed alles)
+      localStorage.removeItem('token');
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('roles');
+      localStorage.removeItem('user');
 
-    // Normalisiertes User-Objekt
-    const normalizedUser = {
-      id: rawUser.id,
-      name: rawUser.name,
-      email: rawUser.email,
-      accessToken: token,
-      roles,
-      createdAt: rawUser.createdAt,
-      updatedAt: rawUser.updatedAt,
-    };
+      // === Redirect basierend auf Rolle ===
+      doRedirect();
 
-    // Persistieren + AuthContext + Redirect
-    login(token, roles);
-    localStorage.setItem("user", JSON.stringify(normalizedUser));
-    if (normalizedUser.accessToken) {
-      localStorage.setItem("accessToken", normalizedUser.accessToken);
+    } catch (err: any) {
+      console.error('Login Error:', err);
+      setError(err?.message || "Unbekannter Fehler beim Login.");
+    } finally {
+      setLoading(false);
     }
-
-    doRedirect(roles);
-  } catch (err: any) {
-    setError(err?.message || "Unbekannter Fehler beim Login.");
-  } finally {
-    setLoading(false);
-  }
-};
-
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#264555]">
       <div className="bg-white/10 backdrop-blur-lg shadow-lg rounded-2xl p-8 w-96">
         <h2 className="text-2xl font-bold text-white text-center mb-6">Login</h2>
 
-        {error && <div className="mb-4 text-red-300 text-sm text-center">{error}</div>}
+        {error && (
+          <div className="mb-4 p-3 rounded-lg bg-red-500/20 border border-red-500/50 text-red-200 text-sm text-center">
+            {error}
+          </div>
+        )}
 
         <form className="space-y-4" onSubmit={handleLogin}>
           <div>
@@ -140,6 +132,20 @@ export default function LoginPage() {
             />
           </div>
 
+          {/* Remember Me Checkbox */}
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              id="rememberMe"
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
+              className="mr-2 w-4 h-4 text-[#E3BB62] bg-white/20 border-gray-300 rounded focus:ring-[#E3BB62]"
+            />
+            <label htmlFor="rememberMe" className="text-white text-sm">
+              Angemeldet bleiben
+            </label>
+          </div>
+
           <button
             type="submit"
             disabled={loading}
@@ -148,10 +154,6 @@ export default function LoginPage() {
             {loading ? "Wird eingeloggt..." : "Login"}
           </button>
         </form>
-
-        <p className="text-center text-xs text-white/70 mt-4">
-          Offliner: <b>{DEFAULT_ADMIN_EMAIL}</b> / <b>{DEFAULT_ADMIN_PW}</b>
-        </p>
       </div>
     </div>
   );

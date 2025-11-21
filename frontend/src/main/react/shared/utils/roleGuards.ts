@@ -1,16 +1,26 @@
 // src/main/react/shared/utils/roleGuards.ts
-export const ROLE_PERMISSIONS: Record<string, string[]> = {
-  admin: ['admin:dashboard:view','user:dashboard:view'],
-  user: ['user:dashboard:view'],
-};
 
-export function hasPermission(roles: unknown, permission?: string): boolean {
-  if (!permission) return true; // wenn keine Permission gefordert ist
+function toPermissionList(input: unknown): string[] {
+  if (!Array.isArray(input)) {
+    return [];
+  }
 
-  // Rollen sicher normalisieren (Array + lowercase)
-  const list = Array.isArray(roles) ? roles : [];
-  const norm = list.map(r => (typeof r === 'string' ? r.toLowerCase() : ''));
+  return input.filter((item): item is string => typeof item === "string");
+}
 
-  // check
-  return norm.some(role => (ROLE_PERMISSIONS[role] || []).includes(permission));
+export function hasPermission(
+  permissions: unknown,
+  permission?: string | string[]
+): boolean {
+  if (!permission) {
+    return true;
+  }
+
+  const list = toPermissionList(permissions);
+  
+  // Support both single permission and array of permissions
+  const required = Array.isArray(permission) ? permission : [permission];
+  
+  // Check if user has at least one of the required permissions
+  return required.some(perm => list.includes(perm));
 }

@@ -10,6 +10,7 @@ import AdminPanelPage from '@/features/admin-panel/AdminPanelPage';
 import UserList from '@/features/admin-panel/users/UserList';
 import UserDetailsPage from '@/features/admin-panel/users/UserDetail';
 import CompaniesList from '@/features/admin-panel/companies/CompanyList';
+import RoleList from '@/features/admin-panel/roles/RoleList';
 import CompanyDetails from '@/features/admin-panel/companies/CompanyDetail';
 import AuditPage from '@/features/admin-panel/audit/AuditLogTable';
 import KatalogeZuweisen from '@/features/admin-area/KatalogeZuweisen';
@@ -62,7 +63,7 @@ export default function AppRoutes() {
       <Route
         path="/app/results/:sessionId"
         element={
-          <ProtectedRoute permission="user:dashboard:view">
+          <ProtectedRoute>
             <ResultsPage />
           </ProtectedRoute>
         }
@@ -79,7 +80,7 @@ export default function AppRoutes() {
       <Route
         path="/app/assessments"
         element={
-          <ProtectedRoute permission="user:dashboard:view">
+          <ProtectedRoute>
             <AssessmentPage />
           </ProtectedRoute>
         }
@@ -88,7 +89,7 @@ export default function AppRoutes() {
       <Route
         path="/admin"
         element={
-          <ProtectedRoute permission="admin:dashboard:view">
+          <ProtectedRoute>
             <AdminDashboard />
           </ProtectedRoute>
         }
@@ -96,14 +97,14 @@ export default function AppRoutes() {
       <Route 
          path="/admin/kataloge/verwaltung" 
          element={
-          <ProtectedRoute permission="admin:dashboard:view">
+          <ProtectedRoute>
             <KatalogVerwaltung />
           </ProtectedRoute>
          } />
       <Route
         path="/admin/katalogzuweisen"
         element={
-          <ProtectedRoute permission="admin:dashboard:view">
+          <ProtectedRoute>
             <KatalogeZuweisen />
           </ProtectedRoute>
         }
@@ -111,7 +112,7 @@ export default function AppRoutes() {
       <Route
         path="/admin/adminPanel"
         element={
-          <ProtectedRoute permission="admin:dashboard:view">
+          <ProtectedRoute>
             <AdminPanelPage />
           </ProtectedRoute>
         }
@@ -137,6 +138,14 @@ export default function AppRoutes() {
         element={
           <ProtectedRoute>
             < AuditPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/adminPanel/roles"
+        element={
+          <ProtectedRoute>
+            <RoleList />
           </ProtectedRoute>
         }
       />
@@ -169,7 +178,7 @@ export default function AppRoutes() {
       <Route
         path="/admin/topics/eam"
         element={
-          <ProtectedRoute permission="admin:dashboard:view">
+          <ProtectedRoute>
             <EamPage />
           </ProtectedRoute>
         }
@@ -177,7 +186,7 @@ export default function AppRoutes() {
       <Route
         path="/admin/topics/operating-model"
         element={
-          <ProtectedRoute permission="admin:dashboard:view">
+          <ProtectedRoute>
             <OperatingModelPage />
           </ProtectedRoute>
         }
@@ -185,7 +194,7 @@ export default function AppRoutes() {
       <Route
         path="/admin/topics/sourcing"
         element={
-          <ProtectedRoute permission="admin:dashboard:view">
+          <ProtectedRoute>
             <SourcingPage />
           </ProtectedRoute>
         }
@@ -193,7 +202,7 @@ export default function AppRoutes() {
       <Route
         path="/admin/topics/project-management"
         element={
-          <ProtectedRoute permission="admin:dashboard:view">
+          <ProtectedRoute>
             <ProjectManagementPage />
           </ProtectedRoute>
         }
@@ -202,7 +211,7 @@ export default function AppRoutes() {
       <Route
         path="/admin/catalogs/:id"
         element={
-          <ProtectedRoute permission="admin:dashboard:view">
+          <ProtectedRoute>
             <CatalogList />
           </ProtectedRoute>
         }
@@ -211,7 +220,7 @@ export default function AppRoutes() {
       <Route
         path="/admin/catalogs/:id/condition-editor"
         element={
-          <ProtectedRoute permission="admin:dashboard:view">
+          <ProtectedRoute>
             <ConditionEditor />
           </ProtectedRoute>
         }
@@ -219,7 +228,7 @@ export default function AppRoutes() {
       <Route
         path="/testComp"
         element={
-          <ProtectedRoute permission="user:dashboard:view">
+          <ProtectedRoute>
             <CompanyListtest />
           </ProtectedRoute>
         }
