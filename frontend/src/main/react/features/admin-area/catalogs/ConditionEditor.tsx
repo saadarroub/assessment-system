@@ -36,7 +36,7 @@ import {
 } from "@/api/questionApi";
 
 // 🧩 Drag & Drop Imports
-import { DndContext, closestCenter } from "@dnd-kit/core";
+import { DndContext, closestCorners } from "@dnd-kit/core";
 import type { DragEndEvent } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -107,6 +107,7 @@ export default function ConditionEditor() {
   const [draggingId, setDraggingId] = useState<string | null>(null);
 
   
+  
 
   // 🔁 Rekursive Funktion, die ALLE Kinder bis zur tiefsten Ebene lädt
   async function fetchChildrenRecursive(parentId: string): Promise<any[]> {
@@ -162,7 +163,6 @@ export default function ConditionEditor() {
       return [];
     }
   }
-
 
   // 🔹 Wenn Fragetyp gewechselt wird → automatisch 2 leere Antwortoptionen erzeugen (wenn hasOptions = true)
   useEffect(() => {
@@ -680,6 +680,35 @@ export default function ConditionEditor() {
     }
   };
 
+  function closeAllRootLists(questions: any[]) {
+    return questions.map((q) => ({ ...q, expanded: false }));
+  }
+
+  function closeChildrenOfParent(list: any[], parentId: string): any[] {
+    return list.map((q: any) => {
+      // Wenn dies der Parent ist → Kinder einklappen
+      if (q.id === parentId && q.children?.length > 0) {
+        return {
+          ...q,
+          children: q.children.map((child: any) => ({
+            ...child,
+            expanded: false,
+          })),
+        };
+      }
+
+      // Rekursiv weitersuchen
+      if (q.children?.length > 0) {
+        return {
+          ...q,
+          children: closeChildrenOfParent(q.children, parentId),
+        };
+      }
+
+      return q;
+    });
+  }
+
   // 🔁 Ein- & Ausklappen von Fragen (vollständig rekursiv)
   const toggleExpand = async (id: string) => {
     const updated = await Promise.all(
@@ -770,8 +799,6 @@ export default function ConditionEditor() {
 
   // 🔹 Fragetypen
   const showOptions = selectedType?.hasOptions === true;
-
-  
 
   // -----------------------------
   // 1️⃣ useSortable + Auto-Close
@@ -1077,8 +1104,23 @@ export default function ConditionEditor() {
       <div className="px-10 pt-8">
         <div style={{ position: "relative", overflow: "hidden" }}>
           <DndContext
-            collisionDetection={closestCenter}
-            onDragStart={({ active }) => setDraggingId(String(active.id))}
+            collisionDetection={closestCorners}
+            onDragStart={({ active }) => {
+              const parentId = active.data?.current?.parent;
+              const isRoot = parentId === "root";
+
+              setQuestions((prev) => {
+                if (isRoot) {
+                  // 👉 Root bewegt → alle Root-Listen schließen
+                  return closeAllRootLists(prev);
+                } else {
+                  // 👉 Kind bewegt → nur Kinder der Parent schließen
+                  return closeChildrenOfParent(prev, parentId);
+                }
+              });
+
+              setDraggingId(String(active.id));
+            }}
             onDragEnd={(event) => {
               handleDragEnd(event); // 👈 Reihenfolge speichern
               setDraggingId(null); // 👈 Sichtbarkeit fixen
