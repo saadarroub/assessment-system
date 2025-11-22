@@ -1,4 +1,5 @@
 // src/features/service/assignmentService.ts
+import { apiClient } from "@/api/client";
 
 export type AssignmentWorker = {
   id: string;
@@ -64,27 +65,20 @@ export type AssignWorkerCatalogBulkResponse = {
 export async function assignWorkerCatalogBulk(
   payload: AssignWorkerCatalogBulkDto
 ): Promise<AssignWorkerCatalogBulkResponse> {
-  const resp = await fetch("http://localhost:8080/api/worker-catalog/assign/bulk", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify(payload),
-  });
-  if (!resp.ok) {
-    const text = await resp.text().catch(() => "");
-    throw new Error(`HTTP ${resp.status}${text ? ` – ${text}` : ""}`);
-  }
-  return resp.json();
+  const { data } = await apiClient.post<AssignWorkerCatalogBulkResponse>(
+    "/worker-catalog/assign/bulk",
+    payload,
+    {
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+    }
+  );
+  return data;
 }
  
 /** GET /worker-catalog → alle Zuweisungen (verschachtelte Objekte!) */
 export async function listAssignments(): Promise<AssignmentApi[]> {
-  const resp = await fetch("http://localhost:8080/api/worker-catalog", {
+  const { data } = await apiClient.get<AssignmentApi[]>("/worker-catalog", {
     headers: { Accept: "application/json" },
   });
-  if (!resp.ok) {
-    const text = await resp.text().catch(() => "");
-    throw new Error(`HTTP ${resp.status}${text ? ` – ${text}` : ""}`);
-  }
-  // Response ist ein Array aus AssignmentApi
-  return resp.json();
+  return data;
 }

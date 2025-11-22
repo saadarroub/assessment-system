@@ -28,19 +28,7 @@ export default function CompanyListPage() {
       })
       .catch(error => {
         console.error('Error fetching companies:', error);
-        // Ohne API Mock-Daten
-        setCompanies([
-          { id: 'C001', name: 'TechCorp GmbH', overall: 75, employees: 250, industry: 'IT', date: '2025-03-15' },
-          { id: 'C002', name: 'MedHealth AG', overall: 82, employees: 150, industry: 'Healthcare', date: '2025-03-18' },
-          { id: 'C003', name: 'FinServ Bank', overall: 88, employees: 500, industry: 'Finance', date: '2025-03-20' },
-          { id: 'C004', name: 'AutoParts Ltd', overall: 68, employees: 300, industry: 'Manufacturing', date: '2025-03-22' },
-          { id: 'C005', name: 'RetailMax', overall: 71, employees: 180, industry: 'Retail', date: '2025-03-25' },
-          { id: 'C006', name: 'LogiTrans', overall: 79, employees: 220, industry: 'Logistics', date: '2025-03-28' },
-          { id: 'C007', name: 'EduLearn GmbH', overall: 73, employees: 120, industry: 'Education', date: '2025-04-01' },
-          { id: 'C008', name: 'PowerGrid AG', overall: 85, employees: 400, industry: 'Energy', date: '2025-04-05' },
-          { id: 'C009', name: 'BuildCo', overall: 65, employees: 280, industry: 'Construction', date: '2025-04-08' },
-          { id: 'C010', name: 'FoodService', overall: 70, employees: 160, industry: 'Food', date: '2025-04-10' }
-        ]);
+        setCompanies([]);
         setLoading(false);
       });
   }, []);

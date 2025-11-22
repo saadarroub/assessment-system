@@ -14,6 +14,10 @@ import {
   // NEW
   updateUser,
 } from "@/features/service/userService";
+import { getRoles, type RoleApi } from "@/features/service/roleService";
+import { apiClient } from "@/api/client";
+import { WithPermissionCheck } from "@/shared/components/WithPermissionCheck";
+import { useToast } from "@/shared/contexts/ToastContext";
 
 // ---- Types ----
 export type UserRow = {
@@ -51,10 +55,12 @@ const CSS = {
 };
 
 export default function UsersPage() {
+  const { showSuccess, showError } = useToast();
+  
   const [items, setItems] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [rolesLoading, setRolesLoading] = useState(false);
-  const [, setError] = useState<string | null>(null);
+  const [error, setError] = useState<Error | null>(null);
 
   const [q, setQ] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("name");
@@ -65,8 +71,13 @@ export default function UsersPage() {
   const [uName, setUName] = useState("");
   const [uEmail, setUEmail] = useState("");
   const [uPassword, setUPassword] = useState("");
+  const [selectedRoleId, setSelectedRoleId] = useState<string>("");
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+
+  // Available roles
+  const [availableRoles, setAvailableRoles] = useState<RoleApi[]>([]);
+  const [rolesLoadError, setRolesLoadError] = useState<string | null>(null);
 
   // Delete Modal
   const [openDelete, setOpenDelete] = useState(false);
@@ -92,12 +103,28 @@ export default function UsersPage() {
         const mapped = (raw ?? []).map(mapApiToUser);
         if (alive) setItems(mapped);
       } catch (e: any) {
-        if (alive) setError(e?.message ?? String(e));
+        if (alive) setError(e); // Error-Objekt direkt setzen, nicht nur message
       } finally {
         if (alive) setLoading(false);
       }
     })();
     return () => { alive = false; };
+  }, []);
+
+  // 1b) Load available roles
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const roles = await getRoles();
+        if (alive) setAvailableRoles(roles);
+      } catch (e: any) {
+        if (alive) setRolesLoadError(e?.message ?? "Fehler beim Laden der Rollen");
+      }
+    })();
+    return () => {
+      alive = false;
+    };
   }, []);
 
   // 2) Roles per user
@@ -165,22 +192,36 @@ export default function UsersPage() {
       setCreateError("Bitte Name, Email und Passwort ausfüllen.");
       return;
     }
+    if (!selectedRoleId) {
+      setCreateError("Bitte eine Rolle auswählen.");
+      return;
+    }
     setCreating(true);
     setCreateError(null);
     try {
+
       const created = await createUser({
         name: uName.trim(),
         email: uEmail.trim(),
         password: uPassword,
+        roleId: selectedRoleId,
       });
+
       const row = mapApiToUser(created);
       setItems((prev) => [row, ...prev]);
       setUName("");
       setUEmail("");
       setUPassword("");
+      setSelectedRoleId("");
       setOpenCreate(false);
+      showSuccess(`Benutzer "${created.name}" erfolgreich erstellt!`);
     } catch (err: any) {
-      setCreateError(err?.message ?? String(err));
+      const errorMsg = err?.message ?? String(err);
+      setCreateError(errorMsg);
+      // 403 wird global vom PermissionToastListener gefangen
+      if ((err as any)?.response?.status !== 403) {
+        showError(`Fehler beim Erstellen: ${errorMsg}`);
+      }
     } finally {
       setCreating(false);
     }
@@ -207,8 +248,14 @@ export default function UsersPage() {
       setItems((prev) => prev.filter((x) => x.id !== targetUser.id));
       setOpenDelete(false);
       setTargetUser(null);
+      showSuccess(`Benutzer "${targetUser.name}" erfolgreich gelöscht.`);
     } catch (err: any) {
-      setDeleteError(err?.message ?? String(err));
+      const errorMsg = err?.message ?? String(err);
+      setDeleteError(errorMsg);
+      // 403 wird global vom PermissionToastListener gefangen
+      if ((err as any)?.response?.status !== 403) {
+        showError(`Fehler beim Löschen: ${errorMsg}`);
+      }
     } finally {
       setDeleting(false);
     }
@@ -261,8 +308,14 @@ export default function UsersPage() {
       );
 
       cancelEdit();
+      showSuccess(`Benutzer "${full.name}" erfolgreich aktualisiert!`);
     } catch (err: any) {
-      setUpdateError(err?.message ?? String(err));
+      const errorMsg = err?.message ?? String(err);
+      setUpdateError(errorMsg);
+      // 403 wird global vom PermissionToastListener gefangen
+      if ((err as any)?.response?.status !== 403) {
+        showError(`Fehler beim Aktualisieren: ${errorMsg}`);
+      }
     } finally {
       setUpdating(false);
     }
@@ -382,10 +435,11 @@ export default function UsersPage() {
 
 
         {/* ===== Card (um die Tabelle) ===== */}
-        <section className="max-w-[1400px] xl:max-w-[1600px] mx-auto rounded-[10px] border shadow-[0_4px_6px_-1px_rgba(38,69,85,.08)]" style={{ background: CSS.card, borderColor: CSS.border }}>
+        <WithPermissionCheck error={error} loading={loading} minHeight="400px">
+          <section className="max-w-[1400px] xl:max-w-[1600px] mx-auto rounded-[10px] border shadow-[0_4px_6px_-1px_rgba(38,69,85,.08)]" style={{ background: CSS.card, borderColor: CSS.border }}>
 
-          {/* Table */}
-          <div className="overflow-x-auto">
+            {/* Table */}
+            <div className="overflow-x-auto">
             <table className="w-full border-collapse bg-[hsl(var(--card))]">
               <thead
                 className="bg-[hsla(200,32%,22%,0.05)]"
@@ -513,7 +567,9 @@ export default function UsersPage() {
               </tbody>
             </table>
           </div>
-        </section>
+          </section>
+        </WithPermissionCheck>
+        
         {/* === Pagination (abgesetzt, wie Zuweisungen) === */}
         <div
           className="max-w-[1400px] xl:max-w-[1600px] mx-auto mt-4 rounded-[12px] border bg-white/85 px-4 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
@@ -595,6 +651,27 @@ export default function UsersPage() {
                   placeholder="●●●●●●●●"
                   required
                 />
+              </div>
+              <div>
+                <label htmlFor="u-role" className="block text-sm font-medium mb-1">Rolle *</label>
+                <select
+                  id="u-role"
+                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-300"
+                  value={selectedRoleId}
+                  onChange={(e) => setSelectedRoleId(e.target.value)}
+                  disabled={creating}
+                  required
+                >
+                  <option value="">-- Bitte wählen --</option>
+                  {availableRoles.map((role) => (
+                    <option key={role.id} value={role.id}>
+                      {role.name}
+                    </option>
+                  ))}
+                </select>
+                {rolesLoadError && (
+                  <p className="text-xs text-red-600 mt-1">{rolesLoadError}</p>
+                )}
               </div>
               <div className="flex justify-end gap-2 pt-1">
                 <button type="button" onClick={() => setOpenCreate(false)} className="inline-flex items-center rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50" disabled={creating}>

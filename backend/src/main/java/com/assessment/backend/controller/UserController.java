@@ -1,5 +1,6 @@
 package com.assessment.backend.controller;
 
+import com.assessment.backend.dto.UserSummaryDTO;
 import com.assessment.backend.entity.User;
 import com.assessment.backend.entity.UserRole;
 import com.assessment.backend.service.UserService;
@@ -22,29 +23,35 @@ public class UserController {
 
     @PreAuthorize("hasAuthority('users.view')")
     @GetMapping
-    public ResponseEntity<List<User>> getAllUsers() {
-        return ResponseEntity.ok(userService.getAllUsers());
+    public ResponseEntity<List<UserSummaryDTO>> getAllUsers() {
+        List<UserSummaryDTO> users = userService.getAllUsers()
+                .stream()
+                .map(UserSummaryDTO::fromEntity)
+                .toList();
+        return ResponseEntity.ok(users);
     }
 
     @PreAuthorize("hasAuthority('users.view')")
     @GetMapping("/{id}")
-    public ResponseEntity<User> getUserById(@PathVariable UUID id) {
+    public ResponseEntity<UserSummaryDTO> getUserById(@PathVariable UUID id) {
         return userService.getUserById(id)
+                .map(UserSummaryDTO::fromEntity)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    @PreAuthorize("hasAuthority('users.create')")
     @PostMapping
-    public ResponseEntity<User> createUser(@RequestBody User user) {
-        User createdUser = userService.createUser(user);
-        return ResponseEntity.status(HttpStatus.CREATED).body(createdUser);
+    public ResponseEntity<UserSummaryDTO> createUser(@RequestBody CreateUserWithRoleRequest request) {
+        User createdUser = userService.createUserWithRole(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(UserSummaryDTO.fromEntity(createdUser));
     }
 
     @PreAuthorize("hasAuthority('users.edit')")
     @PutMapping("/{id}")
-    public ResponseEntity<User> updateUser(@PathVariable UUID id, @RequestBody User user) {
+    public ResponseEntity<UserSummaryDTO> updateUser(@PathVariable UUID id, @RequestBody User user) {
         User updatedUser = userService.updateUser(id, user);
-        return ResponseEntity.ok(updatedUser);
+        return ResponseEntity.ok(UserSummaryDTO.fromEntity(updatedUser));
     }
 
     @PreAuthorize("hasAuthority('users.delete')")
@@ -54,14 +61,14 @@ public class UserController {
         return ResponseEntity.noContent().build();
     }
 
-    @PreAuthorize("hasAuthority('users.assign_roles')")
+    @PreAuthorize("hasAuthority('users.create')")
     @PostMapping("/{userId}/roles/{roleId}")
     public ResponseEntity<UserRole> assignRole(@PathVariable UUID userId, @PathVariable UUID roleId) {
         UserRole userRole = userService.assignRoleToUser(userId, roleId);
         return ResponseEntity.status(HttpStatus.CREATED).body(userRole);
     }
 
-    @PreAuthorize("hasAuthority('users.assign_roles')")
+    @PreAuthorize("hasAuthority('users.create')")
     @DeleteMapping("/{userId}/roles/{roleId}")
     public ResponseEntity<Void> removeRole(@PathVariable UUID userId, @PathVariable UUID roleId) {
         userService.removeRoleFromUser(userId, roleId);

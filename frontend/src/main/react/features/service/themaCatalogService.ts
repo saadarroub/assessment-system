@@ -1,3 +1,5 @@
+import { apiClient } from "@/api/client";
+
 export type ThemaDto = {
   id: string;
   name: string;
@@ -19,23 +21,11 @@ export type CreateThemaCatalogDto = {
  * Tipp: Wenn du Vite-Proxy verwendest, kannst du unten stattdessen "/api/..." nutzen.
  */
 export async function fetchThemenByCatalog(catalogId: string): Promise<ThemaDto[]> {
-  // Wenn du Vite-Proxy nutzt, nimm:
-  // const url = `/api/thema-catalogs/catalog/${encodeURIComponent(catalogId)}/themas`;
-  const url = `http://localhost:8080/api/thema-catalogs/catalog/${encodeURIComponent(catalogId)}/themas`;
- 
   try {
-    const res = await fetch(url, { headers: { Accept: "application/json" } });
-
-    if (!res.ok) {
-      const body = await res.text().catch(() => "");
-      console.error("[fetchThemenByCatalog] HTTP", res.status, res.statusText, body);
-      return [];
-    }
-
-    const data = await res.json().catch((e) => {
-      console.error("[fetchThemenByCatalog] JSON parse error:", e);
-      return null;
-    });
+    const { data } = await apiClient.get<ThemaDto[]>(
+      `/thema-catalogs/catalog/${encodeURIComponent(catalogId)}/themas`,
+      { headers: { Accept: "application/json" } }
+    );
 
     if (!Array.isArray(data)) {
       console.error("[fetchThemenByCatalog] Expected array, got:", data);
@@ -56,17 +46,14 @@ export async function fetchThemenByCatalog(catalogId: string): Promise<ThemaDto[
 }
 
 export async function createThemaCatalog(payload: CreateThemaCatalogDto) {
-  const url = "http://localhost:8080/api/thema-catalogs"; // ggf. /api/... via Proxy
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify(payload),
-  });
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`HTTP ${res.status}${text ? ` – ${text}` : ""}`);
-  }
-  return res.json(); // { themaId, catalogId, orderIndex }
+  const res = await apiClient.post(
+    "/thema-catalogs",
+    payload,
+    {
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+    }
+  );
+  return res.data;
 }
 export async function assignTopicsToCatalog(catalogId: string, topicIds: string[]) {
   await Promise.all(
@@ -77,23 +64,22 @@ export async function assignTopicsToCatalog(catalogId: string, topicIds: string[
 }
 // themaCatalogService.ts
 export async function getTopicCountForCatalog(catalogId: string): Promise<number> {
-  const resp = await fetch(
-    `http://localhost:8080/api/thema-catalogs/catalog/${encodeURIComponent(catalogId)}/count`,
+  const resp = await apiClient.get(
+    `/thema-catalogs/catalog/${encodeURIComponent(catalogId)}/count`,
     { headers: { Accept: "application/json" } }
   );
-  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
 
-  const data = await resp.json();
-  // Backend kann entweder eine Zahl ODER {count: number} schicken – beide Fälle abfangen:
+  const data = resp.data;
   return typeof data === "number" ? data : (data?.count ?? 0);
 }
 /** Anzahl der Fragen für ein Thema (UUID) laden */
 export async function getQuestionCountForThema(themaId: string): Promise<number> {
-  const resp = await fetch(`http://localhost:8080/api/question-nodes/count/thema/${encodeURIComponent(themaId)}`, {
-    headers: { Accept: "application/json" },
-  });
-  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-  const text = await resp.text();
+  const resp = await apiClient.get(
+    `/question-nodes/count/thema/${encodeURIComponent(themaId)}`,
+    { headers: { Accept: "application/json" }, responseType: "text" }
+  );
+
+  const text = typeof resp.data === "string" ? resp.data : String(resp.data ?? "");
   const n = Number(text);
   if (Number.isNaN(n)) throw new Error("Unerwartete Antwort (keine Zahl).");
   return n;

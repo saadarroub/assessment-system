@@ -38,13 +38,18 @@ public class UserService {
         return userRepository.findByEmail(email);
     }
 
-    public User createUser(User user) {
-        //  Encode password before saving the user to the db
-        user.setPassword(passwordEncoder.encode(user.getPassword()));
-
+    public User createUserWithRole(com.assessment.backend.controller.CreateUserWithRoleRequest request) {
+        User user = new User();
+        user.setName(request.name);
+        user.setEmail(request.email);
+        user.setPassword(passwordEncoder.encode(request.password));
         System.out.println("ENCODED PASSWORD (create) = " + user.getPassword());
-
-        return userRepository.save(user);
+        User savedUser = userRepository.save(user);
+        if (request.roleId != null) {
+            UserRole userRole = new UserRole(savedUser.getId(), request.roleId);
+            userRoleRepository.save(userRole);
+        }
+        return savedUser;
     }
     
 
