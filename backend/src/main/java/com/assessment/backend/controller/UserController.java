@@ -6,6 +6,7 @@ import com.assessment.backend.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -19,11 +20,13 @@ public class UserController {
     @Autowired
     private UserService userService;
 
+    @PreAuthorize("hasAuthority('users.view')")
     @GetMapping
     public ResponseEntity<List<User>> getAllUsers() {
         return ResponseEntity.ok(userService.getAllUsers());
     }
 
+    @PreAuthorize("hasAuthority('users.view')")
     @GetMapping("/{id}")
     public ResponseEntity<User> getUserById(@PathVariable UUID id) {
         return userService.getUserById(id)
@@ -37,33 +40,37 @@ public class UserController {
         return ResponseEntity.status(HttpStatus.CREATED).body(createdUser);
     }
 
+    @PreAuthorize("hasAuthority('users.edit')")
     @PutMapping("/{id}")
     public ResponseEntity<User> updateUser(@PathVariable UUID id, @RequestBody User user) {
         User updatedUser = userService.updateUser(id, user);
         return ResponseEntity.ok(updatedUser);
     }
 
+    @PreAuthorize("hasAuthority('users.delete')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteUser(@PathVariable UUID id) {
         userService.deleteUser(id);
         return ResponseEntity.noContent().build();
     }
 
+    @PreAuthorize("hasAuthority('users.assign_roles')")
     @PostMapping("/{userId}/roles/{roleId}")
     public ResponseEntity<UserRole> assignRole(@PathVariable UUID userId, @PathVariable UUID roleId) {
         UserRole userRole = userService.assignRoleToUser(userId, roleId);
         return ResponseEntity.status(HttpStatus.CREATED).body(userRole);
     }
 
+    @PreAuthorize("hasAuthority('users.assign_roles')")
     @DeleteMapping("/{userId}/roles/{roleId}")
     public ResponseEntity<Void> removeRole(@PathVariable UUID userId, @PathVariable UUID roleId) {
         userService.removeRoleFromUser(userId, roleId);
         return ResponseEntity.noContent().build();
     }
 
+    @PreAuthorize("hasAuthority('users.view')")
     @GetMapping("/{userId}/roles")
     public ResponseEntity<List<UserRole>> getUserRoles(@PathVariable UUID userId) {
         return ResponseEntity.ok(userService.getUserRoles(userId));
     }
 }
-
