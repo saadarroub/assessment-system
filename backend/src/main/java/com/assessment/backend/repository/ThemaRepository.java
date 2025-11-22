@@ -17,6 +17,9 @@ public interface ThemaRepository extends JpaRepository<Thema, UUID> {
     // Find by name containing (partial match)
     List<Thema> findByNameContainingIgnoreCase(String name);
 
+    // Find by the status
+    List<Thema> findByStatus(String status);
+
     // Check if exists by name
     boolean existsByName(String name);
 }
