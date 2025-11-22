@@ -12,4 +12,7 @@ public interface CatalogRepository extends JpaRepository<Catalog, UUID> {
 
     List<Catalog> findByTitleContainingIgnoreCase(String title);
 
+    // Find by the status
+    List<Catalog> findByStatus(String status);
+
 }

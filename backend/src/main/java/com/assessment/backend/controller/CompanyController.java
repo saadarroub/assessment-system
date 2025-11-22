@@ -3,6 +3,8 @@ package com.assessment.backend.controller;
 import com.assessment.backend.dto.CompanyResponseDTO;
 import com.assessment.backend.dto.CreateCompanyDTO;
 import com.assessment.backend.dto.UpdateCompanyDTO;
+import com.assessment.backend.entity.Company;
+import com.assessment.backend.entity.Thema;
 import com.assessment.backend.service.CompanyService;
 
 import jakarta.validation.Valid;
@@ -40,6 +42,59 @@ public class CompanyController {
     public ResponseEntity<List<CompanyResponseDTO>> searchCompanies(@RequestParam String name) {
         return ResponseEntity.ok(companyService.searchCompaniesByName(name));
     }
+
+    @GetMapping("/status/active")
+    public ResponseEntity<List<Company>> getCompaniesByActiveStatus() {
+      try {
+        List<Company> companies = companyService.getActiveStatus();
+        if (companies.isEmpty()) {
+          return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        }
+        return new ResponseEntity<>(companies, HttpStatus.OK);
+      } catch (Exception e) {
+        return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
+      }
+    }
+
+    @GetMapping("/status/inactive")
+    public ResponseEntity<List<Company>> getCompaniesByInactiveStatus() {
+      try {
+        List<Company> companies = companyService.getInactiveStatus();
+        if (companies.isEmpty()) {
+          return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        }
+        return new ResponseEntity<>(companies, HttpStatus.OK);
+      } catch (Exception e) {
+        return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
+      }
+    }
+
+  //Change the current Status
+  @PatchMapping("/status/change/{id}")
+  public ResponseEntity<Company> changeStatusById(@PathVariable("id") UUID id) {
+    try {
+      Company changedStatus = companyService.changeStatus(id);
+      return new ResponseEntity<>(changedStatus, HttpStatus.OK);
+    } catch (RuntimeException e) {
+      return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+    } catch (Exception e) {
+      return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+  }
+
+  //Deactivate All
+  @PatchMapping("/status/deactivate")
+  public ResponseEntity<List<Company>> deactivateAll(){
+    try{
+      List<Company> deactivatedCompanies = companyService.deactivateAll();
+      return new ResponseEntity<>(deactivatedCompanies, HttpStatus.OK);
+    } catch (RuntimeException e) {
+      return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+    } catch (Exception e) {
+      return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
 
     @PostMapping
     public ResponseEntity<CompanyResponseDTO> createCompany(@Valid @RequestBody CreateCompanyDTO dto) {
