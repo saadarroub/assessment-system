@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useToast } from "@/shared/contexts/ToastContext";
 import AdminLayout from "@/apps/app/AdminLayout";
 import "@/styles/admin.css";
 import {
@@ -107,6 +108,9 @@ export default function ConditionEditor() {
   const [draggingId, setDraggingId] = useState<string | null>(null);
 
   const [isRequired, setIsRequired] = useState(false);
+
+ 
+
 
   // 🔁 Rekursive Funktion, die ALLE Kinder bis zur tiefsten Ebene lädt
   async function fetchChildrenRecursive(parentId: string): Promise<any[]> {
@@ -1039,12 +1043,14 @@ export default function ConditionEditor() {
       // CHILD → CHILD (gleiche Ebene)
       if (activeInfo.parentId === overInfo.parentId) {
         await moveChildNode(activeId, activeInfo.parentId!, newPosition);
+        
         console.log(
           "📌 Child verschoben in gleicher Ebene:",
           activeId,
           "→ Position",
           newPosition
         );
+        
         return;
       }
 

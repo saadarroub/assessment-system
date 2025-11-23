@@ -133,6 +133,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if ("/api/auth/login".equals(path)) {
             return true;
         }
+       // if ("/api/auth/login".equals(path) && POST.equals(method)) {
+     //       return true;
+        //}
 
         // Public Access Endpoints (eigenes Token-System)
         if (path.startsWith("/public/access/")) {

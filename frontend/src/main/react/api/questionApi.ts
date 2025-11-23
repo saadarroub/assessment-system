@@ -157,7 +157,7 @@ export async function createQuestionNode(
 // 🔧 Frage verschieben (root)
 export async function moveRootNode(nodeId: string, position: number) {
   const url = `${API_BASE}/question-nodes/${nodeId}/move?position=${position}`;
-  await axios.patch(url);
+  await apiClient.patch(url);
 }
 
 
@@ -169,12 +169,12 @@ export async function moveChildNode(
   position: number
 ) {
   const url = `${API_BASE}/question-nodes/${nodeId}/move?newParentId=${parentId}&position=${position}`;
-  await axios.patch(url);
+  await apiClient.patch(url);
 }
 
 export async function duplicateThema(id: string) {
   try {
-    const res = await axios.post(`${API_BASE}/themas/${id}/duplicate`);
+    const res = await apiClient.post(`${API_BASE}/themas/${id}/duplicate`);
     return res.data;
   } catch (error) {
     console.error("❌ Fehler beim Duplizieren des Themas:", error);

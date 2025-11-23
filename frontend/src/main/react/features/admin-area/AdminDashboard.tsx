@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import "@/styles/admin.css";
 import AdminLayout from "@/apps/app/AdminLayout";
 import TopicCard from "./TopicCard";
-
+import { useToast } from "@/shared/contexts/ToastContext";
 // Icons
 import myLogo from "@/assets/Zero-6-icons-05.webp";
 import {
@@ -73,6 +73,7 @@ export default function AdminDashboard() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [newThemaName, setNewThemaName] = useState("");
   const [newThemaDesc, setNewThemaDesc] = useState("");
+  const { showSuccess, showError } = useToast();
 
   // Modal Input Referenz
   const titleInputRef = useRef<HTMLInputElement | null>(null);
@@ -499,6 +500,7 @@ export default function AdminDashboard() {
                     await createThema({
                       name: newThemaName,
                       description: newThemaDesc,
+                       
                     });
 
                     await fetchTopics();
@@ -506,8 +508,9 @@ export default function AdminDashboard() {
                     setIsAddModalOpen(false);
                     setNewThemaName("");
                     setNewThemaDesc("");
+                    showSuccess(  "Thema erfolgreich erstellt!");
                   } catch (err) {
-                    alert("Fehler beim Erstellen");
+                    showError(  "EROOOOOR");
                   }
                 }}
                 className="px-4 py-2 bg-[#56768f] text-white rounded"
