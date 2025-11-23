@@ -9,8 +9,9 @@ import {
   getAllPermissions,
   createRole,
   grantPermissions,
-   updateRole,    
+  updateRole,
   deleteRole,
+  revokePermissions,
   type RoleApi,
   type PermissionApi,
 } from "@/features/service/roleService";
@@ -79,8 +80,8 @@ export default function RoleList() {
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
-  
-   // ===== Edit Role Modal =====
+
+  // ===== Edit Role Modal =====
   const [openEdit, setOpenEdit] = useState(false);
   const [editingRole, setEditingRole] = useState<RoleRow | null>(null);
   const [eName, setEName] = useState("");
@@ -94,6 +95,13 @@ export default function RoleList() {
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
+  // EDIT: Permissions
+  const [editAllPermissions, setEditAllPermissions] = useState<PermissionApi[]>([]);
+  const [editSelectedPermissions, setEditSelectedPermissions] = useState<string[]>([]);
+  const [editPermsLoading, setEditPermsLoading] = useState(false);
+  const [editActiveCategory, setEditActiveCategory] = useState<string | null>(null);
+  const [editSelectedPermissionsBeforeEdit, setEditSelectedPermissionsBeforeEdit] = useState<string[]>([]);
+  
   /* ============== Data Load ============== */
   useEffect(() => {
     let alive = true;
@@ -210,15 +218,74 @@ export default function RoleList() {
     }
   };
 
-    /* ============== Edit Role Functions ============== */
+  /* ============== Edit Role Functions ============== */
 
-  const openEditModal = (role: RoleRow) => {
+  const openEditModal = async (role: RoleRow) => {
     setEditingRole(role);
     setEName(role.name);
     setEDesc(role.description);
     setUpdateError(null);
     setOpenEdit(true);
+    // PERMISSIONS LADEN
+    setEditPermsLoading(true);
+    try {
+      // 1. Hole alle Permissions aus /permissions
+      const all = await getAllPermissions();
+      setEditAllPermissions(all);
+
+      // 2. Hole aktuelle Permissions der Rolle
+      const rolePerms = await getRolePermissions(role.id);
+      const ids = rolePerms.map((p) => p.permissionId);
+      setEditSelectedPermissions(ids);
+      setEditSelectedPermissionsBeforeEdit(ids);
+
+      // 3. Standard-Kategorie setzen
+      const cats = all.map(p => p.name.split(".")[0]);
+      setEditActiveCategory(cats[0] || null);
+
+    } finally {
+      setEditPermsLoading(false);
+    }
   };
+  // Permissions toggeln
+  const toggleEditPermission = (id: string) => {
+    setEditSelectedPermissions(prev =>
+      prev.includes(id)
+        ? prev.filter(x => x !== id)
+        : [...prev, id]
+    );
+  };
+  // Kategorien gruppieren (für Edit-Modal)
+  const editGroupedPermissions = useMemo(() => {
+    const groups: Record<string, PermissionApi[]> = {};
+
+    editAllPermissions.forEach((perm) => {
+      const category = perm.name.includes(".")
+        ? perm.name.split(".")[0]
+        : "other";
+      if (!groups[category]) groups[category] = [];
+      groups[category].push(perm);
+    });
+
+    return Object.entries(groups);
+  }, [editAllPermissions]);
+  // Welche Permissions gehören zur aktuell aktiven Edit-Kategorie?
+  const activeEditCategoryPerms = useMemo(() => {
+    if (!editActiveCategory) return [];
+    const found = editGroupedPermissions.find(
+      ([cat]) => cat === editActiveCategory
+    );
+    return found ? found[1] : [];
+  }, [editGroupedPermissions, editActiveCategory]);
+
+  // Default-Kategorie setzen, wenn noch keine gewählt
+  useEffect(() => {
+    if (!editActiveCategory && editGroupedPermissions.length > 0) {
+      setEditActiveCategory(editGroupedPermissions[0][0]);
+    }
+  }, [editGroupedPermissions, editActiveCategory]);
+
+
 
   const closeEditModal = () => {
     if (updating) return;
@@ -233,50 +300,59 @@ export default function RoleList() {
     e.preventDefault();
     if (!editingRole) return;
 
-    const name = eName.trim() || editingRole.name;
-    const description = eDesc.trim();
-
-    if (!name) {
-      setUpdateError("Bitte einen Rollennamen angeben.");
-      return;
-    }
-
     setUpdating(true);
     setUpdateError(null);
 
     try {
-      const updated = await updateRole(editingRole.id, {
-        name,
-        description: description || undefined,
+      // === 1) Name + Beschreibung speichern ===
+      await updateRole(editingRole.id, {
+        name: eName.trim(),
+        description: eDesc.trim() || undefined,
       });
 
-      // UI aktualisieren
+      // === 2) Berechne Unterschiede ===
+      const oldPerms = new Set(editSelectedPermissionsBeforeEdit);
+      const newPerms = new Set(editSelectedPermissions);
+
+      const toAdd = [...newPerms].filter(x => !oldPerms.has(x));
+      const toRemove = [...oldPerms].filter(x => !newPerms.has(x));
+
+      // === 3) API: Permissions hinzufügen ===
+      if (toAdd.length > 0) {
+        await grantPermissions(editingRole.id, toAdd);
+      }
+
+      // === 4) API: Permissions entfernen ===
+      if (toRemove.length > 0) {
+        await revokePermissions(editingRole.id, toRemove);
+      }
+
+      showSuccess("Rolle erfolgreich aktualisiert!");
+
+      // UI aktualisieren (Name, Beschreibung, Counts)
       setItems(prev =>
         prev.map(r =>
           r.id === editingRole.id
             ? {
-                ...r,
-                name: updated.name ?? name,
-                description: updated.description ?? description,
-              }
+              ...r,
+              name: eName,
+              description: eDesc,
+              permissionCount: editSelectedPermissions.length,
+            }
             : r
         )
       );
 
-      showSuccess(`Rolle "${updated.name ?? name}" erfolgreich aktualisiert!`);
       closeEditModal();
+
     } catch (err: any) {
-      const msg = err?.message ?? String(err);
-      setUpdateError(msg);
-      if ((err as any)?.response?.status !== 403) {
-        showError(`Fehler beim Aktualisieren: ${msg}`);
-      }
+      setUpdateError(err?.message ?? "Fehler beim Aktualisieren");
     } finally {
       setUpdating(false);
     }
   };
 
-    /* ============== Delete Role Functions ============== */
+  /* ============== Delete Role Functions ============== */
 
   const openDeleteModal = (role: RoleRow) => {
     setDeletingRole(role);
@@ -370,10 +446,10 @@ export default function RoleList() {
     const term = q.trim().toLowerCase();
     const base = term
       ? items.filter(
-          (r) =>
-            r.name.toLowerCase().includes(term) ||
-            r.description.toLowerCase().includes(term)
-        )
+        (r) =>
+          r.name.toLowerCase().includes(term) ||
+          r.description.toLowerCase().includes(term)
+      )
       : items.slice();
 
     base.sort((a, b) => {
@@ -574,11 +650,10 @@ export default function RoleList() {
                     ].map((col, idx) => (
                       <th
                         key={idx}
-                        className={`px-4 py-3 text-[0.85rem] font-semibold ${
-                          col.label === "Aktionen"
+                        className={`px-4 py-3 text-[0.85rem] font-semibold ${col.label === "Aktionen"
                             ? "text-center"
                             : "text-left"
-                        }`}
+                          }`}
                         style={{ color: CSS.fg }}
                       >
                         {col.k ? (
@@ -704,7 +779,7 @@ export default function RoleList() {
                                 borderColor: CSS.border,
                                 color: CSS.fg,
                               }}
-                               onClick={() => openEditModal(role)}
+                              onClick={() => openEditModal(role)}
                             >
                               <Pencil size={16} />
                             </button>
@@ -716,7 +791,7 @@ export default function RoleList() {
                               title="Löschen"
                               className="inline-flex items-center justify-center w-8 h-8 rounded-md border text-red-600 hover:bg-red-50"
                               style={{ borderColor: "rgb(254 202 202)" }}
-                              onClick={() => openDeleteModal(role)} 
+                              onClick={() => openDeleteModal(role)}
                             >
                               <Trash2 size={16} />
                             </button>
@@ -1053,7 +1128,7 @@ export default function RoleList() {
           </div>
         </div>
       )}
-            {/* ========== Edit Role Modal ========== */}
+      {/* ========== Edit Role Modal ========== */}
       {openEdit && editingRole && (
         <div
           className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/40 px-4"
@@ -1118,6 +1193,63 @@ export default function RoleList() {
                   disabled={updating}
                 />
               </div>
+              {/* ===== Permissions ===== */}
+              <div>
+                <label className="block text-sm font-medium mb-2" style={{ color: CSS.fg }}>
+                  Berechtigungen ({editSelectedPermissions.length} ausgewählt)
+                </label>
+
+                {editPermsLoading ? (
+                  <div className="py-6 text-center text-sm" style={{ color: CSS.mutedFg }}>
+                    Lade Berechtigungen…
+                  </div>
+                ) : (
+                  <div className="border rounded-lg" style={{ borderColor: CSS.border }}>
+
+                    {/* Kategorie-Tabs */}
+                    <div className="flex border-b overflow-x-auto" style={{ borderColor: CSS.border }}>
+                      {editGroupedPermissions.map(([cat, perms]) => (
+                        <button
+                          key={cat}
+                          type="button"
+                          onClick={() => setEditActiveCategory(cat)}
+                          className={`px-4 py-2 text-sm font-medium border-b-2 ${editActiveCategory === cat
+                              ? "border-blue-600 text-blue-600"
+                              : "border-transparent text-gray-500"
+                            }`}
+                        >
+                          {cat} ({perms.length})
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Permission-Liste */}
+                    <div className="max-h-64 overflow-y-auto p-4">
+                      {activeEditCategoryPerms.map((perm) => (
+                        <label
+                          key={perm.id}
+                          className="flex items-start gap-3 p-2 rounded-lg hover:bg-gray-50 cursor-pointer"
+                        >
+                          <input
+                            type="checkbox"
+                            className="mt-1"
+                            checked={editSelectedPermissions.includes(perm.id)}
+                            onChange={() => toggleEditPermission(perm.id)}
+                            disabled={updating}
+                          />
+                          <div>
+                            <div className="text-sm font-medium">{perm.name}</div>
+                            {perm.description && (
+                              <div className="text-xs text-gray-500">{perm.description}</div>
+                            )}
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
 
               {updateError && (
                 <div className="rounded-lg bg-yellow-50 border border-yellow-200 px-4 py-3 text-sm text-yellow-800">
@@ -1148,7 +1280,7 @@ export default function RoleList() {
           </div>
         </div>
       )}
-            {/* ========== Delete Role Modal ========== */}
+      {/* ========== Delete Role Modal ========== */}
       {openDelete && deletingRole && (
         <div
           className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/40 px-4"
@@ -1163,7 +1295,7 @@ export default function RoleList() {
             </h2>
             <p className="text-sm mb-3" style={{ color: CSS.mutedFg }}>
               Möchtest du die Rolle{" "}
-              <b>{deletingRole.name}</b> wirklich löschen?  
+              <b>{deletingRole.name}</b> wirklich löschen?
               Diese Aktion kann nicht rückgängig gemacht werden.
             </p>
 

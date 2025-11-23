@@ -11,11 +11,9 @@ import {
   createUser,
   deleteUser,
   type UserApi,
-  // NEW
   updateUser,
 } from "@/features/service/userService";
 import { getRoles, type RoleApi } from "@/features/service/roleService";
-import { apiClient } from "@/api/client";
 import { WithPermissionCheck } from "@/shared/components/WithPermissionCheck";
 import { useToast } from "@/shared/contexts/ToastContext";
 

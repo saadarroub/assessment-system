@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef, type ReactNode } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuthCtx } from "@/core/auth/AuthContext";
+import { AuthService } from "@/core/auth/AuthService";
 import { logoutApi } from "@/features/auth/logoutService";
 import ProfileStrip from "@/apps/app/ProfileStrip";
 //import capLogo from "@/assets/Logo_cap_consulting_RGB_Darkblue.svg";
@@ -85,7 +86,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const collapsedLeft = (TOKENS.sizes.sidebarClosed - collapsedSize) / 2; 
   const collapsedTop = (TOKENS.sizes.header - collapsedSize) / 2; 
 
-  const { isAuthenticated, token, logout } = useAuthCtx();
+  const { isAuthenticated, logout } = useAuthCtx();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const navigate = useNavigate();
@@ -119,10 +120,9 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   // Logout
   const handleLogout = async () => {
     localStorage.removeItem("activeAssignmentMeta"); // aufräumen
-    const t =
-      token ??
-      localStorage.getItem("accessToken") ??
-      localStorage.getItem("token");
+   const t = AuthService.getAccessToken
+    ? AuthService.getAccessToken()
+    : null;
     if (t) {
       try {
         await logoutApi(t);
