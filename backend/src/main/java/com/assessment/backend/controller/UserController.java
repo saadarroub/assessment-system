@@ -40,7 +40,7 @@ public class UserController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    //@PreAuthorize("hasAuthority('users.create')")
+    @PreAuthorize("hasAuthority('users.create')")
     @PostMapping
     public ResponseEntity<UserSummaryDTO> createUser(@RequestBody CreateUserWithRoleRequest request) {
         User createdUser = userService.createUserWithRole(request);

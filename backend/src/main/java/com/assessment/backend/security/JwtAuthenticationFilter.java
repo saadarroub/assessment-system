@@ -138,9 +138,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (path.startsWith("/public/access/")) {
             return true;
         }
-        if(path.startsWith("/api/users") && "POST".equals(method)) {
-            return true;
-        }
 
         return false;
     }
