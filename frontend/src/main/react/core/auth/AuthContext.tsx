@@ -1,71 +1,139 @@
 // src/main/react/core/auth/AuthContext.tsx
-import { createContext, useContext, useMemo, useState } from 'react';
+import { createContext, useContext, useMemo, useState, useEffect, useCallback } from 'react';
 import type { ReactNode } from 'react';
+import { AuthService } from './AuthService';
+import type { UserData } from './AuthService';
 
 type AuthState = {
-  token: string | null;
-  roles: string[];              // z.B. ['superadmin'] oder ['user']
+  user: UserData | null;
+  isLoading: boolean;
 };
 
 type AuthContextValue = {
+  user: UserData | null;
   isAuthenticated: boolean;
+  isLoading: boolean;
+  permissions: string[];
   roles: string[];
-  token: string | null;
-  login: (token: string, roles: string[]) => void;
+  login: (user: UserData, rememberMe?: boolean) => void;
   logout: () => void;
+  refreshUser: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue>({
+  user: null,
   isAuthenticated: false,
+  isLoading: true,
+  permissions: [],
   roles: [],
-  token: null,
   login: () => { },
   logout: () => { },
+  refreshUser: async () => { },
 });
+
 /**
- * Merkt sich, ob du eingeloggt bist (isAuthenticated) und welche Rollen du hast (roles).
-
-Speichert den Token (hier vorerst token aus localStorage).
-
-Gibt zwei Funktionen:
-
-login(token, roles): schreibt Token/Rollen in localStorage und in den React-State.
-
-logout(): löscht alles wieder.
-
-Dadurch können alle Komponenten im App-Baum den Login-Zustand lesen (mit useAuthCtx()).
+ * AuthProvider - React Context für Authentication State
  * 
- *  
+ * Responsibilities:
+ * - Verwaltet User-State in React (für Re-Rendering)
+ * - Delegiert Token-Management an AuthService (Singleton)
+ * - Bietet login/logout Methods für Components
+ * - Lädt User-Daten beim App-Start (checkAuth on mount)
+ * 
+ * Best Practices:
+ * - Keine direkten localStorage-Zugriffe
+ * - State synchronisiert mit AuthService
+ * - isLoading für Loading-States während Token-Validation
  */
-
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<AuthState>(() => ({
-    token: localStorage.getItem('token'),
-    roles: JSON.parse(localStorage.getItem('roles') || '[]'),
-  }));
+  const [state, setState] = useState<AuthState>({
+    user: AuthService.getUser(),
+    isLoading: true,
+  });
 
-  const login = (token: string, roles: string[]) => {
-    localStorage.setItem('token', token);
-    localStorage.setItem('roles', JSON.stringify(roles));
-    setState({ token, roles });
-  };
+  /**
+   * Check Auth on Mount - lädt User aus AuthService (falls vorhanden)
+   */
+  useEffect(() => {
+    let alive = true;
 
-const logout = () => {
-  // alles lokale wegräumen
-  localStorage.removeItem("token");
-  localStorage.removeItem("accessToken");
-  localStorage.removeItem("roles");
-  localStorage.removeItem("user");
-  setState({ token: null, roles: [] });
-};
+    const checkAuth = async () => {
+      const user = AuthService.getUser();
+
+      if (user && AuthService.isAuthenticated()) {
+        if (alive) setState({ user, isLoading: false });
+        return;
+      }
+
+      if (user) {
+        try {
+          await AuthService.refreshToken();
+          const refreshedUser = AuthService.getUser();
+          if (alive) {
+            setState({ user: refreshedUser, isLoading: false });
+          }
+          return;
+        } catch (err) {
+          console.warn('Silent refresh failed:', err);
+          AuthService.clearTokens();
+        }
+      }
+
+      if (alive) setState({ user: null, isLoading: false });
+    };
+
+    checkAuth();
+
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  /**
+   * Login - setzt User und Token im AuthService + State
+   * 
+   * WICHTIG: Token-Management passiert in AuthService.setTokens()
+   * Hier nur React-State-Update für Re-Rendering
+   * 
+   * @param user - UserData vom Backend
+   * @param _rememberMe - (unused here, managed in AuthService.setTokens())
+   */
+  const login = useCallback((user: UserData, _rememberMe: boolean = false) => {
+    // Update React State für Re-Rendering
+    setState({ user, isLoading: false });
+    
+    // Note: AuthService.setTokens() muss VORHER in LoginPage.tsx aufgerufen werden!
+    // Hier nur State-Sync
+  }, []);
+
+  /**
+   * Logout - löscht Token + User im AuthService + State
+   */
+  const logout = useCallback(() => {
+    AuthService.clearTokens();
+    setState({ user: null, isLoading: false });
+  }, []);
+
+  /**
+   * Refresh User - lädt User-Daten neu vom Backend (z.B. nach Permission-Änderung)
+   */
+  const refreshUser = useCallback(async () => {
+    // TODO: Implementiere Backend-Call zu GET /api/users/me
+    // Für jetzt: Hole User aus AuthService
+    const user = AuthService.getUser();
+    setState(prev => ({ ...prev, user }));
+  }, []);
 
   const value = useMemo<AuthContextValue>(() => ({
-    isAuthenticated: !!state.token,
-    roles: state.roles,
-    token: state.token,
+    user: state.user,
+    isAuthenticated: !!state.user && AuthService.isAuthenticated(),
+    isLoading: state.isLoading,
+    permissions: state.user?.permissions || [],
+    roles: state.user?.roles || [],
     login,
     logout,
-  }), [state]);
+    refreshUser,
+  }), [state, login, logout, refreshUser]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

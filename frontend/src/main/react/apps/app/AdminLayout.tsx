@@ -7,7 +7,7 @@ import ProfileStrip from "@/apps/app/ProfileStrip";
 
 import {
   Settings, FileText, ShoppingCart, Building2,
-  ChevronRight, ChevronLeft, LayoutDashboard
+  ChevronRight, ChevronLeft, LayoutDashboard, Shield
 } from "lucide-react";
 import BadgeWithAvatarMenu from "@/apps/app/BadgeWithAvatarMenu";
 
@@ -53,6 +53,7 @@ type NavId =
   | "Admin-Panel"
   | "users"
   | "companies"
+  | "roles"
   | "Zuweisungen"
   | "sessions"
   | "Audit-log";
@@ -65,6 +66,7 @@ const NAV_Panel: Array<{ id: NavId; label: string; Icon: React.FC<any>; to: stri
   //{ id: "Admin-Panel", label: "Admin-Panel", Icon: BarChart3, to: "/admin/adminPanel" },
   { id: "users", label: "Users", Icon: ShoppingCart, to: "/admin/adminPanel/users" },
   { id: "companies", label: "Firmen", Icon: Building2, to: "/admin/adminPanel/companies" },
+  { id: "roles", label: "Rollen", Icon: Shield, to: "/admin/adminPanel/roles" },
   { id: "Zuweisungen", label: "Zuweisungen", Icon: FileText, to: "/admin/adminPanel/zuweisungen" },
   //{ id: "Audit-log", label: "Audit-log", Icon: BarChart3, to: "/admin/adminPanel/audit" },
 ];

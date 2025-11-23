@@ -1,5 +1,10 @@
 package com.assessment.backend.controller;
 
+import com.assessment.backend.dto.QuestionNavigationResponseDTO;
+import com.assessment.backend.dto.SaveAnswerResponseDTO;
+import com.assessment.backend.dto.SessionStateResponseDTO;
+import com.assessment.backend.dto.SessionSummaryResponseDTO;
+import com.assessment.backend.entity.Answer;
 import com.assessment.backend.entity.AssessmentSession;
 import com.assessment.backend.entity.Catalog;
 import com.assessment.backend.entity.Thema;
@@ -13,6 +18,7 @@ import com.assessment.backend.service.ThemaCatalogService;
 import com.assessment.backend.service.WorkerCatalogService;
 import com.assessment.backend.util.AccessGuardUtil;
 import com.assessment.backend.util.PublicQueryUtil;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -27,6 +33,14 @@ import java.util.stream.Collectors;
 @RequestMapping("/public/access")
 @CrossOrigin(origins = "*")
 public class PublicAccessController {
+
+    // Typen die manuelle Bewertung benötigen (score wird auf 0 gesetzt)
+    private static final Set<String> MANUAL_REVIEW_TYPES = Set.of(
+        "text_input", 
+        "number_input", 
+        "date_input", 
+        "ordering"
+    );
 
     @Autowired
     private WorkerCatalogService workerCatalogService;
@@ -48,6 +62,12 @@ public class PublicAccessController {
 
     @Autowired
     private AutoScoringService autoScoringService;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    @Autowired
+    private com.assessment.backend.repository.ThemaRepository themaRepository;
 
     /**
      * Hilfsmethode: Ermittelt den input_type einer Frage
@@ -458,15 +478,21 @@ public class PublicAccessController {
 
             long answered = answerService.countAnswered(session.getId());
             int total = publicQueryUtil.countQuestionsByThema(session.getThemaId());
+            
+            // Berechne Progress-Prozent (0-100, ohne Nachkommastellen)
+            int progressPercent = total > 0 ? (int) Math.round((answered * 100.0) / total) : 0;
 
             AccessGuardUtil.touchLastAccess(workerCatalogService, assignment.getId());
 
-            return new ResponseEntity<>(Map.of(
-                "status", session.getStatus(),
-                "answeredCount", answered,
-                "totalCount", total,
-                "themaId", session.getThemaId()
-            ), HttpStatus.OK);
+            SessionStateResponseDTO response = new SessionStateResponseDTO(
+                session.getStatus(),
+                answered,
+                total,
+                progressPercent,
+                session.getThemaId()
+            );
+
+            return new ResponseEntity<>(response, HttpStatus.OK);
         } catch (Exception e) {
             return new ResponseEntity<>(Map.of("error", "Internal server error: " + e.getMessage()), HttpStatus.INTERNAL_SERVER_ERROR);
         }
@@ -505,6 +531,285 @@ public class PublicAccessController {
             return new ResponseEntity<>(next, HttpStatus.OK);
         } catch (Exception e) {
             return new ResponseEntity<>(Map.of("error", "Internal server error: " + e.getMessage()), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * GET /public/access/{accessToken}/sessions/{sessionId}/previous
+     * Liefert die vorherige (letzte beantwortete) Frage MIT gespeicherter Antwort
+     * 
+     * @param currentQuestionId Optional: Die aktuell angezeigte Frage (wird übersprungen)
+     * Wenn nicht angegeben, wird die absolut letzte beantwortete Frage zurückgegeben
+     */
+    @GetMapping("/{accessToken}/sessions/{sessionId}/previous")
+    public ResponseEntity<?> previousQuestion(
+            @PathVariable("accessToken") String accessToken,
+            @PathVariable("sessionId") String sessionId,
+            @RequestParam(required = false) String currentQuestionId) {
+        try {
+            Optional<WorkerCatalog> assignmentOpt = workerCatalogService.findByAccessToken(accessToken);
+            if (assignmentOpt.isEmpty()) {
+                return new ResponseEntity<>(Map.of("error", "Invalid access link"), HttpStatus.NOT_FOUND);
+            }
+            WorkerCatalog assignment = assignmentOpt.get();
+            ResponseEntity<?> denied = AccessGuardUtil.guardAssignment(assignment);
+            if (denied != null) return denied;
+
+            UUID sessionUuid = AccessGuardUtil.parseUuidOrNull(sessionId);
+            if (sessionUuid == null) {
+                return new ResponseEntity<>(Map.of("error", "Invalid sessionId format"), HttpStatus.BAD_REQUEST);
+            }
+
+            AssessmentSession session = assessmentSessionService.get(sessionUuid);
+            ResponseEntity<?> ownDenied = AccessGuardUtil.guardSessionOwnership(assignment, session, themaCatalogService);
+            if (ownDenied != null) return ownDenied;
+
+            // Parse optional currentQuestionId
+            UUID excludedQuestionId = null;
+            if (currentQuestionId != null && !currentQuestionId.isBlank()) {
+                excludedQuestionId = AccessGuardUtil.parseUuidOrNull(currentQuestionId);
+            }
+
+            // Finde vorherige Frage (optional excluding current)
+            Map<String, Object> previous = publicQueryUtil.findPreviousQuestion(
+                session.getId(), 
+                session.getThemaId(), 
+                excludedQuestionId
+            );
+            
+            if (previous == null) {
+                // Keine vorherige Frage vorhanden
+                return new ResponseEntity<>(Map.of("atStart", true), HttpStatus.NO_CONTENT);
+            }
+
+            // Hole die gespeicherte Antwort
+            UUID questionId = (UUID) previous.get("questionId");
+            Answer answer = answerService.getAnswer(session.getId(), questionId);
+            
+            if (answer != null) {
+                // Baue currentAnswer Objekt
+                Map<String, Object> currentAnswer = new HashMap<>();
+                currentAnswer.put("answerId", answer.getId());
+                
+                // Parse value (JSONB String -> Object)
+                try {
+                    Object parsedValue = objectMapper.readValue(answer.getValue(), Object.class);
+                    currentAnswer.put("value", parsedValue);
+                } catch (Exception e) {
+                    // Fallback: als String zurückgeben
+                    currentAnswer.put("value", answer.getValue());
+                }
+                
+                currentAnswer.put("score", answer.getScore());
+                currentAnswer.put("answeredAt", answer.getAnsweredAt());
+                
+                previous.put("currentAnswer", currentAnswer);
+            }
+
+            AccessGuardUtil.touchLastAccess(workerCatalogService, assignment.getId());
+
+            return new ResponseEntity<>(previous, HttpStatus.OK);
+        } catch (Exception e) {
+            return new ResponseEntity<>(
+                Map.of("error", "Internal server error: " + e.getMessage()), 
+                HttpStatus.INTERNAL_SERVER_ERROR
+            );
+        }
+    }
+
+    /**
+     * GET /public/access/{accessToken}/sessions/{sessionId}/summary
+     * Gibt Übersicht aller beantworteten Fragen mit Scores zurück
+     * Für finales Review vor dem Abschließen der Session
+     */
+    @GetMapping("/{accessToken}/sessions/{sessionId}/summary")
+    public ResponseEntity<?> getSessionSummary(
+            @PathVariable("accessToken") String accessToken,
+            @PathVariable("sessionId") String sessionId) {
+        try {
+            Optional<WorkerCatalog> assignmentOpt = workerCatalogService.findByAccessToken(accessToken);
+            if (assignmentOpt.isEmpty()) {
+                return new ResponseEntity<>(Map.of("error", "Invalid access link"), HttpStatus.NOT_FOUND);
+            }
+            WorkerCatalog assignment = assignmentOpt.get();
+            ResponseEntity<?> denied = AccessGuardUtil.guardAssignment(assignment);
+            if (denied != null) return denied;
+
+            UUID sessionUuid = AccessGuardUtil.parseUuidOrNull(sessionId);
+            if (sessionUuid == null) {
+                return new ResponseEntity<>(Map.of("error", "Invalid sessionId format"), HttpStatus.BAD_REQUEST);
+            }
+
+            AssessmentSession session = assessmentSessionService.get(sessionUuid);
+            ResponseEntity<?> ownDenied = AccessGuardUtil.guardSessionOwnership(assignment, session, themaCatalogService);
+            if (ownDenied != null) return ownDenied;
+
+            // Hole alle beantworteten Fragen
+            List<Map<String, Object>> answeredQuestionsData = publicQueryUtil.getAnsweredQuestionsWithDetails(sessionUuid);
+            
+            // Baue DTO
+            SessionSummaryResponseDTO summary = new SessionSummaryResponseDTO();
+            summary.setSessionId(session.getId());
+            summary.setStatus(session.getStatus());
+            summary.setThemaId(session.getThemaId());
+            
+            // Thema Name
+            themaRepository.findById(session.getThemaId()).ifPresent(thema -> 
+                summary.setThemaName(thema.getName())
+            );
+            
+            // Progress
+            int totalQuestions = publicQueryUtil.countQuestionsByThema(session.getThemaId());
+            int answeredCount = answeredQuestionsData.size();
+            int progressPercent = totalQuestions > 0 ? (int) Math.round((answeredCount * 100.0) / totalQuestions) : 0;
+            
+            summary.setAnsweredCount(answeredCount);
+            summary.setTotalQuestions(totalQuestions);
+            summary.setProgressPercent(progressPercent);
+            
+            // Scores: TotalScore aus Session, aber MaxPossibleScore dynamisch berechnen
+            summary.setTotalScore(session.getTotalScore());
+            
+            // MaxPossibleScore = Alle required Fragen + beantwortete optionale Fragen
+            // 1. Basis: Alle required=true Fragen
+            BigDecimal maxPossibleScore = publicQueryUtil.calculateMaxPossibleScoreForRequiredQuestions(session.getThemaId());
+            
+            // 2. Addiere MaxScore für beantwortete optionale Fragen (required=false)
+            for (Map<String, Object> data : answeredQuestionsData) {
+                Boolean isRequired = (Boolean) data.get("isRequired");
+                String answerValueJson = (String) data.get("answerValue");
+                
+                // Nur optionale Fragen (required=false) die beantwortet wurden (value != null)
+                if (isRequired != null && !isRequired && answerValueJson != null && !"null".equals(answerValueJson)) {
+                    String scoringSchemaJson = (String) data.get("scoringSchema");
+                    BigDecimal maxScore = calculateMaxScoreForQuestion(
+                        (String) data.get("inputType"), 
+                        scoringSchemaJson
+                    );
+                    maxPossibleScore = maxPossibleScore.add(maxScore);
+                }
+            }
+            summary.setMaxPossibleScore(maxPossibleScore);
+            
+            // Konvertiere beantwortete Fragen UND kategorisiere sie
+            List<SessionSummaryResponseDTO.AnsweredQuestionSummary> automatischBewertet = new ArrayList<>();
+            List<SessionSummaryResponseDTO.AnsweredQuestionSummary> manuellZuBewerten = new ArrayList<>();
+            List<SessionSummaryResponseDTO.AnsweredQuestionSummary> uebersprungen = new ArrayList<>();
+            
+            for (Map<String, Object> data : answeredQuestionsData) {
+                SessionSummaryResponseDTO.AnsweredQuestionSummary q = new SessionSummaryResponseDTO.AnsweredQuestionSummary();
+                q.setQuestionId((UUID) data.get("questionId"));
+                q.setQuestionText((String) data.get("questionText"));
+                q.setInputType((String) data.get("inputType"));
+                q.setScore((BigDecimal) data.get("score"));
+                q.setAnsweredAt((LocalDateTime) data.get("answeredAt"));
+                q.setOrderIndex((Integer) data.get("orderIndex"));
+                q.setIsRequired((Boolean) data.get("isRequired"));
+                
+                // Parse answer value (JSONB String -> Object)
+                String answerValueJson = (String) data.get("answerValue");
+                Object parsedValue = null;
+                try {
+                    parsedValue = objectMapper.readValue(answerValueJson, Object.class);
+                    q.setAnsweredValue(parsedValue);
+                } catch (Exception e) {
+                    q.setAnsweredValue(answerValueJson); // Fallback
+                }
+                
+                // Berechne maxScore für diese Frage (aus scoring_schema)
+                String scoringSchemaJson = (String) data.get("scoringSchema");
+                BigDecimal maxScore = calculateMaxScoreForQuestion(
+                    (String) data.get("inputType"), 
+                    scoringSchemaJson
+                );
+                q.setMaxScore(maxScore);
+                
+                // Kategorisierung:
+                // 1. Übersprungen: value ist null
+                // 2. Manuell zu bewerten: inputType in MANUAL_REVIEW_TYPES (score ist 0)
+                // 3. Automatisch bewertet: alles andere mit score
+                
+                if (answerValueJson == null || "null".equals(answerValueJson)) {
+                    uebersprungen.add(q);
+                } else if (MANUAL_REVIEW_TYPES.contains(q.getInputType())) {
+                    manuellZuBewerten.add(q);
+                } else {
+                    automatischBewertet.add(q);
+                }
+            }
+            
+            // Setze kategorisierte Listen
+            summary.setAutomatischBewerteteFragen(automatischBewertet);
+            summary.setManuellZuBewertendeFragen(manuellZuBewerten);
+            summary.setUebersprungeneFragen(uebersprungen);
+            
+            // Setze Zähler
+            summary.setAutomatischBewertetAnzahl(automatischBewertet.size());
+            summary.setManuellZuBewertenAnzahl(manuellZuBewerten.size());
+            summary.setUebersprungenAnzahl(uebersprungen.size());
+            
+            // Legacy: Alle Fragen in einer Liste (für Kompatibilität)
+            List<SessionSummaryResponseDTO.AnsweredQuestionSummary> allQuestions = new ArrayList<>();
+            allQuestions.addAll(automatischBewertet);
+            allQuestions.addAll(manuellZuBewerten);
+            allQuestions.addAll(uebersprungen);
+            summary.setAnsweredQuestions(allQuestions);
+            
+            AccessGuardUtil.touchLastAccess(workerCatalogService, assignment.getId());
+
+            return new ResponseEntity<>(summary, HttpStatus.OK);
+        } catch (Exception e) {
+            return new ResponseEntity<>(
+                Map.of("error", "Internal server error: " + e.getMessage()), 
+                HttpStatus.INTERNAL_SERVER_ERROR
+            );
+        }
+    }
+    
+    /**
+     * Hilfsmethode: Berechnet max mögliche Punkte für eine einzelne Frage
+     */
+    private BigDecimal calculateMaxScoreForQuestion(String inputType, String scoringSchemaJson) {
+        String normalized = normalizeInputType(inputType);
+        
+        if ("rating_scale".equals(normalized)) {
+            return BigDecimal.valueOf(5);
+        }
+        
+        if (scoringSchemaJson == null || scoringSchemaJson.isBlank()) {
+            return BigDecimal.valueOf(5); // Fallback
+        }
+        
+        try {
+            com.fasterxml.jackson.databind.JsonNode root = objectMapper.readTree(scoringSchemaJson);
+            
+            if ("multiple_select".equals(normalized)) {
+                // Summe aller positiven Werte
+                double sum = 0.0;
+                var iter = root.fields();
+                while (iter.hasNext()) {
+                    var entry = iter.next();
+                    if (entry.getValue().isNumber()) {
+                        double val = entry.getValue().asDouble(0.0);
+                        if (val > 0) sum += val;
+                    }
+                }
+                return BigDecimal.valueOf(sum);
+            } else {
+                // Maximum Wert
+                double max = 0.0;
+                var iter = root.fields();
+                while (iter.hasNext()) {
+                    var entry = iter.next();
+                    if (entry.getValue().isNumber()) {
+                        double val = entry.getValue().asDouble(0.0);
+                        if (val > max) max = val;
+                    }
+                }
+                return BigDecimal.valueOf(max);
+            }
+        } catch (Exception e) {
+            return BigDecimal.valueOf(5); // Fallback
         }
     }
 
@@ -561,6 +866,52 @@ public class PublicAccessController {
 
             // Typ normalisieren (wie in AutoScoringService)
             String normalizedType = normalizeInputType(inputType);
+            
+            // Spezialfall: Skip (value ist null) - nur bei optionalen Fragen erlaubt
+            if (value == null) {
+                // Prüfe ob Frage required ist
+                boolean isRequired = publicQueryUtil.isQuestionRequired(questionUuid, session.getThemaId());
+                if (isRequired) {
+                    return new ResponseEntity<>(
+                        Map.of("error", "Required question cannot be skipped. Please provide an answer."),
+                        HttpStatus.BAD_REQUEST
+                    );
+                }
+                
+                // Speichere Answer mit null value und null score (nur bei optionalen Fragen)
+                var saved = answerService.upsert(session.getId(), questionUuid, null, null);
+                assessmentSessionService.recalculateTotals(session.getId());
+
+                long answered = answerService.countAnswered(session.getId());
+                AccessGuardUtil.touchLastAccess(workerCatalogService, assignment.getId());
+
+                SaveAnswerResponseDTO response = new SaveAnswerResponseDTO(
+                    true,
+                    saved.getId(),
+                    null, // kein Score bei Skip
+                    answered
+                );
+
+                return new ResponseEntity<>(response, HttpStatus.OK);
+            }
+            
+            // Manuelle Review-Typen: Score = 0.0 (später von Admin bewertet)
+            if (MANUAL_REVIEW_TYPES.contains(inputType)) {
+                var saved = answerService.upsert(session.getId(), questionUuid, value, BigDecimal.ZERO);
+                assessmentSessionService.recalculateTotals(session.getId());
+
+                long answered = answerService.countAnswered(session.getId());
+                AccessGuardUtil.touchLastAccess(workerCatalogService, assignment.getId());
+
+                SaveAnswerResponseDTO response = new SaveAnswerResponseDTO(
+                    true,
+                    saved.getId(),
+                    BigDecimal.ZERO,
+                    answered
+                );
+
+                return new ResponseEntity<>(response, HttpStatus.OK);
+            }
 
             // Rating-Scala: Spezielle Validierung
             if ("rating_scale".equals(normalizedType)) {
@@ -579,12 +930,14 @@ public class PublicAccessController {
                 long answered = answerService.countAnswered(session.getId());
                 AccessGuardUtil.touchLastAccess(workerCatalogService, assignment.getId());
 
-                return new ResponseEntity<>(Map.of(
-                    "saved", true,
-                    "answerId", saved.getId(),
-                    "score", saved.getScore(),
-                    "answeredCount", answered
-                ), HttpStatus.OK);
+                SaveAnswerResponseDTO response = new SaveAnswerResponseDTO(
+                    true,
+                    saved.getId(),
+                    saved.getScore(),
+                    answered
+                );
+
+                return new ResponseEntity<>(response, HttpStatus.OK);
             }
 
             // Für alle anderen Typen: Auto-Scoring verwenden
@@ -598,12 +951,14 @@ public class PublicAccessController {
             long answered = answerService.countAnswered(session.getId());
             AccessGuardUtil.touchLastAccess(workerCatalogService, assignment.getId());
 
-            return new ResponseEntity<>(Map.of(
-                "saved", true,
-                "answerId", saved.getId(),
-                "score", saved.getScore(),
-                "answeredCount", answered
-            ), HttpStatus.OK);
+            SaveAnswerResponseDTO response = new SaveAnswerResponseDTO(
+                true,
+                saved.getId(),
+                saved.getScore(),
+                answered
+            );
+
+            return new ResponseEntity<>(response, HttpStatus.OK);
         } catch (Exception e) {
             return new ResponseEntity<>(Map.of("error", "Internal server error: " + e.getMessage()), HttpStatus.INTERNAL_SERVER_ERROR);
         }

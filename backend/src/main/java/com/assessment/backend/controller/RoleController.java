@@ -5,6 +5,7 @@ import com.assessment.backend.service.RoleService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -21,6 +22,7 @@ public class RoleController {
     /**
      * GET /api/roles - Get all roles
      */
+    @PreAuthorize("hasAuthority('roles.view')")
     @GetMapping
     public ResponseEntity<List<Role>> getAllRoles() {
         List<Role> roles = roleService.getAllRoles();
@@ -30,6 +32,7 @@ public class RoleController {
     /**
      * GET /api/roles/{id} - Get role by ID
      */
+    @PreAuthorize("hasAuthority('roles.view')")
     @GetMapping("/{id}")
     public ResponseEntity<Role> getRoleById(@PathVariable UUID id) {
         try {
@@ -43,6 +46,7 @@ public class RoleController {
     /**
      * GET /api/roles/by-name/{name} - Get role by name
      */
+    @PreAuthorize("hasAuthority('roles.view')")
     @GetMapping("/by-name/{name}")
     public ResponseEntity<Role> getRoleByName(@PathVariable String name) {
         try {
@@ -56,6 +60,7 @@ public class RoleController {
     /**
      * POST /api/roles - Create new role
      */
+    @PreAuthorize("hasAuthority('roles.create')")
     @PostMapping
     public ResponseEntity<?> createRole(@RequestBody Role role) {
         try {
@@ -69,6 +74,7 @@ public class RoleController {
     /**
      * PUT /api/roles/{id} - Update role
      */
+    @PreAuthorize("hasAuthority('roles.edit')")
     @PutMapping("/{id}")
     public ResponseEntity<?> updateRole(@PathVariable UUID id, @RequestBody Role role) {
         try {
@@ -85,6 +91,7 @@ public class RoleController {
     /**
      * DELETE /api/roles/{id} - Delete role
      */
+    @PreAuthorize("hasAuthority('roles.delete')")
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteRole(@PathVariable UUID id) {
         try {
@@ -98,6 +105,7 @@ public class RoleController {
     /**
      * GET /api/roles/exists/{name} - Check if role exists by name
      */
+    @PreAuthorize("hasAuthority('roles.view')")
     @GetMapping("/exists/{name}")
     public ResponseEntity<Boolean> existsByName(@PathVariable String name) {
         boolean exists = roleService.existsByName(name);

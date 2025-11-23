@@ -5,13 +5,19 @@ import {
   getNextQuestion,
   saveAnswer,
   completeSession,
+  getPreviousQuestion,
   getState,
   normalizeApiQuestion,
   buildSaveValue,
   type UiQuestion,
   type ApiState,
+  type ApiQuestion,
+   getSummary,                
+  type ApiSummaryResponse,   
 } from "@/features/service/publicAssessmentService";
 import AssessmentCompleted from "@/features/worker-area/AssessmentCompleted";
+import aa from '@/assets/aa.gif';
+
 //Test
 import AssessmentResults from "@/features/worker-area/AssessmentResults";
 
@@ -26,6 +32,48 @@ function writeStore(store: any) {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(store)); } catch { }
 }
 
+function resolveAssignmentId(query: URLSearchParams): string {
+  const fromUrl = (query.get("assignmentId") || "").trim();
+  if (fromUrl) return fromUrl;
+
+  try {
+    const raw = localStorage.getItem("activeAssignmentMeta");
+    if (!raw) return "unknown";
+    const meta = JSON.parse(raw);
+    return (meta?.assignmentId || "unknown").trim() || "unknown";
+  } catch {
+    return "unknown";
+  }
+}
+
+function makeDashKey(assignmentId: string, topicId: string) {
+  return `assignment:${assignmentId}:topic:${topicId}`;
+}
+function persistUiQuestionMeta(
+  assignmentId: string,
+  topicId: string,
+  uiQ: UiQuestion
+) {
+  try {
+    const store = readStore();
+    const dashKey = makeDashKey(assignmentId, topicId);
+    const prev = store[dashKey] ?? {};
+    const existingMap = prev.uiQuestionsById ?? {};
+
+    store[dashKey] = {
+      ...prev,
+      uiQuestionsById: {
+        ...existingMap,
+        [String(uiQ.id)]: uiQ,
+      },
+    };
+
+    writeStore(store);
+  } catch {
+    // im Zweifel einfach ignorieren
+  }
+}
+
 /** Query-Helper */
 function useQuery() {
   const { search } = useLocation();
@@ -36,9 +84,9 @@ export default function AssessmentPage() {
   const query = useQuery();
   const navigate = useNavigate();
 
-  const catalogId = query.get("catalogId") || ""; // optional
-  const catalogTitle = query.get("catalogTitle") || ""; // optional
-  const assignmentId = query.get("assignmentId") || ""; // optional
+  const catalogId = query.get("catalogId") || "";
+  const catalogTitle = query.get("catalogTitle") || "";
+  const assignmentKeyId = resolveAssignmentId(query);
   const THEMEN_ROUTE = "/app/katalog-themen-public";
 
   // Einheitliche Rücknavigation zur Themenliste (mit ALLEN Parametern)
@@ -47,7 +95,7 @@ export default function AssessmentPage() {
       token: accessToken, // in der Public-Route heißt der Param "token"
       ...(catalogId ? { catalogId } : {}),
       ...(catalogTitle ? { catalogTitle } : {}),
-      ...(assignmentId ? { assignmentId } : {}),
+      ...(assignmentKeyId ? { assignmentId: assignmentKeyId } : {}),
       ...(name ? { name } : {}),
       ...(code ? { code } : {}),
     });
@@ -68,16 +116,41 @@ export default function AssessmentPage() {
   const [sessionId, setSessionId] = useState("");
   const [answers, setAnswers] = useState<Record<string, any>>({});
   const [trail, setTrail] = useState<UiQuestion[]>([]); // Verlauf der bereits geladenen Fragen
+  const [questionsById, setQuestionsById] = useState<Record<string, UiQuestion>>({});
+  const [questionOrder, setQuestionOrder] = useState<string[] | null>(null); 
   const [pos, setPos] = useState<number>(-1);           // Index im Trail (aktuelle Frage)
   const [completed, setCompleted] = useState(false);
   const [status, setStatus] = useState<"in_progress" | "completed">("in_progress");
   const [progress, setProgress] = useState<{ answered: number; total: number }>({ answered: 0, total: 0 });
   const [loading, setLoading] = useState(false);
   const [fatal, setFatal] = useState<string | null>(null);
-const [score, setScore] = useState<{ totalScore: number | null; maxTotalScore: number | null }>({
-  totalScore: null,
-  maxTotalScore: null,
-});
+  const [score, setScore] = useState<{ totalScore: number | null; maxTotalScore: number | null }>({
+    totalScore: null,
+    maxTotalScore: null,
+  });
+// Summary / Review-Modus
+const [summary, setSummary] = useState<ApiSummaryResponse | null>(null);
+const [showSummary, setShowSummary] = useState(false);
+const [summaryError, setSummaryError] = useState<string | null>(null);
+const [finalizing, setFinalizing] = useState(false);
+
+//Wenn man die Seite neu lädst (gleiche assignmentId + themaId),
+//dann ist questionsById sofort wieder gefüllt.
+useEffect(() => {
+  if (!assignmentKeyId || !themaId) return;
+
+  try {
+    const store = readStore();
+    const dashKey = makeDashKey(assignmentKeyId, themaId);
+    const uiMap = store[dashKey]?.uiQuestionsById;
+
+    if (uiMap && typeof uiMap === "object") {
+      setQuestionsById(uiMap);
+    }
+  } catch {
+    // ignore
+  }
+}, [assignmentKeyId, themaId]);
 
 
   const q: UiQuestion | null = pos >= 0 ? trail[pos] : null;
@@ -86,7 +159,7 @@ const [score, setScore] = useState<{ totalScore: number | null; maxTotalScore: n
     : (pos >= 0 ? pos + 1 : 1);
   const pct = progress.total ? Math.round((progress.answered / progress.total) * 100) : (step > 0 ? step * 5 : 0);
 
-  /* -------- Helpers -------- */
+  /*  Helpers  */
   const refreshState = useCallback(async (token: string, sid: string) => {
     try {
       const s: ApiState = await getState(token, sid);
@@ -96,73 +169,171 @@ const [score, setScore] = useState<{ totalScore: number | null; maxTotalScore: n
     }
   }, []);
 
-  const bootstrapOrResume = useCallback(async (token: string, tid: string) => {
-    setLoading(true);
-    setFatal(null);
-    try {
-      const store = readStore();
-      const dashKey = `topic:${tid}`;
-      const existingSid: string | undefined = store?.[dashKey]?.sessionId;
+  function applyApiQuestion(
+  apiQ: ApiQuestion,
+  mode: "replace" | "append" | "prepend"
+) {
+  const uiQ = normalizeApiQuestion(apiQ);
 
-      // 1) Falls es bereits eine Session gibt → fortsetzen
-      if (existingSid) {
-        setSessionId(existingSid);
-        await refreshState(token, existingSid);
+  // currentAnswer → answers-State mappen
+  if (apiQ.currentAnswer && apiQ.currentAnswer.value !== undefined) {
+    const raw = apiQ.currentAnswer.value;
 
-        // „Nächste Frage“ vom Server holen => das ist genau die offene Frage
-        const apiQ = await getNextQuestion(token, existingSid);
+    setAnswers(prev => {
+      let mapped: any = raw;
+
+      switch (uiQ.type) {
+        case "checkbox":
+        case "order":
+          mapped = Array.isArray(raw)
+            ? raw
+            : raw !== undefined && raw !== null && raw !== ""
+            ? [String(raw)]
+            : [];
+          break;
+
+        case "slider":
+        case "number":
+          mapped =
+            typeof raw === "number"
+              ? raw
+              : raw === "" || raw === null || raw === undefined
+              ? ""
+              : Number(raw);
+          break;
+
+        case "radio":
+        case "select":
+        case "text":
+        case "textarea":
+        case "date":
+        default:
+          mapped = Array.isArray(raw) ? (raw[0] ?? "") : String(raw);
+          break;
+      }
+
+      return {
+        ...prev,
+        [uiQ.id]: mapped,
+      };
+    });
+  }
+  
+
+  // trail + pos aktualisieren
+  setTrail(prevTrail => {
+    let nextTrail: UiQuestion[];
+
+    if (mode === "replace") nextTrail = [uiQ];
+    else if (mode === "append") nextTrail = [...prevTrail, uiQ];
+    else nextTrail = [uiQ, ...prevTrail]; // "prepend"
+
+    // pos korrekt setzen
+    setPos(mode === "append" ? nextTrail.length - 1 : 0);
+
+    return nextTrail;
+  });
+}
+
+
+ const bootstrapOrResume = useCallback(async (token: string, tid: string) => {
+  setLoading(true);
+  setFatal(null);
+  try {
+    const store = readStore();
+    const dashKey = makeDashKey(assignmentKeyId, tid);
+    const existingSid: string | undefined = store?.[dashKey]?.sessionId;
+
+    // ==== 1. Session existiert schon -> fortsetzen / Summary laden ====
+    if (existingSid) {
+      setSessionId(existingSid);
+      await refreshState(token, existingSid);
+
+      // Versuche nächste offene Frage zu holen
+      const apiQ = await getNextQuestion(token, existingSid);
+
         if (apiQ) {
-          const uiQ = normalizeApiQuestion(apiQ);
-          setTrail([uiQ]);
-          setPos(0);
-        } else {
-          setCompleted(true);
-          setStatus("completed");
-        }
-        return;
-      }
+    // Es gibt noch Fragen -> ganz normal wieder Fragenmodus
+    const uiQ = normalizeApiQuestion(apiQ);
+    setTrail([uiQ]);
+    setPos(0);
 
-      // 2) Sonst neue Session starten
-      const s = await startSession(token, tid);
-      setSessionId(s.sessionId);
-      setStatus(s.status);
-
-      // Session speichern
-      const prev = store[dashKey] ?? {};
-      store[dashKey] = { ...prev, sessionId: s.sessionId, started: prev.started ?? new Date().toISOString() };
-      writeStore(store);
-
-      let first: UiQuestion | null = null;
-      if (s.firstOrNextQuestion) first = normalizeApiQuestion(s.firstOrNextQuestion);
-      else {
-        const apiQ = await getNextQuestion(token, s.sessionId);
-        if (apiQ) first = normalizeApiQuestion(apiQ);
-      }
-
-      if (first) {
-        setTrail([first]);
-        setPos(0);
-      } else {
-        setCompleted(true);
-        setStatus("completed");
-      }
-      refreshState(token, s.sessionId);
-    } catch (e: any) {
-      setFatal(e?.message ?? "Konnte die Session nicht starten/fortsetzen.");
-    } finally {
-      setLoading(false);
+    // Metadaten merken (State + localStorage)
+    setQuestionsById(prev => ({
+      ...prev,
+      [String(uiQ.id)]: uiQ,
+    }));
+    persistUiQuestionMeta(assignmentKeyId, tid, uiQ);
+  } else {
+    // ❗ Keine weitere Frage -> wir sind im "Review/Result"-Modus
+    // => Summary erneut vom Backend holen
+    try {
+      const s = await getSummary(token, existingSid);
+      setSummary(s);
+      setScore({
+        totalScore: s.totalScore,
+        maxTotalScore: s.maxPossibleScore,
+      });
+    } catch (e) {
+      console.error("getSummary (resume) failed", e);
     }
-  }, [refreshState]);
+
+    setCompleted(true);
+    setStatus("completed");
+  }
+  return;
+
+    }
+
+    //  Keine Session -> neue starten (dein vorhandener Code) 
+    const s = await startSession(token, tid);
+    setSessionId(s.sessionId);
+    setStatus(s.status);
+
+    const prev = store[dashKey] ?? {};
+    store[dashKey] = { ...prev, sessionId: s.sessionId, started: prev.started ?? new Date().toISOString() };
+    writeStore(store);
+
+    let first: UiQuestion | null = null;
+    if (s.firstOrNextQuestion) first = normalizeApiQuestion(s.firstOrNextQuestion);
+    else {
+      const apiQ = await getNextQuestion(token, s.sessionId);
+      if (apiQ) first = normalizeApiQuestion(apiQ);
+    }
+
+    if (first) {
+  setTrail([first]);
+  setPos(0);
+
+  // erste Frage ebenfalls merken
+  setQuestionsById(prev => ({
+    ...prev,
+    [String(first.id)]: first,
+  }));
+  persistUiQuestionMeta(assignmentKeyId, tid, first);
+} else {
+  setCompleted(true);
+  setStatus("completed");
+}
+refreshState(token, s.sessionId);
+
+  } catch (e: any) {
+    setFatal(e?.message ?? "Konnte die Session nicht starten/fortsetzen.");
+  } finally {
+    setLoading(false);
+  }
+}, [refreshState, assignmentKeyId]);
 
 
-  /* -------- Initial Load -------- */
+
+  /*  Initial Load  */
   useEffect(() => {
     if (!accessToken || !themaId) return;
     // Session starten
     bootstrapOrResume(accessToken, themaId);
   }, [accessToken, themaId, bootstrapOrResume]);
 
-  /* -------- Antworten setzen -------- */
+  /*  Antworten setzen  */
   const setAnswer = (qid: string | number, val: any, mode: any) => {
     setAnswers(prev => {
       const id = String(qid);
@@ -180,63 +351,170 @@ const [score, setScore] = useState<{ totalScore: number | null; maxTotalScore: n
     });
   };
 
-  /* -------- Navigation -------- */
+  /*  Navigation  */
   const prev = () => {
     if (pos > 0) setPos(p => p - 1);
   };
 
   const next = async () => {
-    if (!q || !sessionId) return;
+  if (!q || !sessionId) return;
+
+  try {
+    //aktuelle Antwort speichern
+    const value = buildSaveValue(q, answers[String(q.id)] ?? "");
+    await saveAnswer(accessToken, sessionId, String(q.id), value);
+
+    // Fortschritt aktualisieren + LocalStorage
+    refreshState(accessToken, sessionId);
     try {
-      // aktuelle Antwort speichern
-      const value = buildSaveValue(q, answers[String(q.id)] ?? "");
-      await saveAnswer(accessToken, sessionId, String(q.id), value);
+      const store = readStore();
+      const dashKey = makeDashKey(assignmentKeyId, themaId);
+      const prev = store[dashKey] ?? {};
+      store[dashKey] = { ...prev, sessionId };
+      writeStore(store);
+    } catch {}
 
-      // Fortschritt aktualisieren
-      // Fortschritt + sessionId persistieren (für Resume und Dashboard)
-      refreshState(accessToken, sessionId);
+    // Wenn wir im Trail noch vorwärts können → nur pos++ (History)
+    if (pos < trail.length - 1) {
+      setPos(p => p + 1);
+      return;
+    }
+
+    // Nächste Frage vom Server holen
+    const apiQ = await getNextQuestion(accessToken, sessionId);
+
+    // ======= KEINE NÄCHSTE FRAGE: Summary holen & ResultPage zeigen =======
+    if (!apiQ) {
       try {
-        const store = readStore();
-        const dashKey = `topic:${themaId}`;
-        const prev = store[dashKey] ?? {};
-        // progress.answered ist VOR dem aktuellen Save evtl. noch „alt“,
-        // aber refreshState() oben holt den neuen Wert asynchron nach.
-        store[dashKey] = { ...prev, sessionId };
-        writeStore(store);
-      } catch { }
+        const s = await getSummary(accessToken, sessionId);
+        setSummary(s);
 
-      // Wenn wir uns in der Mitte des Trails befinden → nur im Trail vorwärts springen
-      if (pos < trail.length - 1) {
-        setPos(p => p + 1);
-        return;
+        // Score direkt aus /summary übernehmen
+        setScore({
+          totalScore: s.totalScore,
+          maxTotalScore: s.maxPossibleScore,
+        });
+      } catch (e) {
+        console.error("getSummary failed", e);
+        // zur Not: ohne Score, nur „completed“ → Page rendert trotzdem
       }
 
-      // Sonst nächste Frage vom Server holen
-      const apiQ = await getNextQuestion(accessToken, sessionId);
-    if (!apiQ) {
-  try {
-    const done = await completeSession(accessToken, sessionId);
-    setScore({
-      totalScore: done?.totalScore ?? null,
-      maxTotalScore: done?.maxPossibleScore ?? null,
-    });
-  } catch {}
-  setCompleted(true);
-  setStatus("completed");
-  refreshState(accessToken, sessionId);
-  return;
-}
-
-
-      const uiQ = normalizeApiQuestion(apiQ);
-      setTrail(t => [...t, uiQ]);
-      setPos(p => p + 1);
-    } catch (e) {
-      console.error("save/next failed", e);
+      // → jetzt in den „completed“-Zweig springen (ResultPage)
+      setCompleted(true);
+      return;
     }
-  };
 
-  /* -------- Restart (Assessment nochmal machen) -------- */
+    // Es gibt noch eine Frage → normal weiter
+    const uiQ = normalizeApiQuestion(apiQ);
+    setTrail(t => [...t, uiQ]);
+    setPos(p => p + 1);
+    // 🔸 NEU: Metadaten für diese Frage merken
+setQuestionsById(prev => ({
+  ...prev,
+  [String(uiQ.id)]: uiQ,
+}));
+persistUiQuestionMeta(assignmentKeyId, themaId, uiQ);
+  } catch (e) {
+    console.error("save/next failed", e);
+  }
+};
+const changeAnswerFromResults = async (questionId: string, uiValue: any) => {
+  if (!sessionId) return;
+
+  const qMeta = questionsById[String(questionId)];
+  if (!qMeta) {
+    console.warn("Keine UiQuestion-Meta für", questionId);
+    return;
+  }
+
+  try {
+    // UI-Wert (Checkbox etc.) -> API-Value
+    const apiValue = buildSaveValue(qMeta, uiValue);
+
+    await saveAnswer(accessToken, sessionId, String(questionId), apiValue);
+
+    // lokale answers-Map aktualisieren
+    setAnswers(prev => ({
+      ...prev,
+      [String(qMeta.id)]: uiValue,
+    }));
+
+    // Summary neu laden, damit Punkte/Erfüllung aktualisiert werden
+    try {
+      const s = await getSummary(accessToken, sessionId);
+      setSummary(s);
+      setScore({
+        totalScore: s.totalScore,
+        maxTotalScore: s.maxPossibleScore,
+      });
+    } catch (e) {
+      console.error("getSummary after edit failed", e);
+    }
+  } catch (e) {
+    console.error("changeAnswerFromResults failed", e);
+    throw e;
+  }
+};
+
+
+
+const finalizeSession = async () => {
+  if (!sessionId || finalizing) return;
+
+   //  Bestätigungs-Dialog
+  const confirmed = window.confirm(
+    "Sind Sie sicher, dass Sie dieses Assessment endgültig abschließen möchten?\n" +
+    "Danach können die Antworten nicht mehr geändert werden."
+  );
+    if (!confirmed) {
+    // User hat auf "Abbrechen" geklickt → einfach abbrechen
+    return;
+  }
+
+  try {
+    setFinalizing(true);
+
+    //  Backend-Session wirklich abschließen
+    await completeSession(accessToken, sessionId);
+
+    // Status & Progress im State aktualisieren
+    setStatus("completed");
+    setProgress(prev => ({
+      ...prev,
+      answered: prev.total || prev.answered, // sicherheitshalber „voll“
+    }));
+
+    // 3Auch im LocalStorage „fertig“ markieren,
+    //    damit Katalog-Seite die 100 % sieht
+    try {
+      const store = readStore();
+      const dashKey = makeDashKey(assignmentKeyId, themaId);
+      
+      const prev = store[dashKey] ?? {};
+      store[dashKey] = {
+        ...prev,
+        progress: 100,
+        completedAt: new Date().toISOString(),
+        sessionId,
+      };
+      writeStore(store);
+    } catch {
+      // ignore einfach 
+    }
+    //  Erfolgs-Meldung
+    window.alert("Katalog erfolgreich abgeschlossen.");
+    goBackToTopics();
+  } catch (e) {
+    console.error("completeSession failed", e);
+    window.alert("Das Assessment konnte nicht abgeschlossen werden. Bitte versuchen Sie es später erneut.");
+  } finally {
+    setFinalizing(false);
+  }
+};
+
+
+
+  /*  Restart (Assessment nochmal machen)  */
   const restart = async () => {
     // State auf Anfang zurücksetzen und Session neu starten
     setAnswers({});
@@ -244,9 +522,11 @@ const [score, setScore] = useState<{ totalScore: number | null; maxTotalScore: n
     setPos(-1);
     setCompleted(false);
     setProgress({ answered: 0, total: 0 });
+    setSummary(null);
+    setQuestionsById({}); 
     try {
       const store = readStore();
-      const dashKey = `topic:${themaId}`;
+      const dashKey = makeDashKey(assignmentKeyId, themaId);
       delete store[dashKey];
       writeStore(store);
     } catch { }
@@ -254,11 +534,11 @@ const [score, setScore] = useState<{ totalScore: number | null; maxTotalScore: n
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  /* -------- UI-Texte -------- */
+  /*  UI-Texte  */
   const headerTitle = topicName || "Assessment";
   const headerSubtitle = topicName ? `Thema: ${topicName}` : (type ? `Typ: ${type}` : "");
 
-  /* -------- Guards / Loader -------- */
+  /*  Guards / Loader  */
   if (!accessToken || !themaId) {
     return (
       <div className="min-h-screen bg-[#f5f5f5] pt-12 pb-16 px-5">
@@ -288,277 +568,603 @@ const [score, setScore] = useState<{ totalScore: number | null; maxTotalScore: n
         </div>
       </div>
     );
-  }   
+  }
 if (completed) {
-  const totalScore     = score.totalScore ?? 0;       // <-- nur Score, keine Fragenzahl!
-  const maxTotalScore  = score.maxTotalScore ?? 0;
+  const totalScore =
+    score.totalScore ?? summary?.totalScore ?? 0;
+  const maxTotalScore =
+    score.maxTotalScore ?? summary?.maxPossibleScore ?? 0;
 
   const percent = maxTotalScore > 0
     ? Math.round((totalScore / maxTotalScore) * 100)
-    : pct;
+    : (progress.total
+        ? Math.round((progress.answered / progress.total) * 100)
+        : pct);
 
   return (
     <AssessmentResults
       topicName={topicName}
       onRestart={restart}
       onBackToTopics={goBackToTopics}
+      onComplete={finalizeSession}
+      onChangeAnswer={changeAnswerFromResults}   // <<< NEU
+       questionsById={questionsById}
+      answerValues={answers}
 
-      answered={progress.answered}   // nur für „Beantwortete Fragen“
+      answered={progress.answered}
       total={progress.total}
-      totalScore={totalScore}         // echter Score
-      maxTotalScore={maxTotalScore}   // echtes Max
+      totalScore={totalScore}
+      maxTotalScore={maxTotalScore}
 
       percent={percent}
-      overallLevel="Abgeschlossen"
+      // Noch nicht „serverseitig completed“, eher vorläufige Auswertung
+      overallLevel="Vorläufige Auswertung"
       completedAt={new Date().toISOString()}
+      summary={summary}
     />
   );
 }
 
 
 
+
   /* -------- Render -------- */
   return (
-    <div className="min-h-screen bg-[#f5f5f5] pt-12 pb-16 px-5">
-      <div className="max-w-[900px] mx-auto bg-white rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,.08)] overflow-hidden border border-gray-200">
+    <div className=" relative min-h-screen overflow-hidden
+      bg-[radial-gradient(circle_at_top,_#f9fafb_0%,_#e5e7eb_40%,_#f9fafb_100%)]">
 
-        {/* Header */}
-        <div className="p-6 border-b border-gray-200 bg-white">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div>
-              <div className="text-xl sm:text-2xl font-extrabold text-[#1a1a1a] tracking-tight">{headerTitle}</div>
-              {headerSubtitle && <div className="text-sm text-[#666] mt-1">{headerSubtitle}</div>}
-            </div>
+      {/* Deko-Layer im Hintergrund */}
+      <div className="pointer-events-none absolute inset-0 ">
+        {/* Dunkelblauer Blob oben links */}
+        <div
+          className="
+          absolute -top-40 -left-24 h-72 w-72
+          rounded-full blur-3xl
+          bg-[hsla(215,60%,25%,0.22)]
+        "
+        />
 
-            <button
-              type="button"
-              onClick={goBackToTopics}
-              className="group inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold bg-white text-slate-800 border border-[#ddd] transition hover:bg-[#d4af37] hover:border-[#d4af37] hover:text-[#1f2a37]"
-            >
-              <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M3 11l9-7 9 7" />
-                <path d="M9 22V12h6v10" />
-              </svg>
-              Zur Übersicht
-            </button>
-          </div>
+        {/* Goldener Glow rechts */}
+        <div
+          className="
+          absolute top-1/3 -right-32 h-80 w-80
+          rounded-full blur-3xl
+          bg-[hsla(45,70%,60%,0.25)]
+        "
+        />
+
+        {/* Halbtransparentes “Kärtchen” unten – leicht animiert */}
+        <div
+          className="
+          absolute -bottom-40 left-1/4
+          h-64 w-64 rounded-[32px]
+          border border-white/50
+          bg-[hsla(0,0%,100%,0.35)]
+          backdrop-blur-xl
+          rotate-[-8deg]
+          shadow-[0_24px_60px_rgba(15,23,42,0.18)]
+          animate-[spin_40s_linear_infinite]
+        "
+        />
+
+        {/* Zweites, kleineres Rechteck */}
+        <div
+          className="
+          absolute -bottom-24 right-1/5
+          h-40 w-40 rounded-[28px]
+          border border-white/40
+          bg-[hsla(215,40%,30%,0.25)]
+          backdrop-blur-md
+          rotate-[12deg]
+          shadow-[0_20px_50px_rgba(15,23,42,0.22)]
+          animate-[spin_55s_linear_infinite_reverse]
+        "
+        />
+
+        {/* Zweites, kleineres Rechteck */}
+        <div
+          className="
+          absolute -bottom-24 right-1/5
+          h-40 w-40 rounded-[28px]
+          border border-white/40
+          bg-[hsla(215,40%,30%,0.25)]
+          backdrop-blur-md
+          rotate-[12deg]
+          shadow-[0_20px_50px_rgba(15,23,42,0.22)]
+          animate-[spin_55s_linear_infinite_reverse]
+        "
+        />
+
+        {/* ===== Quadrat-Stack links wie im Lovable-Hero ===== */}
+        <div
+          className="
+          absolute
+          left-[6%] top-[22%]
+          h-56 w-56
+          sm:h-64 sm:w-64
+          lg:h-72 lg:w-72
+        "
+        >
+          {/* äußerer Rahmen – #d2c9b9 */}
+          <div
+            className="
+            absolute inset-0
+            rounded-[32px]
+            border border-[rgba(210,201,185,0.7)]
+            bg-transparent
+            rotate-[-4deg]
+            animate-[spin_55s_linear_infinite_reverse]
+          "
+          />
+
+          {/* mittleres Quadrat */}
+          <div
+            className="
+            absolute inset-3
+            rounded-[28px]
+            border border-[rgba(210,201,185,0.45)]
+            bg-[rgba(18,27,38,0.18)]
+            rotate-[8deg]
+            animate-[spin_40s_linear_infinite]
+          "
+          />
+
+          {/* inneres, weiches Quadrat */}
+          <div
+            className="
+            absolute inset-8
+            rounded-[26px]
+            border border-[rgba(210,201,185,0.35)]
+            bg-[radial-gradient(circle_at_top,#d2c9b9_0%,transparent_65%)]
+            opacity-75
+          "
+          />
+
+          {/* kleiner goldener Punkt */}
+          <div
+            className="
+            absolute
+            left-1/2 top-[72%]
+            h-3 w-3
+            -translate-x-1/2
+            rounded-full
+            bg-[#E3BB62]
+            shadow-[0_0_16px_rgba(227,187,98,0.9)]
+            animate-[ping_8s_linear_infinite]
+          "
+          />
         </div>
 
-        {/* Progress */}
-        {!completed && (
-          <div className="px-6 pt-4">
-            <div className="flex items-center justify-between mb-3">
-              <div className="text-[18px] font-semibold text-[#1a1a1a]">Assessment läuft</div>
-              <div className="flex items-center gap-3">
-                <span className="text-sm text-[#0f172a] bg-[#f8fafc] px-3.5 py-1.5 rounded-full border border-gray-200">
-                  {`Frage ${Math.max(1, step)}${progress.total ? ` von ${progress.total}` : ""}`}
-                </span>
+        {/* ein paar kleine „Sternchen“-Punkte */}
+        <div
+          className="
+          absolute left-[18%] top-[50%]
+          h-2 w-2 rounded-full
+          bg-[#E3BB62]
+          opacity-80
+          animate-[ping_10s_linear_infinite]
+        "
+        />
+        <div
+          className="
+          absolute left-[12%] top-[36%]
+          h-1.5 w-1.5 rounded-full
+          bg-[#d2c9b9]
+          opacity-70
+          animate-[ping_12s_linear_infinite]
+        "
+        />
+        <div
+          className="
+          absolute right-[26%] top-[58%]
+          h-1.5 w-1.5 rounded-full
+          bg-[#E3BB62]
+          opacity-65
+          animate-[ping_14s_linear_infinite]
+        "
+        />
+        <div
+          className="
+    absolute left-[25%] top-[30%]
+    h-1.5 w-1.5 rounded-full
+    bg-[#E3BB62]
+    opacity-70
+    animate-[ping_9s_linear_infinite]
+  "
+        />
+
+        <div
+          className="
+    absolute right-[12%] top-[40%]
+    h-2 w-2 rounded-full
+    bg-[#d2c9b9]
+    opacity-75
+    animate-[ping_11s_linear_infinite]
+  "
+        />
+
+        <div
+          className="
+    absolute right-[8%] top-[65%]
+    h-1 w-1 rounded-full
+    bg-[#E3BB62]
+    opacity-60
+    animate-[ping_13s_linear_infinite]
+  "
+        />
+
+        {/* zusätzliche Shapes NUR für große Screens  */}
+        {/* Extra-Blob oben rechts – nur ab lg */}
+        <div
+          className="
+          hidden lg:block
+          absolute -top-32 right-1/4
+          h-52 w-52 rounded-full blur-3xl
+          bg-[hsla(215,45%,35%,0.18)]
+        "
+        />
+
+        {/* zusätzliche Shapes NUR für große Screens  */}
+
+        {/* Extra-Blob oben rechts – nur ab lg */}
+        <div
+          className="
+          hidden lg:block
+          absolute -top-32 right-1/4
+          h-52 w-52 rounded-full blur-3xl
+          bg-[hsla(215,45%,35%,0.18)]
+        "
+        />
+
+        {/* Goldene „Scheibe“ unten links – nur ab lg */}
+        <div
+          className="
+          hidden lg:block
+          absolute bottom-10 left-10
+          h-28 w-28 rounded-full blur-2xl
+          bg-[hsla(45,75%,62%,0.28)]
+        "
+        />
+
+        {/* Schwebende Card links unten – nur ab xl */}
+        <div
+          className="
+          hidden xl:block
+          absolute bottom-40 left-[18%]
+          h-32 w-52
+          rounded-[24px]
+          border border-white/50
+          bg-[#d2c9b9]
+          backdrop-blur-xl
+          shadow-[0_18px_45px_rgba(15,23,42,0.16)]
+          rotate-[-4deg]
+          animate-[spin_70s_linear_infinite]
+        "
+        />
+
+        {/* Schmale, vertikale goldene Leiste rechts – nur ab xl */}
+        <div
+          className="
+          hidden xl:block
+          absolute top-24 right-[14%]
+          h-40 w-16
+          rounded-[999px]
+          bg-[linear-gradient(180deg,#E3BB62_0%,rgba(227,187,98,0)_100%)]
+          opacity-70
+          blur-[1px]
+        "
+        />
+      </div>
+      <div
+        className="
+    relative z-[1]
+    flex flex-col items-center
+    pt-16 pb-16 px-5
+  "
+      >
+        {/* Logo-Badge – groß & sichtbar */}
+        <div
+          className="
+      relative
+      -mb-10
+      inline-flex items-center justify-center
+      h-24 sm:h-28 md:h-32          /* etwas höher = mehr Platz fürs GIF */
+      w-[210px] sm:w-[240px] md:w-[270px]
+      rounded-[32px]
+      bg-white/98
+      border border-[#e4e4e7]
+      shadow-[0_26px_70px_rgba(15,23,42,0.30)]
+      overflow-hidden
+    "
+        >
+          <img
+            src={aa}
+            alt="ICA³ – Integrated Customer Assessments &amp; Advanced Analytics"
+            className="
+        max-h-full w-auto            /* GANZES GIF sichtbar */
+        object-contain
+      "
+          />
+        </div>
+
+        {/* weißer Haupt-Container */}
+        <div
+          className="
+      w-full max-w-[980px]
+      rounded-3xl
+      bg-gradient-to-b from-white to-[#f5f5f7]
+      border border-white/80
+      shadow-[0_24px_80px_rgba(15,23,42,0.16)]
+      overflow-hidden
+    "
+        >
+
+          {/* Header */}
+          <div className=" p-6
+    bg-white/95
+    backdrop-blur-sm
+    border-b border-[#e4e4e7]
+    shadow-[0_1px_0_rgba(15,23,42,0.04)]">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div>
+                <div className="text-xl sm:text-2xl font-extrabold text-[#1a1a1a] tracking-tight">{headerTitle}</div>
+                {headerSubtitle && <div className="text-sm text-[#666] mt-1">{headerSubtitle}</div>}
               </div>
+
+              <button
+                type="button"
+                onClick={goBackToTopics}
+                className=" group inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold
+  bg-white text-slate-800 border border-[#ddd]
+  shadow-sm
+  transition-all duration-150 ease-out transform
+  hover:bg-[#d4af37] hover:border-[#d4af37] hover:text-[#1f2a37]
+  hover:-translate-y-[1px] hover:shadow-md
+  active:translate-y-[0px] active:shadow-sm"
+              >
+                <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M3 11l9-7 9 7" />
+                  <path d="M9 22V12h6v10" />
+                </svg>
+                Zur Übersicht
+              </button>
             </div>
-            <div className="w-full h-2.5 bg-gray-200 rounded-[10px] overflow-hidden mb-2">
-              <div
-                className="h-full bg-blue-500 transition-[width] duration-300 ease-out rounded-[10px]"
-                style={{ width: `${pct}%` }}
-              />
-            </div>
-            <div className="text-sm text-[#666]">{pct}% abgeschlossen</div>
           </div>
-        )}
 
-        {/* Inhalt !completed*/}
-        {q && (
-          <>
-            <div className="px-6 pt-6">
-              <div className="text-[18px] font-semibold text-[#1a1a1a] mb-6 leading-relaxed">{q.text}</div>
-
-              {/* Eingabetypen */}
-              {q.type === "radio" && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {q.options.map((opt: string) => {
-                    const checked = answers[q.id] === opt;
-                    return (
-                      <label
-                        key={opt}
-                        className={`flex items-center p-5 border-2 rounded-lg cursor-pointer transition bg-white
-                        ${checked ? "border-blue-500 bg-[#eff6ff]" : "border-gray-200 hover:border-blue-500 hover:bg-[#f8faff]"}`}
-                      >
-                        <input
-                          type="radio"
-                          name={`q-${q.id}`}
-                          className="mr-3 w-[18px] h-[18px] cursor-pointer accent-blue-500"
-                          checked={checked}
-                          onChange={() => setAnswer(q.id, opt, "radio")}
-                        />
-                        <span className="text-[15px] text-[#333]">{opt}</span>
-                      </label>
-                    );
-                  })}
+          {/* Progress */}
+          {!completed && (
+            <div className="px-6 py-4 bg-[#f8f9fa] border-b border-[#e5e7eb]">
+              <div className="flex items-center justify-between mb-3">
+                <div className="text-[18px] font-semibold text-[#1a1a1a]">Assessment läuft</div>
+                <div className="flex items-center gap-3">
+                  <span className="text-sm text-[#0f172a] bg-[#f8fafc] px-3.5 py-1.5 rounded-full border border-gray-200">
+                    {`Frage ${Math.max(1, step)}${progress.total ? ` von ${progress.total}` : ""}`}
+                  </span>
                 </div>
-              )}
+              </div>
+              <div className="w-full h-2.5 bg-[#ebebec] rounded-[10px] overflow-hidden mb-2">
+                <div
+                  className="h-full transition-[width] duration-300 ease-out rounded-[10px]
+               bg-[linear-gradient(90deg,#E3BB62_0%,#d2c9b9_100%)]"
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
 
-              {q.type === "checkbox" && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {q.options.map((opt: string) => {
-                    const list: string[] = answers[q.id] || [];
-                    const checked = list.includes(opt);
-                    return (
-                      <label
-                        key={opt}
-                        className={`flex items-center p-5 border-2 rounded-lg cursor-pointer transition bg-white
-                        ${checked ? "border-blue-500 bg-[#eff6ff]" : "border-gray-200 hover:border-blue-500 hover:bg-[#f8faff]"}`}
-                      >
-                        <input
-                          type="checkbox"
-                          className="mr-3 w-[18px] h-[18px] cursor-pointer accent-blue-500"
-                          checked={checked}
-                          onChange={() => setAnswer(q.id, opt, "checkbox")}
-                        />
-                        <span className="text-[15px] text-[#333]">{opt}</span>
-                      </label>
-                    );
-                  })}
-                </div>
-              )}
+              <div className="text-sm text-[#666]">{pct}% abgeschlossen</div>
+            </div>
+          )}
 
-              {q.type === "slider" && (
-                <div className="py-5">
+          {/* Inhalt !completed*/}
+          {q && (
+            <>
+              <div className=" px-6 pt-6 pb-6
+    bg-white/98
+    shadow-[0_16px_45px_rgba(15,23,42,0.10)]">
+                <div className="text-[18px] font-semibold text-[#1a1a1a] mb-6 leading-relaxed">{q.text}</div>
+
+                {/* Eingabetypen */}
+                {q.type === "radio" && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {q.options.map((opt: string) => {
+                      const checked = answers[q.id] === opt;
+                      return (
+                        <label
+                          key={opt}
+                          className={`flex items-center p-5 border-2 rounded-lg cursor-pointer transition bg-white
+                          ${checked
+                              ? "border-[#E3BB62] bg-[#FFFAEB]"                         // ausgewählt: Gold-Rahmen + hellgoldener Hintergrund
+                              : "border-gray-200 hover:border-[#264555] hover:bg-[#f8fafc]" // Hover: Navy-Rand
+                            }`}
+                        >
+                          <input
+                            type="radio"
+                            name={`q-${q.id}`}
+                            className="mr-3 w-[18px] h-[18px] cursor-pointer accent-[#56768f]"  // Kreis in CAP-Navy
+                            checked={checked}
+                            onChange={() => setAnswer(q.id, opt, "radio")}
+                          />
+
+                          <span className="text-[15px] text-[#333]">{opt}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {q.type === "checkbox" && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {q.options.map((opt: string) => {
+                      const list: string[] = answers[q.id] || [];
+                      const checked = list.includes(opt);
+                      return (
+                        <label
+                          key={opt}
+                          className={`flex items-center p-5 border-2 rounded-lg cursor-pointer transition bg-white
+                          ${checked
+                              ? "border-[#E3BB62] bg-[#FFFAEB]"
+                              : "border-gray-200 hover:border-[#264555] hover:bg-[#f8fafc]"
+                            }`}
+                        >
+                          <input
+                            type="checkbox"
+                            className="mr-3 w-[18px] h-[18px] cursor-pointer accent-[#56768f]"
+                            checked={checked}
+                            onChange={() => setAnswer(q.id, opt, "checkbox")}
+                          />
+                          <span className="text-[15px] text-[#333]">{opt}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {q.type === "slider" && (
+                  <div className="py-5">
+                    <input
+                      type="range"
+                      min={(q as any).min}
+                      max={(q as any).max}
+                      value={answers[q.id] ?? Math.floor((((q as any).min ?? 0) + ((q as any).max ?? 10)) / 2)}
+                      onChange={(e) => setAnswer(q.id, Number(e.target.value), "slider")}
+                      className=" w-full h-2 rounded bg-[#ebebec] outline-none
+    [accent-color:#56768f]
+    [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:h-6
+    [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[#56768f]
+    [&::-moz-range-thumb]:w-6 [&::-moz-range-thumb]:h-6 [&::-moz-range-thumb]:rounded-full
+    [&::-moz-range-thumb]:bg-[#56768f] [&::-moz-range-thumb]:border-0"
+                    />
+                    <div className="text-center text-[18px] font-semibold text-[#56768f] mt-2">
+                      {answers[q.id] ?? Math.floor((((q as any).min ?? 0) + ((q as any).max ?? 10)) / 2)}
+                    </div>
+                    {(q as any).labels && (
+                      <div className="flex justify-between mt-2 text-sm text-[#666]">
+                        <span>{(q as any).labels[0]}</span>
+                        <span>{(q as any).labels[1]}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {q.type === "textarea" && (
+                  <textarea
+                    className="w-full min-h-[120px] p-4 border-2 border-gray-200 rounded-lg text-[15px] resize-y outline-none focus:border-blue-500"
+                    placeholder={(q as any).placeholder || ""}
+                    value={answers[q.id] || ""}
+                    onChange={(e) => setAnswer(q.id, e.target.value, "textarea")}
+                  />
+                )}
+
+                {q.type === "text" && (
                   <input
-                    type="range"
+                    type="text"
+                    className="w-full p-4 border-2 border-gray-200 rounded-lg text-[15px] outline-none focus:border-blue-500"
+                    placeholder={(q as any).placeholder || ""}
+                    value={answers[q.id] || ""}
+                    onChange={(e) => setAnswer(q.id, e.target.value, "text")}
+                  />
+                )}
+
+                {q.type === "select" && (
+                  <select
+                    className="w-full p-4 border-2 border-gray-200 rounded-lg text-[15px] outline-none focus:border-blue-500 bg-white"
+                    value={answers[q.id] ?? ""}
+                    onChange={(e) => setAnswer(q.id, e.target.value, "select")}
+                  >
+                    <option value="" disabled>Bitte auswählen …</option>
+                    {q.options.map((opt: string) => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                  </select>
+                )}
+
+                {q.type === "number" && (
+                  <input
+                    type="number"
+                    className="w-full p-4 border-2 border-gray-200 rounded-lg text-[15px] outline-none focus:border-blue-500"
                     min={(q as any).min}
                     max={(q as any).max}
-                    value={answers[q.id] ?? Math.floor((((q as any).min ?? 0) + ((q as any).max ?? 10)) / 2)}
-                    onChange={(e) => setAnswer(q.id, Number(e.target.value), "slider")}
-                    className="w-full h-2 rounded bg-gray-200 outline-none [accent-color:#3b82f6]
-                    [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:h-6
-                    [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[#3b82f6]
-                    [&::-moz-range-thumb]:w-6 [&::-moz-range-thumb]:h-6 [&::-moz-range-thumb]:rounded-full
-                    [&::-moz-range-thumb]:bg-[#3b82f6] [&::-moz-range-thumb]:border-0"
+                    step={(q as any).step ?? 1}
+                    placeholder={(q as any).placeholder || ""}
+                    value={answers[q.id] ?? ""}
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      setAnswer(q.id, raw === "" ? "" : Number(raw), "number");
+                    }}
                   />
-                  <div className="text-center text-[18px] font-semibold text-blue-500 mt-2">
-                    {answers[q.id] ?? Math.floor((((q as any).min ?? 0) + ((q as any).max ?? 10)) / 2)}
-                  </div>
-                  {(q as any).labels && (
-                    <div className="flex justify-between mt-2 text-sm text-[#666]">
-                      <span>{(q as any).labels[0]}</span>
-                      <span>{(q as any).labels[1]}</span>
-                    </div>
-                  )}
+                )}
+
+                {q.type === "date" && (
+                  <input
+                    type="date"
+                    className="w-full p-4 border-2 border-gray-200 rounded-lg text-[15px] outline-none focus:border-blue-500"
+                    min={(q as any).min}
+                    max={(q as any).max}
+                    value={answers[q.id] ?? ""}
+                    onChange={(e) => setAnswer(q.id, e.target.value, "date")}
+                  />
+                )}
+
+                {q.type === "order" && (() => {
+                  const base = (q as any).options || [];
+                  const current: string[] = Array.isArray(answers[q.id]) ? answers[q.id] : base;
+
+                  const move = (idx: number, dir: -1 | 1) => {
+                    const ni = idx + dir;
+                    if (ni < 0 || ni >= current.length) return;
+                    const arr = [...current];
+                    [arr[idx], arr[ni]] = [arr[ni], arr[idx]];
+                    setAnswer(q.id, arr, "order");
+                  };
+
+                  return (
+                    <ul className="space-y-2">
+                      {current.map((opt, i) => (
+                        <li key={opt} className="flex items-center justify-between p-3 border-2 border-gray-200 rounded-lg bg-white">
+                          <span className="text-[15px] text-[#333]">{i + 1}. {opt}</span>
+                          <div className="flex gap-2">
+                            <button className="px-3 py-1.5 rounded-lg border border-gray-300 bg-white hover:bg-gray-50" onClick={() => move(i, -1)} disabled={i === 0}>↑</button>
+                            <button className="px-3 py-1.5 rounded-lg border border-gray-300 bg-white hover:bg-gray-50" onClick={() => move(i, +1)} disabled={i === current.length - 1}>↓</button>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  );
+                })()}
+
+                {/* Navigation */}
+                <div className="pb-6 pt-6 flex items-center justify-between gap-3">
+                  <button
+                    className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold bg-white text-[#666] border border-[#ddd] hover:bg-[#f5f5f5] transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    onClick={prev}
+                    disabled={pos <= 0}
+                  >
+                    ← Zurück
+                  </button>
+
+                  <button
+                    className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold
+  bg-[#E3BB62] text-[#264555]
+  shadow-sm border border-transparent
+  transition-all duration-150 ease-out transform
+  hover:bg-[#d7a548] hover:border-[#d7a548]
+  hover:-translate-y-[1px] hover:shadow-md
+  active:translate-y-[0px] active:shadow-sm"
+                    onClick={next}
+                  >
+                    {status === "completed" || (progress.total && progress.answered + 1 >= progress.total && pos >= trail.length - 1)
+                      ? "Abschließen ✓"
+                      : "Weiter →"}
+                  </button>
                 </div>
-              )}
-
-              {q.type === "textarea" && (
-                <textarea
-                  className="w-full min-h-[120px] p-4 border-2 border-gray-200 rounded-lg text-[15px] resize-y outline-none focus:border-blue-500"
-                  placeholder={(q as any).placeholder || ""}
-                  value={answers[q.id] || ""}
-                  onChange={(e) => setAnswer(q.id, e.target.value, "textarea")}
-                />
-              )}
-
-              {q.type === "text" && (
-                <input
-                  type="text"
-                  className="w-full p-4 border-2 border-gray-200 rounded-lg text-[15px] outline-none focus:border-blue-500"
-                  placeholder={(q as any).placeholder || ""}
-                  value={answers[q.id] || ""}
-                  onChange={(e) => setAnswer(q.id, e.target.value, "text")}
-                />
-              )}
-
-              {q.type === "select" && (
-                <select
-                  className="w-full p-4 border-2 border-gray-200 rounded-lg text-[15px] outline-none focus:border-blue-500 bg-white"
-                  value={answers[q.id] ?? ""}
-                  onChange={(e) => setAnswer(q.id, e.target.value, "select")}
-                >
-                  <option value="" disabled>Bitte auswählen …</option>
-                  {q.options.map((opt: string) => (
-                    <option key={opt} value={opt}>{opt}</option>
-                  ))}
-                </select>
-              )}
-
-              {q.type === "number" && (
-                <input
-                  type="number"
-                  className="w-full p-4 border-2 border-gray-200 rounded-lg text-[15px] outline-none focus:border-blue-500"
-                  min={(q as any).min}
-                  max={(q as any).max}
-                  step={(q as any).step ?? 1}
-                  placeholder={(q as any).placeholder || ""}
-                  value={answers[q.id] ?? ""}
-                  onChange={(e) => {
-                    const raw = e.target.value;
-                    setAnswer(q.id, raw === "" ? "" : Number(raw), "number");
-                  }}
-                />
-              )}
-
-              {q.type === "date" && (
-                <input
-                  type="date"
-                  className="w-full p-4 border-2 border-gray-200 rounded-lg text-[15px] outline-none focus:border-blue-500"
-                  min={(q as any).min}
-                  max={(q as any).max}
-                  value={answers[q.id] ?? ""}
-                  onChange={(e) => setAnswer(q.id, e.target.value, "date")}
-                />
-              )}
-
-              {q.type === "order" && (() => {
-                const base = (q as any).options || [];
-                const current: string[] = Array.isArray(answers[q.id]) ? answers[q.id] : base;
-
-                const move = (idx: number, dir: -1 | 1) => {
-                  const ni = idx + dir;
-                  if (ni < 0 || ni >= current.length) return;
-                  const arr = [...current];
-                  [arr[idx], arr[ni]] = [arr[ni], arr[idx]];
-                  setAnswer(q.id, arr, "order");
-                };
-
-                return (
-                  <ul className="space-y-2">
-                    {current.map((opt, i) => (
-                      <li key={opt} className="flex items-center justify-between p-3 border-2 border-gray-200 rounded-lg bg-white">
-                        <span className="text-[15px] text-[#333]">{i + 1}. {opt}</span>
-                        <div className="flex gap-2">
-                          <button className="px-3 py-1.5 rounded-lg border border-gray-300 bg-white hover:bg-gray-50" onClick={() => move(i, -1)} disabled={i === 0}>↑</button>
-                          <button className="px-3 py-1.5 rounded-lg border border-gray-300 bg-white hover:bg-gray-50" onClick={() => move(i, +1)} disabled={i === current.length - 1}>↓</button>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                );
-              })()}
-
-              {/* Navigation */}
-              <div className="pb-6 pt-6 flex items-center justify-between gap-3">
-                <button
-                  className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold bg-white text-[#666] border border-[#ddd] hover:bg-[#f5f5f5] transition disabled:opacity-50 disabled:cursor-not-allowed"
-                  onClick={prev}
-                  disabled={pos <= 0}
-                >
-                  ← Zurück
-                </button>
-
-                <button
-                  className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold text-white bg-[#6b7280] hover:bg-[#4b5563] transition"
-                  onClick={next}
-                >
-                  {status === "completed" || (progress.total && progress.answered + 1 >= progress.total && pos >= trail.length - 1)
-                    ? "Abschließen ✓"
-                    : "Weiter →"}
-                </button>
               </div>
-            </div>
-          </>
-        )}
-        
+            </>
+          )}
+
+        </div>
+
       </div>
-      
     </div>
-    
+
   );
-  
+
 }

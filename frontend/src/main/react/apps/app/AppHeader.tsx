@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuthCtx } from "@/core/auth/AuthContext";
+import { AuthService } from "@/core/auth/AuthService";
 import { logoutApi } from "@/features/auth/logoutService";
 import logoCap from "@/assets/Logo_cap_consulting_RGB_Darkblue.svg";
 import "@/styles/worker.css";
@@ -16,7 +17,7 @@ export default function AppHeader() {
   const menuRef = useRef<HTMLDivElement | null>(null);
   const navigate = useNavigate();
 
-  const { isAuthenticated, token, logout } = useAuthCtx();
+  const { isAuthenticated, logout } = useAuthCtx();
 
   const linkCls = ({ isActive }: { isActive: boolean }) =>
     `nav-link${isActive ? " nav-link-active" : ""}`;
@@ -56,21 +57,40 @@ export default function AppHeader() {
     location.pathname.startsWith("/app/dashboard") ||
     location.pathname.startsWith("/app/assessments");
 
-  // Logout
+  /**
+   * Logout Handler - Refactored für neues Auth-System
+   * 
+   * Flow:
+   * 1. Cleanup: activeAssignmentMeta aus localStorage
+   * 2. Get Token from AuthService (single source of truth)
+   * 3. Backend-Logout-API-Call (löscht httpOnly Cookie)
+   * 4. AuthService.clearTokens() (löscht Token + User in Memory)
+   * 5. AuthContext.logout() (updated React State)
+   * 6. Navigate zu /login
+   */
   const handleLogout = async () => {
-    localStorage.removeItem("activeAssignmentMeta"); // aufräumen
-    const t =
-      token ??
-      localStorage.getItem("accessToken") ??
-      localStorage.getItem("token");
-    if (t) {
+    // Cleanup: Assignment-Meta
+    localStorage.removeItem("activeAssignmentMeta");
+    
+    // Get Token from AuthService (nicht mehr aus localStorage!)
+    const token = AuthService.getAccessToken();
+    
+    // Backend-Logout (optional, kann fehlschlagen)
+    if (token) {
       try {
-        await logoutApi(t);
-      } catch {
-        // Backend-Logout kann scheitern -> lokal trotzdem abmelden
+        await logoutApi(token);
+      } catch (error) {
+        console.warn('Backend logout failed, continuing with local logout', error);
       }
     }
+    
+    // Clear Tokens in AuthService (Memory + localStorage)
+    AuthService.clearTokens();
+    
+    // Update React Context
     logout();
+    
+    // Close Menu & Navigate
     setMenuOpen(false);
     navigate("/login", { replace: true });
   };

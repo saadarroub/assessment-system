@@ -57,12 +57,17 @@ export default function CountdownTimer({ expiresAt, compact }: Props) {
     >
       <Hourglass className={`w-6 h-6 ${textTone}`} aria-hidden />
       <div className="flex items-baseline gap-3">
-        <span className={`${sizeNum} font-semibold ${textTone}`}>
-          {d} T
-        </span>
-        <span className={`tabular-nums ${sizeTime} ${textTone}`}>
-          {pad(h)}:{pad(m)}:{pad(s)}
-        </span>
+         {d > 0 ? (
+    // Fall: noch mindestens 1 Tag
+    <span className={`${sizeNum} font-semibold ${textTone}`}>
+     noch {d} {d === 1 ? "Tag" : "Tage"} 
+    </span>
+  ) : (
+    // Fall: weniger als 1 Tag → Stunden/Minuten/Sekunden anzeigen
+    <span className={`tabular-nums ${sizeTime} ${textTone}`}>
+      {pad(h)}:{pad(m)}:{pad(s)} noch
+    </span>
+  )}
       </div>
     </div>
   );

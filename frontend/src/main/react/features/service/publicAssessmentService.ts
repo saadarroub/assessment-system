@@ -1,8 +1,4 @@
-// src/features/service/publicAssessmentService.ts
 
-/* 
-   API Types (roh vom Backend)
- */
 export type ApiStartResponse = {
   sessionId: string;
   themaId: string;
@@ -22,7 +18,19 @@ export type ApiQuestion = {
   min?: number; max?: number; step?: number;
   labels?: [string, string];
   required?: boolean;
+  currentAnswer?: ApiCurrentAnswer;
 };
+export type ApiCurrentAnswer = {
+  answerId: string;
+  value: string | number | string[];    
+  score?: number;
+  answeredAt?: string;
+};
+export type ApiPreviousResponse =
+  | ({ atStart: true } & Partial<ApiQuestion>)
+  | ({ atStart?: false } & ApiQuestion);
+
+
 
 export type ApiState = {
   sessionId?: string;
@@ -94,6 +102,54 @@ export async function getNextQuestion(
   );
   return http<ApiQuestion | undefined>(url, { method: "GET" });
 }
+// Vorherige Frage
+export async function getPreviousQuestion(
+  accessToken: string,
+  sessionId: string
+): Promise<ApiPreviousResponse> {
+  const url = join(
+    accessRoot(accessToken),
+    `/sessions/${encodeURIComponent(sessionId)}/previous`
+  );
+
+  const res = await fetch(url, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+
+  // Fall 1: 204 = wir sind an der ersten Frage
+  if (res.status === 204) {
+    // Laut Spec: 204 + {"atStart": true}
+    try {
+      const body = await res.json();
+      if (body && typeof body.atStart === "boolean") {
+        return { atStart: body.atStart } as ApiPreviousResponse;
+      }
+    } catch {
+      // 204 ohne Body → interpretieren wir als "am Start"
+    }
+    return { atStart: true } as ApiPreviousResponse;
+  }
+
+  // Fehlerfälle
+  if (!res.ok) {
+    let msg = `${res.status} ${res.statusText}`;
+    try {
+      const data = await res.json();
+      if ((data as any)?.message) msg = (data as any).message;
+    } catch {
+      /* ignore */
+    }
+    throw new Error(msg);
+  }
+
+  // Normale 200-Antwort mit Frage
+  const data = (await res.json()) as ApiQuestion;
+  return { ...data, atStart: false };
+}
+
 
 // Session-Status/Progress
 export async function getState(
@@ -106,6 +162,49 @@ export async function getState(
   );
   return http<ApiState>(url, { method: "GET" });
 }
+export type ApiSummaryQuestion = {
+  questionId: string;
+  questionText: string;
+  inputType: string;
+  answeredValue: string | number | string[];
+  score: number;
+  maxScore: number;
+  answeredAt: string;
+  orderIndex: number;
+  isRequired: boolean;
+};
+
+export type ApiSummaryResponse = {
+  sessionId: string;
+  status: "in_progress" | "completed";
+  themaId: string;
+  themaName: string;
+  answeredCount: number;
+  totalQuestions: number;
+  progressPercent: number;
+  totalScore: number;
+  maxPossibleScore: number;
+  answeredQuestions: ApiSummaryQuestion[];
+  automatischBewerteteFragen: ApiSummaryQuestion[];
+  manuellZuBewertendeFragen: ApiSummaryQuestion[];
+  uebersprungeneFragen: ApiSummaryQuestion[];
+  automatischBewertetAnzahl: number;
+  manuellZuBewertenAnzahl: number;
+  uebersprungenAnzahl: number;
+};
+
+// GET /public/access/{token}/sessions/{id}/summary
+export async function getSummary(
+  accessToken: string,
+  sessionId: string
+): Promise<ApiSummaryResponse> {
+  const url = join(
+    accessRoot(accessToken),
+    `/sessions/${encodeURIComponent(sessionId)}/summary`
+  );
+  return http<ApiSummaryResponse>(url, { method: "GET" });
+}
+
 
 //  Prozent berechnen
 export const calcProgressPct = (s: ApiState) =>

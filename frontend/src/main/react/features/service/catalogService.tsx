@@ -1,3 +1,5 @@
+import { apiClient } from "@/api/client";
+
 export type CatalogApi = {
   id: string;
   title: string;
@@ -18,66 +20,54 @@ export type UpdateCatalogDto = {
 
 /** Alle Kataloge laden */
 export async function getCatalogs(): Promise<CatalogApi[]> {
-  const resp = await fetch("http://localhost:8080/api/catalogs", {
+  const { data } = await apiClient.get<CatalogApi[]>("/catalogs", {
     headers: { Accept: "application/json" },
   });
-  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-  return resp.json();
+  return data;
 }
 
 /** Einzelnen Katalog laden */
 export async function getCatalog(id: string): Promise<CatalogApi> {
-  const resp = await fetch(
-    `http://localhost:8080/api/catalogs/${encodeURIComponent(id)}`,
+  const { data } = await apiClient.get<CatalogApi>(
+    `/catalogs/${encodeURIComponent(id)}`,
     { headers: { Accept: "application/json" } }
   );
-  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-  return resp.json();
+  return data;
 }
 
 /** Katalog anlegen */
 export async function createCatalog(payload: CreateCatalogDto): Promise<CatalogApi> {
-  const resp = await fetch("http://localhost:8080/api/catalogs", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
-
-  if (!resp.ok) {
-    const text = await resp.text().catch(() => "");
-    throw new Error(`HTTP ${resp.status}${text ? ` – ${text}` : ""}`);
-  }
-  return resp.json();
+  const { data } = await apiClient.post<CatalogApi>(
+    "/catalogs",
+    payload,
+    {
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+    }
+  );
+  return data;
 }
 
 /** Katalog updaten */
 export async function updateCatalog(id: string, payload: UpdateCatalogDto): Promise<CatalogApi> {
-  const resp = await fetch(`http://localhost:8080/api/catalogs/${encodeURIComponent(id)}`, {
-    method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
-  if (!resp.ok) {
-    const text = await resp.text().catch(() => "");
-    throw new Error(`HTTP ${resp.status}${text ? ` – ${text}` : ""}`);
-  }
-  return resp.json();
+  const { data } = await apiClient.put<CatalogApi>(
+    `/catalogs/${encodeURIComponent(id)}`,
+    payload,
+    {
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+    }
+  );
+  return data;
 }
 
 /** Katalog löschen */
 export async function deleteCatalog(id: string): Promise<void> {
-  const resp = await fetch(`http://localhost:8080/api/catalogs/${encodeURIComponent(id)}`, {
-    method: "DELETE",
+  await apiClient.delete(`/catalogs/${encodeURIComponent(id)}`, {
     headers: { Accept: "application/json" },
   });
-  if (!resp.ok) {
-    const text = await resp.text().catch(() => "");
-    throw new Error(`HTTP ${resp.status}${text ? ` – ${text}` : ""}`);
-  }
 }

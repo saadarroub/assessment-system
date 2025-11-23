@@ -1,71 +1,95 @@
+import { apiClient } from "@/api/client";
+
 export type UserApi = {
   id: string;
   name: string;
   email: string;
+  roles?: string[];
   created_at?: string;
-  updatedAt?:string;
+  updatedAt?: string;
 };
 
-const BASE = "http://localhost:8080/api";
-
 export async function getUsers(): Promise<UserApi[]> {
-  const resp = await fetch(`${BASE}/users`, { headers: { Accept: "application/json" } });
-  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-  return resp.json();
+  const { data } = await apiClient.get<UserApi[]>("/users", {
+    headers: { Accept: "application/json" },
+  });
+  return data;
 }
+
 export async function getUser(id: string): Promise<UserApi> {
-  const r = await fetch(`${BASE}/users/${encodeURIComponent(id)}`, { headers: { Accept: "application/json" } });
-  if (!r.ok) throw new Error(`HTTP ${r.status}`);
-  return r.json();
-} 
+  const { data } = await apiClient.get<UserApi>(`/users/${encodeURIComponent(id)}`, {
+    headers: { Accept: "application/json" },
+  });
+  return data;
+}
 
-/** Holt Rollen für einen User und gibt nur die Namen zurück */
+/** Holt Rollen für einen User und gibt Role-IDs oder Namen zurück */
 export async function getUserRoles(userId: string): Promise<string[]> {
-  const resp = await fetch(`${BASE}/users/${encodeURIComponent(userId)}/roles`, {
-    headers: { Accept: "application/json" },
-  });
-  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-  const data = await resp.json();
+  const { data } = await apiClient.get(
+    `/users/${encodeURIComponent(userId)}/roles`,
+    { headers: { Accept: "application/json" } }
+  );
 
-  // Erwartet: Array von { role: { name: string } }
-  if (!Array.isArray(data)) return [];
-  return data
-    .map((x: any) => x?.role?.name)
-    .filter((r: unknown): r is string => typeof r === "string" && r.length > 0);
+  console.log("getUserRoles raw", userId, data);
+
+  // Rekursiv durch das JSON laufen und alle roleId-Strings einsammeln
+  const collectRoleIds = (value: any, acc: Set<string>) => {
+    if (!value) return;
+
+    if (Array.isArray(value)) {
+      value.forEach((v) => collectRoleIds(v, acc));
+      return;
+    }
+
+    if (typeof value === "object") {
+      for (const [key, v] of Object.entries(value)) {
+        if (key === "roleId" && typeof v === "string") {
+          acc.add(v); // roleId gefunden
+        }
+        collectRoleIds(v, acc); // weiter ins nächste Level
+      }
+    }
+  };
+
+  const ids = new Set<string>();
+  collectRoleIds(data, ids);
+
+  const result = Array.from(ids);
+  console.log("getUserRoles parsed IDs", userId, result);
+
+  return result;
 }
 
-// NEW: Create user
-export type CreateUserDto = { name: string; email: string; password: string };
+
+export type CreateUserDto = { name: string; email: string; password: string; roleId: string };
+
 export async function createUser(payload: CreateUserDto): Promise<UserApi> {
-  const r = await fetch(`${BASE}/users`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify(payload),
-  });
-  if (!r.ok) throw new Error(`HTTP ${r.status}`);
-  return r.json(); // erwartet: { id, name, email, ... }
-}
-// NEW: Delete user
-export async function deleteUser(userId: string): Promise<void> {
-  const r = await fetch(`${BASE}/users/${encodeURIComponent(userId)}`, {
-    method: "DELETE",
+  const { data } = await apiClient.post<UserApi>("/users", payload, {
     headers: { Accept: "application/json" },
   });
-  if (!r.ok) throw new Error(`HTTP ${r.status}`);
-} 
-// **NEW: Update user**
-// Passwort ist optional, damit man beim reinen Namen/Email-Update nicht zwingend ein neues PW setzen muss.
+  return data;
+}
+
+export async function deleteUser(userId: string): Promise<void> {
+  await apiClient.delete(`/users/${encodeURIComponent(userId)}`, {
+    headers: { Accept: "application/json" },
+  });
+}
+
 export type UpdateUserDto = { name: string; email: string; password?: string };
 
 export async function updateUser(userId: string, payload: UpdateUserDto): Promise<UserApi> {
-  const r = await fetch(`${BASE}/users/${encodeURIComponent(userId)}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify(payload),
-  });
-  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  const { data } = await apiClient.put<UserApi>(
+    `/users/${encodeURIComponent(userId)}`,
+    payload,
+    {
+      headers: { Accept: "application/json" },
+    }
+  );
 
-  // Manche Backends geben 204 (leer) zurück – sicher parsen:
-  const text = await r.text();
-  return text ? JSON.parse(text) : ({ id: userId, ...payload } as UserApi);
+  if (data && typeof data === "object") {
+    return data;
+  }
+
+  return { id: userId, ...payload } as UserApi;
 }

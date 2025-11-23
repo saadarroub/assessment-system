@@ -260,57 +260,66 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
       return Array.from(set);
     });
   }
+function getAssignedByIdFromSession(): string {
+  try {
+    //  Session Storage (auth_session)
+    const rawSession = sessionStorage.getItem("auth_session");
+    if (rawSession) {
+      const parsed = JSON.parse(rawSession);
+      const id = parsed?.user?.id;
+      if (id && typeof id === "string") return id;
+    }
+
+    // Fallback: alter Weg über localStorage("user"),
+    //    falls irgendwo noch benutzt
+    const rawLocal = localStorage.getItem("user");
+    if (rawLocal) {
+      const parsedLocal = JSON.parse(rawLocal);
+      const id = parsedLocal?.id;
+      if (id && typeof id === "string") return id;
+    }
+  } catch {
+    // einfach leer zurückgeben
+  }
+  return "";
+}
 
   async function handleAssign() {
-    if (!canAssign) return;
-    // userId (assignedById) aus localStorage lesen
-    let assignedById = "";
-    try {
-      const raw = localStorage.getItem("user");
-      if (raw) assignedById = JSON.parse(raw)?.id ?? "";
-    } catch { }
-    if (!assignedById) {
-      alert("Fehler: Kein Benutzer gefunden. Bitte erneut anmelden.");
-      return;
-    }
+  if (!canAssign) return;
 
-    // genau eine Katalog-ID ermitteln
-    const catalogId = selectedCatalogId;//Array.from(selectedCatalogIds)[0]
-    if (!catalogId) return;
-
-    // expiresAt erzeugen – du wolltest KEIN „end of day“,
-    //    daher nehmen wir direkt das vom <input type='date'> kommende Datum
-    //    und wandeln es schlicht in ISO um (ohne extra Tagesende-Logik):
-    if (!dueDate) {
-      alert("Bitte ein Fälligkeitsdatum wählen.");
-      return;
-    }
-    const expiresAt = `${dueDate}T00:00:00.000`; // yyyy-MM-dd + "T00:00:00.000"
-    const payload = {
-      workerIds: recipientIds,
-      catalogId,
-      expiresAt,
-      assignedById,
-      notes: note || description || undefined,
-    };
-    try {
-      // Optional: Ladezustand
-      // setIsSubmitting(true);
-
-      const res = await assignWorkerCatalogBulk(payload);
-      alert(`Zuweisung erfolgreich: ${res.success}/${res.total}`);
-      navigate("/admin/adminPanel/zuweisungen", { replace: true });
-
-      // Optional: Formular zurücksetzen
-      // setSelectedCatalogIds(new Set());
-      // setRecipientIds([]);
-      // setDescription(""); setNote(""); setDueDate("");
-    } catch (e: any) {
-      alert(`Zuweisung fehlgeschlagen: ${e?.message ?? e}`);
-    } finally {
-      // setIsSubmitting(false);
-    }
+  const assignedById = getAssignedByIdFromSession();
+  if (!assignedById) {
+    alert("Fehler: Kein Benutzer gefunden. Bitte erneut anmelden.");
+    return;
   }
+
+  const catalogId = selectedCatalogId;
+  if (!catalogId) return;
+
+  if (!dueDate) {
+    alert("Bitte ein Fälligkeitsdatum wählen.");
+    return;
+  }
+
+  const expiresAt = `${dueDate}T00:00:00.000`;
+
+  const payload = {
+    workerIds: recipientIds,
+    catalogId,
+    expiresAt,
+    assignedById,
+    notes: note || description || undefined,
+  };
+
+  try {
+    const res = await assignWorkerCatalogBulk(payload);
+    alert(`Zuweisung erfolgreich: ${res.success}/${res.total}`);
+    navigate("/admin/adminPanel/zuweisungen", { replace: true });
+  } catch (e: any) {
+    alert(`Zuweisung fehlgeschlagen: ${e?.message ?? e}`);
+  }
+}
+
 
   /* ---------- Dialog Helper ---------- */
   function openCreateDialog() {

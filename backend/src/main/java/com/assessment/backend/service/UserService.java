@@ -8,6 +8,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -21,6 +23,9 @@ public class UserService {
     @Autowired
     private UserRoleRepository userRoleRepository;
 
+    // Encoder pour les mots de passe
+    private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+
     public List<User> getAllUsers() {
         return userRepository.findAll();
     }
@@ -33,22 +38,34 @@ public class UserService {
         return userRepository.findByEmail(email);
     }
 
-    public User createUser(User user) {
-        return userRepository.save(user);
+    public User createUserWithRole(com.assessment.backend.controller.CreateUserWithRoleRequest request) {
+        User user = new User();
+        user.setName(request.name);
+        user.setEmail(request.email);
+        user.setPassword(passwordEncoder.encode(request.password));
+        System.out.println("ENCODED PASSWORD (create) = " + user.getPassword());
+        User savedUser = userRepository.save(user);
+        if (request.roleId != null) {
+            UserRole userRole = new UserRole(savedUser.getId(), request.roleId);
+            userRoleRepository.save(userRole);
+        }
+        return savedUser;
     }
+    
 
     public User updateUser(UUID id, User userDetails) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("User not found with id: " + id));
-        
+
         user.setName(userDetails.getName());
         user.setEmail(userDetails.getEmail());
-        
-        // Update password only if provided
+
+        // Update and encode password only if provided
         if (userDetails.getPassword() != null && !userDetails.getPassword().isEmpty()) {
-            user.setPassword(userDetails.getPassword());
+            user.setPassword(passwordEncoder.encode(userDetails.getPassword()));
+            System.out.println("ENCODED PASSWORD (update) = " + user.getPassword());
         }
-        
+
         return userRepository.save(user);
     }
 
@@ -71,4 +88,5 @@ public class UserService {
         return userRoleRepository.findByUserId(userId);
     }
 }
+
 
