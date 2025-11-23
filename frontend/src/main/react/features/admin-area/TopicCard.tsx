@@ -35,6 +35,8 @@ type TopicCardProps = {
 
 const TopicCard = ({ t, onDelete, onEdit, onManage }: TopicCardProps) => {
   const isLight = isColorLight(SECONDARY);
+  const [statusOpen, setStatusOpen] = React.useState(false);
+  const [isActive, setIsActive] = React.useState(true);
 
   const textColor = isLight ? "text-black" : "text-white";
   const textColorSoft = isLight ? "text-black/50" : "text-white/80";
@@ -61,15 +63,52 @@ const TopicCard = ({ t, onDelete, onEdit, onManage }: TopicCardProps) => {
             <FileText size={23} className={textColorSoft} />
           </div>
 
-          <span
-            className="
-              px-3 py-1 rounded-xl 
-              bg-green-500 text-white text-xs font-semibold
-              shadow-sm
-            "
-          >
-            Aktiv
-          </span>
+          <div className="relative">
+            {/* Status Button */}
+            <button
+              onClick={() => setStatusOpen(!statusOpen)}
+              className={`
+                    px-3 py-1 rounded-xl text-xs font-semibold shadow-sm transition
+                    ${
+                      isActive
+                        ? "bg-green-500 text-white"
+                        : "bg-red-500 text-white"
+                    }
+             `}
+            >
+              {isActive ? "Aktiv" : "Inaktiv"}
+            </button>
+
+            {/* Dropdown */}
+            {statusOpen && (
+              <div
+                className="
+                  absolute right-0 mt-2 w-32 bg-white rounded-xl shadow-lg border
+                  flex flex-col text-sm overflow-hidden z-50
+                "
+              >
+                <button
+                  className="px-3 py-2 hover:bg-green-50 text-left"
+                  onClick={() => {
+                    setIsActive(true);
+                    setStatusOpen(false);
+                  }}
+                >
+                  ✅ Aktiv
+                </button>
+
+                <button
+                  className="px-3 py-2 hover:bg-red-50 text-left"
+                  onClick={() => {
+                    setIsActive(false);
+                    setStatusOpen(false);
+                  }}
+                >
+                  ⛔ Inaktiv
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* TITLE */}
@@ -104,23 +143,18 @@ const TopicCard = ({ t, onDelete, onEdit, onManage }: TopicCardProps) => {
         {/* BUTTONS */}
         <div className="flex items-center gap-2 mt-1">
           <button
-            onClick={() => onManage(t)}
+            onClick={() => onDelete(t)}
             className="
-    group flex-1 bg-white text-gray-900 font-medium rounded-lg py-2
-    flex items-center justify-center gap-2 shadow-sm
-    hover:bg-[#a6c9e4ff]  transition-all text-sm
-  "
+              w-10 h-10 rounded-xl bg-[#486c88de]
+              flex items-center justify-center shadow-sm border border-white/20
+              hover:bg-red-500/20 transition-all
+            "
           >
-            Fragen Verwalten
-            <ArrowRight
-              size={16}
-              className="transition-transform duration-200 group-hover:translate-x-2"
-            />
+            <Trash2 size={18} className={textColor} />
           </button>
-
           <button
             className="
-                          w-10 h-10 rounded-xl bg-[#3f5568]
+                          w-10 h-10 rounded-xl bg-[#486c88de]
                           flex items-center justify-center shadow-sm border border-white/20
                           hover:bg-blue-500/20 transition-all
                         "
@@ -131,7 +165,7 @@ const TopicCard = ({ t, onDelete, onEdit, onManage }: TopicCardProps) => {
           <button
             onClick={() => onEdit(t)}
             className="
-              w-10 h-10 rounded-xl bg-[#3f5568]
+              w-20 h-10 rounded-xl bg-[#486c88de]
               flex items-center justify-center shadow-sm border border-white/20
               hover:bg-green-500/20 transition-all
             "
@@ -140,14 +174,18 @@ const TopicCard = ({ t, onDelete, onEdit, onManage }: TopicCardProps) => {
           </button>
 
           <button
-            onClick={() => onDelete(t)}
+            onClick={() => onManage(t)}
             className="
-              w-10 h-10 rounded-xl bg-[#3f5568]
-              flex items-center justify-center shadow-sm border border-white/20
-              hover:bg-red-500/20 transition-all
-            "
+                    group flex-1 bg-[#d2e0e8ff] text-gray-900 font-medium rounded-lg py-2
+                    flex items-center justify-center gap-2 shadow-sm
+                    hover:bg-[#E3BB62]  transition-all text-sm
+                  "
           >
-            <Trash2 size={18} className={textColor} />
+            Fragen Verwalten
+            <ArrowRight
+              size={16}
+              className="transition-transform duration-200 group-hover:translate-x-2"
+            />
           </button>
         </div>
       </div>

@@ -106,8 +106,7 @@ export default function ConditionEditor() {
 
   const [draggingId, setDraggingId] = useState<string | null>(null);
 
-  
-  
+  const [isRequired, setIsRequired] = useState(false);
 
   // 🔁 Rekursive Funktion, die ALLE Kinder bis zur tiefsten Ebene lädt
   async function fetchChildrenRecursive(parentId: string): Promise<any[]> {
@@ -163,6 +162,13 @@ export default function ConditionEditor() {
       return [];
     }
   }
+
+  // 🔹 frage Requiredn
+  useEffect(() => {
+    if (editingQuestion) {
+      setIsRequired(editingQuestion.required ?? false);
+    }
+  }, [editingQuestion]);
 
   // 🔹 Wenn Fragetyp gewechselt wird → automatisch 2 leere Antwortoptionen erzeugen (wenn hasOptions = true)
   useEffect(() => {
@@ -815,7 +821,6 @@ export default function ConditionEditor() {
 
     const style = {
       transform: CSS.Transform.toString(transform),
-
       marginLeft: level > 0 ? 25 : 0,
     };
 
@@ -852,12 +857,19 @@ export default function ConditionEditor() {
     return (
       <div ref={setNodeRef} style={style} className="mt-3">
         {/* Karten-Header */}
-        <div className="flex items-center justify-between bg-white rounded-xl shadow-sm border border-gray-300 px-4 py-3">
+        <div
+          className={
+            "flex items-center justify-between bg-white rounded-xl shadow-sm px-4 py-3 border " +
+            (isThisDragging ? "drag-active-highlight" : "border-gray-300")
+          }
+        >
           <div className="flex items-start gap-3">
             {/* Grip */}
             <GripVertical
-              size={18}
-              className="text-gray-400 cursor-grab mt-1"
+              size={20}
+              className={`cursor-grab mt-1 transition-all duration-150
+  ${draggingId === q.id ? "text-green-500 scale-110" : "text-gray-400"}
+`}
               {...attributes}
               onPointerDown={handleGripDown}
             />
@@ -1101,7 +1113,7 @@ export default function ConditionEditor() {
       </div>
 
       {/* Fragenliste mit DnD */}
-      <div className="px-10 pt-8">
+      <div className="px-10 pt-8 pb-10">
         <div style={{ position: "relative", overflow: "hidden" }}>
           <DndContext
             collisionDetection={closestCorners}
@@ -1245,7 +1257,7 @@ export default function ConditionEditor() {
                 )}
               </div>
 
-              {/* 🔸 Fragetyp */}
+             
               {/* 🔸 Fragetyp */}
               <div className="mb-6 mt-6">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1272,7 +1284,7 @@ export default function ConditionEditor() {
                       }}
                       className={`flex items-center justify-start gap-3 border rounded-lg py-3 px-4 text-left font-medium text-sm transition-all duration-150 ${
                         selectedType?.id === type.id
-                          ? "bg-brand-sand border-brand-sand text-white shadow-md"
+                          ? "bg-brand-sand border-brand-sand text-black shadow-md"
                           : errorType
                           ? "border-red-500 text-gray-800 hover:bg-gray-50"
                           : "border-gray-300 text-gray-800 hover:bg-gray-50"
@@ -1286,6 +1298,36 @@ export default function ConditionEditor() {
                 {errorType && (
                   <p className="text-red-500 text-xs mt-1">{errorType}</p>
                 )}
+              </div>
+
+              {/* 🔸 Pflichtfeld */}
+              <div className="mt-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Antwort notwendig
+                </label>
+
+                <div className="flex items-center justify-between bg-gray-50 border border-gray-300 rounded-xl px-4 py-3">
+                  <div>
+                    <p className="text-sm text-black-500">
+                      Muss beantwortet werden  Diese Frage ?
+                    </p>
+                  </div>
+
+                  {/* TOGGLE SWITCH */}
+                  <button
+                    type="button"
+                    onClick={() => setIsRequired(!isRequired)}
+                    className={`w-12 h-7 flex items-center rounded-full transition-all ${
+                      isRequired ? "bg-[#d2c9b9]" : "bg-gray-300"
+                    }`}
+                  >
+                    <span
+                      className={`w-5 h-5 bg-white rounded-full shadow transform transition-all ${
+                        isRequired ? "translate-x-6" : "translate-x-1"
+                      }`}
+                    ></span>
+                  </button>
+                </div>
               </div>
 
               {/* 🔸 Antwortoptionen */}
