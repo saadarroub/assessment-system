@@ -4,6 +4,7 @@ export type UserApi = {
   id: string;
   name: string;
   email: string;
+  roles?: string[];
   created_at?: string;
   updatedAt?: string;
 };
@@ -22,17 +23,43 @@ export async function getUser(id: string): Promise<UserApi> {
   return data;
 }
 
-/** Holt Rollen für einen User und gibt nur die Namen zurück */
+/** Holt Rollen für einen User und gibt Role-IDs oder Namen zurück */
 export async function getUserRoles(userId: string): Promise<string[]> {
-  const { data } = await apiClient.get<any[]>(`/users/${encodeURIComponent(userId)}/roles`, {
-    headers: { Accept: "application/json" },
-  });
+  const { data } = await apiClient.get(
+    `/users/${encodeURIComponent(userId)}/roles`,
+    { headers: { Accept: "application/json" } }
+  );
 
-  if (!Array.isArray(data)) return [];
-  return data
-    .map((x: any) => x?.role?.name)
-    .filter((r: unknown): r is string => typeof r === "string" && r.length > 0);
+  console.log("getUserRoles raw", userId, data);
+
+  // Rekursiv durch das JSON laufen und alle roleId-Strings einsammeln
+  const collectRoleIds = (value: any, acc: Set<string>) => {
+    if (!value) return;
+
+    if (Array.isArray(value)) {
+      value.forEach((v) => collectRoleIds(v, acc));
+      return;
+    }
+
+    if (typeof value === "object") {
+      for (const [key, v] of Object.entries(value)) {
+        if (key === "roleId" && typeof v === "string") {
+          acc.add(v); // roleId gefunden
+        }
+        collectRoleIds(v, acc); // weiter ins nächste Level
+      }
+    }
+  };
+
+  const ids = new Set<string>();
+  collectRoleIds(data, ids);
+
+  const result = Array.from(ids);
+  console.log("getUserRoles parsed IDs", userId, result);
+
+  return result;
 }
+
 
 export type CreateUserDto = { name: string; email: string; password: string; roleId: string };
 

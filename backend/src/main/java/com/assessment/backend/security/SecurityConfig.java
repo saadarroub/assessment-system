@@ -38,7 +38,12 @@ public class SecurityConfig {
                 // Public Endpoints (kein Token erforderlich)
                 .requestMatchers("/api/auth/login", "/api/auth/refresh", "/api/auth/logout").permitAll()
                 .requestMatchers("/public/access/**").permitAll()
-                
+                .requestMatchers(HttpMethod.POST, "/api/users").permitAll()
+                .requestMatchers("/api/worker-catalog/**").permitAll() 
+                .requestMatchers("/api/thema-catalogs/**").permitAll()
+                .requestMatchers("/api/question-catalogs/**").permitAll()
+                .requestMatchers("/api/question-nodes/**").permitAll()
+                .requestMatchers("/api/assessments/**").permitAll()
                 // Alle anderen Requests: Nur Authentication erforderlich
                 // Permission-Checks passieren via @PreAuthorize in Controllern
                 .anyRequest().authenticated()

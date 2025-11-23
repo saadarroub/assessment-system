@@ -56,7 +56,7 @@ const CSS = {
 
 export default function UsersPage() {
   const { showSuccess, showError } = useToast();
-  
+
   const [items, setItems] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [rolesLoading, setRolesLoading] = useState(false);
@@ -94,7 +94,7 @@ export default function UsersPage() {
   const [updating, setUpdating] = useState(false);
   const [updateError, setUpdateError] = useState<string | null>(null);
 
-  // 1) Users
+  // Users
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -111,7 +111,7 @@ export default function UsersPage() {
     return () => { alive = false; };
   }, []);
 
-  // 1b) Load available roles
+  // Load available roles
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -126,33 +126,46 @@ export default function UsersPage() {
       alive = false;
     };
   }, []);
-
-  // 2) Roles per user
+  // Roles per user – speichere nur roleIds im State
   useEffect(() => {
     if (!items.length) return;
+
     let alive = true;
     setRolesLoading(true);
+
     (async () => {
       try {
         const pairs = await Promise.all(
           items.map(async (u) => {
             try {
-              const roles = await getUserRoles(u.id);
-              return [u.id, roles] as const;
+              const roleIds = await getUserRoles(u.id); // string[]: roleIds
+              return [u.id, roleIds] as const;
             } catch {
               return [u.id, [] as string[]] as const;
             }
           })
         );
+
         if (!alive) return;
+
         const rolesById = Object.fromEntries(pairs) as Record<string, string[]>;
-        setItems((prev) => prev.map((u) => ({ ...u, roles: rolesById[u.id] ?? [] })));
+
+        setItems((prev) =>
+          prev.map((u) => ({
+            ...u,
+            roles: rolesById[u.id] ?? [],
+          }))
+        );
       } finally {
         if (alive) setRolesLoading(false);
       }
     })();
-    return () => { alive = false; };
+
+    return () => {
+      alive = false;
+    };
   }, [items.length]);
+
 
   // Filter + Sort
   const filtered = useMemo(() => {
@@ -349,23 +362,23 @@ export default function UsersPage() {
           <div className="justify-self-center">
             <div className="[&>h1]:text-[clamp(28px,6vw,56px)] [&>h1]:font-extrabold [&>h1]:tracking-[-0.02em] [&>h1]:m-0 [&>h1]:mb-4 [&>h1]:leading-[1.05]
              [&>h1]:text-[#264555] [&>p]:mt-0 [&>p]:text-[#334155] [&>p]:opacity-90 [&>p]:text-[clamp(14px,1.6vw,18px)]">
-               <div className="flex items-center justify-center gap-4">
-          <img
-            src={myLogo}
-            alt="Dein Logo"
-            className="h-[200px] w-[200px] object-contain shrink-0"
-            width={200}
-            height={200}
-          />
-          <div className="text-center">
-            <h1 className="text-[clamp(28px,6vw,56px)] font-extrabold tracking-[-0.02em] mb-2 leading-[1.05] text-[#264555]">
-              Benutzer Administration
-            </h1>
-            <p className="mt-0 text-[#334155]/90 text-[clamp(14px,1.6vw,18px)]">
-            Benutzerkonten von CapConsulting , Rollen und Berechtigungen verwalten
-            </p>
-          </div>
-        </div>
+              <div className="flex items-center justify-center gap-4">
+                <img
+                  src={myLogo}
+                  alt="Dein Logo"
+                  className="h-[200px] w-[200px] object-contain shrink-0"
+                  width={200}
+                  height={200}
+                />
+                <div className="text-center">
+                  <h1 className="text-[clamp(28px,6vw,56px)] font-extrabold tracking-[-0.02em] mb-2 leading-[1.05] text-[#264555]">
+                    Benutzer Administration
+                  </h1>
+                  <p className="mt-0 text-[#334155]/90 text-[clamp(14px,1.6vw,18px)]">
+                    Benutzerkonten von CapConsulting , Rollen und Berechtigungen verwalten
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
           <div className="justify-self-end inline-flex lg:justify-self-center" />
@@ -440,136 +453,146 @@ export default function UsersPage() {
 
             {/* Table */}
             <div className="overflow-x-auto">
-            <table className="w-full border-collapse bg-[hsl(var(--card))]">
-              <thead
-                className="bg-[hsla(200,32%,22%,0.05)]"
-                style={{ borderBottom: "2px solid hsla(200,32%,22%,0.1)" }}
-              >
-                <tr>
-                  {[
-                    { k: "name", label: "Name" },
-                    { k: "email", label: "Email" },
-                    { k: null, label: "Roles" },
-                    { k: "status", label: "Status" },
-                    { k: "lastLogin", label: "Last Login" },
-                    { k: null, label: "Actions" },
-                  ].map((col, idx) => (
-                    <th
-                      key={idx}
-                      className={`px-4 py-3 text-[0.85rem] font-semibold ${col.label === "Actions" ? "text-center" : "text-left"}`}
-                      style={{ color: CSS.fg }}
-                    >
-                      {col.k ? (
-                        <button
-                          type="button"
-                          onClick={() => setSort(col.k as SortKey)}
-                          className="inline-flex items-center gap-2 hover:brightness-110"
-                          style={{ color: "inherit" }}
-                        >
+              <table className="w-full border-collapse bg-[hsl(var(--card))]">
+                <thead
+                  className="bg-[hsla(200,32%,22%,0.05)]"
+                  style={{ borderBottom: "2px solid hsla(200,32%,22%,0.1)" }}
+                >
+                  <tr>
+                    {[
+                      { k: "name", label: "Name" },
+                      { k: "email", label: "Email" },
+                      { k: null, label: "Roles" },
+                      { k: "status", label: "Status" },
+                      { k: "lastLogin", label: "Last Login" },
+                      { k: null, label: "Actions" },
+                    ].map((col, idx) => (
+                      <th
+                        key={idx}
+                        className={`px-4 py-3 text-[0.85rem] font-semibold ${col.label === "Actions" ? "text-center" : "text-left"}`}
+                        style={{ color: CSS.fg }}
+                      >
+                        {col.k ? (
+                          <button
+                            type="button"
+                            onClick={() => setSort(col.k as SortKey)}
+                            className="inline-flex items-center gap-2 hover:brightness-110"
+                            style={{ color: "inherit" }}
+                          >
+                            <span>{col.label}</span>
+                            <ArrowUpDown size={14} className="opacity-60" />
+                          </button>
+                        ) : (
                           <span>{col.label}</span>
-                          <ArrowUpDown size={14} className="opacity-60" />
-                        </button>
-                      ) : (
-                        <span>{col.label}</span>
-                      )}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-
-              <tbody>
-                {loading ? (
-                  <tr>
-                    <td colSpan={6} className="px-4 py-4">Lade Users…</td>
+                        )}
+                      </th>
+                    ))}
                   </tr>
-                ) : filtered.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="px-4 py-4">Keine Einträge gefunden.</td>
-                  </tr>
-                ) : (
-                  pageData.map((u) => (
-                    <tr key={u.id} className="transition border-l-[4px] border-transparent hover:bg-[hsla(40,60%,63%,0.05)] hover:border-[hsl(40,60%,63%)]">
-                      <td className="px-4 py-4 font-semibold" style={{ borderBottom: `1px solid ${CSS.border}` }}>{u.name}</td>
-                      <td className="px-4 py-4 text-[0.875rem]" style={{ color: CSS.mutedFg, borderBottom: `1px solid ${CSS.border}` }}>{u.email}</td>
-                      <td className="px-4 py-4" style={{ borderBottom: `1px solid ${CSS.border}` }}>
-                        <div className="flex flex-wrap gap-2">
-                          {rolesLoading && u.roles.length === 0 ? (
-                            <span className="text-[0.875rem]" style={{ color: CSS.mutedFg }}>…</span>
-                          ) : u.roles.length ? (
-                            u.roles.map((r) => (
-                              <span key={r} className="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold bg-[#e5ebf0] text-[#264555]">{r}</span>
-                            ))
-                          ) : (
-                            <span className="text-[0.875rem]" style={{ color: CSS.mutedFg }}>—</span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-4 py-4" style={{ borderBottom: `1px solid ${CSS.border}` }}>
-                        <span
-                          className={
-                            u.status === "active"
-                              ? "inline-flex items-center rounded-full px-2.5 py-1 text-[12px] font-semibold bg-[rgb(220,252,231)] text-[rgb(22,101,52)]"
-                              : u.status === "invited"
-                                ? "inline-flex items-center rounded-full px-2.5 py-1 text-[12px] font-semibold bg-[rgb(254,243,199)] text-[rgb(146,64,14)]"
-                                : "inline-flex items-center rounded-full px-2.5 py-1 text-[12px] font-semibold bg-[rgb(254,226,226)] text-[rgb(153,27,27)]"
-                          }
-                        >
-                          {u.status}
-                        </span>
-                      </td>
-                      <td className="px-4 py-4 text-[0.875rem]" style={{ color: CSS.mutedFg, borderBottom: `1px solid ${CSS.border}` }}>
-                        {u.lastLogin ? new Date(u.lastLogin).toLocaleDateString("de-DE") : "Never"}
-                      </td>
-                      <td className="px-4 py-4 text-center whitespace-nowrap" style={{ borderBottom: `1px solid ${CSS.border}` }}>
-                        <div className="inline-flex items-center justify-center gap-2">
-                          {/* View (wie bisher) */}
-                          <Link
-                            to={`/admin/adminPanel/users/${u.id}`}
-                            title="View"
-                            className="inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-semibold text-white shadow hover:brightness-110 bg-[#264555]"
-                            style={{
-                              background: "hsl(40,60%,63%)",           // Gelb wie in Zuweisungen
-                              color: "hsl(200,32%,22%)"                 // dunkles Blau-Grau für Text/Icon
-                            }}
-                          >
-                            <Eye size={14} />
-                            <span className="hidden sm:inline">View</span>
-                          </Link>
+                </thead>
 
-                          {/* NEW: Edit Icon-Button (öffnet Edit-Modal) */}
-                          <button
-                            type="button"
-                            aria-label="Edit user"
-                            onClick={() => openEditFor(u)}
-                            title="Edit"
-                            className="inline-flex items-center justify-center w-8 h-8 rounded-md border hover:bg-slate-50"
-                            style={{ borderColor: CSS.border, color: CSS.fg }}
-                          >
-                            <Pencil size={16} />
-                          </button>
-
-                          {/* Delete (wie bisher) */}
-                          <button
-                            type="button"
-                            aria-label="Delete user"
-                            onClick={() => askDelete(u)}
-                            title="Löschen"
-                            className="inline-flex items-center justify-center w-8 h-8 rounded-md border text-red-600 hover:bg-red-50"
-                            style={{ borderColor: "rgb(254 202 202)" }}
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
-                      </td>
+                <tbody>
+                  {loading ? (
+                    <tr>
+                      <td colSpan={6} className="px-4 py-4">Lade Users…</td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                  ) : filtered.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="px-4 py-4">Keine Einträge gefunden.</td>
+                    </tr>
+                  ) : (
+                    pageData.map((u) => (
+                      <tr key={u.id} className="transition border-l-[4px] border-transparent hover:bg-[hsla(40,60%,63%,0.05)] hover:border-[hsl(40,60%,63%)]">
+                        <td className="px-4 py-4 font-semibold" style={{ borderBottom: `1px solid ${CSS.border}` }}>{u.name}</td>
+                        <td className="px-4 py-4 text-[0.875rem]" style={{ color: CSS.mutedFg, borderBottom: `1px solid ${CSS.border}` }}>{u.email}</td>
+                        <td className="px-4 py-4" style={{ borderBottom: `1px solid ${CSS.border}` }}>
+                          <div className="flex flex-wrap gap-2">
+                            {rolesLoading && u.roles.length === 0 ? (
+                              <span className="text-[0.875rem]" style={{ color: CSS.mutedFg }}>…</span>
+                            ) : u.roles.length ? (
+                             u.roles.map((roleId) => {
+    const role = availableRoles.find((r) => r.id === roleId);
+    const label = role ? role.name : roleId; // Fallback: ID
+
+    return (
+      <span
+        key={roleId}
+        className="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold bg-[#e5ebf0] text-[#264555]"
+      >
+        {label}
+      </span>
+    );
+  })
+                            ) : (
+                              <span className="text-[0.875rem]" style={{ color: CSS.mutedFg }}>—</span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-4 py-4" style={{ borderBottom: `1px solid ${CSS.border}` }}>
+                          <span
+                            className={
+                              u.status === "active"
+                                ? "inline-flex items-center rounded-full px-2.5 py-1 text-[12px] font-semibold bg-[rgb(220,252,231)] text-[rgb(22,101,52)]"
+                                : u.status === "invited"
+                                  ? "inline-flex items-center rounded-full px-2.5 py-1 text-[12px] font-semibold bg-[rgb(254,243,199)] text-[rgb(146,64,14)]"
+                                  : "inline-flex items-center rounded-full px-2.5 py-1 text-[12px] font-semibold bg-[rgb(254,226,226)] text-[rgb(153,27,27)]"
+                            }
+                          >
+                            {u.status}
+                          </span>
+                        </td>
+                        <td className="px-4 py-4 text-[0.875rem]" style={{ color: CSS.mutedFg, borderBottom: `1px solid ${CSS.border}` }}>
+                          {u.lastLogin ? new Date(u.lastLogin).toLocaleDateString("de-DE") : "Never"}
+                        </td>
+                        <td className="px-4 py-4 text-center whitespace-nowrap" style={{ borderBottom: `1px solid ${CSS.border}` }}>
+                          <div className="inline-flex items-center justify-center gap-2">
+                            {/* View (wie bisher) */}
+                            <Link
+                              to={`/admin/adminPanel/users/${u.id}`}
+                              title="View"
+                              className="inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-semibold text-white shadow hover:brightness-110 bg-[#264555]"
+                              style={{
+                                background: "hsl(40,60%,63%)",           // Gelb wie in Zuweisungen
+                                color: "hsl(200,32%,22%)"                 // dunkles Blau-Grau für Text/Icon
+                              }}
+                            >
+                              <Eye size={14} />
+                              <span className="hidden sm:inline">View</span>
+                            </Link>
+
+                            {/* NEW: Edit Icon-Button (öffnet Edit-Modal) */}
+                            <button
+                              type="button"
+                              aria-label="Edit user"
+                              onClick={() => openEditFor(u)}
+                              title="Edit"
+                              className="inline-flex items-center justify-center w-8 h-8 rounded-md border hover:bg-slate-50"
+                              style={{ borderColor: CSS.border, color: CSS.fg }}
+                            >
+                              <Pencil size={16} />
+                            </button>
+
+                            {/* Delete (wie bisher) */}
+                            <button
+                              type="button"
+                              aria-label="Delete user"
+                              onClick={() => askDelete(u)}
+                              title="Löschen"
+                              className="inline-flex items-center justify-center w-8 h-8 rounded-md border text-red-600 hover:bg-red-50"
+                              style={{ borderColor: "rgb(254 202 202)" }}
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </section>
         </WithPermissionCheck>
-        
+
         {/* === Pagination (abgesetzt, wie Zuweisungen) === */}
         <div
           className="max-w-[1400px] xl:max-w-[1600px] mx-auto mt-4 rounded-[12px] border bg-white/85 px-4 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
