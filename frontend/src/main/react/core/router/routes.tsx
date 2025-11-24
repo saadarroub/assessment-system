@@ -90,8 +90,7 @@ export default function AppRoutes() {
       <Route
         path="/app/assessments"
         element={
-
-          <ProtectedRoute>
+          <ProtectedRoute allowWithToken>
             <AssessmentPage />
           </ProtectedRoute>
         }
