@@ -53,6 +53,12 @@ public class ThemaService {
         return themaRepository.findByNameContainingIgnoreCase(name);
     }
 
+    // Read - By the Active Status
+    public List<Thema> getActiveStatus() { return themaRepository.findByStatus("active");}
+
+    // Read - By the Inactive Status
+    public List<Thema> getInactiveStatus() { return themaRepository.findByStatus("inactive");}
+
     // Update
     public Thema updateThema(UUID id, Thema themaDetails) {
         Thema thema = themaRepository.findById(id)
@@ -63,6 +69,42 @@ public class ThemaService {
         
         return themaRepository.save(thema);
     }
+
+    //Update
+    public Thema changeStatus(UUID id) {
+        Thema thema = themaRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Thema not found with id: " + id));
+
+        String currentStatus = thema.getStatus();
+
+        if(currentStatus.equals("active")){
+
+          thema.setStatus("inactive");
+
+        }else{
+
+          thema.setStatus("active");
+
+        }
+
+        return themaRepository.save(thema);
+
+    }
+
+    //Update
+  public List<Thema> deactivateAll(){
+
+      List<Thema>themas = themaRepository.findByStatus("active");
+
+      for(Thema t : themas){
+
+        t.setStatus("inactive");
+
+      }
+
+      return themaRepository.saveAll(themas);
+
+  }
 
     // Delete
     public void deleteThema(UUID id) {

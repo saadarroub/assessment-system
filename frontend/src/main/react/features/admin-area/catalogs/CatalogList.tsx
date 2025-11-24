@@ -56,6 +56,7 @@ export default function CatalogList() {
 
   // oben bei den States hinzufügen:
   const [hasSubmitted, setHasSubmitted] = useState(false);
+  const [isRequired, setIsRequired] = useState(true); // Standard: true (Pflichtfrage)
 
   // 🔹 Frage speichern → anlegen + mit Thema verknüpfen
    const handleConfirm = async () => {
@@ -139,12 +140,13 @@ export default function CatalogList() {
 
     try {
       const question = await createQuestion(payload);
-      await createQuestionNode(themaId!, question.id);
+      await createQuestionNode(themaId!, question.id, null, isRequired);
 
       setIsModalOpen(false);
       setQuestionText("");
       setSelectedType(null);
       setOptions([]);
+      setIsRequired(true); // Zurücksetzen auf Standard
 
       navigate(`/admin/catalogs/${themaId}/condition-editor`);
     } catch (error) {
@@ -157,6 +159,7 @@ export default function CatalogList() {
     setQuestionText("");
     setSelectedType("");
     setOptions([]);
+    setIsRequired(true); // Zurücksetzen auf Standard
     setIsModalOpen(false);
   };
 
@@ -402,6 +405,36 @@ export default function CatalogList() {
                 {errorType && (
                   <p className="text-red-500 text-xs mt-1">{errorType}</p>
                 )}
+              </div>
+
+              {/* Required Toggle */}
+              <div className="mt-6 mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Antwort notwendig
+                </label>
+
+                <div className="flex items-center justify-between bg-gray-50 border border-gray-300 rounded-xl px-4 py-3">
+                  <div>
+                    <p className="text-sm text-black-500">
+                      Muss beantwortet werden diese Frage?
+                    </p>
+                  </div>
+
+                  {/* TOGGLE SWITCH */}
+                  <button
+                    type="button"
+                    onClick={() => setIsRequired(!isRequired)}
+                    className={`w-12 h-7 flex items-center rounded-full transition-all ${
+                      isRequired ? "bg-[#d2c9b9]" : "bg-gray-300"
+                    }`}
+                  >
+                    <span
+                      className={`w-5 h-5 bg-white rounded-full shadow transform transition-all ${
+                        isRequired ? "translate-x-6" : "translate-x-1"
+                      }`}
+                    ></span>
+                  </button>
+                </div>
               </div>
 
               {/* Antwortmöglichkeiten */}

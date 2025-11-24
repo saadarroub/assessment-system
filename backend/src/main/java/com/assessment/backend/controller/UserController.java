@@ -4,6 +4,7 @@ import com.assessment.backend.dto.UserSummaryDTO;
 import com.assessment.backend.entity.User;
 import com.assessment.backend.entity.UserRole;
 import com.assessment.backend.service.UserService;
+import com.assessment.backend.service.RolePermissionService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -16,18 +17,23 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/users")
 @CrossOrigin(origins = "*")
+
 public class UserController {
+
 
     @Autowired
     private UserService userService;
+
+    @Autowired
+    private RolePermissionService rolePermissionService;
 
     @PreAuthorize("hasAuthority('users.view')")
     @GetMapping
     public ResponseEntity<List<UserSummaryDTO>> getAllUsers() {
         List<UserSummaryDTO> users = userService.getAllUsers()
-                .stream()
-                .map(UserSummaryDTO::fromEntity)
-                .toList();
+            .stream()
+            .map(user -> UserSummaryDTO.fromEntity(user, rolePermissionService))
+            .toList();
         return ResponseEntity.ok(users);
     }
 
@@ -35,23 +41,23 @@ public class UserController {
     @GetMapping("/{id}")
     public ResponseEntity<UserSummaryDTO> getUserById(@PathVariable UUID id) {
         return userService.getUserById(id)
-                .map(UserSummaryDTO::fromEntity)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+            .map(user -> UserSummaryDTO.fromEntity(user, rolePermissionService))
+            .map(ResponseEntity::ok)
+            .orElse(ResponseEntity.notFound().build());
     }
 
     //@PreAuthorize("hasAuthority('users.create')")
     @PostMapping
     public ResponseEntity<UserSummaryDTO> createUser(@RequestBody CreateUserWithRoleRequest request) {
         User createdUser = userService.createUserWithRole(request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(UserSummaryDTO.fromEntity(createdUser));
+        return ResponseEntity.status(HttpStatus.CREATED).body(UserSummaryDTO.fromEntity(createdUser, rolePermissionService));
     }
 
     @PreAuthorize("hasAuthority('users.edit')")
     @PutMapping("/{id}")
     public ResponseEntity<UserSummaryDTO> updateUser(@PathVariable UUID id, @RequestBody User user) {
         User updatedUser = userService.updateUser(id, user);
-        return ResponseEntity.ok(UserSummaryDTO.fromEntity(updatedUser));
+        return ResponseEntity.ok(UserSummaryDTO.fromEntity(updatedUser, rolePermissionService));
     }
 
     @PreAuthorize("hasAuthority('users.delete')")

@@ -1,15 +1,26 @@
 package com.assessment.backend.controller;
 
-import com.assessment.backend.entity.QuestionNode;
-import com.assessment.backend.service.QuestionNodeService;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.assessment.backend.entity.QuestionNode;
+import com.assessment.backend.service.QuestionNodeService;
 
 @RestController
 @RequestMapping("/api/question-nodes")
@@ -255,16 +266,28 @@ public class QuestionNodeController {
 
     // Update Required Status - PATCH /api/question-nodes/{id}/required
     @PatchMapping("/{id}/required")
-    public ResponseEntity<QuestionNode> updateRequiredStatus(
+    public ResponseEntity<?> updateRequiredStatus(
             @PathVariable("id") UUID id,
             @RequestParam("isRequired") Boolean isRequired) {
         try {
+            if (isRequired == null) {
+                return new ResponseEntity<>(
+                    java.util.Map.of("error", "isRequired parameter is required"), 
+                    HttpStatus.BAD_REQUEST
+                );
+            }
             QuestionNode updatedNode = questionNodeService.updateRequiredStatus(id, isRequired);
             return new ResponseEntity<>(updatedNode, HttpStatus.OK);
         } catch (RuntimeException e) {
-            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+            return new ResponseEntity<>(
+                java.util.Map.of("error", e.getMessage()), 
+                HttpStatus.NOT_FOUND
+            );
         } catch (Exception e) {
-            return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
+            return new ResponseEntity<>(
+                java.util.Map.of("error", "Internal server error: " + e.getMessage()), 
+                HttpStatus.INTERNAL_SERVER_ERROR
+            );
         }
     }
 

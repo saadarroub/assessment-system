@@ -32,6 +32,7 @@ import {
   createQuestionNode,
   getQuestionTypes,
   updateQuestion,
+  updateQuestionNodeRequired,
   moveRootNode,
   moveChildNode,
 } from "@/api/questionApi";
@@ -107,7 +108,7 @@ export default function ConditionEditor() {
 
   const [draggingId, setDraggingId] = useState<string | null>(null);
 
-  const [isRequired, setIsRequired] = useState(false);
+  const [isRequired, setIsRequired] = useState(true); // Standard: true (Pflichtfrage)
 
  
 
@@ -154,6 +155,7 @@ export default function ConditionEditor() {
             type: child.question?.questionType?.inputType || "unknown",
             options: parsedOptions, // ✅
             scoringSchema: parsedScoring, // ✅
+            required: child.isRequired ?? true, // ✅ isRequired Feld aus Backend
             expanded: false,
             children: await fetchChildrenRecursive(child.id),
           };
@@ -170,7 +172,15 @@ export default function ConditionEditor() {
   // 🔹 frage Requiredn
   useEffect(() => {
     if (editingQuestion) {
-      setIsRequired(editingQuestion.required ?? false);
+      // Wenn required explizit gesetzt ist (true oder false), verwende diesen Wert
+      // Ansonsten Standard: true
+      const requiredValue = editingQuestion.required !== undefined && editingQuestion.required !== null
+        ? editingQuestion.required
+        : true;
+      setIsRequired(requiredValue);
+    } else {
+      // Beim Erstellen einer neuen Frage: Standard auf true setzen
+      setIsRequired(true);
     }
   }, [editingQuestion]);
 
@@ -342,6 +352,7 @@ export default function ConditionEditor() {
               type: root.question?.questionType?.inputType || "unknown",
               options: parsedOptions, // ✅ korrigiert
               scoringSchema: parsedScoring, // ✅ korrigiert
+              required: root.isRequired ?? true, // ✅ isRequired Feld aus Backend
               expanded: false,
               children: await fetchChildrenRecursive(root.id),
             };
@@ -360,6 +371,7 @@ export default function ConditionEditor() {
 
   const handleAddQuestion = () => {
     setParentQuestion(null);
+    setIsRequired(true); // Standard: true beim Öffnen für neue Frage
     setIsModalOpen(true);
   };
 
@@ -369,6 +381,7 @@ export default function ConditionEditor() {
     setOptions([]);
     setParentQuestion(null);
     setEditingQuestion(null);
+    setIsRequired(true); // Standard: true zurücksetzen
 
     // ❗❗ FIX: Fehlerstatus komplett zurücksetzen
     setHasSubmitted(false);
@@ -533,7 +546,8 @@ export default function ConditionEditor() {
       const node = await createQuestionNode(
         themaId!,
         question.id,
-        parentQuestion ? parentQuestion.id : null
+        parentQuestion ? parentQuestion.id : null,
+        isRequired // Verwende den isRequired State
       );
 
       const newQuestion = {
@@ -545,6 +559,7 @@ export default function ConditionEditor() {
         scoringSchema: Object.fromEntries(
           options.map((o) => [o.label, o.score])
         ),
+        required: isRequired, // ✅ isRequired Feld hinzufügen
         children: [],
         expanded: false,
       };
@@ -566,6 +581,7 @@ export default function ConditionEditor() {
       setSelectedType("");
       setOptions([]);
       setParentQuestion(null);
+      setIsRequired(true); // Standard: true zurücksetzen
     } catch (error) {
       console.error("❌ Fehler beim Hinzufügen der Frage:", error);
       alert("❌ Fehler beim Hinzufügen der Frage!");
@@ -660,8 +676,13 @@ export default function ConditionEditor() {
       };
 
       await updateQuestion(editingQuestion.questionId, payload);
+      
+      // 🔹 isRequired Status aktualisieren (wenn sich geändert hat)
+      if (editingQuestion.required !== isRequired) {
+        await updateQuestionNodeRequired(editingQuestion.id, isRequired);
+      }
 
-      // 🧱 UI aktualisieren (auch scoringSchema)
+      // 🧱 UI aktualisieren (auch scoringSchema und required)
       const updateQuestionInTree = (list: any[]): any[] =>
         list.map((q) =>
           q.id === editingQuestion.id
@@ -673,6 +694,7 @@ export default function ConditionEditor() {
                 scoringSchema: hasOptions
                   ? Object.fromEntries(options.map((o) => [o.label, o.score]))
                   : {},
+                required: isRequired, // ✅ isRequired auch in UI aktualisieren
               }
             : {
                 ...q,
@@ -911,6 +933,7 @@ export default function ConditionEditor() {
             <button
               onClick={() => {
                 setParentQuestion(q);
+                setIsRequired(true); // Standard: true beim Hinzufügen einer Unterfrage
                 setIsModalOpen(true);
               }}
             >

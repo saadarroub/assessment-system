@@ -18,7 +18,7 @@ export default function ProtectedRoute({ permission, children, allowWithToken = 
 
   // Invite-Bypass prüfen
   const qs = new URLSearchParams(location.search);
-  const inviteToken = qs.get("token");
+  const inviteToken = qs.get("token") || qs.get("accessToken"); // Unterstützt beide Parameter-Namen
   //const inviteCode  = qs.get("code"); // optional
 
   // Wenn Route für Invite-Flow freigegeben ist und ein Token vorhanden ist → durchlassen

@@ -14,8 +14,8 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/themas")
 @CrossOrigin(origins = "*")
-public class ThemaController {
-    
+public class  ThemaController {
+
     @Autowired
     private ThemaService themaService;
 
@@ -67,6 +67,62 @@ public class ThemaController {
             return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
+
+  //Read By the Active Status
+  @GetMapping("/status/active")
+  public ResponseEntity<List<Thema>> getThemasByActiveStatus() {
+    try {
+      List<Thema> themen = themaService.getActiveStatus();
+      if (themen.isEmpty()) {
+        return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+      }
+      return new ResponseEntity<>(themen, HttpStatus.OK);
+    } catch (Exception e) {
+      return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  //Read By the Inactive Status
+  @GetMapping("/status/inactive")
+  public ResponseEntity<List<Thema>> getThemasByInactiveStatus() {
+    try {
+      List<Thema> themen = themaService.getInactiveStatus();
+      if (themen.isEmpty()) {
+        return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+      }
+      return new ResponseEntity<>(themen, HttpStatus.OK);
+    } catch (Exception e) {
+      return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  //Change the current Status
+  @PatchMapping("/status/change/{id}")
+  public ResponseEntity<Thema> changeStatusById(@PathVariable("id") UUID id) {
+    try {
+      Thema changedStatus = themaService.changeStatus(id);
+      return new ResponseEntity<>(changedStatus, HttpStatus.OK);
+    } catch (RuntimeException e) {
+      return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+    } catch (Exception e) {
+      return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+  }
+
+  //Deactivate All
+  @PatchMapping("/status/deactivate")
+  public ResponseEntity<List<Thema>> deactivateAll(){
+      try{
+        List<Thema> deactivatedThemas = themaService.deactivateAll();
+        return new ResponseEntity<>(deactivatedThemas, HttpStatus.OK);
+      } catch (RuntimeException e) {
+        return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+      } catch (Exception e) {
+        return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
+      }
+      }
+
 
     // Search By Name - GET /api/themas/search?name=xyz
     @GetMapping("/search")

@@ -36,7 +36,9 @@ public class SecurityConfig {
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 // Public Endpoints (kein Token erforderlich)
-                .requestMatchers("/api/auth/login", "/api/auth/refresh", "/api/auth/logout").permitAll()
+                .requestMatchers("/api/auth/login", "/api/auth/refresh", "/api/auth/logout", "/api/worker-catalog/**"
+                    ,"/api/thema-catalogs/**","/api/question-catalogs/**", "/api/question-nodes/**", "/api/assessments/**"
+                ).permitAll()
                 .requestMatchers("/public/access/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/users").permitAll()
                 .requestMatchers("/api/worker-catalog/**").permitAll() 
@@ -56,10 +58,9 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-
-        // WICHTIG: Bei allowCredentials=true KANN NICHT "*" verwendet werden!
-        configuration.setAllowedOrigins(Arrays.asList("http://localhost:5173"));
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
+            // WICHTIG: Bei allowCredentials=true KANN NICHT "*" verwendet werden!
+            configuration.setAllowedOrigins(Arrays.asList("http://localhost:5173"));
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setAllowCredentials(true); // WICHTIG für httpOnly Cookies!
         configuration.setExposedHeaders(Arrays.asList("Set-Cookie", "Authorization"));
