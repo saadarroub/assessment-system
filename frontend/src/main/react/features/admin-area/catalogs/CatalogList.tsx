@@ -33,7 +33,7 @@ export default function CatalogList() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [questionText, setQuestionText] = useState("");
   const [selectedType, setSelectedType] = useState<any | null>(null);
-   const [options, setOptions] = useState<
+  const [options, setOptions] = useState<
     { label: string; score: number | null }[]
   >([]);
   const [questionTypes, setQuestionTypes] = useState<any[]>([]);
@@ -54,12 +54,11 @@ export default function CatalogList() {
     description: string;
   } | null>(null);
 
-  // oben bei den States hinzufügen:
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [isRequired, setIsRequired] = useState(true); // Standard: true (Pflichtfrage)
-
+  const isOrderType = selectedType?.value === "order";
   // 🔹 Frage speichern → anlegen + mit Thema verknüpfen
-   const handleConfirm = async () => {
+  const handleConfirm = async () => {
     setHasSubmitted(true);
     let hasError = false;
 
@@ -79,32 +78,31 @@ export default function CatalogList() {
     const hasOptions = selectedType?.hasOptions;
     if (hasOptions) {
       const missingLabel = options.some((o) => !o.label.trim());
-      const missingScore = options.some(
-        (o) =>
-          o.score === null || o.score === undefined || isNaN(Number(o.score))
-      );
+
+      // ❗ Score prüfen NUR wenn NICHT Reihenfolge
+      const missingScore =
+        !isOrderType &&
+        options.some(
+          (o) =>
+            o.score === null || o.score === undefined || isNaN(Number(o.score))
+        );
 
       if (options.length < 2) {
         setErrorOptions("Mindestens zwei Antwortmöglichkeiten erforderlich.");
         hasError = true;
-      } else if (missingLabel && missingScore) {
-        setErrorOptions("Bitte alle Antworttexte und Scores ausfüllen.");
-        hasError = true;
       } else if (missingLabel) {
         setErrorOptions("Bitte alle Antworttexte ausfüllen.");
         hasError = true;
-      } else if (missingScore) {
+      } else if (!isOrderType && missingScore) {
         setErrorOptions("Bitte alle Scores ausfüllen.");
         hasError = true;
       } else {
         setErrorOptions(null);
       }
-    } else {
-      setErrorOptions(null);
     }
 
     // 🚫 Wenn Fehler vorhanden sind → Funktion sofort abbrechen
-   if (hasError && modalRef.current) {
+    if (hasError && modalRef.current) {
       let scrollPosition = 0;
 
       // 🔹 Falls Fragetext-Fehler → ganz oben scrollen
@@ -133,9 +131,10 @@ export default function CatalogList() {
       text: questionText,
       questionType: { id: selectedType.id },
       options: hasOptions ? options.map((o) => o.label) : null,
-      scoringSchema: hasOptions
-        ? Object.fromEntries(options.map((o) => [o.label, Number(o.score)]))
-        : null,
+      scoringSchema:
+        hasOptions && !isOrderType
+          ? Object.fromEntries(options.map((o) => [o.label, Number(o.score)]))
+          : null,
     };
 
     try {
@@ -154,7 +153,6 @@ export default function CatalogList() {
     }
   };
 
-
   const handleCancel = () => {
     setQuestionText("");
     setSelectedType("");
@@ -166,10 +164,10 @@ export default function CatalogList() {
   useEffect(() => {
     if (selectedType?.hasOptions) {
       if (options.length === 0) {
-         setOptions([
-            { label: "", score: null },
-            { label: "", score: null },
-          ]);
+        setOptions([
+          { label: "", score: null },
+          { label: "", score: null },
+        ]);
       }
     } else {
       // 👇 Nur speichern, wenn aktuell Optionen existieren
@@ -391,7 +389,7 @@ export default function CatalogList() {
                       }}
                       className={`flex items-center justify-start gap-3 border rounded-lg py-3 px-4 text-left font-medium text-sm transition-all duration-150 ${
                         selectedType?.id === type.id
-                          ? "bg-brand-sand border-brand-sand text-white shadow-md"
+                          ? "bg-brand-sand border-brand-sand text-black shadow-md"
                           : errorType
                           ? "border-red-500 text-gray-800 hover:bg-gray-50"
                           : "border-gray-300 text-gray-800 hover:bg-gray-50"
@@ -416,7 +414,7 @@ export default function CatalogList() {
                 <div className="flex items-center justify-between bg-gray-50 border border-gray-300 rounded-xl px-4 py-3">
                   <div>
                     <p className="text-sm text-black-500">
-                      Muss beantwortet werden diese Frage?
+                      Diese Frage Muss beantwortet werden
                     </p>
                   </div>
 
@@ -468,59 +466,100 @@ export default function CatalogList() {
                             : "border-gray-300"
                         }`}
                       />
-                       {/* Score */}
-                      <input
-                        type="number"
-                        placeholder="Score"
-                        min={1}
-                        max={5}
-                        step={1}
-                        value={
-                          opt.score == null || Number.isNaN(opt.score)
-                            ? ""
-                            : opt.score
-                        }
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          if (val === "") {
-                            setOptions(
-                              options.map((o, j) =>
-                                j === i ? { ...o, score: null } : o
-                              )
-                            );
-                          } else if (Number(val) >= 1 && Number(val) <= 5) {
-                            setOptions(
-                              options.map((o, j) =>
-                                j === i ? { ...o, score: Number(val) } : o
-                              )
-                            );
+                      {/* Score */}
+
+                      {!isOrderType && (
+                        <input
+                          type="number"
+                          placeholder="Score"
+                          min={0}
+                          max={5}
+                          step={1}
+                          value={
+                            opt.score == null || Number.isNaN(opt.score)
+                              ? ""
+                              : opt.score
                           }
-                        }}
-                        onKeyDown={(e) => {
-                          // ✅ Nur Zahlen 1–5, Backspace, Tab, Delete und Pfeile erlauben
-                          const allowedKeys = [
-                            "1",
-                            "2",
-                            "3",
-                            "4",
-                            "5",
-                            "Backspace",
-                            "Tab",
-                            "Delete",
-                            "ArrowLeft",
-                            "ArrowRight",
-                          ];
-                          if (!allowedKeys.includes(e.key)) {
-                            e.preventDefault(); // ❌ blockiert alles andere (Buchstaben, Zeichen, 0, 6–9, Enter, etc.)
-                          }
-                        }}
-                        className={`w-24 border rounded-md px-2 py-1 text-center focus:ring-1 focus:ring-brand-sand focus:outline-none ${
-                          hasSubmitted &&
-                          (opt.score === null || Number.isNaN(opt.score))
-                            ? "border-red-500"
-                            : "border-gray-300"
-                        }`}
-                      />
+                          onInput={(e: React.FormEvent<HTMLInputElement>) => {
+                            // ❗ Browser-Standard verhindern (1 bei ArrowUp)
+                            // Wenn ein Pfeil gedrückt wird, ignorieren wir onInput komplett
+                            if (
+                              (e.nativeEvent as any).inputType?.includes(
+                                "arrow"
+                              )
+                            ) {
+                              return;
+                            }
+
+                            let val = e.currentTarget.value;
+
+                            // Wenn leer → nichts setzen
+                            if (val === "") {
+                              setOptions(
+                                options.map((o, j) =>
+                                  j === i ? { ...o, score: null } : o
+                                )
+                              );
+                              return;
+                            }
+
+                            // Tastatureingabe (0–5)
+                            if (/^[0-5]$/.test(val)) {
+                              setOptions(
+                                options.map((o, j) =>
+                                  j === i ? { ...o, score: Number(val) } : o
+                                )
+                              );
+                            }
+                          }}
+                          onKeyDown={(e) => {
+                            const allowed = [
+                              "0",
+                              "1",
+                              "2",
+                              "3",
+                              "4",
+                              "5",
+                              "Backspace",
+                              "Delete",
+                              "Tab",
+                              "ArrowLeft",
+                              "ArrowRight",
+                              "ArrowUp",
+                              "ArrowDown",
+                            ];
+
+                            if (!allowed.includes(e.key)) {
+                              e.preventDefault();
+                            }
+
+                            // ---- Pfeile steuern ----
+                            if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+                              e.preventDefault(); // ❗ verhindert Browser-Auto-„1“
+
+                              let current = opt.score;
+
+                              // Erstes Pfeil-Klicken bei leerem Feld
+                              if (current == null) {
+                                current = e.key === "ArrowUp" ? 0 : 5; // ✅ GENAU DAS HIER
+                              } else {
+                                if (e.key === "ArrowUp")
+                                  current = Math.min(5, current + 1);
+                                if (e.key === "ArrowDown")
+                                  current = Math.max(0, current - 1);
+                              }
+
+                              setOptions(
+                                options.map((o, j) =>
+                                  j === i ? { ...o, score: current } : o
+                                )
+                              );
+                            }
+                          }}
+                          className="w-24 border rounded-md px-2 py-1 text-center"
+                        />
+                      )}
+
                       <button
                         onClick={() =>
                           setOptions(options.filter((_, j) => j !== i))
@@ -534,7 +573,7 @@ export default function CatalogList() {
                   {errorOptions && (
                     <p className="text-red-500 text-xs mt-1">{errorOptions}</p>
                   )}
-                 <button
+                  <button
                     onClick={() =>
                       setOptions([...options, { label: "", score: null }])
                     }
