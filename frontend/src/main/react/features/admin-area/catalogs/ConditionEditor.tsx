@@ -110,8 +110,7 @@ export default function ConditionEditor() {
 
   const [isRequired, setIsRequired] = useState(true); // Standard: true (Pflichtfrage)
 
- 
-
+  const isOrderType = selectedType?.value === "order";
 
   // 🔁 Rekursive Funktion, die ALLE Kinder bis zur tiefsten Ebene lädt
   async function fetchChildrenRecursive(parentId: string): Promise<any[]> {
@@ -174,9 +173,11 @@ export default function ConditionEditor() {
     if (editingQuestion) {
       // Wenn required explizit gesetzt ist (true oder false), verwende diesen Wert
       // Ansonsten Standard: true
-      const requiredValue = editingQuestion.required !== undefined && editingQuestion.required !== null
-        ? editingQuestion.required
-        : true;
+      const requiredValue =
+        editingQuestion.required !== undefined &&
+        editingQuestion.required !== null
+          ? editingQuestion.required
+          : true;
       setIsRequired(requiredValue);
     } else {
       // Beim Erstellen einer neuen Frage: Standard auf true setzen
@@ -485,10 +486,9 @@ export default function ConditionEditor() {
     const hasOptions = selectedType?.hasOptions;
     if (hasOptions) {
       const missingLabel = options.some((o) => !o.label.trim());
-      const missingScore = options.some(
-        (o) =>
-          o.score === null || o.score === undefined || isNaN(Number(o.score))
-      );
+      const missingScore =
+        !isOrderType &&
+        options.some((o) => o.score === null || isNaN(Number(o.score)));
 
       if (options.length < 2) {
         setErrorOptions("Mindestens zwei Antwortmöglichkeiten erforderlich.");
@@ -536,9 +536,10 @@ export default function ConditionEditor() {
       text: questionText,
       questionType: { id: selectedType.id },
       options: hasOptions ? options.map((o) => o.label) : null,
-      scoringSchema: hasOptions
-        ? Object.fromEntries(options.map((o) => [o.label, Number(o.score)]))
-        : null,
+      scoringSchema:
+        hasOptions && !isOrderType
+          ? Object.fromEntries(options.map((o) => [o.label, Number(o.score)]))
+          : null,
     };
 
     try {
@@ -614,10 +615,9 @@ export default function ConditionEditor() {
     const hasOptions = selectedType?.hasOptions;
     if (hasOptions) {
       const missingLabel = options.some((o) => !o.label.trim());
-      const missingScore = options.some(
-        (o) =>
-          o.score === null || o.score === undefined || isNaN(Number(o.score))
-      );
+      const missingScore =
+        !isOrderType &&
+        options.some((o) => o.score === null || isNaN(Number(o.score)));
 
       if (options.length < 2) {
         setErrorOptions("Mindestens zwei Antwortmöglichkeiten erforderlich.");
@@ -670,13 +670,14 @@ export default function ConditionEditor() {
         text: questionText,
         questionType: { id: selectedType?.id },
         options: hasOptions ? options.map((o) => o.label) : null,
-        scoringSchema: hasOptions
-          ? Object.fromEntries(options.map((o) => [o.label, o.score]))
-          : null,
+        scoringSchema:
+          hasOptions && !isOrderType
+            ? Object.fromEntries(options.map((o) => [o.label, Number(o.score)]))
+            : null,
       };
 
       await updateQuestion(editingQuestion.questionId, payload);
-      
+
       // 🔹 isRequired Status aktualisieren (wenn sich geändert hat)
       if (editingQuestion.required !== isRequired) {
         await updateQuestionNodeRequired(editingQuestion.id, isRequired);
@@ -1066,14 +1067,14 @@ export default function ConditionEditor() {
       // CHILD → CHILD (gleiche Ebene)
       if (activeInfo.parentId === overInfo.parentId) {
         await moveChildNode(activeId, activeInfo.parentId!, newPosition);
-        
+
         console.log(
           "📌 Child verschoben in gleicher Ebene:",
           activeId,
           "→ Position",
           newPosition
         );
-        
+
         return;
       }
 
@@ -1286,7 +1287,6 @@ export default function ConditionEditor() {
                 )}
               </div>
 
-             
               {/* 🔸 Fragetyp */}
               <div className="mb-6 mt-6">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1338,7 +1338,7 @@ export default function ConditionEditor() {
                 <div className="flex items-center justify-between bg-gray-50 border border-gray-300 rounded-xl px-4 py-3">
                   <div>
                     <p className="text-sm text-black-500">
-                      Muss beantwortet werden  Diese Frage ?
+                      Muss beantwortet werden Diese Frage ?
                     </p>
                   </div>
 
@@ -1394,58 +1394,98 @@ export default function ConditionEditor() {
                       />
 
                       {/* Score */}
-                      <input
-                        type="number"
-                        placeholder="Score"
-                        min={1}
-                        max={5}
-                        step={1}
-                        value={
-                          opt.score == null || Number.isNaN(opt.score)
-                            ? ""
-                            : opt.score
-                        }
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          if (val === "") {
-                            setOptions(
-                              options.map((o, j) =>
-                                j === i ? { ...o, score: null } : o
-                              )
-                            );
-                          } else if (Number(val) >= 1 && Number(val) <= 5) {
-                            setOptions(
-                              options.map((o, j) =>
-                                j === i ? { ...o, score: Number(val) } : o
-                              )
-                            );
+                      {/* Score (NICHT anzeigen bei Reihenfolge) */}
+                      {!isOrderType && (
+                        <input
+                          type="number"
+                          placeholder="Score"
+                          min={0}
+                          max={5}
+                          step={1}
+                          value={
+                            opt.score == null || Number.isNaN(opt.score)
+                              ? ""
+                              : opt.score
                           }
-                        }}
-                        onKeyDown={(e) => {
-                          // ✅ Nur Zahlen 1–5, Backspace, Tab, Delete und Pfeile erlauben
-                          const allowedKeys = [
-                            "1",
-                            "2",
-                            "3",
-                            "4",
-                            "5",
-                            "Backspace",
-                            "Tab",
-                            "Delete",
-                            "ArrowLeft",
-                            "ArrowRight",
-                          ];
-                          if (!allowedKeys.includes(e.key)) {
-                            e.preventDefault(); // ❌ blockiert alles andere (Buchstaben, Zeichen, 0, 6–9, Enter, etc.)
-                          }
-                        }}
-                        className={`w-24 border rounded-md px-2 py-1 text-center focus:ring-1 focus:ring-brand-sand focus:outline-none ${
-                          hasSubmitted &&
-                          (opt.score === null || Number.isNaN(opt.score))
-                            ? "border-red-500"
-                            : "border-gray-300"
-                        }`}
-                      />
+                          onInput={(e: React.FormEvent<HTMLInputElement>) => {
+                            // ❗ Browser-Standard verhindern (1 bei ArrowUp)
+                            // Wenn ein Pfeil gedrückt wird, ignorieren wir onInput komplett
+                            if (
+                              (e.nativeEvent as any).inputType?.includes(
+                                "arrow"
+                              )
+                            ) {
+                              return;
+                            }
+
+                            let val = e.currentTarget.value;
+
+                            // Wenn leer → nichts setzen
+                            if (val === "") {
+                              setOptions(
+                                options.map((o, j) =>
+                                  j === i ? { ...o, score: null } : o
+                                )
+                              );
+                              return;
+                            }
+
+                            // Tastatureingabe (0–5)
+                            if (/^[0-5]$/.test(val)) {
+                              setOptions(
+                                options.map((o, j) =>
+                                  j === i ? { ...o, score: Number(val) } : o
+                                )
+                              );
+                            }
+                          }}
+                          onKeyDown={(e) => {
+                            const allowed = [
+                              "0",
+                              "1",
+                              "2",
+                              "3",
+                              "4",
+                              "5",
+                              "Backspace",
+                              "Delete",
+                              "Tab",
+                              "ArrowLeft",
+                              "ArrowRight",
+                              "ArrowUp",
+                              "ArrowDown",
+                            ];
+
+                            if (!allowed.includes(e.key)) {
+                              e.preventDefault();
+                            }
+
+                            // ---- Pfeile steuern ----
+                            if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+                              e.preventDefault(); // ❗ verhindert Browser-Auto-„1“
+
+                              let current = opt.score;
+
+                              // Erstes Pfeil-Klicken bei leerem Feld
+                              if (current == null) {
+                                current = e.key === "ArrowUp" ? 0 : 5; // ✅ GENAU DAS HIER
+                              } else {
+                                if (e.key === "ArrowUp")
+                                  current = Math.min(5, current + 1);
+                                if (e.key === "ArrowDown")
+                                  current = Math.max(0, current - 1);
+                              }
+
+                              setOptions(
+                                options.map((o, j) =>
+                                  j === i ? { ...o, score: current } : o
+                                )
+                              );
+                            }
+                          }}
+                          className="w-24 border rounded-md px-2 py-1 text-center"
+                        />
+                      )}
 
                       {/* Löschen */}
                       <button
