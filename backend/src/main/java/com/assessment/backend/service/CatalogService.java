@@ -1,6 +1,7 @@
 package com.assessment.backend.service;
 
 import com.assessment.backend.entity.Catalog;
+import com.assessment.backend.entity.Thema;
 import com.assessment.backend.repository.CatalogRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -30,6 +31,12 @@ public class CatalogService {
         return catalogRepository.findById(id);
     }
 
+    // Read - By the Active Status
+    public List<Catalog> getActiveStatus() { return catalogRepository.findByStatus("active");}
+
+    // Read - By the Inactive Status
+    public List<Catalog> getInactiveStatus() { return catalogRepository.findByStatus("inactive");}
+
     // Update
     public Catalog updateCatalog(UUID id, Catalog catalogDetails) {
         Catalog catalog = catalogRepository.findById(id)
@@ -40,6 +47,42 @@ public class CatalogService {
         
         return catalogRepository.save(catalog);
     }
+
+    //Update
+  public Catalog changeStatus(UUID id) {
+    Catalog catalog = catalogRepository.findById(id)
+        .orElseThrow(() -> new RuntimeException("Catalog not found with id: " + id));
+
+    String currentStatus = catalog.getStatus();
+
+    if(currentStatus.equals("active")){
+
+      catalog.setStatus("inactive");
+
+    }else{
+
+      catalog.setStatus("active");
+
+    }
+
+    return catalogRepository.save(catalog);
+
+  }
+
+  //Update
+  public List<Catalog> deactivateAll(){
+
+    List<Catalog>catalogs = catalogRepository.findByStatus("active");
+
+    for(Catalog c : catalogs){
+
+      c.setStatus("inactive");
+
+    }
+
+    return catalogRepository.saveAll(catalogs);
+
+  }
 
     // Delete
     public void deleteCatalog(UUID id) {

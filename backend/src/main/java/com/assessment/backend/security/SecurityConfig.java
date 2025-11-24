@@ -58,10 +58,9 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-
-        // WICHTIG: Bei allowCredentials=true KANN NICHT "*" verwendet werden!
-        configuration.setAllowedOrigins(Arrays.asList("http://localhost:5173"));
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
+            // WICHTIG: Bei allowCredentials=true KANN NICHT "*" verwendet werden!
+            configuration.setAllowedOrigins(Arrays.asList("http://localhost:5173"));
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setAllowCredentials(true); // WICHTIG für httpOnly Cookies!
         configuration.setExposedHeaders(Arrays.asList("Set-Cookie", "Authorization"));

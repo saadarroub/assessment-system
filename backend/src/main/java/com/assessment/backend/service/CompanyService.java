@@ -5,6 +5,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import com.assessment.backend.entity.Thema;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -15,7 +16,7 @@ import com.assessment.backend.entity.Company;
 import com.assessment.backend.repository.CompanyRepository;
 
 @Service
-public class CompanyService {
+public class  CompanyService {
 
     @Autowired
     private CompanyRepository companyRepository;
@@ -66,7 +67,46 @@ public class CompanyService {
                 .map(this::mapToDTO);
     }
 
-    public List<CompanyResponseDTO> searchCompaniesByName(String name) {
+    public List<Company> getActiveStatus() { return companyRepository.findByStatus("active");}
+
+    public List<Company> getInactiveStatus() { return companyRepository.findByStatus("inactive");}
+
+  public Company changeStatus(UUID id) {
+    Company company = companyRepository.findById(id)
+        .orElseThrow(() -> new RuntimeException("Company not found with id: " + id));
+
+    String currentStatus = company.getStatus();
+
+    if (currentStatus.equals("active")) {
+
+        company.setStatus("inactive");
+
+    } else {
+
+      company.setStatus("active");
+
+    }
+
+    return companyRepository.save(company);
+
+  }
+
+  //Update
+  public List<Company> deactivateAll(){
+
+    List<Company>companies = companyRepository.findByStatus("active");
+
+    for(Company c : companies){
+
+      c.setStatus("inactive");
+
+    }
+
+    return companyRepository.saveAll(companies);
+
+  }
+
+  public List<CompanyResponseDTO> searchCompaniesByName(String name) {
         return companyRepository.findByNameContainingIgnoreCase(name)
                 .stream()
                 .map(this::mapToDTO)

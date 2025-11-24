@@ -1,6 +1,7 @@
 package com.assessment.backend.controller;
 
 import com.assessment.backend.entity.Catalog;
+import com.assessment.backend.entity.Thema;
 import com.assessment.backend.service.CatalogService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -56,6 +57,34 @@ public class CatalogController {
         }
     }
 
+    //Read By the Active Status
+    @GetMapping("/status/active")
+    public ResponseEntity<List<Catalog>> getCatalogsByActiveStatus() {
+      try {
+        List<Catalog> catalogs = catalogService.getActiveStatus();
+        if (catalogs.isEmpty()) {
+          return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        }
+        return new ResponseEntity<>(catalogs, HttpStatus.OK);
+      } catch (Exception e) {
+        return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
+      }
+    }
+
+    //Read By the Inactive Status
+    @GetMapping("/status/inactive")
+    public ResponseEntity<List<Catalog>> getCatalogsByInactiveStatus() {
+      try {
+        List<Catalog> catalogs = catalogService.getInactiveStatus();
+        if (catalogs.isEmpty()) {
+          return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        }
+        return new ResponseEntity<>(catalogs, HttpStatus.OK);
+      } catch (Exception e) {
+        return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
+      }
+    }
+
     // Update - PUT /api/catalogs/{id}
     @PutMapping("/{id}")
     public ResponseEntity<Catalog> updateCatalog(@PathVariable("id") UUID id, @RequestBody Catalog catalog) {
@@ -68,6 +97,33 @@ public class CatalogController {
             return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
+
+  //Change the current Status
+  @PatchMapping("/status/change/{id}")
+  public ResponseEntity<Catalog> changeStatusById(@PathVariable("id") UUID id) {
+    try {
+      Catalog changedStatus = catalogService.changeStatus(id);
+      return new ResponseEntity<>(changedStatus, HttpStatus.OK);
+    } catch (RuntimeException e) {
+      return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+    } catch (Exception e) {
+      return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+  }
+
+  //Deactivate All
+  @PatchMapping("/status/deactivate")
+  public ResponseEntity<List<Catalog>> deactivateAll(){
+    try{
+      List<Catalog> deactivatedCatalogs = catalogService.deactivateAll();
+      return new ResponseEntity<>(deactivatedCatalogs, HttpStatus.OK);
+    } catch (RuntimeException e) {
+      return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+    } catch (Exception e) {
+      return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
 
     // Delete - DELETE /api/catalogs/{id}
     @DeleteMapping("/{id}")
