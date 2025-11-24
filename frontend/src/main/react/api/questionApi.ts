@@ -41,6 +41,18 @@ export async function updateQuestion(id: string, question: any) {
   return response.data;
 }
 
+// 🔹 QuestionNode Required Status aktualisieren
+export async function updateQuestionNodeRequired(nodeId: string, isRequired: boolean) {
+  const response = await apiClient.patch(
+    `${API_BASE}/question-nodes/${nodeId}/required?isRequired=${isRequired}`,
+    {},
+    {
+      headers: { "Content-Type": "application/json" },
+    }
+  );
+  return response.data;
+}
+
 // 🟢 Alle QuestionNodes laden
 export async function getAllQuestionNodes() {
   try {
@@ -139,12 +151,14 @@ export async function createQuestion(questionData: any) {
 export async function createQuestionNode(
   themaId: string,
   questionId: string,
-  parentNodeId?: string | null
+  parentNodeId?: string | null,
+  isRequired?: boolean
 ) {
   const payload = {
     thema: { id: themaId },
     question: { id: questionId },
     parentNode: parentNodeId ? { id: parentNodeId } : null,
+    isRequired: isRequired !== undefined ? isRequired : true, // Standard: true
   };
 
   const response = await apiClient.post(`${API_BASE}/question-nodes`, payload, {

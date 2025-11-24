@@ -1,5 +1,28 @@
 package com.assessment.backend.controller;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
 import com.assessment.backend.dto.AdminManualScoringResponseDTO;
 import com.assessment.backend.dto.CatalogScoreDTO;
 import com.assessment.backend.dto.OverallScoreDTO;
@@ -10,22 +33,9 @@ import com.assessment.backend.entity.Answer;
 import com.assessment.backend.entity.AssessmentSession;
 import com.assessment.backend.repository.AnswerRepository;
 import com.assessment.backend.repository.AssessmentSessionRepository;
-import com.assessment.backend.service.AnswerService;
 import com.assessment.backend.service.AssessmentSessionService;
 import com.assessment.backend.service.ScoringService;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.bind.annotation.*;
-
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * Controller für Score-Abfrage im Admin Panel (Firmen-basiert)
@@ -417,10 +427,10 @@ public class ScoringController {
                         .doubleValue();
                 response.setPercentageScore(percentage);
             }
-            
-            // 3. Worker Name holen
+           
+           // 3. Worker Name holen
             String workerName = jdbcTemplate.queryForObject(
-                "SELECT CONCAT(first_name, ' ', last_name) FROM worker WHERE id = ?",
+                "SELECT name FROM worker WHERE id = ?",
                 String.class,
                 session.getWorkerId()
             );
@@ -432,7 +442,8 @@ public class ScoringController {
                 String.class,
                 session.getThemaId()
             );
-            response.setThemaName(themaName);
+            response.setThemaName(themaName); 
+         
             
             // 5. Alle Fragen mit Antworten holen - SORTIERT NACH answered_at
             String sql = """
@@ -442,10 +453,10 @@ public class ScoringController {
                     qt.input_type,
                     qn.order_index,
                     qn.is_required,
-                    a.value as answer_value,
+                    a.value::text as answer_value,
                     a.score,
                     a.answered_at,
-                    q.scoring_schema
+                    q.scoring_schema::text as scoring_schema
                 FROM question_node qn
                 JOIN question q ON qn.question_id = q.id
                 JOIN question_type qt ON q.type_id = qt.id
@@ -598,7 +609,7 @@ public class ScoringController {
             
             // 3. Worker Name holen
             String workerName = jdbcTemplate.queryForObject(
-                "SELECT CONCAT(first_name, ' ', last_name) FROM worker WHERE id = ?",
+                "SELECT name FROM worker WHERE id = ?",
                 String.class,
                 session.getWorkerId()
             );
@@ -620,10 +631,10 @@ public class ScoringController {
                     qt.input_type,
                     qn.order_index,
                     qn.is_required,
-                    a.value as answer_value,
+                    a.value::text as answer_value,
                     a.score,
                     a.answered_at,
-                    q.scoring_schema
+                    q.scoring_schema::text as scoring_schema
                 FROM question_node qn
                 JOIN question q ON qn.question_id = q.id
                 JOIN question_type qt ON q.type_id = qt.id

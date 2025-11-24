@@ -1,29 +1,35 @@
 package com.assessment.backend.controller;
 
-import com.assessment.backend.dto.LoginRequest;
-import com.assessment.backend.dto.LoginResponseDTO;
-import com.assessment.backend.dto.EnhancedLoginResponseDTO;
-import com.assessment.backend.dto.TokenRefreshResponseDTO;
-import com.assessment.backend.entity.Permission;
-import com.assessment.backend.entity.Role;
-import com.assessment.backend.entity.User;
-import com.assessment.backend.service.AuthService;
-import com.assessment.backend.service.RolePermissionService;
-import com.assessment.backend.security.JwtUtil;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.ResponseCookie;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-
-import jakarta.servlet.http.Cookie;
-import jakarta.servlet.http.HttpServletRequest;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.assessment.backend.dto.EnhancedLoginResponseDTO;
+import com.assessment.backend.dto.LoginRequest;
+import com.assessment.backend.dto.TokenRefreshResponseDTO;
+import com.assessment.backend.entity.Permission;
+import com.assessment.backend.entity.User;
+import com.assessment.backend.security.JwtUtil;
+import com.assessment.backend.service.AuthService;
+import com.assessment.backend.service.RolePermissionService;
+
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -69,8 +75,6 @@ public class AuthController {
             String accessToken = jwtUtil.generateToken(user);
             long accessTokenExpiresAt = System.currentTimeMillis() + accessTokenExpirationMs;
 
-            // Generate Refresh Token (long-lived) - simplified for now
-            // TODO: Implement proper RefreshToken entity + Repository
             String refreshToken = jwtUtil.generateToken(user); // For now same structure
             
             // Load user permissions
@@ -141,12 +145,7 @@ public class AuthController {
             // Extract User from Refresh Token
             java.util.UUID userId = jwtUtil.getUserIdFromToken(refreshToken);
             
-            // TODO: Load User from Database (für jetzt simplified)
-            // Optional<User> userOpt = userService.findById(userId);
-            // Für jetzt: Generiere neuen Token direkt aus altem Token
             
-            // Generate new Access Token
-            // SIMPLIFIED: In production, load user from DB and generate fresh token
             User user = new User();
             user.setId(userId);
             String newAccessToken = jwtUtil.generateToken(user);

@@ -1,6 +1,29 @@
 package com.assessment.backend.controller;
 
-import com.assessment.backend.dto.QuestionNavigationResponseDTO;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
+import java.util.stream.Collectors;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
 import com.assessment.backend.dto.SaveAnswerResponseDTO;
 import com.assessment.backend.dto.SessionStateResponseDTO;
 import com.assessment.backend.dto.SessionSummaryResponseDTO;
@@ -19,15 +42,6 @@ import com.assessment.backend.service.WorkerCatalogService;
 import com.assessment.backend.util.AccessGuardUtil;
 import com.assessment.backend.util.PublicQueryUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.*;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/public/access")
@@ -700,7 +714,12 @@ public class PublicAccessController {
                 SessionSummaryResponseDTO.AnsweredQuestionSummary q = new SessionSummaryResponseDTO.AnsweredQuestionSummary();
                 q.setQuestionId((UUID) data.get("questionId"));
                 q.setQuestionText((String) data.get("questionText"));
-                q.setInputType((String) data.get("inputType"));
+                
+                // InputType normalisieren für korrekte Kategorisierung
+                String rawInputType = (String) data.get("inputType");
+                String normalizedInputType = normalizeInputType(rawInputType);
+                q.setInputType(normalizedInputType);
+                
                 q.setScore((BigDecimal) data.get("score"));
                 q.setAnsweredAt((LocalDateTime) data.get("answeredAt"));
                 q.setOrderIndex((Integer) data.get("orderIndex"));
@@ -719,7 +738,7 @@ public class PublicAccessController {
                 // Berechne maxScore für diese Frage (aus scoring_schema)
                 String scoringSchemaJson = (String) data.get("scoringSchema");
                 BigDecimal maxScore = calculateMaxScoreForQuestion(
-                    (String) data.get("inputType"), 
+                    normalizedInputType, 
                     scoringSchemaJson
                 );
                 q.setMaxScore(maxScore);
@@ -731,7 +750,7 @@ public class PublicAccessController {
                 
                 if (answerValueJson == null || "null".equals(answerValueJson)) {
                     uebersprungen.add(q);
-                } else if (MANUAL_REVIEW_TYPES.contains(q.getInputType())) {
+                } else if (MANUAL_REVIEW_TYPES.contains(normalizedInputType)) {
                     manuellZuBewerten.add(q);
                 } else {
                     automatischBewertet.add(q);
