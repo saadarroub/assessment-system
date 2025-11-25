@@ -23,6 +23,8 @@ import {
   createThema,
   deleteThema,
   updateThema,
+  duplicateThema,
+  changeThemaStatus,
 } from "@/api/questionApi";
 
 // TYPES
@@ -32,6 +34,7 @@ type Topic = {
   subtitle: string;
   questions: number;
   color?: string;
+  status: "active" | "inactive";
 };
 
 // STATS
@@ -45,14 +48,15 @@ const STAT_ICONS = [
   <Clock size={48} />,
 ];
 
-type Stat = { label: string; value: string; tone?: "positive" | "neutral" };
 
-const STATS: Stat[] = [
-  { label: "Themen", value: "–", tone: "positive" },
-  { label: "Gesamtfragen", value: "–", tone: "positive" },
-  { label: "Aktive Themen", value: "7", tone: "positive" },
-  { label: "Unaktive Themen", value: "0", tone: "neutral" },
+
+const STATS = [
+  { label: "Themen", key: "total" },
+  { label: "Gesamtfragen", key: "questions" },
+  { label: "Aktive Themen", key: "active" },
+  { label: "Unaktive Themen", key: "inactive" },
 ];
+
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -74,6 +78,9 @@ export default function AdminDashboard() {
   const [newThemaName, setNewThemaName] = useState("");
   const [newThemaDesc, setNewThemaDesc] = useState("");
   const { showSuccess, showError } = useToast();
+  const [topicFilter, setTopicFilter] = useState<"all" | "active" | "inactive">("all");
+
+  
 
   // Modal Input Referenz
   const titleInputRef = useRef<HTMLInputElement | null>(null);
@@ -84,12 +91,10 @@ export default function AdminDashboard() {
   // Fetch Themen
   const fetchTopics = useCallback(async () => {
     try {
-      
       const themas = await getAllThemas();
       const nodes = await getAllQuestionNodes();
 
       let colorIndex = 0;
-
       const grouped: Topic[] = themas.map((thema: any) => {
         const count = nodes.filter((n: any) => n.thema?.id === thema.id).length;
 
@@ -102,10 +107,18 @@ export default function AdminDashboard() {
           subtitle: thema.description,
           questions: count,
           color,
+          status: thema.status,
+          createdAt: thema.createdAt, 
         };
       });
 
-      setTopics(grouped.reverse());
+      // 🔥 NEU: Sortieren nach Datum (neuste zuerst)
+      grouped.sort(
+        (a: any, b: any) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+
+      setTopics(grouped);
       setLoading(false);
     } catch (err) {
       console.error("Fehler beim Laden der Themen", err);
@@ -118,32 +131,54 @@ export default function AdminDashboard() {
   }, [fetchTopics]);
 
   // Suche & Filtering
-  const filteredTopics = useMemo(() => {
-    if (!searchTerm.trim()) return topics;
+const filteredTopics = useMemo(() => {
+  let result = topics;
+
+  // ⭐ Filter nach active / inactive
+  if (topicFilter === "active") {
+    result = result.filter((t) => t.status === "active");
+  }
+
+  if (topicFilter === "inactive") {
+    result = result.filter((t) => t.status === "inactive");
+  }
+
+  // ⭐ Suche anwenden
+  if (searchTerm.trim()) {
     const term = searchTerm.toLowerCase();
-    return topics.filter(
+    result = result.filter(
       (t) =>
         t.title.toLowerCase().includes(term) ||
         t.subtitle.toLowerCase().includes(term)
     );
-  }, [topics, searchTerm]);
+  }
+
+  return result;
+}, [topics, searchTerm, topicFilter]);
+
 
   // Pagination
-  const topicsPerPage = 6;
-  const [currentPage, setCurrentPage] = useState(1);
-
-  const indexOfLast = currentPage * topicsPerPage;
-  const indexOfFirst = indexOfLast - topicsPerPage;
+  const [visibleCount, setVisibleCount] = useState(6);
+  const loaderRef = useRef<HTMLDivElement | null>(null);
 
   const currentTopics = useMemo(
-    () => filteredTopics.slice(indexOfFirst, indexOfLast),
-    [filteredTopics, indexOfFirst, indexOfLast]
+    () => filteredTopics.slice(0, visibleCount),
+    [filteredTopics, visibleCount]
   );
 
-  const totalPages = useMemo(
-    () => Math.ceil(filteredTopics.length / topicsPerPage),
-    [filteredTopics]
-  );
+  useEffect(() => {
+    if (!loaderRef.current) return;
+
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting) {
+        setVisibleCount((prev) => prev + 6);
+      }
+    });
+
+    observer.observe(loaderRef.current);
+
+    return () => observer.disconnect();
+  }, [filteredTopics]);
 
   // Callbacks (stable)
   const handleDelete = useCallback((t: Topic) => {
@@ -176,6 +211,39 @@ export default function AdminDashboard() {
     [navigate]
   );
 
+  const handleDuplicate = useCallback(async (t: Topic) => {
+    try {
+      const newThema = await duplicateThema(t.id);
+
+      // Thema in UI einfügen (ganz oben wie original)
+      setTopics((prev) => [
+        {
+          id: newThema.id,
+          title: newThema.name,
+          subtitle: newThema.description,
+          questions: 0,
+          color: prev[0]?.color || "#264555",
+          status: newThema.status, // 🔥 WICHTIG
+        },
+        ...prev,
+      ]);showSuccess("Thema erfolgreich dupliziert!");
+    } catch (err) {
+      showError("Fehler: Thema konnte nicht dupliziert werden.");
+    }
+  }, []);
+
+  const handleStatusChange = useCallback(async (id: string) => {
+    try {
+      const updated = await changeThemaStatus(id);
+
+      setTopics((prev) =>
+        prev.map((t) => (t.id === id ? { ...t, status: updated.status } : t))
+      );showSuccess("Status erfolgreich geändert!");
+    } catch (err) {
+       showError("Fehler: Status konnte nicht geändert werden.");
+    }
+  }, []);
+
   // ⭐ Minimal Skeleton nur für den Zahlenwert (hell-blau)
   function StatValueSkeleton() {
     return (
@@ -184,16 +252,15 @@ export default function AdminDashboard() {
   }
 
   function TopicCardSkeleton() {
-  return (
-    <div className="bg-white rounded-xl shadow p-5 h-[250px] animate-pulse flex flex-col gap-4">
-      <div className="h-6 w-40 bg-gray-300/60 rounded"></div>
-      <div className="h-4 w-64 bg-gray-300/50 rounded"></div>
-      <div className="h-4 w-52 bg-gray-300/40 rounded"></div>
-      <div className="mt-auto h-8 w-32 bg-gray-300/60 rounded"></div>
-    </div>
-  );
-}
-
+    return (
+      <div className="bg-white rounded-xl shadow p-5 h-[250px] animate-pulse flex flex-col gap-4">
+        <div className="h-6 w-40 bg-gray-300/60 rounded"></div>
+        <div className="h-4 w-64 bg-gray-300/50 rounded"></div>
+        <div className="h-4 w-52 bg-gray-300/40 rounded"></div>
+        <div className="mt-auto h-8 w-32 bg-gray-300/60 rounded"></div>
+      </div>
+    );
+  }
 
   return (
     <AdminLayout>
@@ -238,20 +305,23 @@ export default function AdminDashboard() {
         {/* STATS */}
         <section className="stats-panel mt-4">
           <div className="grid grid-cols-4 gap-4">
-            {STATS.map((s, i) => (
-              <div
-                key={i}
-                className="
-          relative
-          h-[110px]
-          rounded-2xl 
-          shadow-[0_4px_16px_rgba(0,0,0,0.15)]
-          overflow-hidden
-          p-5
-          flex flex-col justify-between
-        "
-                style={{ backgroundColor: STAT_COLORS[i] }}
-              >
+           {STATS.map((s, i) => (
+  <div
+    key={i}
+    onClick={() => {
+      if (s.key === "active") setTopicFilter("active");
+      else if (s.key === "inactive") setTopicFilter("inactive");
+      else setTopicFilter("all"); // Themen & Gesamtfragen
+    }}
+    className="
+      relative h-[110px] rounded-2xl 
+      shadow-[0_4px_16px_rgba(0,0,0,0.15)]
+      overflow-hidden p-5 flex flex-col justify-between
+      cursor-pointer hover:scale-[1.02] transition-transform
+    "
+    style={{ backgroundColor: STAT_COLORS[i] }}
+  >
+
                 {/* ICON */}
                 <div
                   className="absolute right-3 bottom-3 opacity-[0.18]"
@@ -265,19 +335,20 @@ export default function AdminDashboard() {
 
                 {/* VALUE (mit Skeleton nur während loading) */}
                 <p className="text-white text-4xl font-extrabold">
-                  {loading ? (
-                    <StatValueSkeleton />
-                  ) : s.value === "–" ? (
-                    i === 0 ? (
-                      topics.length
-                    ) : i === 1 ? (
-                      topics.reduce((sum, t) => sum + (t.questions || 0), 0)
-                    ) : (
-                      "–"
-                    )
-                  ) : (
-                    s.value
-                  )}
+                {loading ? (
+  <StatValueSkeleton />
+) : s.key === "total" ? (
+  topics.length
+) : s.key === "questions" ? (
+  topics.reduce((sum, t) => sum + (t.questions || 0), 0)
+) : s.key === "active" ? (
+  topics.filter((t) => t.status === "active").length
+) : s.key === "inactive" ? (
+  topics.filter((t) => t.status === "inactive").length
+) : (
+  "–"
+)}
+
                 </p>
               </div>
             ))}
@@ -285,242 +356,239 @@ export default function AdminDashboard() {
         </section>
 
         {/* THEMEN */}
-        
-         <section className="topics-section">
-  <div className="section-header">
-    <h2>Themen</h2>
-    <button
-      className="btn btn-caramel"
-      onClick={() => setIsAddModalOpen(true)}
-    >
-      <Plus size={16} />
-      Neues Thema
-    </button>
-  </div>
 
-            {/* SEARCH */}
-            <div className="mx-auto mb-6 mt-3 rounded-[12px] border bg-white/85 backdrop-blur-md shadow">
-              <div className="p-4 flex items-center justify-between gap-3">
-                <div className="relative flex-1">
-                  <Search
-                    size={16}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                  />
-                  <input
-                    type="text"
-                    value={searchTerm}
-                    placeholder="Suche Thema..."
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full h-10 rounded-md border pl-10 pr-3 text-sm focus:ring-2 focus:ring-amber-400"
-                  />
-                </div>
+        <section className="topics-section">
+          <div className="section-header">
+            <h2>Themen</h2>
+            <button
+              className="btn btn-caramel"
+              onClick={() => setIsAddModalOpen(true)}
+              style={{
+                background: "hsl(40,60%,63%)", // Gelb
+                color: "hsl(200,32%,22%)", // dunkles Blau-Grau
+                boxShadow: "0 1px 2px rgba(0,0,0,.05)",
+              }}
+            >
+              <Plus size={16} />
+              Neues Thema
+            </button>
+          </div>
 
-                <div className="px-4 py-2 rounded-md border bg-white text-gray-600">
-                  Zeige{" "}
-                  <span className="font-semibold">{filteredTopics.length}</span>{" "}
-                  Themen
-                </div>
+          {/* SEARCH */}
+          <div className="mx-auto mb-6 mt-3 rounded-[12px] border bg-white/85 backdrop-blur-md shadow">
+            <div className="p-4 flex items-center justify-between gap-3">
+              <div className="relative flex-1">
+                <Search
+                  size={16}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                />
+                <input
+                  type="text"
+                  value={searchTerm}
+                  placeholder="Suche Thema..."
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full h-10 rounded-md border pl-10 pr-3 text-sm focus:ring-2 focus:ring-amber-400"
+                />
+              </div>
+
+              <div className="px-4 py-2 rounded-md border bg-white text-gray-600">
+                Zeige{" "}
+                <span className="font-semibold">{filteredTopics.length}</span>{" "}
+                Themen
               </div>
             </div>
+          </div>
 
-            {/* GRID (optimiert + lazy render) */}
-            <div
-              className="
+          {/* GRID (optimiert + lazy render) */}
+          <div
+            className="
                 mt-6 rounded-3xl bg-[#f5f5f5] p-4
                 shadow-[0_4px_20px_rgba(0,0,0,0.05)]
                 border border-gray-300/30
               "
+          >
+            <div
+              className="topics-grid grid gap-6"
+              style={{
+                gridTemplateColumns: "repeat(auto-fill, minmax(420px, 1fr))",
+              }}
             >
-           <div
-  className="topics-grid grid gap-6"
-  style={{ gridTemplateColumns: "repeat(auto-fill, minmax(420px, 1fr))" }}
->
-  {loading
-    ? // ⭐ 6 Skeleton Cards anzeigen
-      Array.from({ length: 6 }).map((_, i) => (
-        <TopicCardSkeleton key={i} />
-      ))
-    : // ⭐ Echte Topics anzeigen
-      currentTopics.map((t) => (
-        <TopicCard
-          key={t.id}
-          t={t}
-          loading={loading}
-          onDelete={handleDelete}
-          onEdit={handleEdit}
-          onManage={handleManage}
-        />
-      ))}
-</div>
-
+              {loading
+                ? Array.from({ length: 6 }).map((_, i) => (
+                    <TopicCardSkeleton key={i} />
+                  ))
+                : currentTopics.map((t) => (
+                    <TopicCard
+                      key={t.id}
+                      t={t}
+                      loading={loading}
+                      onDelete={handleDelete}
+                      onEdit={handleEdit}
+                      onManage={handleManage}
+                      onDuplicate={handleDuplicate}
+                      onStatusChange={() => handleStatusChange(t.id)}
+                    />
+                  ))}
             </div>
 
-            {/* PAGINATION */}
-            {totalPages > 1 && (
-              <div className="mx-auto mt-6 rounded-[12px] border bg-white/85 backdrop-blur-md shadow">
-                <div className="p-4 flex items-center justify-center gap-6">
-                  <button
-                    onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
-                    disabled={currentPage === 1}
-                    className={`px-5 py-2 rounded-lg font-semibold text-white ${
-                      currentPage === 1
-                        ? "bg-gray-400"
-                        : "bg-[#56768f] hover:bg-[#223e4c]"
-                    }`}
-                  >
-                    ← Zurück
-                  </button>
-
-                  <span>
-                    Seite {currentPage} von {totalPages}
-                  </span>
-
-                  <button
-                    onClick={() =>
-                      setCurrentPage((p) => Math.min(p + 1, totalPages))
-                    }
-                    disabled={currentPage === totalPages}
-                    className={`px-5 py-2 rounded-lg font-semibold text-white ${
-                      currentPage === totalPages
-                        ? "bg-gray-400"
-                        : "bg-[#56768f] hover:bg-[#223e4c]"
-                    }`}
-                  >
-                    Weiter →
-                  </button>
-                </div>
-              </div>
-            )}
-          </section>
-        
+            {/* Lazy Loading Trigger */}
+            <div ref={loaderRef}></div>
+          </div>
+        </section>
       </div>
 
-      {/* === EDIT MODAL === */}
-      {isEditModalOpen && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex justify-center items-center z-[9999]">
-          <div className="bg-white rounded-xl shadow-lg w-[420px] p-6 text-center">
-            <h3 className="text-lg font-semibold mb-4">Thema bearbeiten</h3>
+ 
+     {/* === EDIT MODAL === */}
+{isEditModalOpen && (
+  <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex justify-center items-center z-[9999]">
+    <div className="bg-white rounded-xl shadow-xl w-[420px] p-6">
+      <h3 className="text-lg font-semibold mb-4 text-center">
+        Thema bearbeiten
+      </h3>
 
-            <input
-              ref={titleInputRef}
-              type="text"
-              value={editThemaName}
-              onChange={(e) => setEditThemaName(e.target.value)}
-              maxLength={50}
-              className="w-full border p-2 rounded mb-2"
-            />
+      {/* TITEL */}
+      <div className="mb-4 text-left">
+        <label className="block text-sm font-medium text-black-600 mb-1">
+          Titel
+        </label>
+        <input
+          ref={titleInputRef}
+          type="text"
+          value={editThemaName}
+          onChange={(e) => setEditThemaName(e.target.value)}
+          maxLength={50}
+          className="w-full border rounded-md p-2 focus:ring-2 focus:ring-[#56768f]"
+        />
+      </div>
 
-            <textarea
-              value={editThemaDesc}
-              onChange={(e) => setEditThemaDesc(e.target.value)}
-              maxLength={60}
-              className="w-full border p-2 rounded mb-4 h-24"
-            />
+      {/* BESCHREIBUNG */}
+      <div className="mb-6 text-left">
+        <label className="block text-sm font-medium text-black-600 mb-1">
+          Beschreibung
+        </label>
+        <textarea
+          value={editThemaDesc}
+          onChange={(e) => setEditThemaDesc(e.target.value)}
+          
+          className="w-full border rounded-md p-2 h-24 resize-none focus:ring-2 focus:ring-[#56768f]"
+        />
+      </div>
 
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setIsEditModalOpen(false)}
-                className="px-4 py-2 bg-gray-200 rounded"
-              >
-                Abbrechen
-              </button>
+      {/* ACTION BUTTONS */}
+      <div className="flex justify-end gap-2">
+        <button
+          onClick={() => setIsEditModalOpen(false)}
+          className="px-4 py-2 bg-gray-200 rounded"
+        >
+          Abbrechen
+        </button>
 
-              <button
-                onClick={async () => {
-                  if (!editThemaId) return;
+        <button
+          onClick={async () => {
+            if (!editThemaId) return;
+            try {
+              const updated = await updateThema(editThemaId, {
+                name: editThemaName,
+                description: editThemaDesc,
+              });
 
-                  try {
-                    const updated = await updateThema(editThemaId, {
-                      name: editThemaName,
-                      description: editThemaDesc,
-                    });
+              setTopics((prev) =>
+                prev.map((t) =>
+                  t.id === updated.id
+                    ? {
+                        ...t,
+                        title: updated.name,
+                        subtitle: updated.description,
+                      }
+                    : t
+                )
+              );
+             showSuccess("Thema erfolgreich aktualisiert!");
 
-                    setTopics((prev) =>
-                      prev.map((t) =>
-                        t.id === updated.id
-                          ? {
-                              ...t,
-                              title: updated.name,
-                              subtitle: updated.description,
-                            }
-                          : t
-                      )
-                    );
+              setIsEditModalOpen(false);
+            } catch (err) {
+              showError("Fehler: Thema konnte nicht aktualisiert werden.");
+            }
+          }}
+          className="px-4 py-2 bg-[#56768f] text-white rounded"
+        >
+          Speichern
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 
-                    setIsEditModalOpen(false);
-                  } catch (err) {
-                    alert("Fehler beim Aktualisieren");
-                  }
-                }}
-                className="px-4 py-2 bg-[#56768f] text-white rounded"
-              >
-                Speichern
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* === ADD MODAL === */}
-      {isAddModalOpen && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex justify-center items-center z-[9999]">
-          <div className="bg-white rounded-xl shadow-lg w-[420px] p-6 text-center">
-            <h3 className="text-lg font-semibold mb-4">
-              Neues Thema hinzufügen
-            </h3>
+     {isAddModalOpen && (
+  <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex justify-center items-center z-[9999]">
+    <div className="bg-white rounded-xl shadow-lg w-[420px] p-6">
+      
+      <h3 className="text-lg font-semibold mb-4 text-center">
+        Neues Thema hinzufügen
+      </h3>
 
-            <input
-              type="text"
-              value={newThemaName}
-              maxLength={50}
-              onChange={(e) => setNewThemaName(e.target.value)}
-              className="w-full border p-2 rounded mb-2"
-              placeholder="Titel"
-            />
+      {/* TITEL LABEL */}
+      <label className="block text-left text-sm font-medium text-gray-700 mb-1">
+        Titel
+      </label>
+      <input
+        type="text"
+        value={newThemaName}
+        maxLength={50}
+        onChange={(e) => setNewThemaName(e.target.value)}
+        className="w-full border rounded-md p-2 mb-4 focus:ring-2 focus:ring-[#56768f]"
+        placeholder="Titel eingeben..."
+      />
 
-            <textarea
-              value={newThemaDesc}
-              maxLength={60}
-              onChange={(e) => setNewThemaDesc(e.target.value)}
-              className="w-full border p-2 rounded mb-4 h-24"
-              placeholder="Beschreibung"
-            />
+      {/* BESCHREIBUNG LABEL */}
+      <label className="block text-left text-sm font-medium text-gray-700 mb-1">
+        Beschreibung
+      </label>
+      <textarea
+        value={newThemaDesc}
+        onChange={(e) => setNewThemaDesc(e.target.value)}
+        className="w-full border p-2 rounded mb-5 min-h-[100px] resize-y focus:ring-2 focus:ring-[#56768f]"
+        placeholder="Beschreibung eingeben..."
+      />
 
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setIsAddModalOpen(false)}
-                className="px-4 py-2 bg-gray-200 rounded"
-              >
-                Abbrechen
-              </button>
+      {/* BUTTONS */}
+      <div className="flex justify-end gap-2">
+        <button
+          onClick={() => setIsAddModalOpen(false)}
+          className="px-4 py-2 bg-gray-200 rounded"
+        >
+          Abbrechen
+        </button>
 
-              <button
-                onClick={async () => {
-                  try {
-                    await createThema({
-                      name: newThemaName,
-                      description: newThemaDesc,
-                       
-                    });
+        <button
+          onClick={async () => {
+            try {
+              await createThema({
+                name: newThemaName,
+                description: newThemaDesc,
+              });
 
-                    await fetchTopics();
+              await fetchTopics();
 
-                    setIsAddModalOpen(false);
-                    setNewThemaName("");
-                    setNewThemaDesc("");
-                    showSuccess(  "Thema erfolgreich erstellt!");
-                  } catch (err) {
-                    showError(  "EROOOOOR");
-                  }
-                }}
-                className="px-4 py-2 bg-[#56768f] text-white rounded"
-              >
-                Speichern
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+              setIsAddModalOpen(false);
+              setNewThemaName("");
+              setNewThemaDesc("");
+              showSuccess("Thema erfolgreich erstellt!");
+            } catch (err) {
+              showError("Fehler: Thema konnte nicht erstellt werden.");
+            }
+          }}
+          className="px-4 py-2 bg-[#56768f] text-white rounded"
+        >
+          Speichern
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
 
       {/* === DELETE MODAL === */}
       {showDeleteModal && (
@@ -552,10 +620,11 @@ export default function AdminDashboard() {
                     setTopics((prev) =>
                       prev.filter((t) => t.id !== selectedTopic.id)
                     );
+                    showSuccess("Thema erfolgreich gelöscht!");
 
                     setShowDeleteModal(false);
                   } catch {
-                    alert("Fehler beim Löschen");
+                      showError("Fehler: Thema konnte nicht gelöscht werden.");
                   }
                 }}
                 className="px-4 py-2 bg-red-600 text-white rounded"
