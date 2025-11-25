@@ -195,7 +195,23 @@ export async function duplicateThema(id: string) {
     throw error;
   }
 }
+// 🔧 Thema-Status ändern (aktiv/inaktiv)
+export async function changeThemaStatus(id: string) {
+  const url = `${API_BASE}/themas/status/change/${id}`;
+  const res = await apiClient.patch(url);
+  return res.data;
+}
+// 🔧 Alle aktiven Themen abrufen
+export async function getActiveThemas() {
+  const response = await apiClient.get(`${API_BASE}/themas/status/active`);
+  return response.data;
+}
 
+// 🔧 Alle inaktiven Themen abrufen
+export async function getInactiveThemas() {
+  const response = await apiClient.get(`${API_BASE}/themas/status/inactive`);
+  return response.data;
+}
 
 
 

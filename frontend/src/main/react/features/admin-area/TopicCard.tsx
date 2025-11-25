@@ -23,6 +23,7 @@ type Topic = {
   title: string;
   subtitle: string;
   questions: number;
+  status: "active" | "inactive";
 };
 
 type TopicCardProps = {
@@ -31,12 +32,19 @@ type TopicCardProps = {
   onDelete: (t: Topic) => void;
   onEdit: (t: Topic) => void;
   onManage: (t: Topic) => void;
+  onDuplicate: (t: Topic) => void;
+  onStatusChange: () => void;
 };
 
-const TopicCard = ({ t, onDelete, onEdit, onManage }: TopicCardProps) => {
+const TopicCard = ({
+  t,
+  onDelete,
+  onEdit,
+  onManage,
+  onDuplicate,
+  onStatusChange,
+}: TopicCardProps) => {
   const isLight = isColorLight(SECONDARY);
-  const [statusOpen, setStatusOpen] = React.useState(false);
-  const [isActive, setIsActive] = React.useState(true);
 
   const textColor = isLight ? "text-black" : "text-white";
   const textColorSoft = isLight ? "text-black/50" : "text-white/80";
@@ -62,53 +70,19 @@ const TopicCard = ({ t, onDelete, onEdit, onManage }: TopicCardProps) => {
           >
             <FileText size={23} className={textColorSoft} />
           </div>
-
-          <div className="relative">
-            {/* Status Button */}
-            <button
-              onClick={() => setStatusOpen(!statusOpen)}
-              className={`
-                    px-3 py-1 rounded-xl text-xs font-semibold shadow-sm transition
-                    ${
-                      isActive
-                        ? "bg-green-500 text-white"
-                        : "bg-red-500 text-white"
-                    }
-             `}
-            >
-              {isActive ? "Aktiv" : "Inaktiv"}
-            </button>
-
-            {/* Dropdown */}
-            {statusOpen && (
-              <div
-                className="
-                  absolute right-0 mt-2 w-32 bg-white rounded-xl shadow-lg border
-                  flex flex-col text-sm overflow-hidden z-50
-                "
-              >
-                <button
-                  className="px-3 py-2 hover:bg-green-50 text-left"
-                  onClick={() => {
-                    setIsActive(true);
-                    setStatusOpen(false);
-                  }}
-                >
-                  ✅ Aktiv
-                </button>
-
-                <button
-                  className="px-3 py-2 hover:bg-red-50 text-left"
-                  onClick={() => {
-                    setIsActive(false);
-                    setStatusOpen(false);
-                  }}
-                >
-                  ⛔ Inaktiv
-                </button>
-              </div>
-            )}
-          </div>
+          {/* ⭐ Status Button NEU */}
+          <button
+            onClick={() => onStatusChange()}
+            className={`px-3 py-1 rounded-xl text-xs font-semibold shadow-sm transition
+      ${
+        t.status === "active"
+          ? "bg-green-500 text-white"
+          : "bg-red-500 text-white"
+      }
+    `}
+          >
+            {t.status === "active" ? "Aktiv" : "Inaktiv"}
+          </button>
         </div>
 
         {/* TITLE */}
@@ -153,6 +127,7 @@ const TopicCard = ({ t, onDelete, onEdit, onManage }: TopicCardProps) => {
             <Trash2 size={18} className={textColor} />
           </button>
           <button
+            onClick={() => onDuplicate(t)}
             className="
                           w-10 h-10 rounded-xl bg-[#486c88de]
                           flex items-center justify-center shadow-sm border border-white/20

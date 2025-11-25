@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-
+import { useToast } from "@/shared/contexts/ToastContext";
+// Icons
 import AdminLayout from "@/apps/app/AdminLayout";
 import "@/styles/admin.css";
 import {
@@ -111,7 +112,8 @@ export default function ConditionEditor() {
   const [isRequired, setIsRequired] = useState(true); // Standard: true (Pflichtfrage)
 
   const isOrderType = selectedType?.value === "order";
-
+ const { showSuccess, showError } = useToast();
+ 
   // 🔁 Rekursive Funktion, die ALLE Kinder bis zur tiefsten Ebene lädt
   async function fetchChildrenRecursive(parentId: string): Promise<any[]> {
     try {
@@ -454,11 +456,11 @@ export default function ConditionEditor() {
           }));
 
       setQuestions((prev) => removeRecursive(prev));
+      showSuccess("Frage erfolgreich gelöscht!");
 
       console.log("✅ Frage erfolgreich gelöscht:", questionId);
     } catch (error) {
-      console.error("❌ Fehler beim Löschen der Frage:", error);
-      alert("Fehler beim Löschen der Frage. Bitte später erneut versuchen.");
+       showError("Fehler beim Löschen der Frage!");
     } finally {
       setIsDeleting(false);
       setIsDeleteModalOpen(false);
@@ -583,9 +585,10 @@ export default function ConditionEditor() {
       setOptions([]);
       setParentQuestion(null);
       setIsRequired(true); // Standard: true zurücksetzen
+      
+showSuccess("Frage erfolgreich hinzugefügt!");
     } catch (error) {
-      console.error("❌ Fehler beim Hinzufügen der Frage:", error);
-      alert("❌ Fehler beim Hinzufügen der Frage!");
+       showError("Fehler beim Hinzufügen der Frage!");
     }
   };
 
@@ -707,9 +710,10 @@ export default function ConditionEditor() {
 
       // 🧹 Felder & Fehler zurücksetzen
       handleCancel();
+      showSuccess("Frage erfolgreich aktualisiert!");
     } catch (err) {
-      console.error("❌ Fehler beim Bearbeiten der Frage:", err);
-      alert("❌ Fehler beim Bearbeiten der Frage!");
+        console.error("❌ Fehler beim Bearbeiten der Frage:", err);
+  showError("Fehler beim Aktualisieren der Frage!");
     }
   };
 
@@ -1060,7 +1064,8 @@ export default function ConditionEditor() {
       // ROOT → ROOT
       if (!activeInfo.parentId && !overInfo.parentId) {
         await moveRootNode(activeId, newPosition);
-        console.log("📌 Root verschoben:", activeId, "→ Position", newPosition);
+        showSuccess("Frage erfolgreich verschoben!");
+
         return;
       }
 
@@ -1068,21 +1073,14 @@ export default function ConditionEditor() {
       if (activeInfo.parentId === overInfo.parentId) {
         await moveChildNode(activeId, activeInfo.parentId!, newPosition);
 
-        console.log(
-          "📌 Child verschoben in gleicher Ebene:",
-          activeId,
-          "→ Position",
-          newPosition
-        );
+       showSuccess("Unterfrage erfolgreich verschoben!");
 
         return;
       }
 
-      console.warn(
-        "⚠️ Verschieben in andere Parent-Ebene ist deaktiviert (Absprache)."
-      );
+     
     } catch (err) {
-      console.error("❌ Fehler beim Reorder:", err);
+      showError("Fehler beim Verschieben!");
     }
   };
 
