@@ -31,6 +31,7 @@ import ProjectManagementPage from '@/features/admin-area/topics/project-manageme
 import CompanyListtest from '@/features/admin-panel/companies/testcomplist';
 import ConditionEditor from '@/features/admin-area/catalogs/ConditionEditor';
 import CatalogList from '@/features/admin-area/catalogs/CatalogList';
+import ReifegradPage from '@/features/admin-area/topics/reifegradmodelle/Reifegradmodelle';
 
 
 
@@ -43,6 +44,15 @@ export default function AppRoutes() {
       <Route path="/invite/:token" element={<InviteGate />} />
        <Route path="/KatalogGate" element={<ZugewiesenerKatalog />} />
 
+
+      <Route
+        path="/app/reifegradmodelle"
+        element={
+          <ProtectedRoute>
+            <ReifegradPage />
+          </ProtectedRoute>
+        }
+      />
 
       <Route
         path="/app/katalog-themen-public"
