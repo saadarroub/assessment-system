@@ -81,6 +81,7 @@ public class PublicQueryUtil {
                 SELECT 
                   qh.question_id,
                   qh.order_index,
+                  qh.is_required,
                   q.text AS question_text,
                   q.options,
                   q.scoring_schema,
