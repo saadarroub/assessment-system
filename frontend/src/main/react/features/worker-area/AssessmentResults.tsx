@@ -98,20 +98,20 @@ export default function AssessmentResults(props: AssessmentResultsProps) {
     }
   }
   const rows = useMemo(() => {
-    if (!summary) return [];
+  if (!summary) return [];
 
-    const autoIds = new Set(
-      summary.automatischBewerteteFragen.map(q => q.questionId)
-    );
+  const answered = summary.answeredQuestions ?? [];
 
-    return summary.answeredQuestions
-      .map(q => ({
-        ...q,
-        isAuto: autoIds.has(q.questionId),  // true = automatisch, false = manuell
-      }))
-      // optional sortieren nach orderIndex
-      .sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0));
-  }, [summary]);
+  return answered
+    .map(q => ({
+      ...q,
+      // falls du irgendwann ein Flag vom Backend bekommst:
+      // isAuto: (q as any).isAuto ?? (q as any).automatic ?? false,
+      isAuto: false, // vorerst einfach "manuell" oder später sauber mappen
+    }))
+    .sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0));
+}, [summary]);
+
 
 
   // Prozentanzeige: bevorzugt dein percent; sonst aus Score; sonst aus answered/total

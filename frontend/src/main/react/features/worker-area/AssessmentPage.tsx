@@ -442,12 +442,8 @@ export default function AssessmentPage() {
               totalScore: s.totalScore,
               maxTotalScore: s.maxPossibleScore,
             });
-            // 🔥 NEU: alle Summary-Fragen -> UiQuestion und in questionsById + LocalStorage
-            const allRows = [
-              ...(s.automatischBewerteteFragen ?? []),
-              ...(s.manuellZuBewertendeFragen ?? []),
-              ...(s.uebersprungeneFragen ?? []),
-            ];
+            // alle Summary-Fragen -> UiQuestion und in questionsById + LocalStorage
+            const allRows = s.answeredQuestions ?? [];
             const uiFromSummary: Record<string, UiQuestion> = {};
 
             for (const row of allRows) {
@@ -578,10 +574,22 @@ export default function AssessmentPage() {
     if (!q || !sessionId) return;
 
     try {
-      //aktuelle Antwort speichern
-      const value = buildSaveValue(q, answers[String(q.id)] ?? "");
-      await saveAnswer(accessToken, sessionId, String(q.id), value);
-      // ab hier gibt es mindestens eine vorherige Frage
+      const uiVal = answers[String(q.id)];
+
+      let valueForApi: any;
+      const isRequired = q.isRequired === true;
+
+      // OPTIONAL + LEER → "null" schicken
+      if (!isRequired && isUiValueEmpty(q, uiVal)) {
+        valueForApi = "null";          // <-- ganz bewusst der String "null"
+      } else {
+        // normaler Weg
+        valueForApi = buildSaveValue(q, uiVal ?? "");
+      }
+
+      await saveAnswer(accessToken, sessionId, String(q.id), valueForApi);
+
+      // ab hier dein bisheriger Code (canGoBack, refreshState, trail, getNextQuestion, Summary, …)
       setCanGoBack(true);
 
       // Fortschritt aktualisieren + LocalStorage
@@ -611,7 +619,6 @@ export default function AssessmentPage() {
       const apiQ = await getNextQuestion(accessToken, sessionId);
 
       // ======= KEINE NÄCHSTE FRAGE: Summary holen & ResultPage zeigen =======
-      // ======= KEINE NÄCHSTE FRAGE: Summary holen & ResultPage zeigen =======
       if (!apiQ) {
         try {
           const s = await getSummary(accessToken, sessionId);
@@ -623,13 +630,8 @@ export default function AssessmentPage() {
             maxTotalScore: s.maxPossibleScore,
           });
 
-          // 🔥 NEU: alle Summary-Fragen -> UiQuestion und in questionsById + LocalStorage
-          const allRows = [
-            ...(s.automatischBewerteteFragen ?? []),
-            ...(s.manuellZuBewertendeFragen ?? []),
-            ...(s.uebersprungeneFragen ?? []),
-          ];
-
+          // alle Summary-Fragen -> UiQuestion und in questionsById + LocalStorage
+          const allRows = s.answeredQuestions ?? [];
           const uiFromSummary: Record<string, UiQuestion> = {};
 
           for (const row of allRows) {
@@ -644,6 +646,7 @@ export default function AssessmentPage() {
             ...uiFromSummary,
             ...prev,
           }));
+
         } catch (e) {
           console.error("getSummary failed", e);
           // zur Not: ohne Score, nur „completed“ → Page rendert trotzdem
@@ -687,110 +690,78 @@ export default function AssessmentPage() {
     }
   };
   const changeAnswerFromResults = async (questionId: string, uiValue: any) => {
-  if (!sessionId) return;
+    if (!sessionId) return;
 
-  let qMeta = questionsById[String(questionId)];
+    let qMeta = questionsById[String(questionId)];
 
-  // 1) Meta ggf. aus summary rekonstruieren (dein Fallback)
-  if (!qMeta && summary) {
-    const allRows = [
-      ...(summary.automatischBewerteteFragen ?? []),
-      ...(summary.manuellZuBewertendeFragen ?? []),
-      ...(summary.uebersprungeneFragen ?? []),
-    ];
+    // Meta ggf. aus summary rekonstruieren (dein Fallback)
+    if (!qMeta && summary) {
+      const row = (summary.answeredQuestions ?? []).find(
+        (r: any) => String(r.questionId) === String(questionId)
+      );
 
-    const row = allRows.find(
-      (r: any) => String(r.questionId) === String(questionId)
-    );
+      if (row) {
+        const uiQ = summaryRowToUiQuestion(row);   
+        qMeta = uiQ;
 
-    if (row) {
-      const apiLike: ApiQuestion = {
-        questionId: row.questionId,
-        text: row.questionText,
-        inputType: row.inputType,
-        options: undefined,
-        questionTypeName: undefined,
-        scoringSchema: undefined,
-        answered: true,
-        index: row.orderIndex,
-        min: (row as any).min,
-        max: (row as any).max,
-        step: (row as any).step,
-        labels: (row as any).labels,
-        required: row.isRequired,
-        currentAnswer: {
-          answerId: "",
-          value: row.answeredValue,
-          score: row.score,
-          answeredAt: row.answeredAt,
-        },
-      };
+        setQuestionsById(prev => ({
+          ...prev,
+          [String(uiQ.id)]: uiQ,
+        }));
+        persistUiQuestionMeta(assignmentKeyId, themaId, uiQ);
+      }
+    }
 
-      qMeta = normalizeApiQuestion(apiLike);
+    if (!qMeta) {
+      console.warn("Keine UiQuestion-Meta für", questionId);
+      return;
+    }
+
+    try {
+      const isRequired = qMeta.isRequired === true;
+      const valueForApi =
+        !isRequired && isUiValueEmpty(qMeta, uiValue)
+          ? "null"
+          : buildSaveValue(qMeta, uiValue);
+
+      await saveAnswer(accessToken, sessionId, String(questionId), valueForApi);
+
+
+      // Local answers-State aktualisieren,
+      //    damit beim nächsten Öffnen der Dialog den neuen Wert zeigt
+      setAnswers(prev => ({
+        ...prev,
+        [String(questionId)]: uiValue,
+      }));
+
+      //  Summary & Score nochmal vom Backend holen
+      const s = await getSummary(accessToken, sessionId);
+      setSummary(s);
+      setScore({
+        totalScore: s.totalScore,
+        maxTotalScore: s.maxPossibleScore,
+      });
+
+      // Fragen-Meta aus neuer Summary mergen 
+      const allRows = s.answeredQuestions ?? [];
+      const uiFromSummary: Record<string, UiQuestion> = {};
+
+      for (const row of allRows) {
+        const uiQ = summaryRowToUiQuestion(row);
+        uiFromSummary[String(uiQ.id)] = uiQ;
+        persistUiQuestionMeta(assignmentKeyId, themaId, uiQ);
+      }
 
       setQuestionsById(prev => ({
         ...prev,
-        [String(qMeta!.id)]: qMeta!,
+        ...uiFromSummary,
       }));
-      persistUiQuestionMeta(assignmentKeyId, themaId, qMeta!);
+
+    } catch (e) {
+      console.error("changeAnswerFromResults / save failed", e);
+     
     }
-  }
-
-  if (!qMeta) {
-    console.warn("Keine UiQuestion-Meta für", questionId);
-    return;
-  }
-
-  try {
-    // 2) UI-Wert -> API-Wert bauen (wichtiger Schritt!)
-    const valueForApi = buildSaveValue(qMeta, uiValue);
-
-    // 3) Antwort im Backend speichern
-    await saveAnswer(
-      accessToken,
-      sessionId,
-      String(questionId),
-      valueForApi
-    );
-
-    // 4) Local answers-State aktualisieren,
-    //    damit beim nächsten Öffnen der Dialog den neuen Wert zeigt
-    setAnswers(prev => ({
-      ...prev,
-      [String(questionId)]: uiValue,
-    }));
-
-    // 5) Summary & Score nochmal vom Backend holen
-    const s = await getSummary(accessToken, sessionId);
-    setSummary(s);
-    setScore({
-      totalScore: s.totalScore,
-      maxTotalScore: s.maxPossibleScore,
-    });
-
-    // 6) Fragen-Meta aus neuer Summary mergen (optional, aber sauber)
-    const allRows = [
-      ...(s.automatischBewerteteFragen ?? []),
-      ...(s.manuellZuBewertendeFragen ?? []),
-      ...(s.uebersprungeneFragen ?? []),
-    ];
-    const uiFromSummary: Record<string, UiQuestion> = {};
-
-    for (const row of allRows) {
-      const uiQ = summaryRowToUiQuestion(row);
-      uiFromSummary[String(uiQ.id)] = uiQ;
-      persistUiQuestionMeta(assignmentKeyId, themaId, uiQ);
-    }
-
-    setQuestionsById(prev => ({
-      ...prev,
-      ...uiFromSummary,
-    }));
-  } catch (e) {
-    console.error("changeAnswerFromResults / save failed", e);
-    // optional: hier könntest du eine Fehlermeldung im UI anzeigen
-  }
-};
+  };
 
 
 
@@ -820,8 +791,8 @@ export default function AssessmentPage() {
         answered: prev.total || prev.answered, // sicherheitshalber „voll“
       }));
 
-      // 3Auch im LocalStorage „fertig“ markieren,
-      //    damit Katalog-Seite die 100 % sieht
+      // Auch im LocalStorage „fertig“ markieren,
+      // damit Katalog-Seite die 100 % sieht
       try {
         const store = readStore();
         const dashKey = makeDashKey(assignmentKeyId, themaId);
@@ -939,15 +910,18 @@ export default function AssessmentPage() {
       />
     );
   }
+  console.log("Aktuelle Frage:", q); 
   const isCurrentRequiredUnanswered = (() => {
-    if (!q) return false;              // keine Frage -> Button nicht blockieren
+    if (!q) return false;
+
+    // nur blockieren, wenn required = true
+    if (!q.isRequired) return false;
 
     const val = answers[q.id];
+    return isUiValueEmpty(q, val);
+  })();
 
-    // nur blockieren, wenn die Frage required ist
-    // wenn du WIRKLICH jede Frage blockieren willst, kommentier die nächste Zeile aus
-    if (!(q as any).required) return false;
-
+  function isUiValueEmpty(q: UiQuestion, val: any): boolean {
     switch (q.type) {
       case "radio":
       case "select":
@@ -970,9 +944,10 @@ export default function AssessmentPage() {
         );
 
       default:
-        return false;
+        return val === undefined || val === null || val === "";
     }
-  })();
+  }
+
 
   /* -------- Render -------- */
   return (
