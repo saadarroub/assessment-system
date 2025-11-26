@@ -12,10 +12,10 @@ import {
   type UiQuestion,
   type ApiState,
   type ApiQuestion,
-   getSummary,                
-  type ApiSummaryResponse,   
+  getSummary,
+  summaryRowToUiQuestion,
+  type ApiSummaryResponse,
 } from "@/features/service/publicAssessmentService";
-import AssessmentCompleted from "@/features/worker-area/AssessmentCompleted";
 import aa from '@/assets/aa.gif';
 
 //Test
@@ -23,6 +23,17 @@ import AssessmentResults from "@/features/worker-area/AssessmentResults";
 
 
 const STORAGE_KEY = "assessments";
+
+/* ========= Session-Meta aus InviteGate ========= */
+const SESSION_KEY = "publicAssessmentSession";
+type PublicAssessmentSession = {
+  token: string;
+  assignmentId: string;
+  catalogId: string;
+  catalogTitle: string;
+  workerName: string;
+  accessCode?: string;
+};
 
 function readStore(): any {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); }
@@ -73,6 +84,84 @@ function persistUiQuestionMeta(
     // im Zweifel einfach ignorieren
   }
 }
+type TrailSnapshot = {
+  sessionId: string;
+  trailOrder: string[];
+  currentPos: number;
+};
+
+function persistTrailSnapshot(
+  assignmentId: string,
+  topicId: string,
+  sessionId: string,
+  trail: UiQuestion[],
+  pos: number
+) {
+  try {
+    const store = readStore();
+    const dashKey = makeDashKey(assignmentId, topicId);
+    const prev = store[dashKey] ?? {};
+
+    // Map aus dem aktuellen Trail bauen
+    const fromTrail: Record<string, UiQuestion> = {};
+    for (const q of trail) {
+      fromTrail[String(q.id)] = q;
+    }
+
+    const existingMap = (prev as any).uiQuestionsById ?? {};
+
+    store[dashKey] = {
+      ...prev,
+      sessionId,
+      trailOrder: trail.map(q => String(q.id)),
+      currentPos: pos,
+      // HIER: nichts verlieren, immer alles mergen
+      uiQuestionsById: {
+        ...existingMap,
+        ...fromTrail,
+      },
+    };
+
+    writeStore(store);
+  } catch {
+    // ignore
+  }
+}
+
+
+function restoreTrailSnapshot(
+  assignmentId: string,
+  topicId: string,
+  sessionId: string
+): { trail: UiQuestion[]; pos: number; uiMap: Record<string, UiQuestion> } | null {
+  try {
+    const store = readStore();
+    const dashKey = makeDashKey(assignmentId, topicId);
+    const snap = store[dashKey] as (TrailSnapshot & {
+      uiQuestionsById?: Record<string, UiQuestion>;
+    }) | undefined;
+
+    if (!snap) return null;
+    if (snap.sessionId !== sessionId) return null;
+    if (!Array.isArray(snap.trailOrder)) return null;
+
+    const uiMap = snap.uiQuestionsById || {};
+    const trail = snap.trailOrder
+      .map(id => uiMap[id])
+      .filter(Boolean);
+
+    if (!trail.length) return null;
+
+    const pos = Math.min(
+      Math.max(snap.currentPos ?? (trail.length - 1), 0),
+      trail.length - 1
+    );
+
+    return { trail, pos, uiMap };
+  } catch {
+    return null;
+  }
+}
 
 /** Query-Helper */
 function useQuery() {
@@ -84,40 +173,76 @@ export default function AssessmentPage() {
   const query = useQuery();
   const navigate = useNavigate();
 
-  const catalogId = query.get("catalogId") || "";
-  const catalogTitle = query.get("catalogTitle") || "";
-  const assignmentKeyId = resolveAssignmentId(query);
+  /* -------- Session-Meta aus sessionStorage lesen -------- */ // NEU
+  const [sessionMeta, setSessionMeta] = useState<PublicAssessmentSession | null>(
+    null
+  );
+
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(SESSION_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as PublicAssessmentSession;
+      setSessionMeta(parsed);
+    } catch (e) {
+      console.warn("Fehler beim Lesen von publicAssessmentSession", e);
+    }
+  }, []);
+
+
+  const assignmentKeyIdFromLocal = resolveAssignmentId(query);
   const THEMEN_ROUTE = "/app/katalog-themen-public";
+
+  /* -------- URL + Session kombinieren -------- */
+
+  // wichtig: .trim(), damit du keine " " drin hast
+  const accessToken =
+    (sessionMeta?.token || query.get("accessToken") || "").trim();
+
+  const catalogId =
+    (sessionMeta?.catalogId || query.get("catalogId") || "").trim();
+
+  const catalogTitle =
+    (sessionMeta?.catalogTitle || query.get("catalogTitle") || "").trim();
+
+  const assignmentKeyId =
+    (sessionMeta?.assignmentId || assignmentKeyIdFromLocal || "").trim();
+
+  const name =
+    (sessionMeta?.workerName || query.get("name") || "").trim();
+
+  const code =
+    (sessionMeta?.accessCode || query.get("code") || "").trim();
+
+  /* -------- URL-Parameter, die wirklich nur aus der URL kommen -------- */
+  const type = (query.get("type") || "").trim();               // optional
+  const topicName = (query.get("topicName") || "").trim();     // optional
+  const themaId = (
+    query.get("themaId") ||
+    query.get("topicId") ||
+    ""
+  ).trim(); // erforderlich
 
   // Einheitliche Rücknavigation zur Themenliste (mit ALLEN Parametern)
   function goBackToTopics() {
     const qs = new URLSearchParams({
       token: accessToken, // in der Public-Route heißt der Param "token"
-      ...(catalogId ? { catalogId } : {}),
-      ...(catalogTitle ? { catalogTitle } : {}),
-      ...(assignmentKeyId ? { assignmentId: assignmentKeyId } : {}),
-      ...(name ? { name } : {}),
-      ...(code ? { code } : {}),
+      //...(catalogId ? { catalogId } : {}),
+      //...(catalogTitle ? { catalogTitle } : {}),
+      //...(assignmentKeyId ? { assignmentId: assignmentKeyId } : {}),
+      //...(name ? { name } : {}),
+      //...(code ? { code } : {}),
     });
     navigate(`${THEMEN_ROUTE}?${qs.toString()}`);
   }
 
-
-  /* -------- URL-Parameter -------- */
-  const type = query.get("type") || "";                 // optional
-  //const topicId = query.get("topicId") || "";           // optional
-  const topicName = query.get("topicName") || "";       // optional
-  const accessToken = query.get("accessToken") || "";   // erforderlich
-  const themaId = query.get("themaId") || query.get("topicId") || ""; // erforderlich
-  const name = query.get("name") || "";
-  const code = query.get("code") || "";
 
   /* -------- UI/Flow-States -------- */
   const [sessionId, setSessionId] = useState("");
   const [answers, setAnswers] = useState<Record<string, any>>({});
   const [trail, setTrail] = useState<UiQuestion[]>([]); // Verlauf der bereits geladenen Fragen
   const [questionsById, setQuestionsById] = useState<Record<string, UiQuestion>>({});
-  const [questionOrder, setQuestionOrder] = useState<string[] | null>(null); 
+  const [questionOrder, setQuestionOrder] = useState<string[] | null>(null);
   const [pos, setPos] = useState<number>(-1);           // Index im Trail (aktuelle Frage)
   const [completed, setCompleted] = useState(false);
   const [status, setStatus] = useState<"in_progress" | "completed">("in_progress");
@@ -128,32 +253,58 @@ export default function AssessmentPage() {
     totalScore: null,
     maxTotalScore: null,
   });
-// Summary / Review-Modus
-const [summary, setSummary] = useState<ApiSummaryResponse | null>(null);
-const [showSummary, setShowSummary] = useState(false);
-const [summaryError, setSummaryError] = useState<string | null>(null);
-const [finalizing, setFinalizing] = useState(false);
+  // Summary / Review-Modus
+  const [summary, setSummary] = useState<ApiSummaryResponse | null>(null);
+  const [showSummary, setShowSummary] = useState(false);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
+  const [finalizing, setFinalizing] = useState(false);
 
-//Wenn man die Seite neu lädst (gleiche assignmentId + themaId),
-//dann ist questionsById sofort wieder gefüllt.
-useEffect(() => {
-  if (!assignmentKeyId || !themaId) return;
+  const [canGoBack, setCanGoBack] = useState(false);
 
-  try {
-    const store = readStore();
-    const dashKey = makeDashKey(assignmentKeyId, themaId);
-    const uiMap = store[dashKey]?.uiQuestionsById;
+  //Wenn man die Seite neu lädst (gleiche assignmentId + themaId),
+  //dann ist questionsById sofort wieder gefüllt.
+  useEffect(() => {
+    if (!assignmentKeyId || !themaId) return;
 
-    if (uiMap && typeof uiMap === "object") {
-      setQuestionsById(uiMap);
+    try {
+      const store = readStore();
+      const dashKey = makeDashKey(assignmentKeyId, themaId);
+      const uiMap = store[dashKey]?.uiQuestionsById;
+
+      if (uiMap && typeof uiMap === "object") {
+        setQuestionsById(uiMap);
+      }
+    } catch {
+      // ignore
     }
-  } catch {
-    // ignore
-  }
-}, [assignmentKeyId, themaId]);
+  }, [assignmentKeyId, themaId]);
+  // direkt nach dem useEffect, der questionsById bei Mount aus dem Store lädt,
+  // noch einen zweiten Effekt:
+  useEffect(() => {
+    if (!completed) return;
+    if (!assignmentKeyId || !themaId) return;
+
+    try {
+      const store = readStore();
+      const dashKey = makeDashKey(assignmentKeyId, themaId);
+      const fromStore = store?.[dashKey]?.uiQuestionsById;
+
+      if (fromStore && typeof fromStore === "object") {
+        // alles aus LocalStorage in den State mergen
+        setQuestionsById(prev => ({
+          ...fromStore,
+          ...prev, // State darf überschreiben
+        }));
+      }
+    } catch (e) {
+      console.warn("Konnte uiQuestionsById aus LocalStorage nicht mergen", e);
+    }
+  }, [completed, assignmentKeyId, themaId]);
+
 
 
   const q: UiQuestion | null = pos >= 0 ? trail[pos] : null;
+
   const step = progress.total
     ? Math.min((progress.answered ?? 0) + 1, progress.total)
     : (pos >= 0 ? pos + 1 : 1);
@@ -170,159 +321,198 @@ useEffect(() => {
   }, []);
 
   function applyApiQuestion(
-  apiQ: ApiQuestion,
-  mode: "replace" | "append" | "prepend"
-) {
-  const uiQ = normalizeApiQuestion(apiQ);
+    apiQ: ApiQuestion,
+    mode: "replace" | "append" | "prepend"
+  ) {
+    const uiQ = normalizeApiQuestion(apiQ);
 
-  // currentAnswer → answers-State mappen
-  if (apiQ.currentAnswer && apiQ.currentAnswer.value !== undefined) {
-    const raw = apiQ.currentAnswer.value;
+    // currentAnswer → answers-State mappen (dein alter Code)
+    if (apiQ.currentAnswer && apiQ.currentAnswer.value !== undefined) {
+      const raw = apiQ.currentAnswer.value;
 
-    setAnswers(prev => {
-      let mapped: any = raw;
+      setAnswers(prev => {
+        let mapped: any = raw;
 
-      switch (uiQ.type) {
-        case "checkbox":
-        case "order":
-          mapped = Array.isArray(raw)
-            ? raw
-            : raw !== undefined && raw !== null && raw !== ""
-            ? [String(raw)]
-            : [];
-          break;
-
-        case "slider":
-        case "number":
-          mapped =
-            typeof raw === "number"
+        switch (uiQ.type) {
+          case "checkbox":
+          case "order":
+            mapped = Array.isArray(raw)
               ? raw
-              : raw === "" || raw === null || raw === undefined
-              ? ""
-              : Number(raw);
-          break;
+              : raw !== undefined && raw !== null && raw !== ""
+                ? [String(raw)]
+                : [];
+            break;
 
-        case "radio":
-        case "select":
-        case "text":
-        case "textarea":
-        case "date":
-        default:
-          mapped = Array.isArray(raw) ? (raw[0] ?? "") : String(raw);
-          break;
+          case "slider":
+          case "number":
+            mapped =
+              typeof raw === "number"
+                ? raw
+                : raw === "" || raw === null || raw === undefined
+                  ? ""
+                  : Number(raw);
+            break;
+
+          case "radio":
+          case "select":
+          case "text":
+          case "textarea":
+          case "date":
+          default:
+            mapped = Array.isArray(raw) ? (raw[0] ?? "") : String(raw);
+            break;
+        }
+
+        return {
+          ...prev,
+          [uiQ.id]: mapped,
+        };
+      });
+    }
+
+    // trail + pos aktualisieren + Snapshot speichern
+    setTrail(prevTrail => {
+      let nextTrail: UiQuestion[];
+
+      if (mode === "replace") nextTrail = [uiQ];
+      else if (mode === "append") nextTrail = [...prevTrail, uiQ];
+      else nextTrail = [uiQ, ...prevTrail]; // "prepend"
+
+      const nextPos = mode === "append" ? nextTrail.length - 1 : 0;
+      setPos(nextPos);
+
+      if (sessionId) {
+        persistTrailSnapshot(
+          assignmentKeyId,
+          themaId,
+          sessionId,
+          nextTrail,
+          nextPos
+        );
       }
 
-      return {
-        ...prev,
-        [uiQ.id]: mapped,
-      };
+      return nextTrail;
     });
   }
-  
 
-  // trail + pos aktualisieren
-  setTrail(prevTrail => {
-    let nextTrail: UiQuestion[];
+  const bootstrapOrResume = useCallback(async (token: string, tid: string) => {
+    setLoading(true);
+    setFatal(null);
+    try {
+      const store = readStore();
+      const dashKey = makeDashKey(assignmentKeyId, tid);
+      const existingSid: string | undefined = store?.[dashKey]?.sessionId;
 
-    if (mode === "replace") nextTrail = [uiQ];
-    else if (mode === "append") nextTrail = [...prevTrail, uiQ];
-    else nextTrail = [uiQ, ...prevTrail]; // "prepend"
+      // ==== Session existiert schon -> fortsetzen / Summary laden ====
+      if (existingSid) {
+        setSessionId(existingSid);
+        await refreshState(token, existingSid);
 
-    // pos korrekt setzen
-    setPos(mode === "append" ? nextTrail.length - 1 : 0);
+        // 1) Versuch: kompletten Verlauf aus localStorage wiederherstellen
+        const snap = restoreTrailSnapshot(assignmentKeyId, tid, existingSid);
+        if (snap) {
+          // uiMap auch in den State schreiben, damit changeAnswerFromResults etc. weiter funktionieren
+          setQuestionsById(snap.uiMap);
+          setTrail(snap.trail);
+          setPos(snap.pos);
+          setCanGoBack(snap.pos > 0);
+          return;
+        }
 
-    return nextTrail;
-  });
-}
-
-
- const bootstrapOrResume = useCallback(async (token: string, tid: string) => {
-  setLoading(true);
-  setFatal(null);
-  try {
-    const store = readStore();
-    const dashKey = makeDashKey(assignmentKeyId, tid);
-    const existingSid: string | undefined = store?.[dashKey]?.sessionId;
-
-    // ==== 1. Session existiert schon -> fortsetzen / Summary laden ====
-    if (existingSid) {
-      setSessionId(existingSid);
-      await refreshState(token, existingSid);
-
-      // Versuche nächste offene Frage zu holen
-      const apiQ = await getNextQuestion(token, existingSid);
+        // 2) Fallback: wie bisher – nur nächste offene Frage laden
+        const apiQ = await getNextQuestion(token, existingSid);
 
         if (apiQ) {
-    // Es gibt noch Fragen -> ganz normal wieder Fragenmodus
-    const uiQ = normalizeApiQuestion(apiQ);
-    setTrail([uiQ]);
-    setPos(0);
+          const uiQ = normalizeApiQuestion(apiQ);
+          setTrail([uiQ]);
+          setPos(0);
 
-    // Metadaten merken (State + localStorage)
-    setQuestionsById(prev => ({
-      ...prev,
-      [String(uiQ.id)]: uiQ,
-    }));
-    persistUiQuestionMeta(assignmentKeyId, tid, uiQ);
-  } else {
-    // ❗ Keine weitere Frage -> wir sind im "Review/Result"-Modus
-    // => Summary erneut vom Backend holen
-    try {
-      const s = await getSummary(token, existingSid);
-      setSummary(s);
-      setScore({
-        totalScore: s.totalScore,
-        maxTotalScore: s.maxPossibleScore,
-      });
-    } catch (e) {
-      console.error("getSummary (resume) failed", e);
+          setQuestionsById(prev => ({
+            ...prev,
+            [String(uiQ.id)]: uiQ,
+          }));
+
+          persistUiQuestionMeta(assignmentKeyId, tid, uiQ);
+          setCanGoBack(true);
+        } else {
+          try {
+            const s = await getSummary(token, existingSid);
+            setSummary(s);
+            setScore({
+              totalScore: s.totalScore,
+              maxTotalScore: s.maxPossibleScore,
+            });
+            // 🔥 NEU: alle Summary-Fragen -> UiQuestion und in questionsById + LocalStorage
+            const allRows = [
+              ...(s.automatischBewerteteFragen ?? []),
+              ...(s.manuellZuBewertendeFragen ?? []),
+              ...(s.uebersprungeneFragen ?? []),
+            ];
+            const uiFromSummary: Record<string, UiQuestion> = {};
+
+            for (const row of allRows) {
+              const uiQ = summaryRowToUiQuestion(row);
+              uiFromSummary[String(uiQ.id)] = uiQ;
+
+              // auch im LocalStorage merken, damit es bei Reload nicht verloren geht
+              persistUiQuestionMeta(assignmentKeyId, tid, uiQ);
+            }
+
+            setQuestionsById(prev => ({
+              ...uiFromSummary, // Summary-Fragen rein …
+              ...prev,          // … aber vorhandene Metas (Trail/LocalStorage) dürfen überschreiben
+            }));
+
+          } catch (e) {
+            console.error("getSummary (resume) failed", e);
+          }
+
+          setCompleted(true);
+          setStatus("completed");
+        }
+        return;
+      }
+      //  Keine Session -> neue starten (dein vorhandener Code) 
+      const s = await startSession(token, tid);
+      setSessionId(s.sessionId);
+      setStatus(s.status);
+
+      const prev = store[dashKey] ?? {};
+      store[dashKey] = { ...prev, sessionId: s.sessionId, started: prev.started ?? new Date().toISOString() };
+      writeStore(store);
+
+      let first: UiQuestion | null = null;
+      if (s.firstOrNextQuestion) first = normalizeApiQuestion(s.firstOrNextQuestion);
+      else {
+        const apiQ = await getNextQuestion(token, s.sessionId);
+        if (apiQ) first = normalizeApiQuestion(apiQ);
+      }
+
+      if (first) {
+        setTrail([first]);
+        setPos(0);
+
+        // erste Frage ebenfalls merken
+        setQuestionsById(prev => ({
+          ...prev,
+          [String(first.id)]: first,
+        }));
+
+        persistUiQuestionMeta(assignmentKeyId, tid, first);
+        // Erste Frage eines neuen Assessments -> kein Zurück
+        setCanGoBack(false);
+      } else {
+        setCompleted(true);
+        setStatus("completed");
+      }
+      refreshState(token, s.sessionId);
+
+    } catch (e: any) {
+      setFatal(e?.message ?? "Konnte die Session nicht starten/fortsetzen.");
+    } finally {
+      setLoading(false);
     }
-
-    setCompleted(true);
-    setStatus("completed");
-  }
-  return;
-
-    }
-
-    //  Keine Session -> neue starten (dein vorhandener Code) 
-    const s = await startSession(token, tid);
-    setSessionId(s.sessionId);
-    setStatus(s.status);
-
-    const prev = store[dashKey] ?? {};
-    store[dashKey] = { ...prev, sessionId: s.sessionId, started: prev.started ?? new Date().toISOString() };
-    writeStore(store);
-
-    let first: UiQuestion | null = null;
-    if (s.firstOrNextQuestion) first = normalizeApiQuestion(s.firstOrNextQuestion);
-    else {
-      const apiQ = await getNextQuestion(token, s.sessionId);
-      if (apiQ) first = normalizeApiQuestion(apiQ);
-    }
-
-    if (first) {
-  setTrail([first]);
-  setPos(0);
-
-  // erste Frage ebenfalls merken
-  setQuestionsById(prev => ({
-    ...prev,
-    [String(first.id)]: first,
-  }));
-  persistUiQuestionMeta(assignmentKeyId, tid, first);
-} else {
-  setCompleted(true);
-  setStatus("completed");
-}
-refreshState(token, s.sessionId);
-
-  } catch (e: any) {
-    setFatal(e?.message ?? "Konnte die Session nicht starten/fortsetzen.");
-  } finally {
-    setLoading(false);
-  }
-}, [refreshState, assignmentKeyId]);
+  }, [refreshState, assignmentKeyId]);
 
 
 
@@ -352,167 +542,311 @@ refreshState(token, s.sessionId);
   };
 
   /*  Navigation  */
-  const prev = () => {
-    if (pos > 0) setPos(p => p - 1);
+  const prev = async () => {
+    if (!sessionId || !q) return;
+    if (!canGoBack) return;  // wenn wir sicher wissen, dass es nichts gibt
+
+    try {
+      const prevResp = await getPreviousQuestion(
+        accessToken,
+        sessionId,
+        String(q.id)   // currentQuestionId
+      );
+
+      // Wir sind an der ersten Frage – nichts mehr zum Zurückgehen
+      if (prevResp.atStart && !(prevResp as any).questionId) {
+        setCanGoBack(false);
+        return;
+      }
+
+      const apiQ = prevResp as ApiQuestion;
+
+      applyApiQuestion(apiQ, "replace");
+
+      const uiQ = normalizeApiQuestion(apiQ);
+      setQuestionsById(prev => ({
+        ...prev,
+        [String(uiQ.id)]: uiQ,
+      }));
+      persistUiQuestionMeta(assignmentKeyId, themaId, uiQ);
+    } catch (e) {
+      console.error("getPreviousQuestion failed", e);
+    }
   };
 
   const next = async () => {
-  if (!q || !sessionId) return;
+    if (!q || !sessionId) return;
 
-  try {
-    //aktuelle Antwort speichern
-    const value = buildSaveValue(q, answers[String(q.id)] ?? "");
-    await saveAnswer(accessToken, sessionId, String(q.id), value);
-
-    // Fortschritt aktualisieren + LocalStorage
-    refreshState(accessToken, sessionId);
     try {
-      const store = readStore();
-      const dashKey = makeDashKey(assignmentKeyId, themaId);
-      const prev = store[dashKey] ?? {};
-      store[dashKey] = { ...prev, sessionId };
-      writeStore(store);
-    } catch {}
+      //aktuelle Antwort speichern
+      const value = buildSaveValue(q, answers[String(q.id)] ?? "");
+      await saveAnswer(accessToken, sessionId, String(q.id), value);
+      // ab hier gibt es mindestens eine vorherige Frage
+      setCanGoBack(true);
 
-    // Wenn wir im Trail noch vorwärts können → nur pos++ (History)
-    if (pos < trail.length - 1) {
-      setPos(p => p + 1);
-      return;
-    }
-
-    // Nächste Frage vom Server holen
-    const apiQ = await getNextQuestion(accessToken, sessionId);
-
-    // ======= KEINE NÄCHSTE FRAGE: Summary holen & ResultPage zeigen =======
-    if (!apiQ) {
+      // Fortschritt aktualisieren + LocalStorage
+      refreshState(accessToken, sessionId);
       try {
-        const s = await getSummary(accessToken, sessionId);
-        setSummary(s);
+        const store = readStore();
+        const dashKey = makeDashKey(assignmentKeyId, themaId);
+        const prev = store[dashKey] ?? {};
+        store[dashKey] = { ...prev, sessionId };
+        writeStore(store);
+      } catch { }
 
-        // Score direkt aus /summary übernehmen
-        setScore({
-          totalScore: s.totalScore,
-          maxTotalScore: s.maxPossibleScore,
+      // Wenn wir im Trail noch vorwärts können → nur pos++ (History)
+      if (pos < trail.length - 1) {
+        setPos(p => {
+          const nextPos = p + 1;
+          if (sessionId) {
+            persistTrailSnapshot(assignmentKeyId, themaId, sessionId, trail, nextPos);
+          }
+          return nextPos;
         });
-      } catch (e) {
-        console.error("getSummary failed", e);
-        // zur Not: ohne Score, nur „completed“ → Page rendert trotzdem
+        return;
       }
 
-      // → jetzt in den „completed“-Zweig springen (ResultPage)
-      setCompleted(true);
-      return;
-    }
 
-    // Es gibt noch eine Frage → normal weiter
-    const uiQ = normalizeApiQuestion(apiQ);
-    setTrail(t => [...t, uiQ]);
-    setPos(p => p + 1);
-    // 🔸 NEU: Metadaten für diese Frage merken
-setQuestionsById(prev => ({
-  ...prev,
-  [String(uiQ.id)]: uiQ,
-}));
-persistUiQuestionMeta(assignmentKeyId, themaId, uiQ);
-  } catch (e) {
-    console.error("save/next failed", e);
-  }
-};
-const changeAnswerFromResults = async (questionId: string, uiValue: any) => {
+      // Nächste Frage vom Server holen
+      const apiQ = await getNextQuestion(accessToken, sessionId);
+
+      // ======= KEINE NÄCHSTE FRAGE: Summary holen & ResultPage zeigen =======
+      // ======= KEINE NÄCHSTE FRAGE: Summary holen & ResultPage zeigen =======
+      if (!apiQ) {
+        try {
+          const s = await getSummary(accessToken, sessionId);
+          setSummary(s);
+
+          // Score direkt aus /summary übernehmen
+          setScore({
+            totalScore: s.totalScore,
+            maxTotalScore: s.maxPossibleScore,
+          });
+
+          // 🔥 NEU: alle Summary-Fragen -> UiQuestion und in questionsById + LocalStorage
+          const allRows = [
+            ...(s.automatischBewerteteFragen ?? []),
+            ...(s.manuellZuBewertendeFragen ?? []),
+            ...(s.uebersprungeneFragen ?? []),
+          ];
+
+          const uiFromSummary: Record<string, UiQuestion> = {};
+
+          for (const row of allRows) {
+            const uiQ = summaryRowToUiQuestion(row);
+            uiFromSummary[String(uiQ.id)] = uiQ;
+
+            // LocalStorage aktualisieren
+            persistUiQuestionMeta(assignmentKeyId, themaId, uiQ);
+          }
+
+          setQuestionsById(prev => ({
+            ...uiFromSummary,
+            ...prev,
+          }));
+        } catch (e) {
+          console.error("getSummary failed", e);
+          // zur Not: ohne Score, nur „completed“ → Page rendert trotzdem
+        }
+
+        // → jetzt in den „completed“-Zweig springen (ResultPage)
+        setCompleted(true);
+        return;
+      }
+
+      // Es gibt noch eine Frage → normal weiter
+      const uiQ = normalizeApiQuestion(apiQ);
+
+      setTrail(prevTrail => {
+        const nextTrail = [...prevTrail, uiQ];
+        const nextPos = nextTrail.length - 1;
+
+        setPos(nextPos);
+
+        if (sessionId) {
+          persistTrailSnapshot(
+            assignmentKeyId,
+            themaId,
+            sessionId,
+            nextTrail,
+            nextPos
+          );
+        }
+
+        return nextTrail;
+      });
+
+      setQuestionsById(prev => ({
+        ...prev,
+        [String(uiQ.id)]: uiQ,
+      }));
+      persistUiQuestionMeta(assignmentKeyId, themaId, uiQ);
+
+    } catch (e) {
+      console.error("save/next failed", e);
+    }
+  };
+  const changeAnswerFromResults = async (questionId: string, uiValue: any) => {
   if (!sessionId) return;
 
-  const qMeta = questionsById[String(questionId)];
+  let qMeta = questionsById[String(questionId)];
+
+  // 1) Meta ggf. aus summary rekonstruieren (dein Fallback)
+  if (!qMeta && summary) {
+    const allRows = [
+      ...(summary.automatischBewerteteFragen ?? []),
+      ...(summary.manuellZuBewertendeFragen ?? []),
+      ...(summary.uebersprungeneFragen ?? []),
+    ];
+
+    const row = allRows.find(
+      (r: any) => String(r.questionId) === String(questionId)
+    );
+
+    if (row) {
+      const apiLike: ApiQuestion = {
+        questionId: row.questionId,
+        text: row.questionText,
+        inputType: row.inputType,
+        options: undefined,
+        questionTypeName: undefined,
+        scoringSchema: undefined,
+        answered: true,
+        index: row.orderIndex,
+        min: (row as any).min,
+        max: (row as any).max,
+        step: (row as any).step,
+        labels: (row as any).labels,
+        required: row.isRequired,
+        currentAnswer: {
+          answerId: "",
+          value: row.answeredValue,
+          score: row.score,
+          answeredAt: row.answeredAt,
+        },
+      };
+
+      qMeta = normalizeApiQuestion(apiLike);
+
+      setQuestionsById(prev => ({
+        ...prev,
+        [String(qMeta!.id)]: qMeta!,
+      }));
+      persistUiQuestionMeta(assignmentKeyId, themaId, qMeta!);
+    }
+  }
+
   if (!qMeta) {
     console.warn("Keine UiQuestion-Meta für", questionId);
     return;
   }
 
   try {
-    // UI-Wert (Checkbox etc.) -> API-Value
-    const apiValue = buildSaveValue(qMeta, uiValue);
+    // 2) UI-Wert -> API-Wert bauen (wichtiger Schritt!)
+    const valueForApi = buildSaveValue(qMeta, uiValue);
 
-    await saveAnswer(accessToken, sessionId, String(questionId), apiValue);
+    // 3) Antwort im Backend speichern
+    await saveAnswer(
+      accessToken,
+      sessionId,
+      String(questionId),
+      valueForApi
+    );
 
-    // lokale answers-Map aktualisieren
+    // 4) Local answers-State aktualisieren,
+    //    damit beim nächsten Öffnen der Dialog den neuen Wert zeigt
     setAnswers(prev => ({
       ...prev,
-      [String(qMeta.id)]: uiValue,
+      [String(questionId)]: uiValue,
     }));
 
-    // Summary neu laden, damit Punkte/Erfüllung aktualisiert werden
-    try {
-      const s = await getSummary(accessToken, sessionId);
-      setSummary(s);
-      setScore({
-        totalScore: s.totalScore,
-        maxTotalScore: s.maxPossibleScore,
-      });
-    } catch (e) {
-      console.error("getSummary after edit failed", e);
+    // 5) Summary & Score nochmal vom Backend holen
+    const s = await getSummary(accessToken, sessionId);
+    setSummary(s);
+    setScore({
+      totalScore: s.totalScore,
+      maxTotalScore: s.maxPossibleScore,
+    });
+
+    // 6) Fragen-Meta aus neuer Summary mergen (optional, aber sauber)
+    const allRows = [
+      ...(s.automatischBewerteteFragen ?? []),
+      ...(s.manuellZuBewertendeFragen ?? []),
+      ...(s.uebersprungeneFragen ?? []),
+    ];
+    const uiFromSummary: Record<string, UiQuestion> = {};
+
+    for (const row of allRows) {
+      const uiQ = summaryRowToUiQuestion(row);
+      uiFromSummary[String(uiQ.id)] = uiQ;
+      persistUiQuestionMeta(assignmentKeyId, themaId, uiQ);
     }
-  } catch (e) {
-    console.error("changeAnswerFromResults failed", e);
-    throw e;
-  }
-};
 
-
-
-const finalizeSession = async () => {
-  if (!sessionId || finalizing) return;
-
-   //  Bestätigungs-Dialog
-  const confirmed = window.confirm(
-    "Sind Sie sicher, dass Sie dieses Assessment endgültig abschließen möchten?\n" +
-    "Danach können die Antworten nicht mehr geändert werden."
-  );
-    if (!confirmed) {
-    // User hat auf "Abbrechen" geklickt → einfach abbrechen
-    return;
-  }
-
-  try {
-    setFinalizing(true);
-
-    //  Backend-Session wirklich abschließen
-    await completeSession(accessToken, sessionId);
-
-    // Status & Progress im State aktualisieren
-    setStatus("completed");
-    setProgress(prev => ({
+    setQuestionsById(prev => ({
       ...prev,
-      answered: prev.total || prev.answered, // sicherheitshalber „voll“
+      ...uiFromSummary,
     }));
-
-    // 3Auch im LocalStorage „fertig“ markieren,
-    //    damit Katalog-Seite die 100 % sieht
-    try {
-      const store = readStore();
-      const dashKey = makeDashKey(assignmentKeyId, themaId);
-      
-      const prev = store[dashKey] ?? {};
-      store[dashKey] = {
-        ...prev,
-        progress: 100,
-        completedAt: new Date().toISOString(),
-        sessionId,
-      };
-      writeStore(store);
-    } catch {
-      // ignore einfach 
-    }
-    //  Erfolgs-Meldung
-    window.alert("Katalog erfolgreich abgeschlossen.");
-    goBackToTopics();
   } catch (e) {
-    console.error("completeSession failed", e);
-    window.alert("Das Assessment konnte nicht abgeschlossen werden. Bitte versuchen Sie es später erneut.");
-  } finally {
-    setFinalizing(false);
+    console.error("changeAnswerFromResults / save failed", e);
+    // optional: hier könntest du eine Fehlermeldung im UI anzeigen
   }
 };
 
 
+
+  const finalizeSession = async () => {
+    if (!sessionId || finalizing) return;
+
+    //  Bestätigungs-Dialog
+    const confirmed = window.confirm(
+      "Sind Sie sicher, dass Sie dieses Assessment endgültig abschließen möchten?\n" +
+      "Danach können die Antworten nicht mehr geändert werden."
+    );
+    if (!confirmed) {
+      // User hat auf "Abbrechen" geklickt → einfach abbrechen
+      return;
+    }
+
+    try {
+      setFinalizing(true);
+
+      //  Backend-Session wirklich abschließen
+      await completeSession(accessToken, sessionId);
+
+      // Status & Progress im State aktualisieren
+      setStatus("completed");
+      setProgress(prev => ({
+        ...prev,
+        answered: prev.total || prev.answered, // sicherheitshalber „voll“
+      }));
+
+      // 3Auch im LocalStorage „fertig“ markieren,
+      //    damit Katalog-Seite die 100 % sieht
+      try {
+        const store = readStore();
+        const dashKey = makeDashKey(assignmentKeyId, themaId);
+
+        const prev = store[dashKey] ?? {};
+        store[dashKey] = {
+          ...prev,
+          progress: 100,
+          completedAt: new Date().toISOString(),
+          sessionId,
+        };
+        writeStore(store);
+      } catch {
+        // ignore einfach 
+      }
+      //  Erfolgs-Meldung
+      window.alert("Katalog erfolgreich abgeschlossen.");
+      goBackToTopics();
+    } catch (e) {
+      console.error("completeSession failed", e);
+      window.alert("Das Assessment konnte nicht abgeschlossen werden. Bitte versuchen Sie es später erneut.");
+    } finally {
+      setFinalizing(false);
+    }
+  };
 
   /*  Restart (Assessment nochmal machen)  */
   const restart = async () => {
@@ -523,7 +857,7 @@ const finalizeSession = async () => {
     setCompleted(false);
     setProgress({ answered: 0, total: 0 });
     setSummary(null);
-    setQuestionsById({}); 
+    setQuestionsById({});
     try {
       const store = readStore();
       const dashKey = makeDashKey(assignmentKeyId, themaId);
@@ -569,44 +903,76 @@ const finalizeSession = async () => {
       </div>
     );
   }
-if (completed) {
-  const totalScore =
-    score.totalScore ?? summary?.totalScore ?? 0;
-  const maxTotalScore =
-    score.maxTotalScore ?? summary?.maxPossibleScore ?? 0;
+  if (completed) {
+    const totalScore =
+      score.totalScore ?? summary?.totalScore ?? 0;
+    const maxTotalScore =
+      score.maxTotalScore ?? summary?.maxPossibleScore ?? 0;
 
-  const percent = maxTotalScore > 0
-    ? Math.round((totalScore / maxTotalScore) * 100)
-    : (progress.total
+    const percent = maxTotalScore > 0
+      ? Math.round((totalScore / maxTotalScore) * 100)
+      : (progress.total
         ? Math.round((progress.answered / progress.total) * 100)
         : pct);
 
-  return (
-    <AssessmentResults
-      topicName={topicName}
-      onRestart={restart}
-      onBackToTopics={goBackToTopics}
-      onComplete={finalizeSession}
-      onChangeAnswer={changeAnswerFromResults}   // <<< NEU
-       questionsById={questionsById}
-      answerValues={answers}
+    // Sicherstellen, dass wir ALLE UiQuestion-Metas haben
+    return (
+      <AssessmentResults
+        topicName={topicName}
+        onRestart={restart}
+        onBackToTopics={goBackToTopics}
+        onComplete={finalizeSession}
+        onChangeAnswer={changeAnswerFromResults}
+        questionsById={questionsById}
+        answerValues={answers}
 
-      answered={progress.answered}
-      total={progress.total}
-      totalScore={totalScore}
-      maxTotalScore={maxTotalScore}
+        answered={progress.answered}
+        total={progress.total}
+        totalScore={totalScore}
+        maxTotalScore={maxTotalScore}
 
-      percent={percent}
-      // Noch nicht „serverseitig completed“, eher vorläufige Auswertung
-      overallLevel="Vorläufige Auswertung"
-      completedAt={new Date().toISOString()}
-      summary={summary}
-    />
-  );
-}
+        percent={percent}
+        // Noch nicht „serverseitig completed“, eher vorläufige Auswertung
+        overallLevel="Vorläufige Auswertung"
+        completedAt={new Date().toISOString()}
+        summary={summary}
+      />
+    );
+  }
+  const isCurrentRequiredUnanswered = (() => {
+    if (!q) return false;              // keine Frage -> Button nicht blockieren
 
+    const val = answers[q.id];
 
+    // nur blockieren, wenn die Frage required ist
+    // wenn du WIRKLICH jede Frage blockieren willst, kommentier die nächste Zeile aus
+    if (!(q as any).required) return false;
 
+    switch (q.type) {
+      case "radio":
+      case "select":
+      case "text":
+      case "textarea":
+      case "date":
+        return val === undefined || val === null || val === "";
+
+      case "checkbox":
+      case "order":
+        return !Array.isArray(val) || val.length === 0;
+
+      case "slider":
+      case "number":
+        return (
+          val === undefined ||
+          val === null ||
+          val === "" ||
+          Number.isNaN(Number(val))
+        );
+
+      default:
+        return false;
+    }
+  })();
 
   /* -------- Render -------- */
   return (
@@ -1136,25 +1502,28 @@ if (completed) {
                   <button
                     className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold bg-white text-[#666] border border-[#ddd] hover:bg-[#f5f5f5] transition disabled:opacity-50 disabled:cursor-not-allowed"
                     onClick={prev}
-                    disabled={pos <= 0}
+                    disabled={!sessionId || !q || !canGoBack}   // nur deaktivieren, wenn wir gar nichts haben
                   >
                     ← Zurück
                   </button>
 
                   <button
                     className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold
-  bg-[#E3BB62] text-[#264555]
-  shadow-sm border border-transparent
-  transition-all duration-150 ease-out transform
-  hover:bg-[#d7a548] hover:border-[#d7a548]
-  hover:-translate-y-[1px] hover:shadow-md
-  active:translate-y-[0px] active:shadow-sm"
+    bg-[#E3BB62] text-[#264555]
+    shadow-sm border border-transparent
+    transition-all duration-150 ease-out transform
+    hover:bg-[#d7a548] hover:border-[#d7a548]
+    hover:-translate-y-[1px] hover:shadow-md
+    active:translate-y-[0px] active:shadow-sm
+    disabled:opacity-60 disabled:cursor-not-allowed"
                     onClick={next}
+                    disabled={!sessionId || !q || isCurrentRequiredUnanswered}
                   >
                     {status === "completed" || (progress.total && progress.answered + 1 >= progress.total && pos >= trail.length - 1)
                       ? "Abschließen ✓"
                       : "Weiter →"}
                   </button>
+
                 </div>
               </div>
             </>

@@ -1,7 +1,7 @@
 // src/features/public/InviteGate.tsx
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import {
+import { 
   fetchInviteMeta,
   verifyInvite,
   type InviteMeta,
@@ -24,39 +24,37 @@ export default function InviteGate() {
   const TARGET = "/app/katalog-themen-public";
 
   // --- Navigation (unverändert, nur für Optik ergänzt) ---
-  async function navigateToTopics(opts: { token: string; accessCode?: string }) {
-    const { token, accessCode } = opts;
+ async function navigateToTopics(opts: { token: string; accessCode?: string }) {
+  const { token, accessCode } = opts;
 
-    let assignmentId = "";
-    let catalogId = "";
-    let catalogTitle = "";
-    let workerName = "";
+  let assignmentId = "";
+  let catalogId = "";
+  let catalogTitle = "";
+  let workerName = "";
 
-    if (accessCode && accessCode.trim()) {
-      try {
-        const assign = await fetchAssignmentByAccessCode(accessCode.trim());
-        assignmentId = assign?.id || "";
-        catalogId = assign?.catalog?.id || "";
-        catalogTitle = assign?.catalog?.title || "";
-        workerName = assign?.worker?.name || "";
-      } catch {
-        /* KatalogThemenPublic kann per ?code= selbst nachladen */
-      }
-    }
-
-    const qp = new URLSearchParams({
-      token,
-      accessToken: token,
-      ...(catalogId ? { catalogId } : {}),
-      ...(catalogTitle ? { catalogTitle } : {}),
-      ...(assignmentId ? { assignmentId } : {}),
-      ...(workerName ? { name: workerName } : {}),
-      ...(accessCode ? { code: accessCode } : {}),
-    });
-
-    navigate(`${TARGET}?${qp.toString()}`, { replace: true });
+  if (accessCode && accessCode.trim()) {
+    const assign = await fetchAssignmentByAccessCode(accessCode.trim());
+    assignmentId = assign?.id || "";
+    catalogId = assign?.catalog?.id || "";
+    catalogTitle = assign?.catalog?.title || "";
+    workerName = assign?.worker?.name || "";
   }
 
+  // Alles in sessionStorage legen
+  const sessionPayload = {
+    token,
+    assignmentId,
+    catalogId,
+    catalogTitle,
+    workerName,
+    accessCode: accessCode?.trim() || "",
+  };
+  sessionStorage.setItem("publicAssessmentSession", JSON.stringify(sessionPayload));
+
+  // URL jetzt nur noch sehr schlank
+  navigate(`${TARGET}?token=${encodeURIComponent(token)}`, { replace: true });
+}
+ 
   // --- Meta laden & ggf. direkt weiterleiten (unverändert) ---
   useEffect(() => {
     let alive = true;

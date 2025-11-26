@@ -103,14 +103,22 @@ export async function getNextQuestion(
   return http<ApiQuestion | undefined>(url, { method: "GET" });
 }
 // Vorherige Frage
+// Vorherige Frage (mit currentQuestionId als Query-Param)
 export async function getPreviousQuestion(
   accessToken: string,
-  sessionId: string
+  sessionId: string,
+  currentQuestionId: string
 ): Promise<ApiPreviousResponse> {
-  const url = join(
+  // Basis-URL
+  const base = join(
     accessRoot(accessToken),
     `/sessions/${encodeURIComponent(sessionId)}/previous`
   );
+
+  // Query-Param anhängen
+  const url = `${base}?currentQuestionId=${encodeURIComponent(
+    currentQuestionId
+  )}`;
 
   const res = await fetch(url, {
     method: "GET",
@@ -121,7 +129,6 @@ export async function getPreviousQuestion(
 
   // Fall 1: 204 = wir sind an der ersten Frage
   if (res.status === 204) {
-    // Laut Spec: 204 + {"atStart": true}
     try {
       const body = await res.json();
       if (body && typeof body.atStart === "boolean") {
@@ -147,8 +154,10 @@ export async function getPreviousQuestion(
 
   // Normale 200-Antwort mit Frage
   const data = (await res.json()) as ApiQuestion;
+  // atStart explizit false markieren
   return { ...data, atStart: false };
 }
+
 
 
 // Session-Status/Progress
@@ -192,6 +201,35 @@ export type ApiSummaryResponse = {
   manuellZuBewertenAnzahl: number;
   uebersprungenAnzahl: number;
 };
+
+// Hilfsfunktion: eine Summary-Zeile -> UiQuestion (über normalizeApiQuestion)
+export function summaryRowToUiQuestion(row: ApiSummaryQuestion): UiQuestion {
+  // Wir bauen uns ein "ApiQuestion"-ähnliches Objekt
+  const apiLike: ApiQuestion = {
+    questionId: row.questionId,
+    text: row.questionText,
+    inputType: row.inputType,
+    answered: true,
+    options: undefined,           // Summary liefert i.d.R. keine Options mehr
+    questionTypeName: undefined,
+    scoringSchema: undefined,
+    index: row.orderIndex,
+    min: (row as any).min,
+    max: (row as any).max,
+    step: (row as any).step,
+    labels: (row as any).labels,
+    required: row.isRequired,
+    currentAnswer: {
+      answerId: "",               // kennen wir nicht, ist hier egal
+      value: row.answeredValue,   // das ist die gegebene Antwort aus Summary
+      score: row.score,
+      answeredAt: row.answeredAt,
+    },
+  };
+
+  // und schicken das durch deinen existierenden Normalizer
+  return normalizeApiQuestion(apiLike);
+}
 
 // GET /public/access/{token}/sessions/{id}/summary
 export async function getSummary(
@@ -240,15 +278,16 @@ export async function completeSession(
    UI-Types & Normalizer
  */
 export type UiQuestion =
-  | { id: string; text: string; type: "radio"; options: string[] }
-  | { id: string; text: string; type: "checkbox"; options: string[] }
-  | { id: string; text: string; type: "slider"; min: number; max: number; labels?: [string, string] }
-  | { id: string; text: string; type: "textarea"; placeholder?: string }
-  | { id: string; text: string; type: "text"; placeholder?: string }
+  | { id: string; text: string; type: "radio"; options: string[]; required?: boolean }
+  | { id: string; text: string; type: "checkbox"; options: string[]; required?: boolean }
+  | { id: string; text: string; type: "slider"; min: number; max: number; labels?: [string, string]; required?: boolean }
+  | { id: string; text: string; type: "textarea"; placeholder?: string; required?: boolean }
+  | { id: string; text: string; type: "text"; placeholder?: string; required?: boolean }
   | { id: string; text: string; type: "select"; options: string[]; required?: boolean }
-  | { id: string; text: string; type: "number"; min?: number; max?: number; step?: number; placeholder?: string }
-  | { id: string; text: string; type: "date"; min?: string; max?: string }
-  | { id: string; text: string; type: "order"; options: string[] };
+  | { id: string; text: string; type: "number"; min?: number; max?: number; step?: number; placeholder?: string; required?: boolean }
+  | { id: string; text: string; type: "date"; min?: string; max?: string; required?: boolean }
+  | { id: string; text: string; type: "order"; options: string[]; required?: boolean };
+
 
 export function normalizeApiQuestion(q: ApiQuestion): UiQuestion {
   const parseMaybeJsonArray = (src?: string | string[]): string[] => {
@@ -262,35 +301,105 @@ export function normalizeApiQuestion(q: ApiQuestion): UiQuestion {
     }
   };
 
-  const t = q.inputType?.toLowerCase();
+  const tRaw = q.inputType || "";
+  const t = tRaw.toLowerCase().replace(/[_\s]+/g, "-");
 
-  if (t === "radio" || t === "multiple-choice") {
-    return { id: q.questionId, text: q.text, type: "radio", options: parseMaybeJsonArray(q.options) };
+  if (t === "radio" || t === "multiple-choice" || t === "single-choice") {
+    return {
+      id: q.questionId,
+      text: q.text,
+      type: "radio",
+      options: parseMaybeJsonArray(q.options),
+      required: q.required,
+    };
   }
+
   if (t === "checkbox" || t === "multiple-select") {
-    return { id: q.questionId, text: q.text, type: "checkbox", options: parseMaybeJsonArray(q.options) };
+    return {
+      id: q.questionId,
+      text: q.text,
+      type: "checkbox",
+      options: parseMaybeJsonArray(q.options),
+      required: q.required,
+    };
   }
+
   if (t === "select" || t === "dropdown") {
-    return { id: q.questionId, text: q.text, type: "select", options: parseMaybeJsonArray(q.options), required: q.required };
+    return {
+      id: q.questionId,
+      text: q.text,
+      type: "select",
+      options: parseMaybeJsonArray(q.options),
+      required: q.required,
+    };
   }
-  if (t === "number") {
-    return { id: q.questionId, text: q.text, type: "number", min: q.min, max: q.max, step: q.step };
+
+  // ⬇️ NEU: number_input mit abdecken
+  if (t === "number" || t === "number-input") {
+    return {
+      id: q.questionId,
+      text: q.text,
+      type: "number",
+      min: q.min,
+      max: q.max,
+      step: q.step,
+      required: q.required,
+    };
   }
-  if (t === "date") {
-    return { id: q.questionId, text: q.text, type: "date" };
+
+  // ⬇️ NEU: date_input mit abdecken
+  if (t === "date" || t === "date-input") {
+    return {
+      id: q.questionId,
+      text: q.text,
+      type: "date",
+      required: q.required,
+    };
   }
-  if (t === "range" || t === "slider") {
-    return { id: q.questionId, text: q.text, type: "slider", min: q.min ?? 0, max: q.max ?? 5, labels: q.labels };
+
+  // rating_scale wie Slider
+  if (t === "range" || t === "slider" || t === "rating-scale") {
+    return {
+      id: q.questionId,
+      text: q.text,
+      type: "slider",
+      min: q.min ?? 1,
+      max: q.max ?? 5,
+      labels: q.labels,
+      required: q.required,
+    };
   }
-  if (t === "order") {
-    return { id: q.questionId, text: q.text, type: "order", options: parseMaybeJsonArray(q.options) };
+
+  // ordering mit abdecken
+  if (t === "order" || t === "ordering") {
+    return {
+      id: q.questionId,
+      text: q.text,
+      type: "order",
+      options: parseMaybeJsonArray(q.options),
+      required: q.required,
+    };
   }
+
   if (t === "textarea") {
-    return { id: q.questionId, text: q.text, type: "textarea" };
+    return {
+      id: q.questionId,
+      text: q.text,
+      type: "textarea",
+      required: q.required,
+    };
   }
+
   // Fallback
-  return { id: q.questionId, text: q.text, type: "text" };
+  return {
+    id: q.questionId,
+    text: q.text,
+    type: "text",
+    required: q.required,
+  };
 }
+
+
 
 /* 
    Helper: UI-Wert -> value
