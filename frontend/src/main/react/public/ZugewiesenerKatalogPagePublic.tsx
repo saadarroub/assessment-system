@@ -1,4 +1,3 @@
-// src/main/react/features/worker-area/ZugewiesenerKatalog.tsx
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import AppHeader from "@/apps/app/AppHeader";
@@ -13,7 +12,7 @@ const KATALOG_THEMEN_ROUTE = "/app/katalog-themen-public";
 
 /* ================== Typen ================== */
 type TopicCardModel = {
-  dashKey: string;           // z.B. "topic:<catalogId>"
+  dashKey: string;           
   tag: string;
   title: string;
   questionsLabel: string;
