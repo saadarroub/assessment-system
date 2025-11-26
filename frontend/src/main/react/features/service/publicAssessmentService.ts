@@ -17,7 +17,7 @@ export type ApiQuestion = {
   text: string;
   min?: number; max?: number; step?: number;
   labels?: [string, string];
-isRequired?: boolean | string;
+  isRequired?: boolean | string;
   currentAnswer?: ApiCurrentAnswer;
 };
 export type ApiCurrentAnswer = {
@@ -187,7 +187,7 @@ export type ApiSummaryQuestion = {
   orderIndex: number;
   isRequired: boolean;
 
-  //  laut deinem Beispiel
+
   isManualReview: boolean;
   isSkipped: boolean;
   isAutoScored: boolean;

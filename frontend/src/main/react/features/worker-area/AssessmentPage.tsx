@@ -17,6 +17,21 @@ import {
   type ApiSummaryResponse,
 } from "@/features/service/publicAssessmentService";
 import aa from '@/assets/aa.gif';
+import {
+  DndContext,
+  closestCorners,
+} from "@dnd-kit/core";
+
+import {
+  arrayMove,
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+} from "@dnd-kit/sortable";
+
+import { CSS } from "@dnd-kit/utilities";
+import { GripVertical } from "lucide-react";
+
 
 //Test
 import AssessmentResults from "@/features/worker-area/AssessmentResults";
@@ -199,20 +214,10 @@ export default function AssessmentPage() {
   const accessToken =
     (sessionMeta?.token || query.get("accessToken") || "").trim();
 
-  const catalogId =
-    (sessionMeta?.catalogId || query.get("catalogId") || "").trim();
 
-  const catalogTitle =
-    (sessionMeta?.catalogTitle || query.get("catalogTitle") || "").trim();
 
   const assignmentKeyId =
     (sessionMeta?.assignmentId || assignmentKeyIdFromLocal || "").trim();
-
-  const name =
-    (sessionMeta?.workerName || query.get("name") || "").trim();
-
-  const code =
-    (sessionMeta?.accessCode || query.get("code") || "").trim();
 
   /* -------- URL-Parameter, die wirklich nur aus der URL kommen -------- */
   const type = (query.get("type") || "").trim();               // optional
@@ -242,7 +247,7 @@ export default function AssessmentPage() {
   const [answers, setAnswers] = useState<Record<string, any>>({});
   const [trail, setTrail] = useState<UiQuestion[]>([]); // Verlauf der bereits geladenen Fragen
   const [questionsById, setQuestionsById] = useState<Record<string, UiQuestion>>({});
-  const [questionOrder, setQuestionOrder] = useState<string[] | null>(null);
+  //const [questionOrder, setQuestionOrder] = useState<string[] | null>(null);
   const [pos, setPos] = useState<number>(-1);           // Index im Trail (aktuelle Frage)
   const [completed, setCompleted] = useState(false);
   const [status, setStatus] = useState<"in_progress" | "completed">("in_progress");
@@ -255,8 +260,8 @@ export default function AssessmentPage() {
   });
   // Summary / Review-Modus
   const [summary, setSummary] = useState<ApiSummaryResponse | null>(null);
-  const [showSummary, setShowSummary] = useState(false);
-  const [summaryError, setSummaryError] = useState<string | null>(null);
+  //const [showSummary, setShowSummary] = useState(false);
+  //const [summaryError, setSummaryError] = useState<string | null>(null);
   const [finalizing, setFinalizing] = useState(false);
 
   const [canGoBack, setCanGoBack] = useState(false);
@@ -1445,32 +1450,14 @@ export default function AssessmentPage() {
                   />
                 )}
 
-                {q.type === "order" && (() => {
-                  const base = (q as any).options || [];
-                  const current: string[] = Array.isArray(answers[q.id]) ? answers[q.id] : base;
+                {q.type === "order" && (
+  <OrderQuestion
+    q={q}
+    value={answers[q.id] ?? []}
+    onChange={(arr) => setAnswer(q.id, arr, "order")}
+  />
+)}
 
-                  const move = (idx: number, dir: -1 | 1) => {
-                    const ni = idx + dir;
-                    if (ni < 0 || ni >= current.length) return;
-                    const arr = [...current];
-                    [arr[idx], arr[ni]] = [arr[ni], arr[idx]];
-                    setAnswer(q.id, arr, "order");
-                  };
-
-                  return (
-                    <ul className="space-y-2">
-                      {current.map((opt, i) => (
-                        <li key={opt} className="flex items-center justify-between p-3 border-2 border-gray-200 rounded-lg bg-white">
-                          <span className="text-[15px] text-[#333]">{i + 1}. {opt}</span>
-                          <div className="flex gap-2">
-                            <button className="px-3 py-1.5 rounded-lg border border-gray-300 bg-white hover:bg-gray-50" onClick={() => move(i, -1)} disabled={i === 0}>↑</button>
-                            <button className="px-3 py-1.5 rounded-lg border border-gray-300 bg-white hover:bg-gray-50" onClick={() => move(i, +1)} disabled={i === current.length - 1}>↓</button>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  );
-                })()}
 
                 {/* Navigation */}
                 <div className="pb-6 pt-6 flex items-center justify-between gap-3">
@@ -1512,3 +1499,81 @@ export default function AssessmentPage() {
   );
 
 }
+function OrderItem({ id, label }: { id: string; label: string }) {
+  const { attributes, listeners, setNodeRef, transform, transition } =
+    useSortable({ id });
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="
+        flex items-center gap-4 p-4 rounded-xl border shadow-sm
+        bg-gradient-to-br from-[#ece9df] to-[#f5f3eb]
+      "
+    >
+      {/* DRAG HANDLE */}
+      <div
+        {...attributes}
+        {...listeners}
+        className="cursor-grab active:cursor-grabbing text-gray-400"
+      >
+        <GripVertical size={22} />
+      </div>
+
+      {/* Label */}
+      <span className="text-gray-800 text-sm font-medium">{label}</span>
+    </div>
+  );
+}
+function OrderQuestion({
+  q,
+  value,
+  onChange,
+}: {
+  q: UiQuestion;
+  value: string[];
+  onChange: (val: string[]) => void;
+}) {
+  // options sicher rausziehen
+  const base = q.type === "order"
+    ? ((q as any).options as string[] || [])
+    : [];
+
+  const initial = value && value.length ? value : base;
+
+  const [items, setItems] = useState<string[]>(initial);
+
+  useEffect(() => {
+    onChange(items);
+  }, [items]);
+
+  return (
+    <DndContext
+      collisionDetection={closestCorners}
+      onDragEnd={({ active, over }) => {
+        if (!over || active.id === over.id) return;
+
+        const oldIndex = items.findIndex((x) => x === active.id);
+        const newIndex = items.findIndex((x) => x === over.id);
+
+        setItems(arrayMove(items, oldIndex, newIndex));
+      }}
+    >
+      <SortableContext items={items} strategy={verticalListSortingStrategy}>
+        <div className="space-y-2 mt-3">
+          {items.map((opt) => (
+            <OrderItem key={opt} id={opt} label={opt} />
+          ))}
+        </div>
+      </SortableContext>
+    </DndContext>
+  );
+}
+
+

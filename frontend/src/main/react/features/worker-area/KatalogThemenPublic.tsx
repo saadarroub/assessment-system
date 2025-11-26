@@ -226,69 +226,6 @@ function StatsCard({
   );
 }
 
-function CircleTimer({ daysLeft }: { daysLeft: number }) {
-  const clamped = Math.max(0, Math.min(99, daysLeft));
-
-  return (
-    <div className="relative h-[130px] w-[130px] select-none">
-      {/* weicher Schatten / Glow unten */}
-      <div className="absolute -inset-4 rounded-full bg-[radial-gradient(circle_at_50%_80%,rgba(15,23,42,0.10),transparent_60%)]" />
-
-      {/* äußerer weißer Ring mit Goldrand */}
-      <div
-        className="
-          absolute inset-0
-          rounded-full
-          bg-[#f9fafb]
-          border-[1.5px] border-[rgba(227,187,98,0.9)]
-          shadow-[0_26px_60px_rgba(15,23,42,0.30)]
-        "
-      />
-
-      {/* innerer dunkler Kreis mit Text */}
-      <div
-        className="
-          absolute inset-[18%]
-          rounded-full
-          bg-[#314856]
-          flex flex-col items-center justify-center
-          text-sky-100
-        "
-      >
-        <span className="text-[30px] font-extrabold leading-none tracking-tight tabular-nums">
-          {clamped}
-        </span>
-        <span className="mt-1 text-[10px] font-semibold tracking-[0.22em] uppercase text-slate-200">
-          Tage
-        </span>
-      </div>
-
-      {/* rechtes weißes Pillen-Rechteck, mittig am Kreis */}
-      <div
-        className="
-          absolute -right-4 top-1/2 -translate-y-1/2
-          h-[56px] w-[22px]
-          rounded-full bg-white
-          shadow-[0_18px_45px_rgba(15,23,42,0.45)]
-        "
-      />
-
-      {/* unteres goldenes Rechteck, zentriert */}
-      <div
-        className="
-          absolute left-1/2 -translate-x-1/2 bottom-[-10px]
-          h-[26px] w-[90px]
-          rounded-full
-          bg-[rgba(227,187,98,0.9)]
-          border border-[rgba(227,187,98,0.95)]
-          shadow-[0_20px_40px_rgba(15,23,42,0.55)]
-        "
-      />
-    </div>
-  );
-}
-
-
 /* ================== Seite: KatalogThemenPublic ================== */
 export default function KatalogThemenPublic() {
   type TabKey = "available" | "planned" | "done";
@@ -338,7 +275,7 @@ export default function KatalogThemenPublic() {
 
   //const sp = new URLSearchParams(location.search);
   const [expiresAt, setExpiresAt] = useState<string | null>(null);
-
+{/*
   const daysLeft = useMemo(() => {
     if (!expiresAt) return null;
 
@@ -350,6 +287,7 @@ export default function KatalogThemenPublic() {
 
     return Math.max(0, diffDays);
   }, [expiresAt]);
+   */}
 
   //in expiresAt muss Z.b: 2025-11-05T18:00:00Z
   useEffect(() => {

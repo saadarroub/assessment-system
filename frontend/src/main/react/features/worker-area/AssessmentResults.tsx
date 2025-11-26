@@ -107,7 +107,7 @@ export default function AssessmentResults(props: AssessmentResultsProps) {
       ...q,
       // falls du irgendwann ein Flag vom Backend bekommst:
       // isAuto: (q as any).isAuto ?? (q as any).automatic ?? false,
-      isAuto: false, // vorerst einfach "manuell" oder später sauber mappen
+      isAuto: q.isAutoScored, 
     }))
     .sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0));
 }, [summary]);
@@ -307,7 +307,7 @@ export default function AssessmentResults(props: AssessmentResultsProps) {
                           Array.isArray(q.answeredValue)
                             ? q.answeredValue.join(", ")
                             : (q.answeredValue === "" || q.answeredValue == null)
-                              ? "Keine Antwort"
+                              ? "übersprungen"
                               : String(q.answeredValue);
 
                         return (
