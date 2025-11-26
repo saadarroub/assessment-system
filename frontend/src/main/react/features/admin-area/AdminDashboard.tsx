@@ -515,10 +515,9 @@ export default function AdminDashboard() {
                         "relative",
                         isHighlight
                           ? [
-                              "scale-[1.05]",
+                             
                               "ring-4 ring-green-400 ring-offset-4",
-                              "[animation:blinkBg_.7s_ease-in-out_infinite]",
-                              "[box-shadow:0_0_24px_rgba(34,197,94,0.6)]",
+                             
                               "[animation:glowRing_.9s_ease-in-out_infinite]",
                             ].join(" ")
                           : "",
