@@ -1,5 +1,4 @@
-import React from "react";
-import { Home, Download, BarChart3, Target, PieChart, AlertTriangle, Activity, TrendingUp, CheckCircle } from "lucide-react";
+
 type Props = {
   topicName?: string;
   onRestart: () => void;

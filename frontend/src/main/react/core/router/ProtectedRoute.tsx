@@ -17,11 +17,11 @@ type Props = {
 const SESSION_KEY = "publicAssessmentSession";
 
 export default function ProtectedRoute({
-  permission,
+  //permission,
   children,
   allowWithToken = false,
 }: Props) {
-  const { isAuthenticated, permissions } = useAuthCtx();
+  const { isAuthenticated } = useAuthCtx();
   const location = useLocation();
 
   const qs = new URLSearchParams(location.search);
