@@ -296,6 +296,7 @@ public class PublicQueryUtil {
                 SELECT 
                   q.id as question_id,
                   q.text as question_text,
+                  q.options,
                   qt.input_type,
                   qt.name as question_type_name,
                   q.scoring_schema,
@@ -317,6 +318,7 @@ public class PublicQueryUtil {
                     Map<String, Object> result = new java.util.HashMap<>();
                     result.put("questionId", UUID.fromString(rs.getString("question_id")));
                     result.put("questionText", rs.getString("question_text"));
+                    result.put("options", rs.getString("options")); // JSON String
                     result.put("inputType", rs.getString("input_type"));
                     result.put("questionTypeName", rs.getString("question_type_name"));
                     result.put("scoringSchema", rs.getString("scoring_schema"));
