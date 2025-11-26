@@ -681,8 +681,9 @@ public class PublicAccessController {
             summary.setTotalQuestions(totalQuestions);
             summary.setProgressPercent(progressPercent);
             
-            // Scores: TotalScore aus Session, aber MaxPossibleScore dynamisch berechnen
+            // Scores: TotalScore aus Session
             summary.setTotalScore(session.getTotalScore());
+            
             
             // MaxPossibleScore = Alle required Fragen + beantwortete optionale Fragen
             // 1. Basis: Alle required=true Fragen
@@ -705,16 +706,20 @@ public class PublicAccessController {
             }
             summary.setMaxPossibleScore(maxPossibleScore);
             
-            // Konvertiere beantwortete Fragen UND kategorisiere sie
-            List<SessionSummaryResponseDTO.AnsweredQuestionSummary> automatischBewertet = new ArrayList<>();
-            List<SessionSummaryResponseDTO.AnsweredQuestionSummary> manuellZuBewerten = new ArrayList<>();
-            List<SessionSummaryResponseDTO.AnsweredQuestionSummary> uebersprungen = new ArrayList<>();
+            List<SessionSummaryResponseDTO.AnsweredQuestionSummary> answeredQuestions = new ArrayList<>();
+            int autoCount = 0;
+            int manualCount = 0;
+            int skippedCount = 0;
             
             for (Map<String, Object> data : answeredQuestionsData) {
                 SessionSummaryResponseDTO.AnsweredQuestionSummary q = new SessionSummaryResponseDTO.AnsweredQuestionSummary();
                 q.setQuestionId((UUID) data.get("questionId"));
                 q.setQuestionText((String) data.get("questionText"));
-                
+                // QuestionTypeName (z.B. "Multiple Choice", "Text Input")
+            q.setQuestionTypeName((String) data.get("questionTypeName"));
+            
+            // Options (JSON String)
+            q.setOptions((String) data.get("options"));
                 // InputType normalisieren für korrekte Kategorisierung
                 String rawInputType = (String) data.get("inputType");
                 String normalizedInputType = normalizeInputType(rawInputType);
@@ -743,37 +748,30 @@ public class PublicAccessController {
                 );
                 q.setMaxScore(maxScore);
                 
-                // Kategorisierung:
-                // 1. Übersprungen: value ist null
-                // 2. Manuell zu bewerten: inputType in MANUAL_REVIEW_TYPES (score ist 0)
-                // 3. Automatisch bewertet: alles andere mit score
+                // Setze Flags für Frontend
+                boolean isSkipped = (answerValueJson == null || "null".equals(answerValueJson));
+                boolean isManualReview = MANUAL_REVIEW_TYPES.contains(normalizedInputType);
+                boolean isAutoScored = !isSkipped && !isManualReview;
                 
-                if (answerValueJson == null || "null".equals(answerValueJson)) {
-                    uebersprungen.add(q);
-                } else if (MANUAL_REVIEW_TYPES.contains(normalizedInputType)) {
-                    manuellZuBewerten.add(q);
+                q.setIsSkipped(isSkipped);
+                q.setIsManualReview(isManualReview);
+                q.setIsAutoScored(isAutoScored);
+                
+                if (isSkipped) {
+                    skippedCount++;
+                } else if (isManualReview) {
+                    manualCount++;
                 } else {
-                    automatischBewertet.add(q);
+                    autoCount++;
                 }
+                
+                answeredQuestions.add(q);
             }
             
-            // Setze kategorisierte Listen
-            summary.setAutomatischBewerteteFragen(automatischBewertet);
-            summary.setManuellZuBewertendeFragen(manuellZuBewerten);
-            summary.setUebersprungeneFragen(uebersprungen);
-            
-            // Setze Zähler
-            summary.setAutomatischBewertetAnzahl(automatischBewertet.size());
-            summary.setManuellZuBewertenAnzahl(manuellZuBewerten.size());
-            summary.setUebersprungenAnzahl(uebersprungen.size());
-            
-            // Legacy: Alle Fragen in einer Liste (für Kompatibilität)
-            List<SessionSummaryResponseDTO.AnsweredQuestionSummary> allQuestions = new ArrayList<>();
-            allQuestions.addAll(automatischBewertet);
-            allQuestions.addAll(manuellZuBewerten);
-            allQuestions.addAll(uebersprungen);
-            summary.setAnsweredQuestions(allQuestions);
-            
+            summary.setAnsweredQuestions(answeredQuestions);
+            summary.setAutomatischBewertetAnzahl(autoCount);
+            summary.setManuellZuBewertenAnzahl(manualCount);
+            summary.setUebersprungenAnzahl(skippedCount);
             AccessGuardUtil.touchLastAccess(workerCatalogService, assignment.getId());
 
             return new ResponseEntity<>(summary, HttpStatus.OK);
