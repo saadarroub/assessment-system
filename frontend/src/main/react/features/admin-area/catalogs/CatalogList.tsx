@@ -5,7 +5,7 @@ import "@/styles/admin.css";
 
 import {
   ArrowLeft,
-  FileText,
+  Layers,
   Plus,
   X,
   MessageSquare,
@@ -287,27 +287,51 @@ export default function CatalogList() {
   return (
     <AdminLayout>
       {/* Header */}
-      <div className="bg-[rgba(210,201,185,0.2)] px-10 pt-10 pb-10 border-b border-gray-200 rounded-b-xl">
+       <div className="relative bg-gradient-to-br from-[#d2c9b9] via-[#e8e2d7] to-[#ffffff] px-10 py-10 shadow-sm border-b border-gray-300/40">
+        {/* BACK BUTTON */}
         <div
-          className="w-fit bg-gray-100 hover:bg-blue-50 active:bg-blue-100 rounded-lg shadow px-4 py-3 flex items-center gap-2 cursor-pointer transition-all duration-200 transform hover:-translate-y-0.5"
           onClick={() => navigate("/admin")}
+          className="
+                  group w-fit flex items-center gap-3 cursor-pointer
+                  bg-white/60 backdrop-blur-xl 
+                  border border-gray-300/30 
+                  px-5 py-2.5 rounded-xl 
+                  shadow-[0_3px_10px_rgba(0,0,0,0.08)]
+                  transition-all duration-300
+                  hover:bg-white/80 hover:shadow-[0_6px_16px_rgba(0,0,0,0.12)]
+                  hover:-translate-y-0.5
+                "
         >
-          <ArrowLeft size={22} />
-          <span className="text-sm font-medium text-gray-800">
+          <ArrowLeft
+            size={20}
+            className="text-[#264555] transition-all group-hover:-translate-x-1"
+          />
+          <span className="text-sm font-semibold text-[#264555]">
             Zurück zur Übersicht
           </span>
         </div>
 
-        <div className="mt-6 text-center">
-          <div className="flex justify-center items-center gap-3">
-            <div className="bg-brand-sand p-3 rounded-xl shadow">
-              <FileText size={26} className="text-white" />
+        {/* TITLE BLOCK */}
+        <div className="mt-8 text-center">
+          <div className="flex justify-center items-center gap-4">
+            <div
+              className="
+          p-4 rounded-2xl shadow-md 
+          bg-gradient-to-br from-[#264555] to-[#3f5568]
+          text-white
+        "
+            >
+              <Layers size={28} />
             </div>
-            <h1 className="text-2xl md:text-6xl font-bold">
-              {thema ? thema.name : "Lade Thema..."}
+
+            <h1 className="text-4xl md:text-5xl font-extrabold text-[#264555] tracking-tight">
+              {thema?.name || "Lade Thema..."}
             </h1>
           </div>
-          <p className="text-gray-600 mt-4">{thema ? thema.description : ""}</p>
+
+          <p className="text-gray-700 mt-3 text-[15px]">
+            Bearbeiten · Fragen verwalten · Struktur aufbauen
+          </p>
         </div>
       </div>
 
@@ -323,7 +347,7 @@ export default function CatalogList() {
           </p>
           <button
             onClick={() => setIsModalOpen(true)}
-            className="bg-brand-sand text-white font-medium px-5 py-2 rounded-lg shadow hover:shadow-md hover:scale-105 transition-all duration-200"
+            className="bg-brand-sand text-black font-medium px-5 py-2 rounded-lg shadow hover:shadow-md hover:scale-105 transition-all duration-200"
           >
             Erste Frage erstellen
           </button>

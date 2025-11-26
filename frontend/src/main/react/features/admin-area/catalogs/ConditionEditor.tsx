@@ -162,7 +162,7 @@ export default function ConditionEditor() {
             // ✅ Scores + Options immer zusammenführen
             options: normalizeOptions({
               options: parsedOptions,
-              scoringSchema: parsedScoring
+              scoringSchema: parsedScoring,
             }),
 
             scoringSchema: parsedScoring,
@@ -171,7 +171,6 @@ export default function ConditionEditor() {
             expanded: false,
             children: await fetchChildrenRecursive(child.id),
           };
-
         })
       );
 
@@ -189,7 +188,7 @@ export default function ConditionEditor() {
       // Ansonsten Standard: true
       const requiredValue =
         editingQuestion.required !== undefined &&
-          editingQuestion.required !== null
+        editingQuestion.required !== null
           ? editingQuestion.required
           : true;
       setIsRequired(requiredValue);
@@ -367,7 +366,7 @@ export default function ConditionEditor() {
               type: root.question?.questionType?.inputType || "unknown",
               options: normalizeOptions({
                 options: parsedOptions,
-                scoringSchema: parsedScoring
+                scoringSchema: parsedScoring,
               }),
               required: root.isRequired ?? true, // ✅ isRequired Feld aus Backend
               expanded: false,
@@ -705,19 +704,19 @@ export default function ConditionEditor() {
         list.map((q) =>
           q.id === editingQuestion.id
             ? {
-              ...q,
-              text: questionText,
-              type: selectedType?.value || q.type,
-              options: hasOptions ? options : [],
-              scoringSchema: hasOptions
-                ? Object.fromEntries(options.map((o) => [o.label, o.score]))
-                : {},
-              required: isRequired, // ✅ isRequired auch in UI aktualisieren
-            }
+                ...q,
+                text: questionText,
+                type: selectedType?.value || q.type,
+                options: hasOptions ? options : [],
+                scoringSchema: hasOptions
+                  ? Object.fromEntries(options.map((o) => [o.label, o.score]))
+                  : {},
+                required: isRequired, // ✅ isRequired auch in UI aktualisieren
+              }
             : {
-              ...q,
-              children: q.children ? updateQuestionInTree(q.children) : [],
-            }
+                ...q,
+                children: q.children ? updateQuestionInTree(q.children) : [],
+              }
         );
 
       setQuestions((prev) => updateQuestionInTree(prev));
@@ -784,10 +783,10 @@ export default function ConditionEditor() {
                 child.id === id
                   ? !child.expanded
                     ? {
-                      ...child,
-                      expanded: true,
-                      children: await fetchChildrenRecursive(child.id),
-                    }
+                        ...child,
+                        expanded: true,
+                        children: await fetchChildrenRecursive(child.id),
+                      }
                     : { ...child, expanded: false }
                   : await toggleExpandInChild(child, id)
               )
@@ -890,10 +889,8 @@ export default function ConditionEditor() {
     return countRecursive(filteredQuestions);
   }, [filteredQuestions]);
 
-
   // �🔹 Fragetypen
   const showOptions = selectedType?.hasOptions === true;
-
 
   // -----------------------------
   // 1️⃣ useSortable + Auto-Close
@@ -917,7 +914,6 @@ export default function ConditionEditor() {
       maxHeight: q.expanded && !isThisDragging ? "900px" : "0px",
       opacity: q.expanded && !isThisDragging ? 1 : 0,
       overflow: "hidden",
-
     };
 
     const handleGripDown = (e: any) => {
@@ -956,19 +952,21 @@ export default function ConditionEditor() {
             isThisDragging
               ? {} // 👉 Beim Dragging kein Hintergrund → CSS gewinnt
               : {
-                background:
-                  "linear-gradient(135deg, #dfd8cdff 30%, #efede4ff 100%)",
-              }
+                  background:
+                    "linear-gradient(135deg, #dfd8cdff 30%, #efede4ff 100%)",
+                }
           }
         >
-
-
           <div className="flex items-start gap-3">
             {/* Grip */}
             <GripVertical
               size={20}
               className={`cursor-grab mt-1 transition-all duration-150
-                 ${draggingId === q.id ? "text-green-500 scale-110" : "text-gray-400"}
+                 ${
+                   draggingId === q.id
+                     ? "text-green-500 scale-110"
+                     : "text-gray-400"
+                 }
                 `}
               {...attributes}
               onPointerDown={handleGripDown}
@@ -1016,28 +1014,24 @@ export default function ConditionEditor() {
 
                 {/* MAX SCORING BADGE */}
                 <span className="inline-block text-xs text-[#0f5132] bg-[#d1e7dd] px-2 py-0.5 rounded-full">
-                  Max Score: {
-                    (() => {
-                      // 1. wenn Optionen existieren → SUMME der Scores
-                      if (q.options && q.options.length > 0) {
-                        const sum = q.options
-                          .map((o: any) => Number(o.score))
-                          .filter((n: number) => !isNaN(n))
-                          .reduce((a: number, b: number) => a + b, 0);
+                  Max Score:{" "}
+                  {(() => {
+                    // 1. wenn Optionen existieren → SUMME der Scores
+                    if (q.options && q.options.length > 0) {
+                      const sum = q.options
+                        .map((o: any) => Number(o.score))
+                        .filter((n: number) => !isNaN(n))
+                        .reduce((a: number, b: number) => a + b, 0);
 
-                        return sum > 0 ? sum : 5; // falls keine gültigen Scores → 5
-                      }
+                      return sum > 0 ? sum : 5; // falls keine gültigen Scores → 5
+                    }
 
-                      // 2. andere Typen → Standard 5
-                      return 5;
-                    })()
-                  }
+                    // 2. andere Typen → Standard 5
+                    return 5;
+                  })()}
                 </span>
-
               </div>
             </div>
-
-
           </div>
 
           {/* Rechts */}
@@ -1077,7 +1071,6 @@ export default function ConditionEditor() {
               <Trash2 size={20} className="text-red-500" />
             </button>
           </div>
-
         </div>
 
         {/* Kinder */}
@@ -1190,8 +1183,6 @@ export default function ConditionEditor() {
 
         return;
       }
-
-
     } catch (err) {
       showError("Fehler beim Verschieben!");
     }
@@ -1220,22 +1211,24 @@ export default function ConditionEditor() {
     <AdminLayout>
       {/* Header */}
       <div className="relative bg-gradient-to-br from-[#d2c9b9] via-[#e8e2d7] to-[#ffffff] px-10 py-10 shadow-sm border-b border-gray-300/40">
-
         {/* BACK BUTTON */}
         <div
           onClick={() => navigate("/admin")}
           className="
-      group w-fit flex items-center gap-3 cursor-pointer
-      bg-white/60 backdrop-blur-xl 
-      border border-gray-300/30 
-      px-5 py-2.5 rounded-xl 
-      shadow-[0_3px_10px_rgba(0,0,0,0.08)]
-      transition-all duration-300
-      hover:bg-white/80 hover:shadow-[0_6px_16px_rgba(0,0,0,0.12)]
-      hover:-translate-y-0.5
-    "
+                  group w-fit flex items-center gap-3 cursor-pointer
+                  bg-white/60 backdrop-blur-xl 
+                  border border-gray-300/30 
+                  px-5 py-2.5 rounded-xl 
+                  shadow-[0_3px_10px_rgba(0,0,0,0.08)]
+                  transition-all duration-300
+                  hover:bg-white/80 hover:shadow-[0_6px_16px_rgba(0,0,0,0.12)]
+                  hover:-translate-y-0.5
+                "
         >
-          <ArrowLeft size={20} className="text-[#264555] transition-all group-hover:-translate-x-1" />
+          <ArrowLeft
+            size={20}
+            className="text-[#264555] transition-all group-hover:-translate-x-1"
+          />
           <span className="text-sm font-semibold text-[#264555]">
             Zurück zur Übersicht
           </span>
@@ -1263,9 +1256,7 @@ export default function ConditionEditor() {
             Bearbeiten · Fragen verwalten · Struktur aufbauen
           </p>
         </div>
-
       </div>
-
       {/* BODY - Grauer Hintergrund wie AdminDashboard */}
       <div className="bg-[hsl(0_0%_92%)] min-h-[calc(100vh-64px)] pb-10">
         {/* Hauptfrage hinzufügen */}
@@ -1384,8 +1375,9 @@ export default function ConditionEditor() {
                 <button
                   onClick={confirmDeleteQuestion}
                   disabled={isDeleting}
-                  className={`px-4 py-2 rounded-lg bg-red-500 text-white font-medium hover:bg-red-600 transition-all ${isDeleting ? "opacity-60 cursor-not-allowed" : ""
-                    }`}
+                  className={`px-4 py-2 rounded-lg bg-red-500 text-white font-medium hover:bg-red-600 transition-all ${
+                    isDeleting ? "opacity-60 cursor-not-allowed" : ""
+                  }`}
                 >
                   {isDeleting ? "Lösche..." : "Ja, löschen"}
                 </button>
@@ -1443,8 +1435,9 @@ export default function ConditionEditor() {
                       if (errorQuestionText) setErrorQuestionText(null); // 🔥 Roter Rand verschwindet sofort
                     }}
                     placeholder="Frage eingeben..."
-                    className={`w-full border rounded-lg p-2 focus:ring-2 focus:ring-brand-sand focus:outline-none ${errorQuestionText ? "border-red-500" : "border-gray-300"
-                      }`}
+                    className={`w-full border rounded-lg p-2 focus:ring-2 focus:ring-brand-sand focus:outline-none ${
+                      errorQuestionText ? "border-red-500" : "border-gray-300"
+                    }`}
                     rows={3}
                   ></textarea>
                   {errorQuestionText && (
@@ -1478,12 +1471,13 @@ export default function ConditionEditor() {
                             }, 150);
                           }
                         }}
-                        className={`flex items-center justify-start gap-3 border rounded-lg py-3 px-4 text-left font-medium text-sm transition-all duration-150 ${selectedType?.id === type.id
-                          ? "bg-brand-sand border-brand-sand text-black shadow-md"
-                          : errorType
+                        className={`flex items-center justify-start gap-3 border rounded-lg py-3 px-4 text-left font-medium text-sm transition-all duration-150 ${
+                          selectedType?.id === type.id
+                            ? "bg-brand-sand border-brand-sand text-black shadow-md"
+                            : errorType
                             ? "border-red-500 text-gray-800 hover:bg-gray-50"
                             : "border-gray-300 text-gray-800 hover:bg-gray-50"
-                          }`}
+                        }`}
                       >
                         {type.icon}
                         {type.label}
@@ -1512,12 +1506,14 @@ export default function ConditionEditor() {
                     <button
                       type="button"
                       onClick={() => setIsRequired(!isRequired)}
-                      className={`w-12 h-7 flex items-center rounded-full transition-all ${isRequired ? "bg-[#d2c9b9]" : "bg-gray-300"
-                        }`}
+                      className={`w-12 h-7 flex items-center rounded-full transition-all ${
+                        isRequired ? "bg-[#d2c9b9]" : "bg-gray-300"
+                      }`}
                     >
                       <span
-                        className={`w-5 h-5 bg-white rounded-full shadow transform transition-all ${isRequired ? "translate-x-6" : "translate-x-1"
-                          }`}
+                        className={`w-5 h-5 bg-white rounded-full shadow transform transition-all ${
+                          isRequired ? "translate-x-6" : "translate-x-1"
+                        }`}
                       ></span>
                     </button>
                   </div>
@@ -1550,10 +1546,11 @@ export default function ConditionEditor() {
                             );
                             if (errorOptions) setErrorOptions(null); // 🔥 hier hinzufügen
                           }}
-                          className={`flex-1 border rounded-md px-2 py-1 focus:ring-1 focus:ring-brand-sand focus:outline-none ${hasSubmitted && !opt.label.trim()
-                            ? "border-red-500"
-                            : "border-gray-300"
-                            }`}
+                          className={`flex-1 border rounded-md px-2 py-1 focus:ring-1 focus:ring-brand-sand focus:outline-none ${
+                            hasSubmitted && !opt.label.trim()
+                              ? "border-red-500"
+                              : "border-gray-300"
+                          }`}
                         />
 
                         {/* Score */}
@@ -1624,7 +1621,10 @@ export default function ConditionEditor() {
                               }
 
                               // ---- Pfeile steuern ----
-                              if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+                              if (
+                                e.key === "ArrowUp" ||
+                                e.key === "ArrowDown"
+                              ) {
                                 e.preventDefault(); // ❗ verhindert Browser-Auto-„1“
 
                                 let current = opt.score;
@@ -1662,7 +1662,9 @@ export default function ConditionEditor() {
                       </div>
                     ))}
                     {errorOptions && (
-                      <p className="text-red-500 text-xs mt-1">{errorOptions}</p>
+                      <p className="text-red-500 text-xs mt-1">
+                        {errorOptions}
+                      </p>
                     )}
                     <button
                       onClick={() =>
@@ -1686,7 +1688,9 @@ export default function ConditionEditor() {
                 </button>
                 <button
                   onClick={
-                    editingQuestion ? handleUpdateQuestion : handleCreateQuestion
+                    editingQuestion
+                      ? handleUpdateQuestion
+                      : handleCreateQuestion
                   }
                   className="px-4 py-2 rounded-lg bg-brand-sand text-white font-medium hover:opacity-90"
                 >
@@ -1696,7 +1700,8 @@ export default function ConditionEditor() {
             </div>
           </div>
         )}
-      </div> {/* End of gray background container */}
+      </div>{" "}
+      {/* End of gray background container */}
     </AdminLayout>
   );
 }
