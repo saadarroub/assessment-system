@@ -5,7 +5,6 @@ import AdminLayout from "@/apps/app/AdminLayout";
 import TopicCard from "./TopicCard";
 import { useToast } from "@/shared/contexts/ToastContext";
 // Icons
-import myLogo from "@/assets/Zero-6-icons-05.webp";
 import {
   Plus,
   MinusSquare,
@@ -13,7 +12,7 @@ import {
   Layers,
   ListOrdered,
   Users,
-  Clock,
+  Clock, ChevronRight
 } from "lucide-react";
 
 // API
@@ -43,20 +42,19 @@ const STAT_COLORS = ["#808080", "#56768f", "#264555", "#d2c9b9"];
 
 const STAT_ICONS = [
   <Layers size={48} />,
-  <ListOrdered size={48} />,
+
   <Users size={48} />,
   <Clock size={48} />,
+  <ListOrdered size={48} />,
 ];
-
-
 
 const STATS = [
   { label: "Themen", key: "total" },
-  { label: "Gesamtfragen", key: "questions" },
-  { label: "Aktive Themen", key: "active" },
-  { label: "Unaktive Themen", key: "inactive" },
-];
 
+  { label: "Aktive Themen", key: "active" },
+  { label: "Inaktive Themen", key: "inactive" },
+  { label: "Gesamtfragen", key: "questions" },
+];
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -78,12 +76,39 @@ export default function AdminDashboard() {
   const [newThemaName, setNewThemaName] = useState("");
   const [newThemaDesc, setNewThemaDesc] = useState("");
   const { showSuccess, showError } = useToast();
-  const [topicFilter, setTopicFilter] = useState<"all" | "active" | "inactive">("all");
+  const [topicFilter, setTopicFilter] = useState<"all" | "active" | "inactive">(
+    "all"
+  );
 
-  
+  // Animation States (wie KatalogeZuweisen)
+  const [highlightIds, setHighlightIds] = useState<Set<string>>(new Set());
+  const [badgeIds, setBadgeIds] = useState<Set<string>>(new Set());
 
   // Modal Input Referenz
   const titleInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Flash Animation für neue Themen (wie KatalogeZuweisen)
+  function flashNew(ids: string[], glowMs = 4000, badgeMs = 60000) {
+    // HIGHLIGHT (grüner Glow)
+    setHighlightIds(prev => {
+      const next = new Set(prev); ids.forEach(id => next.add(id)); return next;
+    });
+    window.setTimeout(() => {
+      setHighlightIds(prev => {
+        const next = new Set(prev); ids.forEach(id => next.delete(id)); return next;
+      });
+    }, glowMs);
+
+    // BADGE (NEU)
+    setBadgeIds(prev => {
+      const next = new Set(prev); ids.forEach(id => next.add(id)); return next;
+    });
+    window.setTimeout(() => {
+      setBadgeIds(prev => {
+        const next = new Set(prev); ids.forEach(id => next.delete(id)); return next;
+      });
+    }, badgeMs);
+  }
 
   // Farben Rotation
   const TOPIC_COLORS = useMemo(() => ["#264555", "#56768f"], []);
@@ -108,7 +133,7 @@ export default function AdminDashboard() {
           questions: count,
           color,
           status: thema.status,
-          createdAt: thema.createdAt, 
+          createdAt: thema.createdAt,
         };
       });
 
@@ -131,31 +156,30 @@ export default function AdminDashboard() {
   }, [fetchTopics]);
 
   // Suche & Filtering
-const filteredTopics = useMemo(() => {
-  let result = topics;
+  const filteredTopics = useMemo(() => {
+    let result = topics;
 
-  // ⭐ Filter nach active / inactive
-  if (topicFilter === "active") {
-    result = result.filter((t) => t.status === "active");
-  }
+    // ⭐ Filter nach active / inactive
+    if (topicFilter === "active") {
+      result = result.filter((t) => t.status === "active");
+    }
 
-  if (topicFilter === "inactive") {
-    result = result.filter((t) => t.status === "inactive");
-  }
+    if (topicFilter === "inactive") {
+      result = result.filter((t) => t.status === "inactive");
+    }
 
-  // ⭐ Suche anwenden
-  if (searchTerm.trim()) {
-    const term = searchTerm.toLowerCase();
-    result = result.filter(
-      (t) =>
-        t.title.toLowerCase().includes(term) ||
-        t.subtitle.toLowerCase().includes(term)
-    );
-  }
+    // ⭐ Suche anwenden
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase();
+      result = result.filter(
+        (t) =>
+          t.title.toLowerCase().includes(term) ||
+          t.subtitle.toLowerCase().includes(term)
+      );
+    }
 
-  return result;
-}, [topics, searchTerm, topicFilter]);
-
+    return result;
+  }, [topics, searchTerm, topicFilter]);
 
   // Pagination
   const [visibleCount, setVisibleCount] = useState(6);
@@ -223,10 +247,15 @@ const filteredTopics = useMemo(() => {
           subtitle: newThema.description,
           questions: 0,
           color: prev[0]?.color || "#264555",
-          status: newThema.status, // 🔥 WICHTIG
+          status: newThema.status,
         },
         ...prev,
-      ]);showSuccess("Thema erfolgreich dupliziert!");
+      ]);
+
+      // 🎉 Animation auslösen
+      flashNew([newThema.id], 4000, 60000);
+
+      showSuccess("Thema erfolgreich dupliziert!");
     } catch (err) {
       showError("Fehler: Thema konnte nicht dupliziert werden.");
     }
@@ -238,9 +267,10 @@ const filteredTopics = useMemo(() => {
 
       setTopics((prev) =>
         prev.map((t) => (t.id === id ? { ...t, status: updated.status } : t))
-      );showSuccess("Status erfolgreich geändert!");
+      );
+      showSuccess("Status erfolgreich geändert!");
     } catch (err) {
-       showError("Fehler: Status konnte nicht geändert werden.");
+      showError("Fehler: Status konnte nicht geändert werden.");
     }
   }, []);
 
@@ -262,35 +292,52 @@ const filteredTopics = useMemo(() => {
     );
   }
 
+
   return (
     <AdminLayout>
-      {/* HEADER */}
-      <header className="relative bg-[hsl(60_9%_97.8%)] border-b border-[hsl(214.3_31.8%_91.4%)] px-8 py-4">
-        <div className="pointer-events-none absolute left-0 right-0 top-[calc(64px-1px)] h-0 [box-shadow:0_10px_16px_-14px_rgba(15,23,42,.18)]" />
+      {/* CSS Animations (wie KatalogeZuweisen) */}
+      <style>
+        {`
+          @keyframes blinkBg {
+            0%, 100% { background-color: #ffffff; }
+            50%       { background-color: #d1fae5; }  /* Intensiveres Grün */
+          }
+          @keyframes glowRing {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(34,197,94,0.6); }  /* Stärkerer Glow */
+            50%      { box-shadow: 0 0 0 16px rgba(34,197,94,0.0); }  /* Größerer Ring */
+          }
+        `}
+      </style>
 
-        <div className="grid grid-cols-3 items-center gap-2 lg:grid-cols-1 lg:justify-items-center lg:text-center">
-          <div className="justify-self-center col-span-3 lg:col-span-1">
-            <div className="flex items-center justify-center gap-4">
-              <img
-                src={myLogo}
-                alt="Logo"
-                className="h-[200px] w-[200px] object-contain"
-              />
-              <div className="text-center">
-                <h1 className="text-[clamp(28px,6vw,56px)] font-extrabold text-[#264555] leading-[1.05]">
-                  Fragenkatalog Administration
-                </h1>
-                <p className="text-[#334155]/90 text-[clamp(14px,1.6vw,18px)]">
-                  Verwalten Sie Ihre Themen und erstellen Sie finale Kataloge
-                </p>
-              </div>
+      {/* HEADER */}
+      <div className="relative bg-gradient-to-br from-[#264555] via-[#38556b] to-[#d2c9b9] px-10 py-14 shadow-sm border-b border-gray-300/40">
+        {/* TITLE BLOCK */}
+        <div className="mt-8 text-center">
+          <div className="flex justify-center items-center gap-4">
+            <div
+              className="
+          p-4 rounded-2xl shadow-md 
+          bg-[#3f5568]
+          text-white
+        "
+            >
+              <Layers size={28} />
             </div>
+
+            <h1 className="text-4xl md:text-5xl font-extrabold text-white tracking-tight">
+              Fragenkatalog Administration
+            </h1>
           </div>
+
+          <p className="text-white mt-3 text-[15px]">
+            Verwalten Sie Ihre Themen und erstellen Sie finale Kataloge
+          </p>
         </div>
-      </header>
+
+      </div>
 
       {/* BODY */}
-      <div className="dashboard-content bg-[hsl(0_0%_92%)] min-h-[calc(100vh-64px)] px-6 py-6 mt-2">
+      <div className="dashboard-content bg-[hsl(0_0%_92%)] min-h-[calc(100vh-64px)] px-6 py-6">
         {/* BUTTON */}
         <div className="flex justify-end mt-4">
           <button
@@ -302,53 +349,79 @@ const filteredTopics = useMemo(() => {
           </button>
         </div>
 
+
+
         {/* STATS */}
         <section className="stats-panel mt-4">
           <div className="grid grid-cols-4 gap-4">
-           {STATS.map((s, i) => (
-  <div
-    key={i}
-    onClick={() => {
-      if (s.key === "active") setTopicFilter("active");
-      else if (s.key === "inactive") setTopicFilter("inactive");
-      else setTopicFilter("all"); // Themen & Gesamtfragen
-    }}
-    className="
-      relative h-[110px] rounded-2xl 
-      shadow-[0_4px_16px_rgba(0,0,0,0.15)]
-      overflow-hidden p-5 flex flex-col justify-between
-      cursor-pointer hover:scale-[1.02] transition-transform
-    "
-    style={{ backgroundColor: STAT_COLORS[i] }}
-  >
+            {STATS.map((s, i) => (
+              <div
+                key={i}
+                onClick={() => {
+                  if (s.key === "questions") return;
+                  if (s.key === "active") setTopicFilter("active");
+                  else if (s.key === "inactive") setTopicFilter("inactive");
+                  else setTopicFilter("all");
+                }}
+                className={`
+   group
+  relative h-[110px] rounded-2xl 
+  shadow-[0_4px_16px_rgba(0,0,0,0.15)]
+  overflow-hidden p-5 flex flex-col justify-between
+  transition-all duration-300
+
+  ${s.key !== "questions" ? "hover:bg-white/20 hover:brightness-125" : ""}
+
+  ${s.key === "questions" ? "" : "cursor-pointer"}
+`}
+
+                style={{ backgroundColor: STAT_COLORS[i] }}
+              >
 
                 {/* ICON */}
                 <div
-                  className="absolute right-3 bottom-3 opacity-[0.18]"
+                  className="absolute right-3 bottom-3 opacity-[0.18] transition-all duration-200"
                   style={{ color: "white" }}
                 >
-                  {STAT_ICONS[i]}
+                  {/* Default Icon */}
+                  <div className={`${s.key !== "questions" ? "group-hover:hidden" : ""}`}>
+                    {STAT_ICONS[i]}
+                  </div>
+
+                  {/* Hover: >> Icon */}
+                  {s.key !== "questions" && (
+                    <div className="hidden group-hover:flex absolute right-0 bottom-0 items-center">
+                      <ChevronRight size={48} className="-mr-8" />
+                      <ChevronRight size={48} />
+                    </div>
+                  )}
                 </div>
 
+
                 {/* LABEL */}
-                <p className="text-white/80 text-sm font-medium">{s.label}</p>
+                <p
+                  className={`text-sm font-medium ${s.key === "questions" ? "text-black" : "text-white"
+                    }`}
+                >
+                  {s.label}
+                </p>
+
 
                 {/* VALUE (mit Skeleton nur während loading) */}
                 <p className="text-white text-4xl font-extrabold">
-                {loading ? (
-  <StatValueSkeleton />
-) : s.key === "total" ? (
-  topics.length
-) : s.key === "questions" ? (
-  topics.reduce((sum, t) => sum + (t.questions || 0), 0)
-) : s.key === "active" ? (
-  topics.filter((t) => t.status === "active").length
-) : s.key === "inactive" ? (
-  topics.filter((t) => t.status === "inactive").length
-) : (
-  "–"
-)}
-
+                  {loading ? (
+                    <StatValueSkeleton />
+                  ) : s.key === "total" ? (
+                    topics.length
+                  ) : s.key === "questions" ? (
+                    topics.reduce((sum, t) => sum + (t.questions || 0), 0)
+                  ) : s.key === "active" ? (
+                    topics.filter((t) => t.status === "active").length
+                  ) : s.key === "inactive" ? (
+                    topics.filter((t) => t.status === "inactive").length
+                  ) : (
+                    "–"
+                  )}
                 </p>
               </div>
             ))}
@@ -402,33 +475,62 @@ const filteredTopics = useMemo(() => {
           {/* GRID (optimiert + lazy render) */}
           <div
             className="
-                mt-6 rounded-3xl bg-[#f5f5f5] p-4
+                mt-6 rounded-3xl bg-[#f5f5f5] p-3
                 shadow-[0_4px_20px_rgba(0,0,0,0.05)]
                 border border-gray-300/30
               "
           >
-            <div
-              className="topics-grid grid gap-6"
-              style={{
-                gridTemplateColumns: "repeat(auto-fill, minmax(420px, 1fr))",
-              }}
-            >
+           <div
+  className="grid grid-cols-4 gap-4"
+  style={{
+    gridTemplateColumns: "repeat(auto-fill, minmax(420px, 1fr))",
+  }}
+>
               {loading
                 ? Array.from({ length: 6 }).map((_, i) => (
-                    <TopicCardSkeleton key={i} />
-                  ))
-                : currentTopics.map((t) => (
-                    <TopicCard
+                  <TopicCardSkeleton key={i} />
+                ))
+                : currentTopics.map((t) => {
+                  const isHighlight = highlightIds.has(t.id);
+                  const isBadge = badgeIds.has(t.id);
+
+                  return (
+                    <div
                       key={t.id}
-                      t={t}
-                      loading={loading}
-                      onDelete={handleDelete}
-                      onEdit={handleEdit}
-                      onManage={handleManage}
-                      onDuplicate={handleDuplicate}
-                      onStatusChange={() => handleStatusChange(t.id)}
-                    />
-                  ))}
+                      className={[
+                        "relative",
+                        // Animationen wie in KatalogeZuweisen
+                        isHighlight
+                          ? [
+                            "scale-[1.05]",  // Größeres Pop
+                            "ring-4 ring-green-400 ring-offset-4",  // Dickerer, hellerer Ring
+                            "[animation:blinkBg_.7s_ease-in-out_infinite]",  // Schneller
+                            "[box-shadow:0_0_24px_rgba(34,197,94,0.6)]",  // Stärkerer Shadow
+                            "[animation:glowRing_.9s_ease-in-out_infinite]"  // Schneller
+                          ].join(" ")
+                          : "",
+                        "transition-transform duration-300 ease-out rounded-xl"
+                      ].join(" ")}
+                    >
+                      {/* NEU Badge */}
+                      {isBadge && (
+                        <span className="absolute -left-1 -top-1 z-10 rounded-md bg-amber-500 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white shadow">
+                          Neu
+                        </span>
+                      )}
+
+                      <TopicCard
+                        t={t}
+                        loading={loading}
+                        onDelete={handleDelete}
+                        onEdit={handleEdit}
+                        onManage={handleManage}
+                        onDuplicate={handleDuplicate}
+                        onStatusChange={() => handleStatusChange(t.id)}
+                      />
+                    </div>
+                  );
+                })}
             </div>
 
             {/* Lazy Loading Trigger */}
@@ -437,158 +539,169 @@ const filteredTopics = useMemo(() => {
         </section>
       </div>
 
- 
-     {/* === EDIT MODAL === */}
-{isEditModalOpen && (
-  <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex justify-center items-center z-[9999]">
-    <div className="bg-white rounded-xl shadow-xl w-[420px] p-6">
-      <h3 className="text-lg font-semibold mb-4 text-center">
-        Thema bearbeiten
-      </h3>
+      {/* === EDIT MODAL === */}
+      {isEditModalOpen && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex justify-center items-center z-[9999]">
+          <div className="bg-white rounded-xl shadow-xl w-[420px] p-6">
+            <h3 className="text-lg font-semibold mb-4 text-center">
+              Thema bearbeiten
+            </h3>
 
-      {/* TITEL */}
-      <div className="mb-4 text-left">
-        <label className="block text-sm font-medium text-black-600 mb-1">
-          Titel
-        </label>
-        <input
-          ref={titleInputRef}
-          type="text"
-          value={editThemaName}
-          onChange={(e) => setEditThemaName(e.target.value)}
-          maxLength={50}
-          className="w-full border rounded-md p-2 focus:ring-2 focus:ring-[#56768f]"
-        />
-      </div>
+            {/* TITEL */}
+            <div className="mb-4 text-left">
+              <label className="block text-sm font-medium text-black-600 mb-1">
+                Titel
+              </label>
+              <input
+                ref={titleInputRef}
+                type="text"
+                value={editThemaName}
+                onChange={(e) => setEditThemaName(e.target.value)}
+                maxLength={55}
+                className="w-full border rounded-md p-2 focus:ring-2 focus:ring-[#56768f]"
+              />
+            </div>
 
-      {/* BESCHREIBUNG */}
-      <div className="mb-6 text-left">
-        <label className="block text-sm font-medium text-black-600 mb-1">
-          Beschreibung
-        </label>
-        <textarea
-          value={editThemaDesc}
-          onChange={(e) => setEditThemaDesc(e.target.value)}
-          
-          className="w-full border rounded-md p-2 h-24 resize-none focus:ring-2 focus:ring-[#56768f]"
-        />
-      </div>
+            {/* BESCHREIBUNG */}
+            <div className="mb-6 text-left">
+              <label className="block text-sm font-medium text-black-600 mb-1">
+                Beschreibung
+              </label>
+              <textarea
+                value={editThemaDesc}
+                onChange={(e) => setEditThemaDesc(e.target.value)}
+                className="w-full border rounded-md p-2 h-24 resize-none focus:ring-2 focus:ring-[#56768f]"
+              />
+            </div>
 
-      {/* ACTION BUTTONS */}
-      <div className="flex justify-end gap-2">
-        <button
-          onClick={() => setIsEditModalOpen(false)}
-          className="px-4 py-2 bg-gray-200 rounded"
-        >
-          Abbrechen
-        </button>
+            {/* ACTION BUTTONS */}
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setIsEditModalOpen(false)}
+                className="px-4 py-2 bg-gray-200 rounded"
+              >
+                Abbrechen
+              </button>
 
-        <button
-          onClick={async () => {
-            if (!editThemaId) return;
-            try {
-              const updated = await updateThema(editThemaId, {
-                name: editThemaName,
-                description: editThemaDesc,
-              });
+              <button
+                onClick={async () => {
+                  if (!editThemaId) return;
+                  try {
+                    const updated = await updateThema(editThemaId, {
+                      name: editThemaName,
+                      description: editThemaDesc,
+                    });
 
-              setTopics((prev) =>
-                prev.map((t) =>
-                  t.id === updated.id
-                    ? {
-                        ...t,
-                        title: updated.name,
-                        subtitle: updated.description,
-                      }
-                    : t
-                )
-              );
-             showSuccess("Thema erfolgreich aktualisiert!");
+                    setTopics((prev) =>
+                      prev.map((t) =>
+                        t.id === updated.id
+                          ? {
+                            ...t,
+                            title: updated.name,
+                            subtitle: updated.description,
+                          }
+                          : t
+                      )
+                    );
+                    showSuccess("Thema erfolgreich aktualisiert!");
 
-              setIsEditModalOpen(false);
-            } catch (err) {
-              showError("Fehler: Thema konnte nicht aktualisiert werden.");
-            }
-          }}
-          className="px-4 py-2 bg-[#56768f] text-white rounded"
-        >
-          Speichern
-        </button>
-      </div>
-    </div>
-  </div>
-)}
-
+                    setIsEditModalOpen(false);
+                  } catch (err) {
+                    showError(
+                      "Fehler: Thema konnte nicht aktualisiert werden."
+                    );
+                  }
+                }}
+                className="px-4 py-2 bg-[#56768f] text-white rounded"
+              >
+                Speichern
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* === ADD MODAL === */}
-     {isAddModalOpen && (
-  <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex justify-center items-center z-[9999]">
-    <div className="bg-white rounded-xl shadow-lg w-[420px] p-6">
-      
-      <h3 className="text-lg font-semibold mb-4 text-center">
-        Neues Thema hinzufügen
-      </h3>
+      {isAddModalOpen && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex justify-center items-center z-[9999]">
+          <div className="bg-white rounded-xl shadow-lg w-[420px] p-6">
+            <h3 className="text-lg font-semibold mb-4 text-center">
+              Neues Thema hinzufügen
+            </h3>
 
-      {/* TITEL LABEL */}
-      <label className="block text-left text-sm font-medium text-gray-700 mb-1">
-        Titel
-      </label>
-      <input
-        type="text"
-        value={newThemaName}
-        maxLength={50}
-        onChange={(e) => setNewThemaName(e.target.value)}
-        className="w-full border rounded-md p-2 mb-4 focus:ring-2 focus:ring-[#56768f]"
-        placeholder="Titel eingeben..."
-      />
+            {/* TITEL LABEL */}
+            <label className="block text-left text-sm font-medium text-gray-700 mb-1">
+              Titel
+            </label>
+            <input
+              type="text"
+              value={newThemaName}
+              maxLength={55}
+              onChange={(e) => setNewThemaName(e.target.value)}
+              className="w-full border rounded-md p-2 mb-4 focus:ring-2 focus:ring-[#56768f]"
+              placeholder="Titel eingeben..."
+            />
 
-      {/* BESCHREIBUNG LABEL */}
-      <label className="block text-left text-sm font-medium text-gray-700 mb-1">
-        Beschreibung
-      </label>
-      <textarea
-        value={newThemaDesc}
-        onChange={(e) => setNewThemaDesc(e.target.value)}
-        className="w-full border p-2 rounded mb-5 min-h-[100px] resize-y focus:ring-2 focus:ring-[#56768f]"
-        placeholder="Beschreibung eingeben..."
-      />
+            {/* BESCHREIBUNG LABEL */}
+            <label className="block text-left text-sm font-medium text-gray-700 mb-1">
+              Beschreibung
+            </label>
+            <textarea
+              value={newThemaDesc}
+              onChange={(e) => setNewThemaDesc(e.target.value)}
+              className="w-full border p-2 rounded mb-5 min-h-[100px] resize-y focus:ring-2 focus:ring-[#56768f]"
+              placeholder="Beschreibung eingeben..."
+            />
 
-      {/* BUTTONS */}
-      <div className="flex justify-end gap-2">
-        <button
-          onClick={() => setIsAddModalOpen(false)}
-          className="px-4 py-2 bg-gray-200 rounded"
-        >
-          Abbrechen
-        </button>
+            {/* BUTTONS */}
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setIsAddModalOpen(false)}
+                className="px-4 py-2 bg-gray-200 rounded"
+              >
+                Abbrechen
+              </button>
 
-        <button
-          onClick={async () => {
-            try {
-              await createThema({
-                name: newThemaName,
-                description: newThemaDesc,
-              });
+              <button
+                onClick={async () => {
+                  try {
+                    // IDs VOR dem Anlegen merken
+                    const beforeIds = new Set(topics.map(t => t.id));
 
-              await fetchTopics();
+                    await createThema({
+                      name: newThemaName,
+                      description: newThemaDesc,
+                    });
 
-              setIsAddModalOpen(false);
-              setNewThemaName("");
-              setNewThemaDesc("");
-              showSuccess("Thema erfolgreich erstellt!");
-            } catch (err) {
-              showError("Fehler: Thema konnte nicht erstellt werden.");
-            }
-          }}
-          className="px-4 py-2 bg-[#56768f] text-white rounded"
-        >
-          Speichern
-        </button>
-      </div>
-    </div>
-  </div>
-)}
+                    await fetchTopics();
 
+                    // Neu erstellte ID ermitteln und Animation auslösen
+                    setTimeout(() => {
+                      setTopics((currentTopics) => {
+                        const newId = currentTopics.find(t => !beforeIds.has(t.id))?.id;
+                        if (newId) {
+                          flashNew([newId], 4000, 60000);
+                        }
+                        return currentTopics;
+                      });
+                    }, 100);
+
+                    setIsAddModalOpen(false);
+                    setNewThemaName("");
+                    setNewThemaDesc("");
+                    showSuccess("Thema erfolgreich erstellt!");
+                  } catch (err) {
+                    showError("Fehler: Thema konnte nicht erstellt werden.");
+                  }
+                }}
+                className="px-4 py-2 bg-[#56768f] text-white rounded"
+              >
+                Speichern
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* === DELETE MODAL === */}
       {showDeleteModal && (
@@ -624,7 +737,7 @@ const filteredTopics = useMemo(() => {
 
                     setShowDeleteModal(false);
                   } catch {
-                      showError("Fehler: Thema konnte nicht gelöscht werden.");
+                    showError("Fehler: Thema konnte nicht gelöscht werden.");
                   }
                 }}
                 className="px-4 py-2 bg-red-600 text-white rounded"
