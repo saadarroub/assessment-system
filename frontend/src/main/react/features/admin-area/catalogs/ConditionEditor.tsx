@@ -1,11 +1,12 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-
+import { useToast } from "@/shared/contexts/ToastContext";
+// Icons
 import AdminLayout from "@/apps/app/AdminLayout";
 import "@/styles/admin.css";
 import {
   ArrowLeft,
-  FileText,
+  Layers,
   Plus,
   X,
   MessageSquare,
@@ -21,6 +22,7 @@ import {
   GripVertical,
   ChevronDown,
   ChevronRight,
+  Search,
 } from "lucide-react";
 
 import {
@@ -53,6 +55,9 @@ export default function ConditionEditor() {
   const navigate = useNavigate();
   const { id: themaId } = useParams();
   const [thema, setThema] = useState<any>(null);
+
+  // 🔍 Such-State
+  const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
     async function fetchThemaDetails() {
@@ -110,8 +115,8 @@ export default function ConditionEditor() {
 
   const [isRequired, setIsRequired] = useState(true); // Standard: true (Pflichtfrage)
 
- 
-
+  const isOrderType = selectedType?.value === "order";
+  const { showSuccess, showError } = useToast();
 
   // 🔁 Rekursive Funktion, die ALLE Kinder bis zur tiefsten Ebene lädt
   async function fetchChildrenRecursive(parentId: string): Promise<any[]> {
@@ -153,9 +158,16 @@ export default function ConditionEditor() {
             questionId: child.question?.id,
             text: child.question?.text || "Ohne Text",
             type: child.question?.questionType?.inputType || "unknown",
-            options: parsedOptions, // ✅
-            scoringSchema: parsedScoring, // ✅
-            required: child.isRequired ?? true, // ✅ isRequired Feld aus Backend
+
+            // ✅ Scores + Options immer zusammenführen
+            options: normalizeOptions({
+              options: parsedOptions,
+              scoringSchema: parsedScoring,
+            }),
+
+            scoringSchema: parsedScoring,
+
+            required: child.isRequired ?? true,
             expanded: false,
             children: await fetchChildrenRecursive(child.id),
           };
@@ -174,9 +186,11 @@ export default function ConditionEditor() {
     if (editingQuestion) {
       // Wenn required explizit gesetzt ist (true oder false), verwende diesen Wert
       // Ansonsten Standard: true
-      const requiredValue = editingQuestion.required !== undefined && editingQuestion.required !== null
-        ? editingQuestion.required
-        : true;
+      const requiredValue =
+        editingQuestion.required !== undefined &&
+        editingQuestion.required !== null
+          ? editingQuestion.required
+          : true;
       setIsRequired(requiredValue);
     } else {
       // Beim Erstellen einer neuen Frage: Standard auf true setzen
@@ -350,8 +364,10 @@ export default function ConditionEditor() {
               questionId: root.question?.id,
               text: root.question?.text || "Ohne Text",
               type: root.question?.questionType?.inputType || "unknown",
-              options: parsedOptions, // ✅ korrigiert
-              scoringSchema: parsedScoring, // ✅ korrigiert
+              options: normalizeOptions({
+                options: parsedOptions,
+                scoringSchema: parsedScoring,
+              }),
               required: root.isRequired ?? true, // ✅ isRequired Feld aus Backend
               expanded: false,
               children: await fetchChildrenRecursive(root.id),
@@ -453,11 +469,11 @@ export default function ConditionEditor() {
           }));
 
       setQuestions((prev) => removeRecursive(prev));
+      showSuccess("Frage erfolgreich gelöscht!");
 
       console.log("✅ Frage erfolgreich gelöscht:", questionId);
     } catch (error) {
-      console.error("❌ Fehler beim Löschen der Frage:", error);
-      alert("Fehler beim Löschen der Frage. Bitte später erneut versuchen.");
+      showError("Fehler beim Löschen der Frage!");
     } finally {
       setIsDeleting(false);
       setIsDeleteModalOpen(false);
@@ -485,10 +501,9 @@ export default function ConditionEditor() {
     const hasOptions = selectedType?.hasOptions;
     if (hasOptions) {
       const missingLabel = options.some((o) => !o.label.trim());
-      const missingScore = options.some(
-        (o) =>
-          o.score === null || o.score === undefined || isNaN(Number(o.score))
-      );
+      const missingScore =
+        !isOrderType &&
+        options.some((o) => o.score === null || isNaN(Number(o.score)));
 
       if (options.length < 2) {
         setErrorOptions("Mindestens zwei Antwortmöglichkeiten erforderlich.");
@@ -536,9 +551,10 @@ export default function ConditionEditor() {
       text: questionText,
       questionType: { id: selectedType.id },
       options: hasOptions ? options.map((o) => o.label) : null,
-      scoringSchema: hasOptions
-        ? Object.fromEntries(options.map((o) => [o.label, Number(o.score)]))
-        : null,
+      scoringSchema:
+        hasOptions && !isOrderType
+          ? Object.fromEntries(options.map((o) => [o.label, Number(o.score)]))
+          : null,
     };
 
     try {
@@ -582,9 +598,10 @@ export default function ConditionEditor() {
       setOptions([]);
       setParentQuestion(null);
       setIsRequired(true); // Standard: true zurücksetzen
+
+      showSuccess("Frage erfolgreich hinzugefügt!");
     } catch (error) {
-      console.error("❌ Fehler beim Hinzufügen der Frage:", error);
-      alert("❌ Fehler beim Hinzufügen der Frage!");
+      showError("Fehler beim Hinzufügen der Frage!");
     }
   };
 
@@ -614,10 +631,9 @@ export default function ConditionEditor() {
     const hasOptions = selectedType?.hasOptions;
     if (hasOptions) {
       const missingLabel = options.some((o) => !o.label.trim());
-      const missingScore = options.some(
-        (o) =>
-          o.score === null || o.score === undefined || isNaN(Number(o.score))
-      );
+      const missingScore =
+        !isOrderType &&
+        options.some((o) => o.score === null || isNaN(Number(o.score)));
 
       if (options.length < 2) {
         setErrorOptions("Mindestens zwei Antwortmöglichkeiten erforderlich.");
@@ -670,13 +686,14 @@ export default function ConditionEditor() {
         text: questionText,
         questionType: { id: selectedType?.id },
         options: hasOptions ? options.map((o) => o.label) : null,
-        scoringSchema: hasOptions
-          ? Object.fromEntries(options.map((o) => [o.label, o.score]))
-          : null,
+        scoringSchema:
+          hasOptions && !isOrderType
+            ? Object.fromEntries(options.map((o) => [o.label, Number(o.score)]))
+            : null,
       };
 
       await updateQuestion(editingQuestion.questionId, payload);
-      
+
       // 🔹 isRequired Status aktualisieren (wenn sich geändert hat)
       if (editingQuestion.required !== isRequired) {
         await updateQuestionNodeRequired(editingQuestion.id, isRequired);
@@ -706,9 +723,10 @@ export default function ConditionEditor() {
 
       // 🧹 Felder & Fehler zurücksetzen
       handleCancel();
+      showSuccess("Frage erfolgreich aktualisiert!");
     } catch (err) {
       console.error("❌ Fehler beim Bearbeiten der Frage:", err);
-      alert("❌ Fehler beim Bearbeiten der Frage!");
+      showError("Fehler beim Aktualisieren der Frage!");
     }
   };
 
@@ -829,7 +847,49 @@ export default function ConditionEditor() {
     return node;
   }
 
-  // 🔹 Fragetypen
+  // 🔍 Filter-Logik: Rekursiv durch alle Fragen suchen
+  const filteredQuestions = useMemo(() => {
+    if (!searchTerm.trim()) return questions;
+
+    const term = searchTerm.toLowerCase();
+
+    // Rekursive Hilfsfunktion: Sucht in der Frage und ihren Kindern
+    function filterRecursive(list: any[]): any[] {
+      return list
+        .map((q) => {
+          const matches = q.text.toLowerCase().includes(term);
+          const filteredChildren = q.children
+            ? filterRecursive(q.children)
+            : [];
+
+          // Frage behalten, wenn sie selbst matched ODER wenn Kinder matchen
+          if (matches || filteredChildren.length > 0) {
+            return {
+              ...q,
+              children: filteredChildren,
+              expanded: filteredChildren.length > 0, // Auto-expand wenn Kinder matchen
+            };
+          }
+
+          return null;
+        })
+        .filter((q) => q !== null);
+    }
+
+    return filterRecursive(questions);
+  }, [questions, searchTerm]);
+
+  // 🔢 Rekursiv alle Fragen zählen (inkl. Unterfragen)
+  const totalQuestionCount = useMemo(() => {
+    function countRecursive(list: any[]): number {
+      return list.reduce((count, q) => {
+        return count + 1 + (q.children ? countRecursive(q.children) : 0);
+      }, 0);
+    }
+    return countRecursive(filteredQuestions);
+  }, [filteredQuestions]);
+
+  // �🔹 Fragetypen
   const showOptions = selectedType?.hasOptions === true;
 
   // -----------------------------
@@ -885,8 +945,16 @@ export default function ConditionEditor() {
         {/* Karten-Header */}
         <div
           className={
-            "flex items-center justify-between bg-white rounded-xl shadow-sm px-4 py-3 border " +
-            (isThisDragging ? "drag-active-highlight" : "border-gray-300")
+            "flex items-center justify-between rounded-xl shadow-sm px-4 py-3 border " +
+            (isThisDragging ? "drag-active-highlight" : "border-gray-400")
+          }
+          style={
+            isThisDragging
+              ? {} // 👉 Beim Dragging kein Hintergrund → CSS gewinnt
+              : {
+                  background:
+                    "linear-gradient(135deg, #dfd8cdff 30%, #efede4ff 100%)",
+                }
           }
         >
           <div className="flex items-start gap-3">
@@ -894,8 +962,12 @@ export default function ConditionEditor() {
             <GripVertical
               size={20}
               className={`cursor-grab mt-1 transition-all duration-150
-  ${draggingId === q.id ? "text-green-500 scale-110" : "text-gray-400"}
-`}
+                 ${
+                   draggingId === q.id
+                     ? "text-green-500 scale-110"
+                     : "text-gray-400"
+                 }
+                `}
               {...attributes}
               onPointerDown={handleGripDown}
             />
@@ -922,24 +994,61 @@ export default function ConditionEditor() {
             {/* Frage */}
             <div className="flex flex-col mt-1">
               <p className="font-semibold">{q.text}</p>
-              <span className="inline-block w-fit text-xs mt-2 text-[#4a65b9] bg-[#e6edff] px-2 py-0.5 rounded-full">
-                {questionTypes.find((t) => t.value === q.type)?.label}
-              </span>
+
+              <div className="flex items-center gap-2 mt-2">
+                {/* Typ-Badge */}
+                <span className="inline-block text-xs text-[#4a65b9] bg-[#e6edff] px-2 py-0.5 rounded-full">
+                  {questionTypes.find((t) => t.value === q.type)?.label}
+                </span>
+
+                {/* Required-Badge */}
+                {q.required ? (
+                  <span className="inline-block text-xs text-[#8b5d00] bg-[#fff4d6] px-2 py-0.5 rounded-full">
+                    Pflicht
+                  </span>
+                ) : (
+                  <span className="inline-block text-xs text-[#555] bg-[#eaeaea] px-2 py-0.5 rounded-full">
+                    Optional
+                  </span>
+                )}
+
+                {/* MAX SCORING BADGE */}
+                <span className="inline-block text-xs text-[#0f5132] bg-[#d1e7dd] px-2 py-0.5 rounded-full">
+                  Max Score:{" "}
+                  {(() => {
+                    // 1. wenn Optionen existieren → SUMME der Scores
+                    if (q.options && q.options.length > 0) {
+                      const sum = q.options
+                        .map((o: any) => Number(o.score))
+                        .filter((n: number) => !isNaN(n))
+                        .reduce((a: number, b: number) => a + b, 0);
+
+                      return sum > 0 ? sum : 5; // falls keine gültigen Scores → 5
+                    }
+
+                    // 2. andere Typen → Standard 5
+                    return 5;
+                  })()}
+                </span>
+              </div>
             </div>
           </div>
 
           {/* Rechts */}
           <div className="flex items-center gap-6">
+            {/* Add */}
             <button
               onClick={() => {
                 setParentQuestion(q);
-                setIsRequired(true); // Standard: true beim Hinzufügen einer Unterfrage
+                setIsRequired(true);
                 setIsModalOpen(true);
               }}
+              className="transition-all duration-200 hover:scale-125 hover:opacity-80"
             >
-              <Plus size={18} />
+              <Plus size={20} className="text-green-600" />
             </button>
 
+            {/* Edit */}
             <button
               onClick={() => {
                 setEditingQuestion(q);
@@ -949,15 +1058,17 @@ export default function ConditionEditor() {
                 setOptions(normalizeOptions(q));
                 setIsModalOpen(true);
               }}
+              className="transition-all duration-200 hover:scale-125 hover:opacity-80"
             >
-              <Edit3 size={18} />
+              <Edit3 size={20} className="text-blue-600" />
             </button>
 
+            {/* Delete */}
             <button
               onClick={() => handleDeleteQuestion(q)}
-              className="text-red-500"
+              className="transition-all duration-200 hover:scale-125 hover:opacity-80"
             >
-              <Trash2 size={18} />
+              <Trash2 size={20} className="text-red-500" />
             </button>
           </div>
         </div>
@@ -1059,29 +1170,21 @@ export default function ConditionEditor() {
       // ROOT → ROOT
       if (!activeInfo.parentId && !overInfo.parentId) {
         await moveRootNode(activeId, newPosition);
-        console.log("📌 Root verschoben:", activeId, "→ Position", newPosition);
+        showSuccess("Frage erfolgreich verschoben!");
+
         return;
       }
 
       // CHILD → CHILD (gleiche Ebene)
       if (activeInfo.parentId === overInfo.parentId) {
         await moveChildNode(activeId, activeInfo.parentId!, newPosition);
-        
-        console.log(
-          "📌 Child verschoben in gleicher Ebene:",
-          activeId,
-          "→ Position",
-          newPosition
-        );
-        
+
+        showSuccess("Unterfrage erfolgreich verschoben!");
+
         return;
       }
-
-      console.warn(
-        "⚠️ Verschieben in andere Parent-Ebene ist deaktiviert (Absprache)."
-      );
     } catch (err) {
-      console.error("❌ Fehler beim Reorder:", err);
+      showError("Fehler beim Verschieben!");
     }
   };
 
@@ -1107,392 +1210,498 @@ export default function ConditionEditor() {
   return (
     <AdminLayout>
       {/* Header */}
-      <div className="bg-[rgba(210,201,185,0.2)] px-10 pt-10 pb-10 border-b border-gray-200 rounded-b-xl">
+      <div className="relative bg-gradient-to-br from-[#d2c9b9] via-[#e8e2d7] to-[#ffffff] px-10 py-10 shadow-sm border-b border-gray-300/40">
+        {/* BACK BUTTON */}
         <div
-          className="w-fit bg-gray-100 hover:bg-blue-50 active:bg-blue-100 rounded-lg shadow px-4 py-3 flex items-center gap-2 cursor-pointer transition-all duration-200 transform hover:-translate-y-0.5"
           onClick={() => navigate("/admin")}
+          className="
+                  group w-fit flex items-center gap-3 cursor-pointer
+                  bg-white/60 backdrop-blur-xl 
+                  border border-gray-300/30 
+                  px-5 py-2.5 rounded-xl 
+                  shadow-[0_3px_10px_rgba(0,0,0,0.08)]
+                  transition-all duration-300
+                  hover:bg-white/80 hover:shadow-[0_6px_16px_rgba(0,0,0,0.12)]
+                  hover:-translate-y-0.5
+                "
         >
-          <ArrowLeft size={22} />
-          <span className="text-sm font-medium text-gray-800">
+          <ArrowLeft
+            size={20}
+            className="text-[#264555] transition-all group-hover:-translate-x-1"
+          />
+          <span className="text-sm font-semibold text-[#264555]">
             Zurück zur Übersicht
           </span>
         </div>
 
-        <div className="mt-6 text-center ">
-          <div className="flex justify-center items-center gap-3">
-            <div className="bg-brand-sand p-3 rounded-xl shadow mt-5">
-              <FileText size={26} className="text-white" />
+        {/* TITLE BLOCK */}
+        <div className="mt-8 text-center">
+          <div className="flex justify-center items-center gap-4">
+            <div
+              className="
+          p-4 rounded-2xl shadow-md 
+          bg-gradient-to-br from-[#264555] to-[#3f5568]
+          text-white
+        "
+            >
+              <Layers size={28} />
             </div>
-            <h1 className="text-2xl md:text-6xl font-bold mt-5">
+
+            <h1 className="text-4xl md:text-5xl font-extrabold text-[#264555] tracking-tight">
               {thema?.name || "Lade Thema..."}
             </h1>
           </div>
+
+          <p className="text-gray-700 mt-3 text-[15px]">
+            Bearbeiten · Fragen verwalten · Struktur aufbauen
+          </p>
         </div>
       </div>
-
-      {/* Hauptfrage hinzufügen */}
-      <div className="px-8 pt-6 flex justify-end">
-        <button
-          onClick={handleAddQuestion}
-          className="flex items-center gap-2 bg-brand-sand text-white font-medium px-4 py-2 rounded shadow hover:shadow-md hover:scale-105 transition-all duration-200"
-        >
-          <Plus size={16} />
-          Neue Hauptfrage
-        </button>
-      </div>
-
-      {/* Fragenliste mit DnD */}
-      <div className="px-10 pt-8 pb-10">
-        <div style={{ position: "relative", overflow: "hidden" }}>
-          <DndContext
-            collisionDetection={closestCorners}
-            onDragStart={({ active }) => {
-              const parentId = active.data?.current?.parent;
-              const isRoot = parentId === "root";
-
-              setQuestions((prev) => {
-                if (isRoot) {
-                  // 👉 Root bewegt → alle Root-Listen schließen
-                  return closeAllRootLists(prev);
-                } else {
-                  // 👉 Kind bewegt → nur Kinder der Parent schließen
-                  return closeChildrenOfParent(prev, parentId);
-                }
-              });
-
-              setDraggingId(String(active.id));
+      {/* BODY - Grauer Hintergrund wie AdminDashboard */}
+      <div className="bg-[hsl(0_0%_92%)] min-h-[calc(100vh-64px)] pb-10">
+        {/* Hauptfrage hinzufügen */}
+        <div className="px-8 pt-6 flex justify-end">
+          <button
+            onClick={handleAddQuestion}
+            style={{
+              background: "hsl(40,60%,63%)", // Gelb
+              color: "hsl(200,32%,22%)", // dunkles Blau-Grau
+              boxShadow: "0 1px 2px rgba(0,0,0,.05)",
             }}
-            onDragEnd={(event) => {
-              handleDragEnd(event); // 👈 Reihenfolge speichern
-              setDraggingId(null); // 👈 Sichtbarkeit fixen
-            }}
-            modifiers={[restrictToParentElement]}
+            className="flex items-center gap-2 bg-brand-sand text-white font-medium px-4 py-2 rounded shadow hover:shadow-md hover:scale-105 transition-all duration-200"
           >
-            <SortableContext
-              id="root"
-              items={questions.map((q) => q.id)}
-              strategy={verticalListSortingStrategy}
-            >
-              {questions.map((q) => (
-                <SortableQuestion
-                  key={q.id} // ✅ korrekt
-                  q={{
-                    ...q,
-                    parentId: "root",
-                  }}
-                  level={0}
-                />
-              ))}
-            </SortableContext>
-          </DndContext>
+            <Plus size={16} />
+            Neue Hauptfrage
+          </button>
         </div>
-      </div>
 
-      {/* 🗑️ Lösch-Bestätigungs-Modal */}
-      {isDeleteModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-[9999]">
-          <div className="bg-white rounded-xl shadow-lg w-[420px] p-6">
-            <h2 className="text-lg font-semibold text-gray-800 mb-4">
-              Frage wirklich löschen?
-            </h2>
-            <p className="text-sm text-gray-600 mb-6">
-              Diese Aktion kann nicht rückgängig gemacht werden.
-              <br />
-              <span className="font-medium text-gray-900">
-                „{questionToDelete?.text}“
-              </span>{" "}
-              wird dauerhaft entfernt.
-            </p>
+        {/* 🔍 SEARCH BOX */}
+        <div className="px-8 pt-4">
+          <div className="mx-auto rounded-[12px] border bg-white/85 backdrop-blur-md shadow">
+            <div className="p-4 flex items-center justify-between gap-3">
+              <div className="relative flex-1">
+                <Search
+                  size={16}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                />
+                <input
+                  type="text"
+                  value={searchTerm}
+                  placeholder="Suche Frage..."
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full h-10 rounded-md border pl-10 pr-3 text-sm focus:ring-2 focus:ring-amber-400"
+                />
+              </div>
 
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => setIsDeleteModalOpen(false)}
-                className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100"
-              >
-                Abbrechen
-              </button>
-              <button
-                onClick={confirmDeleteQuestion}
-                disabled={isDeleting}
-                className={`px-4 py-2 rounded-lg bg-red-500 text-white font-medium hover:bg-red-600 transition-all ${
-                  isDeleting ? "opacity-60 cursor-not-allowed" : ""
-                }`}
-              >
-                {isDeleting ? "Lösche..." : "Ja, löschen"}
-              </button>
+              <div className="px-4 py-2 rounded-md border bg-white text-gray-600">
+                Zeige{" "}
+                <span className="font-semibold">{totalQuestionCount}</span>{" "}
+                Fragen
+              </div>
             </div>
           </div>
         </div>
-      )}
 
-      {/* 🧱 Modal: Neue Frage hinzufügen */}
-      {isModalOpen && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-[9999]">
-          <div className="bg-white rounded-xl shadow-lg w-[730px] max-h-[80vh] flex flex-col relative">
-            <div className="p-8 overflow-y-auto flex-1" ref={modalRef}>
-              {/* ❌ Schließen-Button */}
-              <button
-                onClick={handleCancel}
-                className="absolute top-3 right-3 text-gray-500 hover:text-gray-700"
+        {/* Fragenliste mit DnD */}
+        <div className="px-10 pt-6 pb-10">
+          <div style={{ position: "relative", overflow: "hidden" }}>
+            <DndContext
+              collisionDetection={closestCorners}
+              onDragStart={({ active }) => {
+                const parentId = active.data?.current?.parent;
+                const isRoot = parentId === "root";
+
+                setQuestions((prev) => {
+                  if (isRoot) {
+                    // 👉 Root bewegt → alle Root-Listen schließen
+                    return closeAllRootLists(prev);
+                  } else {
+                    // 👉 Kind bewegt → nur Kinder der Parent schließen
+                    return closeChildrenOfParent(prev, parentId);
+                  }
+                });
+
+                setDraggingId(String(active.id));
+              }}
+              onDragEnd={(event) => {
+                handleDragEnd(event); // 👈 Reihenfolge speichern
+                setDraggingId(null); // 👈 Sichtbarkeit fixen
+              }}
+              modifiers={[restrictToParentElement]}
+            >
+              <SortableContext
+                id="root"
+                items={filteredQuestions.map((q) => q.id)}
+                strategy={verticalListSortingStrategy}
               >
-                <X size={20} />
-              </button>
+                {filteredQuestions.map((q) => (
+                  <SortableQuestion
+                    key={q.id} // ✅ korrekt
+                    q={{
+                      ...q,
+                      parentId: "root",
+                    }}
+                    level={0}
+                  />
+                ))}
+              </SortableContext>
+            </DndContext>
+          </div>
+        </div>
 
-              {/* 🔹 Titelbereich */}
-              {editingQuestion ? (
-                <h2 className="text-xl font-semibold text-gray-800 mb-6">
-                  Frage bearbeiten
-                </h2>
-              ) : parentQuestion ? (
-                <div className="mb-6">
-                  <h2 className="text-xl font-semibold text-gray-800 mt-2">
-                    Neue Unterfrage hinzufügen
-                  </h2>
+        {/* 🗑️ Lösch-Bestätigungs-Modal */}
+        {isDeleteModalOpen && (
+          <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-[9999]">
+            <div className="bg-white rounded-xl shadow-lg w-[420px] p-6">
+              <h2 className="text-lg font-semibold text-gray-800 mb-4">
+                Frage wirklich löschen?
+              </h2>
+              <p className="text-sm text-gray-600 mb-6">
+                Diese Aktion kann nicht rückgängig gemacht werden.
+                <br />
+                <span className="font-medium text-gray-900">
+                  „{questionToDelete?.text}“
+                </span>{" "}
+                wird dauerhaft entfernt.
+              </p>
 
-                  <p className="text-sm text-gray-500 mt-2">
-                    <span className="font-semibold text-gray-700">
-                      Vaterfrage:
-                    </span>{" "}
-                    {parentQuestion.text}
-                  </p>
-                </div>
-              ) : (
-                <h2 className="text-xl font-semibold text-gray-800 mb-6">
-                  Neue Hauptfrage hinzufügen
-                </h2>
-              )}
-
-              {/* 🔸 Fragetext */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Frage<span className="text-red-500">*</span>
-                </label>
-                <textarea
-                  value={questionText}
-                  onChange={(e) => {
-                    setQuestionText(e.target.value);
-                    if (errorQuestionText) setErrorQuestionText(null); // 🔥 Roter Rand verschwindet sofort
-                  }}
-                  placeholder="Frage eingeben..."
-                  className={`w-full border rounded-lg p-2 focus:ring-2 focus:ring-brand-sand focus:outline-none ${
-                    errorQuestionText ? "border-red-500" : "border-gray-300"
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setIsDeleteModalOpen(false)}
+                  className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100"
+                >
+                  Abbrechen
+                </button>
+                <button
+                  onClick={confirmDeleteQuestion}
+                  disabled={isDeleting}
+                  className={`px-4 py-2 rounded-lg bg-red-500 text-white font-medium hover:bg-red-600 transition-all ${
+                    isDeleting ? "opacity-60 cursor-not-allowed" : ""
                   }`}
-                  rows={3}
-                ></textarea>
-                {errorQuestionText && (
-                  <p className="text-red-500 text-xs mt-1">
-                    {errorQuestionText}
-                  </p>
-                )}
+                >
+                  {isDeleting ? "Lösche..." : "Ja, löschen"}
+                </button>
               </div>
+            </div>
+          </div>
+        )}
 
-             
-              {/* 🔸 Fragetyp */}
-              <div className="mb-6 mt-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Fragetyp<span className="text-red-500">*</span>
-                </label>
-                <div className="grid grid-cols-2 gap-3">
-                  {questionTypes.map((type) => (
-                    <button
-                      key={type.id}
-                      onClick={() => {
-                        setSelectedType(type);
-                        if (errorType) setErrorType(null); // 🔥 Fehler zurücksetzen
-                        setErrorOptions(null);
-                        setHasSubmitted(false);
+        {/* 🧱 Modal: Neue Frage hinzufügen */}
+        {isModalOpen && (
+          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-[9999]">
+            <div className="bg-white rounded-xl shadow-lg w-[730px] max-h-[80vh] flex flex-col relative">
+              <div className="p-8 overflow-y-auto flex-1" ref={modalRef}>
+                {/* ❌ Schließen-Button */}
+                <button
+                  onClick={handleCancel}
+                  className="absolute top-3 right-3 text-gray-500 hover:text-gray-700"
+                >
+                  <X size={20} />
+                </button>
 
-                        if (type.hasOptions) {
-                          setTimeout(() => {
-                            optionsRef.current?.scrollIntoView({
-                              behavior: "smooth",
-                              block: "start",
-                            });
-                          }, 150);
-                        }
-                      }}
-                      className={`flex items-center justify-start gap-3 border rounded-lg py-3 px-4 text-left font-medium text-sm transition-all duration-150 ${
-                        selectedType?.id === type.id
-                          ? "bg-brand-sand border-brand-sand text-black shadow-md"
-                          : errorType
-                          ? "border-red-500 text-gray-800 hover:bg-gray-50"
-                          : "border-gray-300 text-gray-800 hover:bg-gray-50"
-                      }`}
-                    >
-                      {type.icon}
-                      {type.label}
-                    </button>
-                  ))}
-                </div>
-                {errorType && (
-                  <p className="text-red-500 text-xs mt-1">{errorType}</p>
-                )}
-              </div>
+                {/* 🔹 Titelbereich */}
+                {editingQuestion ? (
+                  <h2 className="text-xl font-semibold text-gray-800 mb-6">
+                    Frage bearbeiten
+                  </h2>
+                ) : parentQuestion ? (
+                  <div className="mb-6">
+                    <h2 className="text-xl font-semibold text-gray-800 mt-2">
+                      Neue Unterfrage hinzufügen
+                    </h2>
 
-              {/* 🔸 Pflichtfeld */}
-              <div className="mt-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Antwort notwendig
-                </label>
-
-                <div className="flex items-center justify-between bg-gray-50 border border-gray-300 rounded-xl px-4 py-3">
-                  <div>
-                    <p className="text-sm text-black-500">
-                      Muss beantwortet werden  Diese Frage ?
+                    <p className="text-sm text-gray-500 mt-2">
+                      <span className="font-semibold text-gray-700">
+                        Vaterfrage:
+                      </span>{" "}
+                      {parentQuestion.text}
                     </p>
                   </div>
+                ) : (
+                  <h2 className="text-xl font-semibold text-gray-800 mb-6">
+                    Neue Hauptfrage hinzufügen
+                  </h2>
+                )}
 
-                  {/* TOGGLE SWITCH */}
-                  <button
-                    type="button"
-                    onClick={() => setIsRequired(!isRequired)}
-                    className={`w-12 h-7 flex items-center rounded-full transition-all ${
-                      isRequired ? "bg-[#d2c9b9]" : "bg-gray-300"
+                {/* 🔸 Fragetext */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Frage<span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    value={questionText}
+                    onChange={(e) => {
+                      setQuestionText(e.target.value);
+                      if (errorQuestionText) setErrorQuestionText(null); // 🔥 Roter Rand verschwindet sofort
+                    }}
+                    placeholder="Frage eingeben..."
+                    className={`w-full border rounded-lg p-2 focus:ring-2 focus:ring-brand-sand focus:outline-none ${
+                      errorQuestionText ? "border-red-500" : "border-gray-300"
                     }`}
-                  >
-                    <span
-                      className={`w-5 h-5 bg-white rounded-full shadow transform transition-all ${
-                        isRequired ? "translate-x-6" : "translate-x-1"
-                      }`}
-                    ></span>
-                  </button>
+                    rows={3}
+                  ></textarea>
+                  {errorQuestionText && (
+                    <p className="text-red-500 text-xs mt-1">
+                      {errorQuestionText}
+                    </p>
+                  )}
                 </div>
+
+                {/* 🔸 Fragetyp */}
+                <div className="mb-6 mt-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Fragetyp<span className="text-red-500">*</span>
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    {questionTypes.map((type) => (
+                      <button
+                        key={type.id}
+                        onClick={() => {
+                          setSelectedType(type);
+                          if (errorType) setErrorType(null); // 🔥 Fehler zurücksetzen
+                          setErrorOptions(null);
+                          setHasSubmitted(false);
+
+                          if (type.hasOptions) {
+                            setTimeout(() => {
+                              optionsRef.current?.scrollIntoView({
+                                behavior: "smooth",
+                                block: "start",
+                              });
+                            }, 150);
+                          }
+                        }}
+                        className={`flex items-center justify-start gap-3 border rounded-lg py-3 px-4 text-left font-medium text-sm transition-all duration-150 ${
+                          selectedType?.id === type.id
+                            ? "bg-brand-sand border-brand-sand text-black shadow-md"
+                            : errorType
+                            ? "border-red-500 text-gray-800 hover:bg-gray-50"
+                            : "border-gray-300 text-gray-800 hover:bg-gray-50"
+                        }`}
+                      >
+                        {type.icon}
+                        {type.label}
+                      </button>
+                    ))}
+                  </div>
+                  {errorType && (
+                    <p className="text-red-500 text-xs mt-1">{errorType}</p>
+                  )}
+                </div>
+
+                {/* 🔸 Pflichtfeld */}
+                <div className="mt-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Antwort notwendig
+                  </label>
+
+                  <div className="flex items-center justify-between bg-gray-50 border border-gray-300 rounded-xl px-4 py-3">
+                    <div>
+                      <p className="text-sm text-black-500">
+                        Muss beantwortet werden Diese Frage ?
+                      </p>
+                    </div>
+
+                    {/* TOGGLE SWITCH */}
+                    <button
+                      type="button"
+                      onClick={() => setIsRequired(!isRequired)}
+                      className={`w-12 h-7 flex items-center rounded-full transition-all ${
+                        isRequired ? "bg-[#d2c9b9]" : "bg-gray-300"
+                      }`}
+                    >
+                      <span
+                        className={`w-5 h-5 bg-white rounded-full shadow transform transition-all ${
+                          isRequired ? "translate-x-6" : "translate-x-1"
+                        }`}
+                      ></span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* 🔸 Antwortoptionen */}
+                {showOptions && (
+                  <div
+                    ref={optionsRef}
+                    className="border-t border-gray-200 pt-4 mt-4"
+                  >
+                    <h3 className="text-md font-semibold text-gray-800 mb-3">
+                      Antwortmöglichkeiten
+                    </h3>
+                    {options.map((opt, i) => (
+                      <div
+                        key={i}
+                        className="flex items-center gap-3 mb-3 border border-gray-200 p-2 rounded-lg"
+                      >
+                        {/* Antworttext */}
+                        <input
+                          type="text"
+                          placeholder="Antworttext..."
+                          value={opt.label}
+                          onChange={(e) => {
+                            setOptions(
+                              options.map((o, j) =>
+                                j === i ? { ...o, label: e.target.value } : o
+                              )
+                            );
+                            if (errorOptions) setErrorOptions(null); // 🔥 hier hinzufügen
+                          }}
+                          className={`flex-1 border rounded-md px-2 py-1 focus:ring-1 focus:ring-brand-sand focus:outline-none ${
+                            hasSubmitted && !opt.label.trim()
+                              ? "border-red-500"
+                              : "border-gray-300"
+                          }`}
+                        />
+
+                        {/* Score */}
+                        {/* Score (NICHT anzeigen bei Reihenfolge) */}
+                        {!isOrderType && (
+                          <input
+                            type="number"
+                            placeholder="Score"
+                            min={0}
+                            max={5}
+                            step={1}
+                            value={
+                              opt.score == null || Number.isNaN(opt.score)
+                                ? ""
+                                : opt.score
+                            }
+                            onInput={(e: React.FormEvent<HTMLInputElement>) => {
+                              // ❗ Browser-Standard verhindern (1 bei ArrowUp)
+                              // Wenn ein Pfeil gedrückt wird, ignorieren wir onInput komplett
+                              if (
+                                (e.nativeEvent as any).inputType?.includes(
+                                  "arrow"
+                                )
+                              ) {
+                                return;
+                              }
+
+                              let val = e.currentTarget.value;
+
+                              // Wenn leer → nichts setzen
+                              if (val === "") {
+                                setOptions(
+                                  options.map((o, j) =>
+                                    j === i ? { ...o, score: null } : o
+                                  )
+                                );
+                                return;
+                              }
+
+                              // Tastatureingabe (0–5)
+                              if (/^[0-5]$/.test(val)) {
+                                setOptions(
+                                  options.map((o, j) =>
+                                    j === i ? { ...o, score: Number(val) } : o
+                                  )
+                                );
+                              }
+                            }}
+                            onKeyDown={(e) => {
+                              const allowed = [
+                                "0",
+                                "1",
+                                "2",
+                                "3",
+                                "4",
+                                "5",
+                                "Backspace",
+                                "Delete",
+                                "Tab",
+                                "ArrowLeft",
+                                "ArrowRight",
+                                "ArrowUp",
+                                "ArrowDown",
+                              ];
+
+                              if (!allowed.includes(e.key)) {
+                                e.preventDefault();
+                              }
+
+                              // ---- Pfeile steuern ----
+                              if (
+                                e.key === "ArrowUp" ||
+                                e.key === "ArrowDown"
+                              ) {
+                                e.preventDefault(); // ❗ verhindert Browser-Auto-„1“
+
+                                let current = opt.score;
+
+                                // Erstes Pfeil-Klicken bei leerem Feld
+                                if (current == null) {
+                                  current = e.key === "ArrowUp" ? 0 : 5; // ✅ GENAU DAS HIER
+                                } else {
+                                  if (e.key === "ArrowUp")
+                                    current = Math.min(5, current + 1);
+                                  if (e.key === "ArrowDown")
+                                    current = Math.max(0, current - 1);
+                                }
+
+                                setOptions(
+                                  options.map((o, j) =>
+                                    j === i ? { ...o, score: current } : o
+                                  )
+                                );
+                              }
+                            }}
+                            className="w-24 border rounded-md px-2 py-1 text-center"
+                          />
+                        )}
+
+                        {/* Löschen */}
+                        <button
+                          onClick={() =>
+                            setOptions(options.filter((_, j) => j !== i))
+                          }
+                          className="text-gray-500 hover:text-red-500 transition-all"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
+                    ))}
+                    {errorOptions && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {errorOptions}
+                      </p>
+                    )}
+                    <button
+                      onClick={() =>
+                        setOptions([...options, { label: "", score: null }])
+                      }
+                      className="flex items-center gap-2 text-sm text-brand-sand font-medium hover:underline mt-2"
+                    >
+                      <Plus size={14} /> Neue Option hinzufügen
+                    </button>
+                  </div>
+                )}
               </div>
 
-              {/* 🔸 Antwortoptionen */}
-              {showOptions && (
-                <div
-                  ref={optionsRef}
-                  className="border-t border-gray-200 pt-4 mt-4"
+              {/* 🔹 Footer mit aktualisiertem Button */}
+              <div className="flex justify-end gap-3 px-8 py-4 border-t bg-white sticky bottom-0 rounded-b-xl">
+                <button
+                  onClick={handleCancel}
+                  className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100"
                 >
-                  <h3 className="text-md font-semibold text-gray-800 mb-3">
-                    Antwortmöglichkeiten
-                  </h3>
-                  {options.map((opt, i) => (
-                    <div
-                      key={i}
-                      className="flex items-center gap-3 mb-3 border border-gray-200 p-2 rounded-lg"
-                    >
-                      {/* Antworttext */}
-                      <input
-                        type="text"
-                        placeholder="Antworttext..."
-                        value={opt.label}
-                        onChange={(e) => {
-                          setOptions(
-                            options.map((o, j) =>
-                              j === i ? { ...o, label: e.target.value } : o
-                            )
-                          );
-                          if (errorOptions) setErrorOptions(null); // 🔥 hier hinzufügen
-                        }}
-                        className={`flex-1 border rounded-md px-2 py-1 focus:ring-1 focus:ring-brand-sand focus:outline-none ${
-                          hasSubmitted && !opt.label.trim()
-                            ? "border-red-500"
-                            : "border-gray-300"
-                        }`}
-                      />
-
-                      {/* Score */}
-                      <input
-                        type="number"
-                        placeholder="Score"
-                        min={1}
-                        max={5}
-                        step={1}
-                        value={
-                          opt.score == null || Number.isNaN(opt.score)
-                            ? ""
-                            : opt.score
-                        }
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          if (val === "") {
-                            setOptions(
-                              options.map((o, j) =>
-                                j === i ? { ...o, score: null } : o
-                              )
-                            );
-                          } else if (Number(val) >= 1 && Number(val) <= 5) {
-                            setOptions(
-                              options.map((o, j) =>
-                                j === i ? { ...o, score: Number(val) } : o
-                              )
-                            );
-                          }
-                        }}
-                        onKeyDown={(e) => {
-                          // ✅ Nur Zahlen 1–5, Backspace, Tab, Delete und Pfeile erlauben
-                          const allowedKeys = [
-                            "1",
-                            "2",
-                            "3",
-                            "4",
-                            "5",
-                            "Backspace",
-                            "Tab",
-                            "Delete",
-                            "ArrowLeft",
-                            "ArrowRight",
-                          ];
-                          if (!allowedKeys.includes(e.key)) {
-                            e.preventDefault(); // ❌ blockiert alles andere (Buchstaben, Zeichen, 0, 6–9, Enter, etc.)
-                          }
-                        }}
-                        className={`w-24 border rounded-md px-2 py-1 text-center focus:ring-1 focus:ring-brand-sand focus:outline-none ${
-                          hasSubmitted &&
-                          (opt.score === null || Number.isNaN(opt.score))
-                            ? "border-red-500"
-                            : "border-gray-300"
-                        }`}
-                      />
-
-                      {/* Löschen */}
-                      <button
-                        onClick={() =>
-                          setOptions(options.filter((_, j) => j !== i))
-                        }
-                        className="text-gray-500 hover:text-red-500 transition-all"
-                      >
-                        <Trash2 size={18} />
-                      </button>
-                    </div>
-                  ))}
-                  {errorOptions && (
-                    <p className="text-red-500 text-xs mt-1">{errorOptions}</p>
-                  )}
-                  <button
-                    onClick={() =>
-                      setOptions([...options, { label: "", score: null }])
-                    }
-                    className="flex items-center gap-2 text-sm text-brand-sand font-medium hover:underline mt-2"
-                  >
-                    <Plus size={14} /> Neue Option hinzufügen
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* 🔹 Footer mit aktualisiertem Button */}
-            <div className="flex justify-end gap-3 px-8 py-4 border-t bg-white sticky bottom-0 rounded-b-xl">
-              <button
-                onClick={handleCancel}
-                className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100"
-              >
-                Abbrechen
-              </button>
-              <button
-                onClick={
-                  editingQuestion ? handleUpdateQuestion : handleCreateQuestion
-                }
-                className="px-4 py-2 rounded-lg bg-brand-sand text-white font-medium hover:opacity-90"
-              >
-                {editingQuestion ? "Speichern" : "Hinzufügen"}
-              </button>
+                  Abbrechen
+                </button>
+                <button
+                  onClick={
+                    editingQuestion
+                      ? handleUpdateQuestion
+                      : handleCreateQuestion
+                  }
+                  className="px-4 py-2 rounded-lg bg-brand-sand text-white font-medium hover:opacity-90"
+                >
+                  {editingQuestion ? "Speichern" : "Hinzufügen"}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>{" "}
+      {/* End of gray background container */}
     </AdminLayout>
   );
 }

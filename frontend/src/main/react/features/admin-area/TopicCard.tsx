@@ -1,5 +1,5 @@
 import React from "react";
-import { FileText, Edit3, Trash2, ArrowRight, Copy } from "lucide-react";
+import { FileText, Edit3, Trash2, ArrowRight, Copy, Info } from "lucide-react";
 
 function isColorLight(hex: string) {
   const c = hex.replace("#", "");
@@ -18,11 +18,13 @@ const ACCENT = "#486c88de"; // darker
 
 const GRADIENT = `linear-gradient(145deg, ${PRIMARY}, ${SECONDARY}, ${ACCENT})`;
 
+
 type Topic = {
   id: string;
   title: string;
   subtitle: string;
   questions: number;
+  status: "active" | "inactive";
 };
 
 type TopicCardProps = {
@@ -31,12 +33,33 @@ type TopicCardProps = {
   onDelete: (t: Topic) => void;
   onEdit: (t: Topic) => void;
   onManage: (t: Topic) => void;
+  onDuplicate: (t: Topic) => void;
+  onStatusChange: () => void;
 };
 
-const TopicCard = ({ t, onDelete, onEdit, onManage }: TopicCardProps) => {
+const TopicCard = ({
+  t,
+  onDelete,
+  onEdit,
+  onManage,
+  onDuplicate,
+  onStatusChange,
+}: TopicCardProps) => {
   const isLight = isColorLight(SECONDARY);
-  const [statusOpen, setStatusOpen] = React.useState(false);
-  const [isActive, setIsActive] = React.useState(true);
+
+  const [isClamped, setIsClamped] = React.useState(false);
+  const descRef = React.useRef<HTMLParagraphElement | null>(null);
+  const [showTooltip, setShowTooltip] = React.useState(false);
+  let hoverTimeout = React.useRef<any>(null);
+
+
+  React.useEffect(() => {
+    const el = descRef.current;
+    if (el) {
+      setIsClamped(el.scrollHeight > el.clientHeight);
+    }
+  }, [t.subtitle]);
+
 
   const textColor = isLight ? "text-black" : "text-white";
   const textColorSoft = isLight ? "text-black/50" : "text-white/80";
@@ -44,7 +67,7 @@ const TopicCard = ({ t, onDelete, onEdit, onManage }: TopicCardProps) => {
   return (
     <div
       className="
-        relative flex flex-col rounded-xl overflow-hidden 
+        relative flex flex-col rounded-xl overflow-visible
         shadow-md p-5
       "
       style={{
@@ -62,54 +85,45 @@ const TopicCard = ({ t, onDelete, onEdit, onManage }: TopicCardProps) => {
           >
             <FileText size={23} className={textColorSoft} />
           </div>
-
-          <div className="relative">
-            {/* Status Button */}
-            <button
-              onClick={() => setStatusOpen(!statusOpen)}
+          {/* ⭐ Status Button */}
+          <div
+            onClick={() => onStatusChange()}
+            className={`
+     relative w-16 h-6 rounded-full cursor-pointer flex items-center
+    transition-all duration-300 ease-out 
+    ${t.status === "active" ? "bg-green-500 px-2" : "bg-red-500 px-0.5"}
+  `}
+          >
+            <span
               className={`
-                    px-3 py-1 rounded-xl text-xs font-semibold shadow-sm transition
-                    ${
-                      isActive
-                        ? "bg-green-500 text-white"
-                        : "bg-red-500 text-white"
-                    }
-             `}
+      absolute left-2 text-[11px] font-bold text-white transition-opacity duration-200
+      ${t.status === "active" ? "opacity-100" : "opacity-0"}
+    `}
             >
-              {isActive ? "Aktiv" : "Inaktiv"}
-            </button>
+              aktiv
+            </span>
 
-            {/* Dropdown */}
-            {statusOpen && (
-              <div
-                className="
-                  absolute right-0 mt-2 w-32 bg-white rounded-xl shadow-lg border
-                  flex flex-col text-sm overflow-hidden z-50
-                "
-              >
-                <button
-                  className="px-3 py-2 hover:bg-green-50 text-left"
-                  onClick={() => {
-                    setIsActive(true);
-                    setStatusOpen(false);
-                  }}
-                >
-                  ✅ Aktiv
-                </button>
+            <span
+              className={`
+      absolute right-2 text-[10px] font-bold text-white transition-opacity duration-200
+      ${t.status === "inactive" ? "opacity-100" : "opacity-0"}
+    `}
+            >
+              inaktiv
+            </span>
 
-                <button
-                  className="px-3 py-2 hover:bg-red-50 text-left"
-                  onClick={() => {
-                    setIsActive(false);
-                    setStatusOpen(false);
-                  }}
-                >
-                  ⛔ Inaktiv
-                </button>
-              </div>
-            )}
+            <div
+              className={`
+      w-4 h-4 bg-[#3f5a6eff] rounded-full shadow-md transform transition-transform duration-300
+      ${t.status === "active" ? "translate-x-9" : "translate-x-px"}
+    `}
+            ></div>
           </div>
+
+
+
         </div>
+
 
         {/* TITLE */}
         <div className="flex flex-col gap-1 min-h-[80px]">
@@ -119,11 +133,59 @@ const TopicCard = ({ t, onDelete, onEdit, onManage }: TopicCardProps) => {
             {t.title}
           </h4>
 
-          <p
-            className={`text-sm leading-relaxed line-clamp-2 ${textColorSoft}`}
-          >
-            {t.subtitle || "Keine Beschreibung vorhanden"}
-          </p>
+          {/* ⬇️ Genauer hier haben wir eingefügt */}
+          <div className="flex items-start justify-between gap-2 relative group/info">
+            <p
+              ref={descRef}
+              className={`text-sm leading-relaxed line-clamp-2 ${textColorSoft} flex-1`}
+            >
+              {t.subtitle || "Keine Beschreibung vorhanden"}
+            </p>
+
+            {/* INFO ICON + Tooltip */}
+            {isClamped && (
+              <div className="relative mt-[22px]" onMouseEnter={() => {
+                hoverTimeout.current = setTimeout(() => {
+                  setShowTooltip(true);
+                }, 300); // 300ms warten – nur reagieren wenn Maus wirklich still steht
+              }}
+                onMouseLeave={() => {
+                  clearTimeout(hoverTimeout.current);
+                  setShowTooltip(false);
+                }}>
+
+                <div
+                  className="
+    w-6 h-6 flex items-center justify-center 
+    rounded-full cursor-pointer
+    bg-white/20                      /* immer leichter Hintergrund */
+    backdrop-blur-sm                /* leichte Blur für Premium look */
+    shadow-sm                        /* leichter Shadow */
+    transition-all duration-200
+    hover:bg-white/25                /* stärker bei Hover */
+  "
+                >
+                  <Info className="w-4 h-4 text-white" strokeWidth={2.5} />
+                </div>
+
+
+
+                <div
+                  className={`
+    ${showTooltip ? "opacity-100 visible" : "opacity-0 invisible"}
+    absolute right-0 top-8 w-80
+    bg-gray-900 text-white text-xs p-3 rounded-lg
+    border border-gray-700 shadow-[0_4px_10px_rgba(0,0,0,0.4)]
+    transition-all duration-200
+  `}
+                >
+
+                  {t.subtitle || "Keine Beschreibung vorhanden"}
+                </div>
+
+              </div>
+            )}
+          </div>
         </div>
 
         {/* FRAGENANZAHL */}
@@ -153,6 +215,7 @@ const TopicCard = ({ t, onDelete, onEdit, onManage }: TopicCardProps) => {
             <Trash2 size={18} className={textColor} />
           </button>
           <button
+            onClick={() => onDuplicate(t)}
             className="
                           w-10 h-10 rounded-xl bg-[#486c88de]
                           flex items-center justify-center shadow-sm border border-white/20
