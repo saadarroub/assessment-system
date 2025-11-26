@@ -17,7 +17,7 @@ export type ApiQuestion = {
   text: string;
   min?: number; max?: number; step?: number;
   labels?: [string, string];
-  required?: boolean;
+isRequired?: boolean | string;
   currentAnswer?: ApiCurrentAnswer;
 };
 export type ApiCurrentAnswer = {
@@ -174,14 +174,25 @@ export async function getState(
 export type ApiSummaryQuestion = {
   questionId: string;
   questionText: string;
+  questionTypeName: string;      // NEU
   inputType: string;
+
+  // kommt jetzt im JSON mit
+  options?: string | string[];   // z.B. '["A","B"]' oder JSON-Objekt bei rating_scale
+
   answeredValue: string | number | string[];
   score: number;
   maxScore: number;
   answeredAt: string;
   orderIndex: number;
   isRequired: boolean;
+
+  //  laut deinem Beispiel
+  isManualReview: boolean;
+  isSkipped: boolean;
+  isAutoScored: boolean;
 };
+
 
 export type ApiSummaryResponse = {
   sessionId: string;
@@ -193,43 +204,66 @@ export type ApiSummaryResponse = {
   progressPercent: number;
   totalScore: number;
   maxPossibleScore: number;
-  answeredQuestions: ApiSummaryQuestion[];
-  automatischBewerteteFragen: ApiSummaryQuestion[];
-  manuellZuBewertendeFragen: ApiSummaryQuestion[];
-  uebersprungeneFragen: ApiSummaryQuestion[];
+
+  answeredQuestions: ApiSummaryQuestion[];   // bleibt
+
+  // NUR noch die Counts
   automatischBewertetAnzahl: number;
   manuellZuBewertenAnzahl: number;
   uebersprungenAnzahl: number;
 };
 
+
 // Hilfsfunktion: eine Summary-Zeile -> UiQuestion (über normalizeApiQuestion)
 export function summaryRowToUiQuestion(row: ApiSummaryQuestion): UiQuestion {
-  // Wir bauen uns ein "ApiQuestion"-ähnliches Objekt
+  // Defaults
+  let min: number | undefined;
+  let max: number | undefined;
+  let step: number | undefined;
+  let options: string | string[] | undefined = row.options;
+
+  // inputType normalisieren (wie in normalizeApiQuestion)
+  const tRaw = row.inputType || "";
+  const t = tRaw.toLowerCase().replace(/[_\s]+/g, "-");
+
+  // rating_scale: Options ist ein JSON-Objekt mit min/max/step
+  if (t === "rating-scale" && typeof row.options === "string") {
+    try {
+      const cfg = JSON.parse(row.options);
+      if (typeof cfg.min === "number") min = cfg.min;
+      if (typeof cfg.max === "number") max = cfg.max;
+      if (typeof cfg.step === "number") step = cfg.step;
+    } catch {
+      // wenn kaputt, einfach default lassen
+    }
+  }
+
+  // ApiQuestion-ähnliches Objekt bauen
   const apiLike: ApiQuestion = {
     questionId: row.questionId,
     text: row.questionText,
     inputType: row.inputType,
     answered: true,
-    options: undefined,           // Summary liefert i.d.R. keine Options mehr
-    questionTypeName: undefined,
+    options,                           
+    questionTypeName: row.questionTypeName,
     scoringSchema: undefined,
     index: row.orderIndex,
-    min: (row as any).min,
-    max: (row as any).max,
-    step: (row as any).step,
-    labels: (row as any).labels,
-    required: row.isRequired,
+    min,
+    max,
+    step,
+    labels: undefined,
+    isRequired: row.isRequired,
     currentAnswer: {
-      answerId: "",               // kennen wir nicht, ist hier egal
-      value: row.answeredValue,   // das ist die gegebene Antwort aus Summary
+      answerId: "",
+      value: row.answeredValue,
       score: row.score,
       answeredAt: row.answeredAt,
     },
   };
 
-  // und schicken das durch deinen existierenden Normalizer
   return normalizeApiQuestion(apiLike);
 }
+
 
 // GET /public/access/{token}/sessions/{id}/summary
 export async function getSummary(
@@ -278,18 +312,19 @@ export async function completeSession(
    UI-Types & Normalizer
  */
 export type UiQuestion =
-  | { id: string; text: string; type: "radio"; options: string[]; required?: boolean }
-  | { id: string; text: string; type: "checkbox"; options: string[]; required?: boolean }
-  | { id: string; text: string; type: "slider"; min: number; max: number; labels?: [string, string]; required?: boolean }
-  | { id: string; text: string; type: "textarea"; placeholder?: string; required?: boolean }
-  | { id: string; text: string; type: "text"; placeholder?: string; required?: boolean }
-  | { id: string; text: string; type: "select"; options: string[]; required?: boolean }
-  | { id: string; text: string; type: "number"; min?: number; max?: number; step?: number; placeholder?: string; required?: boolean }
-  | { id: string; text: string; type: "date"; min?: string; max?: string; required?: boolean }
-  | { id: string; text: string; type: "order"; options: string[]; required?: boolean };
+  | { id: string; text: string; type: "radio"; options: string[]; isRequired?: boolean }
+  | { id: string; text: string; type: "checkbox"; options: string[]; isRequired?: boolean }
+  | { id: string; text: string; type: "slider"; min: number; max: number; labels?: [string, string]; isRequired?: boolean }
+  | { id: string; text: string; type: "textarea"; placeholder?: string; isRequired?: boolean }
+  | { id: string; text: string; type: "text"; placeholder?: string; isRequired?: boolean }
+  | { id: string; text: string; type: "select"; options: string[]; isRequired?: boolean }
+  | { id: string; text: string; type: "number"; min?: number; max?: number; step?: number; placeholder?: string; isRequired?: boolean }
+  | { id: string; text: string; type: "date"; min?: string; max?: string; isRequired?: boolean }
+  | { id: string; text: string; type: "order"; options: string[]; isRequired?: boolean };
 
 
 export function normalizeApiQuestion(q: ApiQuestion): UiQuestion {
+
   const parseMaybeJsonArray = (src?: string | string[]): string[] => {
     if (!src) return [];
     if (Array.isArray(src)) return src;
@@ -304,13 +339,35 @@ export function normalizeApiQuestion(q: ApiQuestion): UiQuestion {
   const tRaw = q.inputType || "";
   const t = tRaw.toLowerCase().replace(/[_\s]+/g, "-");
 
+  // isRequired
+    // RAW-Value aus Backend (isRequired ODER altes required)
+  const rawRequired =
+    (q as any).isRequired ?? (q as any).required ?? false;
+
+  const required =
+    typeof rawRequired === "string"
+      ? rawRequired.trim().toLowerCase() === "true"
+      : rawRequired === true;
+
+  console.log(
+    "[normalizeApiQuestion]",
+    q.text,
+    "rawRequired=",
+    rawRequired,
+    "typeof=",
+    typeof rawRequired,
+    "=> required=",
+    required
+  );
+
+
   if (t === "radio" || t === "multiple-choice" || t === "single-choice") {
     return {
       id: q.questionId,
       text: q.text,
       type: "radio",
       options: parseMaybeJsonArray(q.options),
-      required: q.required,
+      isRequired:required,
     };
   }
 
@@ -320,7 +377,7 @@ export function normalizeApiQuestion(q: ApiQuestion): UiQuestion {
       text: q.text,
       type: "checkbox",
       options: parseMaybeJsonArray(q.options),
-      required: q.required,
+       isRequired:required,
     };
   }
 
@@ -330,11 +387,11 @@ export function normalizeApiQuestion(q: ApiQuestion): UiQuestion {
       text: q.text,
       type: "select",
       options: parseMaybeJsonArray(q.options),
-      required: q.required,
+       isRequired:required,
     };
   }
 
-  // ⬇️ NEU: number_input mit abdecken
+  // number_input mit abdecken
   if (t === "number" || t === "number-input") {
     return {
       id: q.questionId,
@@ -343,17 +400,17 @@ export function normalizeApiQuestion(q: ApiQuestion): UiQuestion {
       min: q.min,
       max: q.max,
       step: q.step,
-      required: q.required,
+       isRequired:required,
     };
   }
 
-  // ⬇️ NEU: date_input mit abdecken
+  //  date_input mit abdecken
   if (t === "date" || t === "date-input") {
     return {
       id: q.questionId,
       text: q.text,
       type: "date",
-      required: q.required,
+       isRequired:required,
     };
   }
 
@@ -366,7 +423,7 @@ export function normalizeApiQuestion(q: ApiQuestion): UiQuestion {
       min: q.min ?? 1,
       max: q.max ?? 5,
       labels: q.labels,
-      required: q.required,
+       isRequired:required,
     };
   }
 
@@ -377,7 +434,7 @@ export function normalizeApiQuestion(q: ApiQuestion): UiQuestion {
       text: q.text,
       type: "order",
       options: parseMaybeJsonArray(q.options),
-      required: q.required,
+      isRequired:required,
     };
   }
 
@@ -386,7 +443,7 @@ export function normalizeApiQuestion(q: ApiQuestion): UiQuestion {
       id: q.questionId,
       text: q.text,
       type: "textarea",
-      required: q.required,
+      isRequired:required,
     };
   }
 
@@ -395,11 +452,9 @@ export function normalizeApiQuestion(q: ApiQuestion): UiQuestion {
     id: q.questionId,
     text: q.text,
     type: "text",
-    required: q.required,
+     isRequired:required,
   };
 }
-
-
 
 /* 
    Helper: UI-Wert -> value
