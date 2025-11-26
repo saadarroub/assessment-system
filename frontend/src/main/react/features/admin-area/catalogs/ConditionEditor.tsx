@@ -953,7 +953,7 @@ export default function ConditionEditor() {
               ? {} // 👉 Beim Dragging kein Hintergrund → CSS gewinnt
               : {
                   background:
-                    "linear-gradient(135deg, #dfd8cdff 30%, #efede4ff 100%)",
+                    "linear-gradient(135deg, #e9e5ddff 30%, #efede4ff 100%)",
                 }
           }
         >
@@ -1457,6 +1457,11 @@ export default function ConditionEditor() {
                       <button
                         key={type.id}
                         onClick={() => {
+                          // Reihenfolge-Typ noch nicht verfügbar
+                          if (type.value === "order") {
+      alert("Dieser Fragetyp ist noch nicht verfügbar.");
+      return;
+    }
                           setSelectedType(type);
                           if (errorType) setErrorType(null); // 🔥 Fehler zurücksetzen
                           setErrorOptions(null);
@@ -1554,7 +1559,7 @@ export default function ConditionEditor() {
                         />
 
                         {/* Score */}
-                        {/* Score (NICHT anzeigen bei Reihenfolge) */}
+                     
                         {!isOrderType && (
                           <input
                             type="number"
