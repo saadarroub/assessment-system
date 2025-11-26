@@ -18,7 +18,6 @@ const ACCENT = "#486c88de"; // darker
 
 const GRADIENT = `linear-gradient(145deg, ${PRIMARY}, ${SECONDARY}, ${ACCENT})`;
 
-
 type Topic = {
   id: string;
   title: string;
@@ -47,18 +46,59 @@ const TopicCard = ({
 }: TopicCardProps) => {
   const isLight = isColorLight(SECONDARY);
 
-  const [isClamped, setIsClamped] = React.useState(false);
-  const descRef = React.useRef<HTMLParagraphElement | null>(null);
-  const [showTooltip, setShowTooltip] = React.useState(false);
-  let hoverTimeout = React.useRef<any>(null);
+  const titleRef = React.useRef<HTMLHeadingElement | null>(null);
+  const descRefFull = React.useRef<HTMLParagraphElement | null>(null);
+  const hoverTimeout = React.useRef<any>(null);
 
+
+  const [showInfoIcon, setShowInfoIcon] = React.useState(false);
+  const [showTooltipFull, setShowTooltipFull] = React.useState(false);
+
+ 
 
   React.useEffect(() => {
-    const el = descRef.current;
-    if (el) {
-      setIsClamped(el.scrollHeight > el.clientHeight);
+  function checkOverflow() {
+    function isOverflow(el: HTMLElement | null) {
+      if (!el) return false;
+      return el.scrollWidth > el.clientWidth || el.scrollHeight > el.clientHeight;
     }
-  }, [t.subtitle]);
+
+    const titleOverflow = isOverflow(titleRef.current);
+    const subtitleOverflow = isOverflow(descRefFull.current);
+
+    setShowInfoIcon(titleOverflow || subtitleOverflow);
+  }
+
+  checkOverflow();
+
+  window.addEventListener("resize", checkOverflow);
+
+  return () => window.removeEventListener("resize", checkOverflow);
+}, [t.title, t.subtitle]);
+
+React.useEffect(() => {
+  const observer = new ResizeObserver(() => {
+    function isOverflow(el: HTMLElement | null) {
+      if (!el) return false;
+      return (
+        el.scrollWidth > el.clientWidth || el.scrollHeight > el.clientHeight
+      );
+    }
+
+    const titleOverflow = isOverflow(titleRef.current);
+    const subtitleOverflow = isOverflow(descRefFull.current);
+
+    setShowInfoIcon(titleOverflow || subtitleOverflow);
+  });
+
+  if (titleRef.current) observer.observe(titleRef.current);
+  if (descRefFull.current) observer.observe(descRefFull.current);
+
+  return () => observer.disconnect();
+}, []);
+
+
+
 
 
   const textColor = isLight ? "text-black" : "text-white";
@@ -119,73 +159,64 @@ const TopicCard = ({
     `}
             ></div>
           </div>
-
-
-
         </div>
-
 
         {/* TITLE */}
         <div className="flex flex-col gap-1 min-h-[80px]">
-          <h4
-            className={`text-xl font-semibold leading-tight line-clamp-2 ${textColor}`}
-          >
-            {t.title}
-          </h4>
-
-          {/* ⬇️ Genauer hier haben wir eingefügt */}
-          <div className="flex items-start justify-between gap-2 relative group/info">
-            <p
-              ref={descRef}
-              className={`text-sm leading-relaxed line-clamp-2 ${textColorSoft} flex-1`}
+          {/* TITLE + INFO ICON */}
+          <div className="flex items-start justify-between relative">
+            <h4
+              ref={titleRef}
+              className={`text-xl font-semibold leading-tight ${textColor}
+      whitespace-nowrap overflow-hidden text-ellipsis flex-1
+    `}
             >
-              {t.subtitle || "Keine Beschreibung vorhanden"}
-            </p>
+              {t.title}
+            </h4>
 
-            {/* INFO ICON + Tooltip */}
-            {isClamped && (
-              <div className="relative mt-[22px]" onMouseEnter={() => {
-                hoverTimeout.current = setTimeout(() => {
-                  setShowTooltip(true);
-                }, 300); // 300ms warten – nur reagieren wenn Maus wirklich still steht
-              }}
-                onMouseLeave={() => {
-                  clearTimeout(hoverTimeout.current);
-                  setShowTooltip(false);
-                }}>
+            {/* INFO ICON */}
+        {showInfoIcon && (
+  <div
+    className="ml-2 mt-[2px]"
+    onMouseEnter={() => {
+      hoverTimeout.current = setTimeout(() => {
+        setShowTooltipFull(true);
+      }, 350); // ⏳ 350ms Delay bevor Tooltip öffnet
+    }}
+    onMouseLeave={() => {
+      clearTimeout(hoverTimeout.current);
+      setShowTooltipFull(false);
+    }}
+  >
+    <div className="
+      w-6 h-6 flex items-center justify-center rounded-full 
+      bg-white/20 backdrop-blur-sm shadow-sm hover:bg-white/30 transition-all
+    ">
+      <Info className="w-4 h-4 text-white" strokeWidth={2.5} />
+    </div>
 
-                <div
-                  className="
-    w-6 h-6 flex items-center justify-center 
-    rounded-full cursor-pointer
-    bg-white/20                      /* immer leichter Hintergrund */
-    backdrop-blur-sm                /* leichte Blur für Premium look */
-    shadow-sm                        /* leichter Shadow */
-    transition-all duration-200
-    hover:bg-white/25                /* stärker bei Hover */
-  "
-                >
-                  <Info className="w-4 h-4 text-white" strokeWidth={2.5} />
-                </div>
+    <div
+      className={`
+        ${showTooltipFull ? "opacity-100 visible" : "opacity-0 invisible"}
+        absolute right-0 top-8 w-80 bg-gray-900 text-white text-xs p-3 rounded-lg
+        border border-gray-700 shadow-[0_4px_10px_rgba(0,0,0,0.4)]
+        transition-all duration-200 z-50
+      `}
+    >
+      <b>{t.title}</b>
+      <br />
+      {t.subtitle || "Keine Beschreibung vorhanden"}
+    </div>
+  </div>
+)}
 
-
-
-                <div
-                  className={`
-    ${showTooltip ? "opacity-100 visible" : "opacity-0 invisible"}
-    absolute right-0 top-8 w-80
-    bg-gray-900 text-white text-xs p-3 rounded-lg
-    border border-gray-700 shadow-[0_4px_10px_rgba(0,0,0,0.4)]
-    transition-all duration-200
-  `}
-                >
-
-                  {t.subtitle || "Keine Beschreibung vorhanden"}
-                </div>
-
-              </div>
-            )}
           </div>
+          <p
+            ref={descRefFull}
+            className={`text-sm leading-relaxed line-clamp-2 ${textColorSoft} mt-1`}
+          >
+            {t.subtitle || "Keine Beschreibung vorhanden"}
+          </p>
         </div>
 
         {/* FRAGENANZAHL */}

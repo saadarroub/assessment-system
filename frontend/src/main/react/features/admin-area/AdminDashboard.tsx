@@ -12,7 +12,8 @@ import {
   Layers,
   ListOrdered,
   Users,
-  Clock, ChevronRight
+  Clock,
+  ChevronRight,
 } from "lucide-react";
 
 // API
@@ -90,22 +91,30 @@ export default function AdminDashboard() {
   // Flash Animation für neue Themen (wie KatalogeZuweisen)
   function flashNew(ids: string[], glowMs = 4000, badgeMs = 60000) {
     // HIGHLIGHT (grüner Glow)
-    setHighlightIds(prev => {
-      const next = new Set(prev); ids.forEach(id => next.add(id)); return next;
+    setHighlightIds((prev) => {
+      const next = new Set(prev);
+      ids.forEach((id) => next.add(id));
+      return next;
     });
     window.setTimeout(() => {
-      setHighlightIds(prev => {
-        const next = new Set(prev); ids.forEach(id => next.delete(id)); return next;
+      setHighlightIds((prev) => {
+        const next = new Set(prev);
+        ids.forEach((id) => next.delete(id));
+        return next;
       });
     }, glowMs);
 
     // BADGE (NEU)
-    setBadgeIds(prev => {
-      const next = new Set(prev); ids.forEach(id => next.add(id)); return next;
+    setBadgeIds((prev) => {
+      const next = new Set(prev);
+      ids.forEach((id) => next.add(id));
+      return next;
     });
     window.setTimeout(() => {
-      setBadgeIds(prev => {
-        const next = new Set(prev); ids.forEach(id => next.delete(id)); return next;
+      setBadgeIds((prev) => {
+        const next = new Set(prev);
+        ids.forEach((id) => next.delete(id));
+        return next;
       });
     }, badgeMs);
   }
@@ -292,7 +301,6 @@ export default function AdminDashboard() {
     );
   }
 
-
   return (
     <AdminLayout>
       {/* CSS Animations (wie KatalogeZuweisen) */}
@@ -333,7 +341,6 @@ export default function AdminDashboard() {
             Verwalten Sie Ihre Themen und erstellen Sie finale Kataloge
           </p>
         </div>
-
       </div>
 
       {/* BODY */}
@@ -348,8 +355,6 @@ export default function AdminDashboard() {
             Admin-Panel
           </button>
         </div>
-
-
 
         {/* STATS */}
         <section className="stats-panel mt-4">
@@ -374,17 +379,19 @@ export default function AdminDashboard() {
 
   ${s.key === "questions" ? "" : "cursor-pointer"}
 `}
-
                 style={{ backgroundColor: STAT_COLORS[i] }}
               >
-
                 {/* ICON */}
                 <div
                   className="absolute right-3 bottom-3 opacity-[0.18] transition-all duration-200"
                   style={{ color: "white" }}
                 >
                   {/* Default Icon */}
-                  <div className={`${s.key !== "questions" ? "group-hover:hidden" : ""}`}>
+                  <div
+                    className={`${
+                      s.key !== "questions" ? "group-hover:hidden" : ""
+                    }`}
+                  >
                     {STAT_ICONS[i]}
                   </div>
 
@@ -397,15 +404,14 @@ export default function AdminDashboard() {
                   )}
                 </div>
 
-
                 {/* LABEL */}
                 <p
-                  className={`text-sm font-medium ${s.key === "questions" ? "text-black" : "text-white"
-                    }`}
+                  className={`text-sm font-medium ${
+                    s.key === "questions" ? "text-black" : "text-white"
+                  }`}
                 >
                   {s.label}
                 </p>
-
 
                 {/* VALUE (mit Skeleton nur während loading) */}
                 <p className="text-white text-4xl font-extrabold">
@@ -480,17 +486,25 @@ export default function AdminDashboard() {
                 border border-gray-300/30
               "
           >
-           <div
-  className="grid grid-cols-4 gap-4"
-  style={{
-    gridTemplateColumns: "repeat(auto-fill, minmax(420px, 1fr))",
-  }}
->
-              {loading
-                ? Array.from({ length: 6 }).map((_, i) => (
+            <div
+              className="grid grid-cols-4 gap-4"
+              style={{
+                gridTemplateColumns: "repeat(auto-fill, minmax(420px, 1fr))",
+              }}
+            >
+              {loading ? (
+                Array.from({ length: 6 }).map((_, i) => (
                   <TopicCardSkeleton key={i} />
                 ))
-                : currentTopics.map((t) => {
+              ) : currentTopics.length === 0 ? (
+                <div className="col-span-full flex flex-col items-center justify-center py-20 text-gray-500">
+                  <Layers size={48} className="opacity-40" />
+                  <p className="mt-4 text-lg font-medium">
+                    Noch keine Themen vorhanden
+                  </p>
+                </div>
+              ) : (
+                currentTopics.map((t) => {
                   const isHighlight = highlightIds.has(t.id);
                   const isBadge = badgeIds.has(t.id);
 
@@ -499,20 +513,18 @@ export default function AdminDashboard() {
                       key={t.id}
                       className={[
                         "relative",
-                        // Animationen wie in KatalogeZuweisen
                         isHighlight
                           ? [
-                            "scale-[1.05]",  // Größeres Pop
-                            "ring-4 ring-green-400 ring-offset-4",  // Dickerer, hellerer Ring
-                            "[animation:blinkBg_.7s_ease-in-out_infinite]",  // Schneller
-                            "[box-shadow:0_0_24px_rgba(34,197,94,0.6)]",  // Stärkerer Shadow
-                            "[animation:glowRing_.9s_ease-in-out_infinite]"  // Schneller
-                          ].join(" ")
+                              "scale-[1.05]",
+                              "ring-4 ring-green-400 ring-offset-4",
+                              "[animation:blinkBg_.7s_ease-in-out_infinite]",
+                              "[box-shadow:0_0_24px_rgba(34,197,94,0.6)]",
+                              "[animation:glowRing_.9s_ease-in-out_infinite]",
+                            ].join(" ")
                           : "",
-                        "transition-transform duration-300 ease-out rounded-xl"
+                        "transition-transform duration-300 ease-out rounded-xl",
                       ].join(" ")}
                     >
-                      {/* NEU Badge */}
                       {isBadge && (
                         <span className="absolute -left-1 -top-1 z-10 rounded-md bg-amber-500 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white shadow">
                           Neu
@@ -530,7 +542,8 @@ export default function AdminDashboard() {
                       />
                     </div>
                   );
-                })}
+                })
+              )}
             </div>
 
             {/* Lazy Loading Trigger */}
@@ -557,7 +570,7 @@ export default function AdminDashboard() {
                 type="text"
                 value={editThemaName}
                 onChange={(e) => setEditThemaName(e.target.value)}
-                maxLength={55}
+                maxLength={70}
                 className="w-full border rounded-md p-2 focus:ring-2 focus:ring-[#56768f]"
               />
             </div>
@@ -596,10 +609,10 @@ export default function AdminDashboard() {
                       prev.map((t) =>
                         t.id === updated.id
                           ? {
-                            ...t,
-                            title: updated.name,
-                            subtitle: updated.description,
-                          }
+                              ...t,
+                              title: updated.name,
+                              subtitle: updated.description,
+                            }
                           : t
                       )
                     );
@@ -636,7 +649,7 @@ export default function AdminDashboard() {
             <input
               type="text"
               value={newThemaName}
-              maxLength={55}
+              maxLength={70}
               onChange={(e) => setNewThemaName(e.target.value)}
               className="w-full border rounded-md p-2 mb-4 focus:ring-2 focus:ring-[#56768f]"
               placeholder="Titel eingeben..."
@@ -666,7 +679,7 @@ export default function AdminDashboard() {
                 onClick={async () => {
                   try {
                     // IDs VOR dem Anlegen merken
-                    const beforeIds = new Set(topics.map(t => t.id));
+                    const beforeIds = new Set(topics.map((t) => t.id));
 
                     await createThema({
                       name: newThemaName,
@@ -678,7 +691,9 @@ export default function AdminDashboard() {
                     // Neu erstellte ID ermitteln und Animation auslösen
                     setTimeout(() => {
                       setTopics((currentTopics) => {
-                        const newId = currentTopics.find(t => !beforeIds.has(t.id))?.id;
+                        const newId = currentTopics.find(
+                          (t) => !beforeIds.has(t.id)
+                        )?.id;
                         if (newId) {
                           flashNew([newId], 4000, 60000);
                         }
