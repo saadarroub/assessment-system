@@ -54,6 +54,7 @@ public class PublicQueryUtil {
                     qn.question_id,
                     qn.order_index,
                     qn.parent_node_id,
+                    qn.is_required,
                     0 as depth,
                     -- sort_path: hierarchischer Pfad für Sortierung (z.B. "0010", "0010.0020", "0010.0020.0010")
                     LPAD(qn.order_index::TEXT, 4, '0') as sort_path
@@ -69,6 +70,7 @@ public class PublicQueryUtil {
                     child.question_id,
                     child.order_index,
                     child.parent_node_id,
+                    child.is_required,
                     qh.depth + 1,
                     -- Pfad erweitern: parent_path + "." + child_order_index
                     qh.sort_path || '.' || LPAD(child.order_index::TEXT, 4, '0')
@@ -79,6 +81,7 @@ public class PublicQueryUtil {
                 SELECT 
                   qh.question_id,
                   qh.order_index,
+                  qh.is_required,
                   q.text AS question_text,
                   q.options,
                   q.scoring_schema,
@@ -110,6 +113,7 @@ public class PublicQueryUtil {
                     result.put("text", rs.getString("question_text"));
                     result.put("inputType", rs.getString("input_type"));
                     result.put("questionTypeName", rs.getString("question_type_name"));
+                    result.put("isRequired", rs.getBoolean("is_required"));
                     
                     // Options als JSON String (wird vom Frontend geparst)
                     String options = rs.getString("options");
@@ -296,6 +300,7 @@ public class PublicQueryUtil {
                 SELECT 
                   q.id as question_id,
                   q.text as question_text,
+                  q.options,
                   qt.input_type,
                   qt.name as question_type_name,
                   q.scoring_schema,
@@ -317,6 +322,7 @@ public class PublicQueryUtil {
                     Map<String, Object> result = new java.util.HashMap<>();
                     result.put("questionId", UUID.fromString(rs.getString("question_id")));
                     result.put("questionText", rs.getString("question_text"));
+                    result.put("options", rs.getString("options")); // JSON String
                     result.put("inputType", rs.getString("input_type"));
                     result.put("questionTypeName", rs.getString("question_type_name"));
                     result.put("scoringSchema", rs.getString("scoring_schema"));

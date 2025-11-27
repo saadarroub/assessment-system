@@ -10,7 +10,17 @@ import GreetingBanner from "@/features/worker-area/begruessung";
 import patternUrl from "@/assets/footer-pattern.svg";
 import type { CatalogLinkMeta } from "@/core/router/buildCatalogUrl";
 
+/* ========= Session-Meta aus InviteGate ========= */
+const SESSION_KEY = "publicAssessmentSession";
 
+type PublicAssessmentSession = {
+  token: string;
+  assignmentId: string;
+  catalogId: string;
+  catalogTitle: string;
+  workerName: string;
+  accessCode?: string;
+};
 
 /* ================== Style-/Card-Texte ================== */
 const DEFAULT_EST = "15–20 Min";
@@ -56,13 +66,44 @@ type AssessEntry = {
   sessionId?: string; // <- wichtig fürs Live-Update
 };
 
+function CompletedRibbon() {
+  return (
+    <div className="pointer-events-none absolute right-[-28px] top-[-10px] rotate-[-24deg] z-0">
+      <div
+        className="
+          px-14 py-2
+          rounded-full
+          border border-white/40
+          bg-white/12
+          shadow-[0_18px_45px_rgba(15,23,42,0.55)]
+          backdrop-blur-sm
+        "
+      >
+        <span
+          className="
+            text-[10px]
+            font-semibold
+            tracking-[0.35em]
+            uppercase
+            text-white/85
+            whitespace-nowrap
+          "
+        >
+          Abgeschlossen
+        </span>
+      </div>
+    </div>
+  );
+}
+
+
 /* ================== Card ================== */
 function CatalogCard({ data, onStart }: { data: TopicCardModel; onStart: () => void }) {
   const p = Math.max(0, Math.min(100, Math.round(data.effectiveProgress)));
   const running = p > 0 && p < 100;
   const completed = p >= 100;
 
-  const btnLabel = completed ? "Neu starten →" : running ? "Umfrage fortsetzen →" : "Umfrage starten →";
+const btnLabel = running ? "Umfrage fortsetzen →" : "Umfrage starten →";
 
   const [animate, setAnimate] = useState(false);
   useEffect(() => {
@@ -93,11 +134,10 @@ function CatalogCard({ data, onStart }: { data: TopicCardModel; onStart: () => v
           </span>
         </div>
 
-        {p >= 100 && (
-          <span className="absolute right-4 top-4 rotate-[-13deg] bg-red-500 text-white text-[10px] font-extrabold tracking-widest px-3 py-1 rounded shadow-md">
-            COMPLETED
-          </span>
-        )}
+  {/* >>> Neues Ribbon nur wenn completed <<< */}
+        {completed && <CompletedRibbon />}
+
+
 
         <div className="relative z-[1]">
           <h2 className="text-xl font-bold mb-2">{data.title}</h2>
@@ -144,13 +184,14 @@ function CatalogCard({ data, onStart }: { data: TopicCardModel; onStart: () => v
             </li>
           ))}
         </ul>
-
+         {!completed && (
         <button
           onClick={onStart}
           className="w-full py-3 rounded-lg text-white font-semibold transition-all mt-auto shadow-sm bg-[#264555] hover:bg-[#1f3846] hover:-translate-y-0.5 hover:shadow-lg active:translate-y-0"
         >
           {btnLabel}
         </button>
+         )}
       </div>
     </div>
   );
@@ -185,69 +226,6 @@ function StatsCard({
   );
 }
 
-function CircleTimer({ daysLeft }: { daysLeft: number }) {
-  const clamped = Math.max(0, Math.min(99, daysLeft));
-
-  return (
-    <div className="relative h-[130px] w-[130px] select-none">
-      {/* weicher Schatten / Glow unten */}
-      <div className="absolute -inset-4 rounded-full bg-[radial-gradient(circle_at_50%_80%,rgba(15,23,42,0.10),transparent_60%)]" />
-
-      {/* äußerer weißer Ring mit Goldrand */}
-      <div
-        className="
-          absolute inset-0
-          rounded-full
-          bg-[#f9fafb]
-          border-[1.5px] border-[rgba(227,187,98,0.9)]
-          shadow-[0_26px_60px_rgba(15,23,42,0.30)]
-        "
-      />
-
-      {/* innerer dunkler Kreis mit Text */}
-      <div
-        className="
-          absolute inset-[18%]
-          rounded-full
-          bg-[#314856]
-          flex flex-col items-center justify-center
-          text-sky-100
-        "
-      >
-        <span className="text-[30px] font-extrabold leading-none tracking-tight tabular-nums">
-          {clamped}
-        </span>
-        <span className="mt-1 text-[10px] font-semibold tracking-[0.22em] uppercase text-slate-200">
-          Tage
-        </span>
-      </div>
-
-      {/* rechtes weißes Pillen-Rechteck, mittig am Kreis */}
-      <div
-        className="
-          absolute -right-4 top-1/2 -translate-y-1/2
-          h-[56px] w-[22px]
-          rounded-full bg-white
-          shadow-[0_18px_45px_rgba(15,23,42,0.45)]
-        "
-      />
-
-      {/* unteres goldenes Rechteck, zentriert */}
-      <div
-        className="
-          absolute left-1/2 -translate-x-1/2 bottom-[-10px]
-          h-[26px] w-[90px]
-          rounded-full
-          bg-[rgba(227,187,98,0.9)]
-          border border-[rgba(227,187,98,0.95)]
-          shadow-[0_20px_40px_rgba(15,23,42,0.55)]
-        "
-      />
-    </div>
-  );
-}
-
-
 /* ================== Seite: KatalogThemenPublic ================== */
 export default function KatalogThemenPublic() {
   type TabKey = "available" | "planned" | "done";
@@ -257,26 +235,47 @@ export default function KatalogThemenPublic() {
 
   const navigate = useNavigate();
   const location = useLocation();
-
-  /* --- Query einmal memoizen --- */
+  /* --- Query einmal memoizen (nur noch für token / refresh etc.) --- */
   const query = useMemo(() => new URLSearchParams(location.search), [location.search]);
-  const token = useMemo(() => (query.get("token") || query.get("accessToken") || "").trim(), [query]);
-  const accessCode = useMemo(() => (query.get("code") || "").trim(), [query]);
-  //const catalogTitleFromQuery = useMemo(() => (query.get("catalogTitle") || "").trim(), [query]);
-  const assignmentIdFromQuery = useMemo(() => (query.get("assignmentId") || "").trim(), [query]);
+  const tokenFromUrl = useMemo(
+    () => (query.get("token") || query.get("accessToken") || "").trim(),
+    [query]
+  );
+  const assignmentIdFromQuery = useMemo(
+    () => (query.get("assignmentId") || "").trim(),
+    [query]
+  );
+
+  /* --- Session-Meta aus InviteGate lesen --- */
+  const [sessionMeta, setSessionMeta] = useState<PublicAssessmentSession | null>(null);
+
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(SESSION_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as PublicAssessmentSession;
+      setSessionMeta(parsed);
+    } catch (e) {
+      console.warn("Fehler beim Lesen von publicAssessmentSession", e);
+    }
+  }, []);
+
+  /* --- Effektive Werte (Session > URL) --- */
+  const token = sessionMeta?.token || tokenFromUrl;
+  const accessCode = sessionMeta?.accessCode || (query.get("code") || "").trim();
+  const assignmentIdEffective = sessionMeta?.assignmentId || assignmentIdFromQuery;
 
   /* --- Willkommen-Name --- */
   const [nameFromAssignment, setNameFromAssignment] = useState<string>("");
-  const welcomeName = useMemo(() => {
-    const nameInUrl = (query.get("name") || "").trim();
-    return nameInUrl || nameFromAssignment || "Teilnehmer";
-  }, [query, nameFromAssignment]);
 
-  // Token & Code aus der URL
+  const welcomeName = useMemo(() => {
+    // Priorität: Name aus Session (workerName), dann evtl. Name aus Assignment-Fetch
+    return sessionMeta?.workerName || nameFromAssignment || "Teilnehmer";
+  }, [sessionMeta, nameFromAssignment]);
 
   //const sp = new URLSearchParams(location.search);
   const [expiresAt, setExpiresAt] = useState<string | null>(null);
-
+{/*
   const daysLeft = useMemo(() => {
     if (!expiresAt) return null;
 
@@ -288,6 +287,7 @@ export default function KatalogThemenPublic() {
 
     return Math.max(0, diffDays);
   }, [expiresAt]);
+   */}
 
   //in expiresAt muss Z.b: 2025-11-05T18:00:00Z
   useEffect(() => {
@@ -333,7 +333,7 @@ export default function KatalogThemenPublic() {
     let alive = true;
     (async () => {
       try {
-        const catalogId = (query.get("catalogId") || "").trim();
+        const catalogId = (sessionMeta?.catalogId || query.get("catalogId") || "").trim();
         const wantsRefresh = (query.get("refresh") || "").trim() === "1";
 
         if (!catalogId) {
@@ -342,23 +342,24 @@ export default function KatalogThemenPublic() {
         }
         setThemen(null);
 
+        const assignmentIdSafe = (assignmentIdEffective || "").trim();
         const live = await fetchThemenByCatalog(catalogId);
         if (!alive) return;
         const list = Array.isArray(live) ? live : [];
 
-        if (assignmentIdFromQuery) {
+        if (assignmentIdSafe) {
           if (wantsRefresh) {
-            writeSnapshotIds(assignmentIdFromQuery, list.map((t) => t.id));
+            writeSnapshotIds(assignmentIdSafe, list.map((t) => t.id));
             setThemen(list);
             return;
           }
-          const snapIds = readSnapshotIds(assignmentIdFromQuery);
+          const snapIds = readSnapshotIds(assignmentIdSafe);
           if (snapIds && snapIds.length) {
             const setIds = new Set(snapIds);
             setThemen(list.filter((t) => setIds.has(t.id)));
             return;
           } else {
-            writeSnapshotIds(assignmentIdFromQuery, list.map((t) => t.id));
+            writeSnapshotIds(assignmentIdSafe, list.map((t) => t.id));
             setThemen(list);
             return;
           }
@@ -371,7 +372,7 @@ export default function KatalogThemenPublic() {
     return () => {
       alive = false;
     };
-  }, [query, assignmentIdFromQuery]);
+  }, [query, sessionMeta, assignmentIdEffective]);
 
   /* --- assessments aus localStorage --- */
   const assessments = useMemo(() => {
@@ -385,9 +386,9 @@ export default function KatalogThemenPublic() {
   /* --- Cards bauen + Live-Progress mit sessionId vom Backend --- */
   const topicCards: TopicCardModel[] = useMemo(() => {
     const list = Array.isArray(themen) ? themen : [];
+    const assignmentId = assignmentIdEffective || "unknown";
+
     return list.map((t) => {
-      //const dashKey = `topic:${t.id}`;
-      const assignmentId = assignmentIdFromQuery || "unknown";
       const dashKey = `assignment:${assignmentId}:topic:${t.id}`;
       const entry = assessments[dashKey] ?? {};
       let effectiveProgress = typeof entry.progress === "number" ? entry.progress : 0;
@@ -419,7 +420,8 @@ export default function KatalogThemenPublic() {
         topicName: t.name || "",
       };
     });
-  }, [themen, assessments, token, assignmentIdFromQuery]);
+  }, [themen, assessments, token, assignmentIdEffective]);
+
 
   /* --- Tabs --- */
   const available = topicCards.filter((c) => !(c.effectiveProgress > 0 && c.effectiveProgress < 100) && c.effectiveProgress < 100);
@@ -446,11 +448,6 @@ export default function KatalogThemenPublic() {
     const qp = new URLSearchParams({
       topicId: card.topicId,
       topicName: card.topicName,
-      ...(token ? { accessToken: token } : {}),
-      ...(query.get("catalogId") ? { catalogId: (query.get("catalogId") || "").trim() } : {}),
-      ...(query.get("catalogTitle") ? { catalogTitle: (query.get("catalogTitle") || "").trim() } : {}),
-      ...(query.get("assignmentId") ? { assignmentId: (query.get("assignmentId") || "").trim() } : {}),
-      ...(welcomeName ? { name: welcomeName } : {}),
     });
 
     navigate(`/app/assessments?${qp.toString()}`);
@@ -538,7 +535,7 @@ export default function KatalogThemenPublic() {
         <div className="absolute left-[26%] top-[42%] h-1.5 w-1.5 rounded-full bg-[#d2c9b9] opacity-75" />
         <div className="absolute right-[22%] top-[36%] h-1.5 w-1.5 rounded-full bg-[#E3BB62] opacity-70" />
 
-          {/*
+        {/*
         <div
           className="
            hidden lg:block absolute lg:bottom-[210px] lg:right-[-4rem] xl:bottom-[195px] xl:right-[2%] 2xl:bottom-[180px] 2xl:right-[8%] h-40 w-40"
@@ -555,9 +552,9 @@ export default function KatalogThemenPublic() {
           )}
         </div>
           */}
-          {/* Kreis + Rechtecke – unten rechts, auf kleineren Screens weiter draußen */}
-<div
-  className="
+        {/* Kreis + Rechtecke – unten rechts, auf kleineren Screens weiter draußen */}
+        <div
+          className="
     hidden lg:block
     absolute
     lg:bottom-[210px] lg:right-[-4rem]
@@ -565,32 +562,32 @@ export default function KatalogThemenPublic() {
     2xl:bottom-[180px] 2xl:right-[8%]
     h-40 w-40
   "
->
-  {/* äußerer Ring (Gold) */}
-  <div
-    className="
+        >
+          {/* äußerer Ring (Gold) */}
+          <div
+            className="
       absolute inset-0
       rounded-full
       border border-[#E3BB62]
       bg-transparent
       opacity-90
     "
-  />
+          />
 
-  {/* innerer Kreis */}
-  <div
-    className="
+          {/* innerer Kreis */}
+          <div
+            className="
       absolute inset-3
       rounded-full
       bg-[#314856]
       border border-[rgba(210,201,185,0.45)]
       shadow-[0_18px_40px_rgba(15,23,42,0.32)]
     "
-  />
+          />
 
-  {/* schmales Rechteck rechts oben */}
-  <div
-    className="
+          {/* schmales Rechteck rechts oben */}
+          <div
+            className="
       absolute -right-8 top-4
       h-20 w-8
       rounded-[999px]
@@ -599,11 +596,11 @@ export default function KatalogThemenPublic() {
       backdrop-blur-[2px]
       shadow-[0_14px_28px_rgba(15,23,42,0.28)]
     "
-  />
+          />
 
-  {/* langes Rechteck unten links */}
-  <div
-    className="
+          {/* langes Rechteck unten links */}
+          <div
+            className="
       absolute -left-6 bottom-[-6px]
       h-7 w-24
       rounded-[999px]
@@ -611,12 +608,12 @@ export default function KatalogThemenPublic() {
       border border-[rgba(227,187,98,0.55)]
       shadow-[0_10px_24px_rgba(15,23,42,0.25)]
     "
-  />
-</div>
+          />
+        </div>
         <div className=" hidden lg:block absolute bottom-[180px] right-[8%] /* Position: unten rechts, über dem Footer */ h-40 w-40 " ></div>
       </div>
       {/* bg-[#f7f8fb] text-[#333] min-h-screen*/}
-      
+
       <AppHeader />
 
       <section className="pt-10 pb-8 px-5">

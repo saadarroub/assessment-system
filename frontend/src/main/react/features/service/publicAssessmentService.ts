@@ -17,7 +17,7 @@ export type ApiQuestion = {
   text: string;
   min?: number; max?: number; step?: number;
   labels?: [string, string];
-  required?: boolean;
+  isRequired?: boolean | string;
   currentAnswer?: ApiCurrentAnswer;
 };
 export type ApiCurrentAnswer = {
@@ -103,14 +103,22 @@ export async function getNextQuestion(
   return http<ApiQuestion | undefined>(url, { method: "GET" });
 }
 // Vorherige Frage
+// Vorherige Frage (mit currentQuestionId als Query-Param)
 export async function getPreviousQuestion(
   accessToken: string,
-  sessionId: string
+  sessionId: string,
+  currentQuestionId: string
 ): Promise<ApiPreviousResponse> {
-  const url = join(
+  // Basis-URL
+  const base = join(
     accessRoot(accessToken),
     `/sessions/${encodeURIComponent(sessionId)}/previous`
   );
+
+  // Query-Param anhängen
+  const url = `${base}?currentQuestionId=${encodeURIComponent(
+    currentQuestionId
+  )}`;
 
   const res = await fetch(url, {
     method: "GET",
@@ -121,7 +129,6 @@ export async function getPreviousQuestion(
 
   // Fall 1: 204 = wir sind an der ersten Frage
   if (res.status === 204) {
-    // Laut Spec: 204 + {"atStart": true}
     try {
       const body = await res.json();
       if (body && typeof body.atStart === "boolean") {
@@ -147,8 +154,10 @@ export async function getPreviousQuestion(
 
   // Normale 200-Antwort mit Frage
   const data = (await res.json()) as ApiQuestion;
+  // atStart explizit false markieren
   return { ...data, atStart: false };
 }
+
 
 
 // Session-Status/Progress
@@ -165,14 +174,25 @@ export async function getState(
 export type ApiSummaryQuestion = {
   questionId: string;
   questionText: string;
+  questionTypeName: string;      // NEU
   inputType: string;
+
+  // kommt jetzt im JSON mit
+  options?: string | string[];   // z.B. '["A","B"]' oder JSON-Objekt bei rating_scale
+
   answeredValue: string | number | string[];
   score: number;
   maxScore: number;
   answeredAt: string;
   orderIndex: number;
   isRequired: boolean;
+
+
+  isManualReview: boolean;
+  isSkipped: boolean;
+  isAutoScored: boolean;
 };
+
 
 export type ApiSummaryResponse = {
   sessionId: string;
@@ -184,14 +204,66 @@ export type ApiSummaryResponse = {
   progressPercent: number;
   totalScore: number;
   maxPossibleScore: number;
-  answeredQuestions: ApiSummaryQuestion[];
-  automatischBewerteteFragen: ApiSummaryQuestion[];
-  manuellZuBewertendeFragen: ApiSummaryQuestion[];
-  uebersprungeneFragen: ApiSummaryQuestion[];
+
+  answeredQuestions: ApiSummaryQuestion[];   // bleibt
+
+  // NUR noch die Counts
   automatischBewertetAnzahl: number;
   manuellZuBewertenAnzahl: number;
   uebersprungenAnzahl: number;
 };
+
+
+// Hilfsfunktion: eine Summary-Zeile -> UiQuestion (über normalizeApiQuestion)
+export function summaryRowToUiQuestion(row: ApiSummaryQuestion): UiQuestion {
+  // Defaults
+  let min: number | undefined;
+  let max: number | undefined;
+  let step: number | undefined;
+  let options: string | string[] | undefined = row.options;
+
+  // inputType normalisieren (wie in normalizeApiQuestion)
+  const tRaw = row.inputType || "";
+  const t = tRaw.toLowerCase().replace(/[_\s]+/g, "-");
+
+  // rating_scale: Options ist ein JSON-Objekt mit min/max/step
+  if (t === "rating-scale" && typeof row.options === "string") {
+    try {
+      const cfg = JSON.parse(row.options);
+      if (typeof cfg.min === "number") min = cfg.min;
+      if (typeof cfg.max === "number") max = cfg.max;
+      if (typeof cfg.step === "number") step = cfg.step;
+    } catch {
+      // wenn kaputt, einfach default lassen
+    }
+  }
+
+  // ApiQuestion-ähnliches Objekt bauen
+  const apiLike: ApiQuestion = {
+    questionId: row.questionId,
+    text: row.questionText,
+    inputType: row.inputType,
+    answered: true,
+    options,                           
+    questionTypeName: row.questionTypeName,
+    scoringSchema: undefined,
+    index: row.orderIndex,
+    min,
+    max,
+    step,
+    labels: undefined,
+    isRequired: row.isRequired,
+    currentAnswer: {
+      answerId: "",
+      value: row.answeredValue,
+      score: row.score,
+      answeredAt: row.answeredAt,
+    },
+  };
+
+  return normalizeApiQuestion(apiLike);
+}
+
 
 // GET /public/access/{token}/sessions/{id}/summary
 export async function getSummary(
@@ -240,17 +312,19 @@ export async function completeSession(
    UI-Types & Normalizer
  */
 export type UiQuestion =
-  | { id: string; text: string; type: "radio"; options: string[] }
-  | { id: string; text: string; type: "checkbox"; options: string[] }
-  | { id: string; text: string; type: "slider"; min: number; max: number; labels?: [string, string] }
-  | { id: string; text: string; type: "textarea"; placeholder?: string }
-  | { id: string; text: string; type: "text"; placeholder?: string }
-  | { id: string; text: string; type: "select"; options: string[]; required?: boolean }
-  | { id: string; text: string; type: "number"; min?: number; max?: number; step?: number; placeholder?: string }
-  | { id: string; text: string; type: "date"; min?: string; max?: string }
-  | { id: string; text: string; type: "order"; options: string[] };
+  | { id: string; text: string; type: "radio"; options: string[]; isRequired?: boolean }
+  | { id: string; text: string; type: "checkbox"; options: string[]; isRequired?: boolean }
+  | { id: string; text: string; type: "slider"; min: number; max: number; labels?: [string, string]; isRequired?: boolean }
+  | { id: string; text: string; type: "textarea"; placeholder?: string; isRequired?: boolean }
+  | { id: string; text: string; type: "text"; placeholder?: string; isRequired?: boolean }
+  | { id: string; text: string; type: "select"; options: string[]; isRequired?: boolean }
+  | { id: string; text: string; type: "number"; min?: number; max?: number; step?: number; placeholder?: string; isRequired?: boolean }
+  | { id: string; text: string; type: "date"; min?: string; max?: string; isRequired?: boolean }
+  | { id: string; text: string; type: "order"; options: string[]; isRequired?: boolean };
+
 
 export function normalizeApiQuestion(q: ApiQuestion): UiQuestion {
+
   const parseMaybeJsonArray = (src?: string | string[]): string[] => {
     if (!src) return [];
     if (Array.isArray(src)) return src;
@@ -262,34 +336,124 @@ export function normalizeApiQuestion(q: ApiQuestion): UiQuestion {
     }
   };
 
-  const t = q.inputType?.toLowerCase();
+  const tRaw = q.inputType || "";
+  const t = tRaw.toLowerCase().replace(/[_\s]+/g, "-");
 
-  if (t === "radio" || t === "multiple-choice") {
-    return { id: q.questionId, text: q.text, type: "radio", options: parseMaybeJsonArray(q.options) };
+  // isRequired
+    // RAW-Value aus Backend (isRequired ODER altes required)
+  const rawRequired =
+    (q as any).isRequired ?? (q as any).required ?? false;
+
+  const required =
+    typeof rawRequired === "string"
+      ? rawRequired.trim().toLowerCase() === "true"
+      : rawRequired === true;
+
+  console.log(
+    "[normalizeApiQuestion]",
+    q.text,
+    "rawRequired=",
+    rawRequired,
+    "typeof=",
+    typeof rawRequired,
+    "=> required=",
+    required
+  );
+
+
+  if (t === "radio" || t === "multiple-choice" || t === "single-choice") {
+    return {
+      id: q.questionId,
+      text: q.text,
+      type: "radio",
+      options: parseMaybeJsonArray(q.options),
+      isRequired:required,
+    };
   }
+
   if (t === "checkbox" || t === "multiple-select") {
-    return { id: q.questionId, text: q.text, type: "checkbox", options: parseMaybeJsonArray(q.options) };
+    return {
+      id: q.questionId,
+      text: q.text,
+      type: "checkbox",
+      options: parseMaybeJsonArray(q.options),
+       isRequired:required,
+    };
   }
+
   if (t === "select" || t === "dropdown") {
-    return { id: q.questionId, text: q.text, type: "select", options: parseMaybeJsonArray(q.options), required: q.required };
+    return {
+      id: q.questionId,
+      text: q.text,
+      type: "select",
+      options: parseMaybeJsonArray(q.options),
+       isRequired:required,
+    };
   }
-  if (t === "number") {
-    return { id: q.questionId, text: q.text, type: "number", min: q.min, max: q.max, step: q.step };
+
+  // number_input mit abdecken
+  if (t === "number" || t === "number-input") {
+    return {
+      id: q.questionId,
+      text: q.text,
+      type: "number",
+      min: q.min,
+      max: q.max,
+      step: q.step,
+       isRequired:required,
+    };
   }
-  if (t === "date") {
-    return { id: q.questionId, text: q.text, type: "date" };
+
+  //  date_input mit abdecken
+  if (t === "date" || t === "date-input") {
+    return {
+      id: q.questionId,
+      text: q.text,
+      type: "date",
+       isRequired:required,
+    };
   }
-  if (t === "range" || t === "slider") {
-    return { id: q.questionId, text: q.text, type: "slider", min: q.min ?? 0, max: q.max ?? 5, labels: q.labels };
+
+  // rating_scale wie Slider
+  if (t === "range" || t === "slider" || t === "rating-scale") {
+    return {
+      id: q.questionId,
+      text: q.text,
+      type: "slider",
+      min: q.min ?? 1,
+      max: q.max ?? 5,
+      labels: q.labels,
+       isRequired:required,
+    };
   }
-  if (t === "order") {
-    return { id: q.questionId, text: q.text, type: "order", options: parseMaybeJsonArray(q.options) };
+
+  // ordering mit abdecken
+  if (t === "order" || t === "ordering") {
+    return {
+      id: q.questionId,
+      text: q.text,
+      type: "order",
+      options: parseMaybeJsonArray(q.options),
+      isRequired:required,
+    };
   }
+
   if (t === "textarea") {
-    return { id: q.questionId, text: q.text, type: "textarea" };
+    return {
+      id: q.questionId,
+      text: q.text,
+      type: "textarea",
+      isRequired:required,
+    };
   }
+
   // Fallback
-  return { id: q.questionId, text: q.text, type: "text" };
+  return {
+    id: q.questionId,
+    text: q.text,
+    type: "text",
+     isRequired:required,
+  };
 }
 
 /* 

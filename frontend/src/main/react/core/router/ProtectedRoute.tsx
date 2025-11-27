@@ -1,28 +1,49 @@
 // src/main/react/core/router/ProtectedRoute.tsx
 import { Navigate, useLocation } from "react-router-dom";
-import { useEffect, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import { useAuthCtx } from "@/core/auth/AuthContext";
-import { hasPermission } from "@/shared/utils/roleGuards";
-import { PermissionEventBus } from "@/core/auth/PermissionEventBus";
+// import { hasPermission } from "@/shared/utils/roleGuards";
+// import { PermissionEventBus } from "@/core/auth/PermissionEventBus";
 
 type Props = {
   permission?: string | string[];
   children: ReactNode;
-  /** erlaubt Zugang, wenn ?token (und optional ?code) in der URL stehen */
+  /** erlaubt Zugang, wenn ?token (und optional ?code) in der URL stehen
+   *  ODER wenn eine publicAssessmentSession im sessionStorage liegt
+   */
   allowWithToken?: boolean;
 };
 
-export default function ProtectedRoute({ permission, children, allowWithToken = false }: Props) {
-  const { isAuthenticated, permissions } = useAuthCtx();
+const SESSION_KEY = "publicAssessmentSession";
+
+export default function ProtectedRoute({
+  //permission,
+  children,
+  allowWithToken = false,
+}: Props) {
+  const { isAuthenticated } = useAuthCtx();
   const location = useLocation();
 
-  // Invite-Bypass prüfen
   const qs = new URLSearchParams(location.search);
-  const inviteToken = qs.get("token") || qs.get("accessToken"); // Unterstützt beide Parameter-Namen
-  //const inviteCode  = qs.get("code"); // optional
+  const inviteToken = (qs.get("token") || qs.get("accessToken") || "").trim();
 
-  // Wenn Route für Invite-Flow freigegeben ist und ein Token vorhanden ist → durchlassen
-  if (allowWithToken && !!inviteToken) {
+  // 🔹 NEU: Token aus publicAssessmentSession lesen
+  let sessionToken: string | null = null;
+  if (typeof window !== "undefined") {
+    try {
+      const raw = sessionStorage.getItem(SESSION_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as { token?: string };
+        const t = (parsed?.token || "").trim();
+        sessionToken = t || null;
+      }
+    } catch {
+      sessionToken = null;
+    }
+  }
+
+  //  Wenn Invite-Flow erlaubt ist und WIRKLICH ein Token existiert
+  if (allowWithToken && (inviteToken || sessionToken)) {
     return <>{children}</>;
   }
 
@@ -31,7 +52,6 @@ export default function ProtectedRoute({ permission, children, allowWithToken = 
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  // Alle authentifizierten User können alle Seiten besuchen
-  // Permission-Checks erfolgen auf API/Daten-Ebene
+  // Aktuell keine Permission-Checks auf Routenebene
   return <>{children}</>;
 }

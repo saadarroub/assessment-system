@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
-import { Home, Download, BarChart3, Target, PieChart, AlertTriangle, Activity, TrendingUp, CheckCircle } from "lucide-react";
-import type { ApiSummaryResponse,UiQuestion } from "@/features/service/publicAssessmentService";
+import { Home, Download, BarChart3, Target, PieChart } from "lucide-react";
+import type { ApiSummaryResponse, UiQuestion } from "@/features/service/publicAssessmentService";
 
 
 export type AssessmentResultsProps = {
@@ -8,8 +8,8 @@ export type AssessmentResultsProps = {
   onRestart?: () => void;
   onBackToTopics?: () => void;
   onComplete?: () => void;   // Klick auf "Abschließen"
- // onChangeAnswer?: (questionId: string, newValue: string) => Promise<void> | void; 
-   //  für Bearbeiten
+  // onChangeAnswer?: (questionId: string, newValue: string) => Promise<void> | void; 
+  //  für Bearbeiten
   questionsById?: Record<string, UiQuestion>;
   answerValues?: Record<string, any>;
   onChangeAnswer?: (questionId: string, uiValue: any) => Promise<void> | void;
@@ -27,25 +27,6 @@ export type AssessmentResultsProps = {
   percent?: number;        // falls du pct schon berechnet hast (0..100)
   summary?: ApiSummaryResponse | null;
 };
-
-function levelColor(level?: string) {
-  switch (level?.toLowerCase()) {
-    case "niedrig": return "text-red-500";
-    case "mittel": return "text-sky-600";
-    case "hoch": return "text-blue-500";
-    case "exzellent": return "text-indigo-700";
-    default: return "text-slate-700";
-  }
-}
-function levelIcon(level?: string) {
-  const common = "w-5 h-5";
-  switch (level?.toLowerCase()) {
-    case "niedrig": return <AlertTriangle className={`${common} text-red-500`} />;
-    case "mittel": return <Activity className={`${common} text-sky-600`} />;
-    case "hoch": return <TrendingUp className={`${common} text-blue-500`} />;
-    default: return <CheckCircle className={`${common} text-indigo-700`} />;
-  }
-}
 
 function downloadJSON(payload: AssessmentResultsProps) {
   const reportData = {
@@ -70,19 +51,20 @@ function downloadJSON(payload: AssessmentResultsProps) {
 
 export default function AssessmentResults(props: AssessmentResultsProps) {
   const {
-    topicName, onRestart, onBackToTopics, onComplete, onChangeAnswer,questionsById,answerValues,          // <<<<<< HIER hinzufügen
+    topicName, onBackToTopics, onComplete, onChangeAnswer, questionsById, answerValues,          // <<<<<< HIER hinzufügen
 
     answered, total, totalScore, maxTotalScore,
     completedAt, overallLevel, percent, summary,
   } = props;
 
-    const [editQuestion, setEditQuestion] = useState<UiQuestion | null>(null);
+
+  const [editQuestion, setEditQuestion] = useState<UiQuestion | null>(null);
   const [editValue, setEditValue] = useState<any>(null);
 
   const [savingEdit, setSavingEdit] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
 
-    function getInitialUiValueForQuestion(
+  function getInitialUiValueForQuestion(
     q: UiQuestion,
     answerValues?: Record<string, any>,
     fallbackAnsweredValue?: any
@@ -115,6 +97,21 @@ export default function AssessmentResults(props: AssessmentResultsProps) {
         return String(raw);
     }
   }
+  const rows = useMemo(() => {
+  if (!summary) return [];
+
+  const answered = summary.answeredQuestions ?? [];
+
+  return answered
+    .map(q => ({
+      ...q,
+      // falls du irgendwann ein Flag vom Backend bekommst:
+      // isAuto: (q as any).isAuto ?? (q as any).automatic ?? false,
+      isAuto: q.isAutoScored, 
+    }))
+    .sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0));
+}, [summary]);
+
 
 
   // Prozentanzeige: bevorzugt dein percent; sonst aus Score; sonst aus answered/total
@@ -243,6 +240,7 @@ export default function AssessmentResults(props: AssessmentResultsProps) {
           </div>
         </div>
         {/* Kleine /summary-Box */}
+
         {summary && (
           <div className="mb-10 rounded-2xl border border-slate-200 bg-white p-6 shadow">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
@@ -281,7 +279,8 @@ export default function AssessmentResults(props: AssessmentResultsProps) {
             </div>
 
             {/* Erste 5 automatisch bewertete Fragen anzeigen */}
-            {summary.automatischBewerteteFragen.length > 0 && (
+            {/* Fragen-Tabelle: ALLE beantworteten Fragen */}
+            {rows.length > 0 && (
               <>
                 <div className="overflow-x-auto">
                   <table className="min-w-full text-sm">
@@ -290,12 +289,13 @@ export default function AssessmentResults(props: AssessmentResultsProps) {
                         <th className="py-2 pr-4">Frage</th>
                         <th className="py-2 pr-4">Antwort</th>
                         <th className="py-2 pr-4">Punkte</th>
-                        <th className="py-2">Erfüllung</th>
+                        <th className="py-2 pr-4">Erfüllung</th>
+                        <th className="py-2 pr-4">Bewertung</th>
                         <th className="py-2">Aktion</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {summary.automatischBewerteteFragen.map(q => {
+                      {rows.map(q => {
                         const pct =
                           q.maxScore > 0
                             ? Math.round((q.score / q.maxScore) * 100)
@@ -307,7 +307,7 @@ export default function AssessmentResults(props: AssessmentResultsProps) {
                           Array.isArray(q.answeredValue)
                             ? q.answeredValue.join(", ")
                             : (q.answeredValue === "" || q.answeredValue == null)
-                              ? "Keine Antwort"
+                              ? "übersprungen"
                               : String(q.answeredValue);
 
                         return (
@@ -317,12 +317,15 @@ export default function AssessmentResults(props: AssessmentResultsProps) {
                                 {q.questionText}
                               </div>
                             </td>
+
                             <td className="py-2 pr-4 align-top text-slate-700">
                               {answeredValue}
                             </td>
+
                             <td className="py-2 pr-4 align-top text-slate-800">
                               {q.score}/{q.maxScore}
                             </td>
+
                             <td className="py-2 align-top">
                               <div className="flex items-center gap-3">
                                 <div className="w-24 h-2.5 rounded-full bg-slate-100 overflow-hidden">
@@ -337,37 +340,50 @@ export default function AssessmentResults(props: AssessmentResultsProps) {
                                 </span>
                               </div>
                             </td>
-                            {/* NEUE AKTION-SPALTE */}
+
+                            {/* NEU: automatisch / manuell Badge */}
+                            <td className="py-2 pr-4 align-top">
+                              <span
+                                className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${q.isAuto
+                                    ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
+                                    : "bg-amber-50 text-amber-700 border border-amber-100"
+                                  }`}
+                              >
+                                {q.isAuto ? "automatisch" : "manuell"}
+                              </span>
+                            </td>
+
+                            {/* Aktion: Frage bearbeiten (dein bestehender Code, nur auf rows angepasst) */}
                             <td className="py-2 align-top">
-                               <button
-    type="button"
-    className="text-xs font-medium text-sky-600 hover:underline"
-    onClick={() => {
-      if (!questionsById) return;
+                              <button
+                                type="button"
+                                className="text-xs font-medium text-sky-600 hover:underline"
+                                onClick={() => {
+                                  if (!questionsById) return;
 
-      const qMeta = questionsById[String(q.questionId)];
-      if (!qMeta) {
-        console.warn("Kein UiQuestion-Meta für", q.questionId);
-        return;
-      }
+                                  const qMeta = questionsById[String(q.questionId)];
+                                  if (!qMeta) {
+                                    console.warn("Kein UiQuestion-Meta für", q.questionId);
+                                    return;
+                                  }
 
-      const fallbackValue = Array.isArray(q.answeredValue)
-        ? q.answeredValue
-        : q.answeredValue;
+                                  const fallbackValue = Array.isArray(q.answeredValue)
+                                    ? q.answeredValue
+                                    : q.answeredValue;
 
-      const initial = getInitialUiValueForQuestion(
-        qMeta,
-        answerValues,
-        fallbackValue
-      );
+                                  const initial = getInitialUiValueForQuestion(
+                                    qMeta,
+                                    answerValues,
+                                    fallbackValue
+                                  );
 
-      setEditQuestion(qMeta);
-      setEditValue(initial);
-      setEditError(null);
-    }}
-  >
-    Frage bearbeiten
-  </button>
+                                  setEditQuestion(qMeta);
+                                  setEditValue(initial);
+                                  setEditError(null);
+                                }}
+                              >
+                                Frage bearbeiten
+                              </button>
                             </td>
                           </tr>
                         );
@@ -375,20 +391,15 @@ export default function AssessmentResults(props: AssessmentResultsProps) {
                     </tbody>
                   </table>
                 </div>
-
-                {summary.automatischBewerteteFragen.length > 20 && (
-                  <p className="mt-3 text-xs text-slate-500">
-                    Es werden nur die ersten 5 Fragen angezeigt.
-                  </p>
-                )}
               </>
             )}
+
           </div>
         )}
 
         {/* Actions */}
         <div className="flex items-center justify-center gap-4 flex-wrap">
-        
+
           {/*  Abschließen -> completeSession */}
           {onComplete && (
             <button
@@ -398,10 +409,10 @@ export default function AssessmentResults(props: AssessmentResultsProps) {
               Ab­schließen
             </button>
           )}
-         
+
         </div>
       </div>
-           {/* ===== Bearbeiten-Modal ===== */}
+      {/* ===== Bearbeiten-Modal ===== */}
       {editQuestion && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-xl">
@@ -419,10 +430,9 @@ export default function AssessmentResults(props: AssessmentResultsProps) {
                     <label
                       key={opt}
                       className={`flex items-center p-4 border-2 rounded-lg cursor-pointer transition bg-white
-                        ${
-                          checked
-                            ? "border-[#E3BB62] bg-[#FFFAEB]"
-                            : "border-gray-200 hover:border-[#264555] hover:bg-[#f8fafc]"
+                        ${checked
+                          ? "border-[#E3BB62] bg-[#FFFAEB]"
+                          : "border-gray-200 hover:border-[#264555] hover:bg-[#f8fafc]"
                         }`}
                     >
                       <input
@@ -459,10 +469,9 @@ export default function AssessmentResults(props: AssessmentResultsProps) {
                     <label
                       key={opt}
                       className={`flex items-center p-4 border-2 rounded-lg cursor-pointer transition bg-white
-                        ${
-                          checked
-                            ? "border-[#E3BB62] bg-[#FFFAEB]"
-                            : "border-gray-200 hover:border-[#264555] hover:bg-[#f8fafc]"
+                        ${checked
+                          ? "border-[#E3BB62] bg-[#FFFAEB]"
+                          : "border-gray-200 hover:border-[#264555] hover:bg-[#f8fafc]"
                         }`}
                     >
                       <input
