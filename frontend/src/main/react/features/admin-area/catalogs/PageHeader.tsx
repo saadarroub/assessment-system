@@ -38,25 +38,28 @@ export default function PageHeader({
       {/* ========================================================= */}
       {/* 1) DEKO-ICONS IM HINTERGRUND (nutzt automatisch das gleiche Icon wie oben) */}
       {/* ========================================================= */}
-      {showPattern && icon && (
-        <>
-          {/* Oben Links */}
-          <div className="absolute left-10 top-10 opacity-10">
-            {React.cloneElement(icon as any, {
-              size: 100, // Größeres Icon für Hintergrund
-              className: "opacity-70", // etwas durchsichtig
-            })}
-          </div>
+     {showPattern && icon && (
+  <>
+    {/* Oben Links – sehr dünn, soft, dezent */}
+    <div className="absolute left-10 top-10 opacity-30">
+      {React.cloneElement(icon as any, {
+        size: 130,                        // groß aber dünn
+        strokeWidth: 0.5,                 // ⭐ extrem dünne Linie
+        className: "text-white/20 blur-[1px]",  // ⭐ weicher & schwacher Look
+      })}
+    </div>
 
-          {/* Unten Rechts (gespiegelt) */}
-          <div className="absolute right-10 bottom-10 opacity-10 rotate-180">
-            {React.cloneElement(icon as any, {
-              size: 80,
-              className: "opacity-80",
-            })}
-          </div>
-        </>
-      )}
+    {/* Unten Rechts – gespiegelt */}
+    <div className="absolute right-10 bottom-10 opacity-20 rotate-180">
+      {React.cloneElement(icon as any, {
+        size: 100,
+        strokeWidth: 0.5,
+        className: "text-white/20 blur-[1px]",
+      })}
+    </div>
+  </>
+)}
+
 
       {/* ========================================================= */}
       {/* 2) SOFT LIGHT OVERLAY (Premium Shine Layer) */}
