@@ -116,9 +116,6 @@ export default function AssessmentResults(props: AssessmentResultsProps) {
     };
   }, []);
 
-
-
-
   function getInitialUiValueForQuestion(
     q: UiQuestion,
     answerValues?: Record<string, any>,
@@ -506,6 +503,7 @@ export default function AssessmentResults(props: AssessmentResultsProps) {
                 </table>
               </div>
             )}
+
           </div>
         )}
 
