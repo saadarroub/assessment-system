@@ -4,6 +4,8 @@ import "@/styles/admin.css";
 import AdminLayout from "@/apps/app/AdminLayout";
 import TopicCard from "./TopicCard";
 import { useToast } from "@/shared/contexts/ToastContext";
+import PageHeader from "./catalogs/PageHeader";
+
 // Icons
 import {
   Plus,
