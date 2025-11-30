@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate} from "react-router-dom";
 import "@/styles/admin.css";
 import AdminLayout from "@/apps/app/AdminLayout";
 import TopicCard from "./TopicCard";
@@ -16,6 +16,7 @@ import {
   Users,
   Clock,
   ChevronRight,
+  Network,
 } from "lucide-react";
 
 // API
@@ -319,31 +320,16 @@ export default function AdminDashboard() {
         `}
       </style>
 
-      {/* HEADER */}
-      <div className="relative bg-gradient-to-br from-[#264555] via-[#38556b] to-[#d2c9b9] px-10 py-14 shadow-sm border-b border-gray-300/40">
-        {/* TITLE BLOCK */}
-        <div className="mt-8 text-center">
-          <div className="flex justify-center items-center gap-4">
-            <div
-              className="
-          p-4 rounded-2xl shadow-md 
-          bg-[#3f5568]
-          text-white
-        "
-            >
-              <Layers size={28} />
-            </div>
+ <PageHeader
 
-            <h1 className="text-4xl md:text-5xl font-extrabold text-white tracking-tight">
-              Fragenkatalog Administration
-            </h1>
-          </div>
-
-          <p className="text-white mt-3 text-[15px]">
-            Verwalten Sie Ihre Themen und erstellen Sie finale Kataloge
-          </p>
-        </div>
-      </div>
+  title="Fragenkatalog Administration"
+  subtitle="Verwalten Sie Ihre Themen und erstellen Sie finale Kataloge"
+  icon={<Network  size={40 } />}
+  gradient="navy"
+  height="280px"
+  showPattern={true}
+ 
+/>
 
       {/* BODY */}
       <div className="dashboard-content bg-[hsl(0_0%_92%)] min-h-[calc(100vh-64px)] px-6 py-6">
