@@ -103,7 +103,7 @@ function CatalogCard({ data, onStart }: { data: TopicCardModel; onStart: () => v
   const running = p > 0 && p < 100;
   const completed = p >= 100;
 
-const btnLabel = running ? "Umfrage fortsetzen →" : "Umfrage starten →";
+  const btnLabel = running ? "Umfrage fortsetzen →" : "Umfrage starten →";
 
   const [animate, setAnimate] = useState(false);
   useEffect(() => {
@@ -112,52 +112,92 @@ const btnLabel = running ? "Umfrage fortsetzen →" : "Umfrage starten →";
     return () => clearTimeout(t);
   }, [p]);
 
+  // === Status-abhängige Basis-Styles (nur Blautöne + Gold) ===
+  const cardClass = [
+    "catalog-card relative overflow-hidden flex flex-col",
+    "rounded-[22px] bg-white/90 backdrop-blur-xl",
+    "shadow-[0_35px_80px_-30px_rgba(23,37,84,.35)]",
+    "transition-all duration-300",
+    "hover:-translate-y-1 hover:shadow-[0_40px_90px_-35px_rgba(23,37,84,.45)]",
+    "min-h-[520px]",
+    completed
+      ? "border border-[#d7c69a]"                     // Goldlichter Rand
+      : running
+      ? "border border-[#E3BB62]/80"                  // leicht goldener Rand
+      : "border border-[hsla(215,20%,88%,0.9)]",      // neutrales Hellgrau
+  ].join(" ");
+
+  // Header immer in der gleichen Blau-Familie (wie dein mittleres Beispiel)
+  const headerClass = [
+    "card-header p-6 text-white relative",
+    completed
+      ? "bg-[linear-gradient(135deg,#48566f_0%,#264555_100%)]" // etwas grauer/ruhiger
+      : running
+      ? "bg-[linear-gradient(135deg,#3f6aa5_0%,#264555_100%)]" // mittleres Blau (wie Mitte)
+      : "bg-[linear-gradient(135deg,#345c8c_0%,#264555_100%)]", // leicht heller für „neu“
+  ].join(" ");
+
   return (
-    <div
-      className="
-      catalog-card relative overflow-hidden flex flex-col
-      rounded-[22px]
-      bg-white/90 backdrop-blur-xl
-      border border-[hsla(9, 21%, 88%, 0.60)]
-      shadow-[0_35px_80px_-30px_rgba(23,37,84,.35)]
-      transition-all duration-300
-      hover:-translate-y-1 hover:shadow-[0_40px_90px_-35px_rgba(23,37,84,.45)]
-      min-h-[520px]
-    "
-      data-assessment-id={data.dashKey}
-    >
-      <div className="card-header p-6 text-white relative bg-[#264555]">
+    <div className={cardClass} data-assessment-id={data.dashKey}>
+      <div className={headerClass}>
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/10 to-transparent" />
+
         <div className="relative z-[1] flex items-center justify-between gap-2 flex-wrap mb-3">
-          <span className="inline-block px-3 py-1 rounded-full text-sm font-medium bg-white/20 backdrop-blur">
+          {/* Kategorie-Badge */}
+          <span className="inline-block px-3 py-1 rounded-full text-xs font-medium bg-white/18 backdrop-blur">
             {data.tag}
           </span>
+
+          {/* Status-Badges – alle in Blau/Gold, kein Grün */}
+          {completed && (
+            <span
+              className="
+                inline-flex items-center gap-1
+                rounded-full bg-white/12 px-3 py-1
+                text-[11px] font-semibold uppercase tracking-[0.16em]
+                border border-[#E3BB62]/70
+              "
+            >
+              <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#E3BB62]" />
+              Abgeschlossen
+            </span>
+          )}
+
+          {running && !completed && (
+            <span
+              className="
+                inline-flex items-center gap-1
+                rounded-full bg-black/10 px-3 py-1
+                text-[11px] font-semibold uppercase tracking-[0.16em]
+                border border-white/30
+              "
+            >
+              <span className="inline-block h-1.5 w-1.5 rounded-full bg-sky-200" />
+              Laufend
+            </span>
+          )}
         </div>
 
-  {/* >>> Neues Ribbon nur wenn completed <<< */}
-        {completed && <CompletedRibbon />}
-
-
-
         <div className="relative z-[1]">
-          <h2 className="text-xl font-bold mb-2">{data.title}</h2>
+          <h2 className="text-xl font-bold mb-2 line-clamp-2">{data.title}</h2>
           <p className="text-sm/6 opacity-95 line-clamp-2">{data.subtitle}</p>
         </div>
       </div>
 
+      {/* Fortschritt – immer blau, bei 100% nur Label anders */}
       {p > 0 && (
         <div className="progress-section px-6 py-4 bg-slate-50 border-b border-slate-200">
-          <div className="flex items-center justify-between text-sm text-slate-600 mb-2 font-medium">
-            <span>Fortschritt</span>
-            <span className="progress-percent">{p}%</span>
+          <div className="flex items-center justify-between text-xs sm:text-sm text-slate-600 mb-2 font-medium">
+            <span>{completed ? "Abgeschlossen" : "Fortschritt"}</span>
+            <span className={`progress-percent ${completed ? "text-[#E3BB62]" : ""}`}>{p}%</span>
           </div>
 
           <div className="h-2 bg-slate-200 rounded-xl overflow-hidden">
             <div
               className="
                 progress-bar h-full rounded-xl
-                bg-[linear-gradient(90deg,#3182ce_0%,#2b6cb0_100%)]
                 transition-all duration-500 ease-in-out
+                bg-[linear-gradient(90deg,#4f88d2_0%,#264555_100%)]
               "
               style={{ width: `${animate ? p : 0}%` }}
             />
@@ -166,36 +206,64 @@ const btnLabel = running ? "Umfrage fortsetzen →" : "Umfrage starten →";
       )}
 
       <div className="p-6 flex flex-col flex-1">
+        {/* Info-Zeile */}
         <div className="flex flex-wrap gap-5 mb-5 text-sm text-slate-500">
           <div className="flex items-center gap-1.5">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
             </svg>
-            <span>Fragen : noch nicht implementiert</span>
+            {completed ? (
+              <span>Umfrage abgeschlossen</span>
+            ) : (
+              <span>Fragen : noch nicht implementiert</span>
+            )}
           </div>
         </div>
 
+        {/* Features – bei Abgeschlossen minimal dezenter */}
         <h3 className="font-semibold mb-3 text-slate-800 text-sm">Umfrage-Features:</h3>
-        <ul className="list-none mb-6">
+        <ul className={`list-none mb-6 space-y-1.5 ${completed ? "opacity-85" : ""}`}>
           {data.features.map((f) => (
-            <li key={f} className="py-1.5 flex items-center gap-2.5 text-sm text-slate-700">
-              <span className="w-[18px] h-[18px] rounded-full grid place-items-center text-[12px] font-bold bg-sky-50 text-blue-700 shrink-0">✓</span>
+            <li
+              key={f}
+              className="py-1.5 flex items-center gap-2.5 text-sm text-slate-700"
+            >
+              <span
+                className={`
+                  w-[18px] h-[18px] rounded-full grid place-items-center text-[12px] font-bold shrink-0
+                  bg-sky-50 text-[#264555]
+                `}
+              >
+                ✓
+              </span>
               {f}
             </li>
           ))}
         </ul>
-         {!completed && (
-        <button
-          onClick={onStart}
-          className="w-full py-3 rounded-lg text-white font-semibold transition-all mt-auto shadow-sm bg-[#264555] hover:bg-[#1f3846] hover:-translate-y-0.5 hover:shadow-lg active:translate-y-0"
-        >
-          {btnLabel}
-        </button>
-         )}
+
+        {/* Button nur, wenn noch nicht abgeschlossen */}
+        {!completed && (
+          <button
+            onClick={onStart}
+            className="
+              w-full py-3 rounded-lg text-white font-semibold transition-all mt-auto shadow-sm
+              bg-[linear-gradient(135deg,#315c8c_0%,#264555_100%)]
+              hover:brightness-105 hover:-translate-y-0.5 hover:shadow-lg active:translate-y-0
+            "
+          >
+            {btnLabel}
+          </button>
+        )}
       </div>
     </div>
   );
 }
+
 function StatsCard({
   value,
   label,

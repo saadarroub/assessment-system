@@ -406,14 +406,48 @@ export default function AssessmentPage() {
     try {
       const store = readStore();
       const dashKey = makeDashKey(assignmentKeyId, tid);
-      const existingSid: string | undefined = store?.[dashKey]?.sessionId;
+      const meta = store?.[dashKey] ?? {};
+      const existingSid: string | undefined = meta.sessionId;
+      const storedView: string | undefined = meta.view;
 
       // ==== Session existiert schon -> fortsetzen / Summary laden ====
       if (existingSid) {
         setSessionId(existingSid);
+        // 🔹 Fall 1: wir waren zuletzt in der Result-Ansicht
+        if (storedView === "results") {
+          try {
+            const s = await getSummary(token, existingSid);
+            setSummary(s);
+            setScore({
+              totalScore: s.totalScore,
+              maxTotalScore: s.maxPossibleScore,
+            });
+
+            const allRows = s.answeredQuestions ?? [];
+            const uiFromSummary: Record<string, UiQuestion> = {};
+
+            for (const row of allRows) {
+              const uiQ = summaryRowToUiQuestion(row);
+              uiFromSummary[String(uiQ.id)] = uiQ;
+              persistUiQuestionMeta(assignmentKeyId, tid, uiQ);
+            }
+
+            setQuestionsById(prev => ({
+              ...uiFromSummary,
+              ...prev,
+            }));
+
+            setCompleted(true);      // -> AssessmentResults wird angezeigt
+            // status kann „in_progress“ bleiben, weil noch nicht finalisiert
+          } catch (e) {
+            console.error("getSummary (resume results) failed", e);
+            // Fallback: wenn Summary schiefgeht, kannst du hier optional normal weitermachen
+          }
+          return;
+        }
         await refreshState(token, existingSid);
 
-        // 1) Versuch: kompletten Verlauf aus localStorage wiederherstellen
+        //  kompletten Verlauf aus localStorage wiederherstellen
         const snap = restoreTrailSnapshot(assignmentKeyId, tid, existingSid);
         if (snap) {
           // uiMap auch in den State schreiben, damit changeAnswerFromResults etc. weiter funktionieren
@@ -424,7 +458,7 @@ export default function AssessmentPage() {
           return;
         }
 
-        // 2) Fallback: wie bisher – nur nächste offene Frage laden
+        //wie bisher – nur nächste offene Frage laden
         const apiQ = await getNextQuestion(token, existingSid);
 
         if (apiQ) {
@@ -651,6 +685,20 @@ export default function AssessmentPage() {
             ...uiFromSummary,
             ...prev,
           }));
+          // 🔹 NEU: merken, dass wir gerade die Result-Preview anzeigen
+          try {
+            const store = readStore();
+            const dashKey = makeDashKey(assignmentKeyId, themaId);
+            const prevMeta = store[dashKey] ?? {};
+            store[dashKey] = {
+              ...prevMeta,
+              sessionId,
+              view: "results",   // <--- wichtig
+            };
+            writeStore(store);
+          } catch {
+            // Fehler im LocalStorage ignorieren
+          }
 
         } catch (e) {
           console.error("getSummary failed", e);
@@ -706,7 +754,7 @@ export default function AssessmentPage() {
       );
 
       if (row) {
-        const uiQ = summaryRowToUiQuestion(row);   
+        const uiQ = summaryRowToUiQuestion(row);
         qMeta = uiQ;
 
         setQuestionsById(prev => ({
@@ -764,65 +812,51 @@ export default function AssessmentPage() {
 
     } catch (e) {
       console.error("changeAnswerFromResults / save failed", e);
-     
+
     }
   };
 
+const finalizeSession = async () => {
+  if (!sessionId || finalizing) return;
 
+  try {
+    setFinalizing(true);
 
-  const finalizeSession = async () => {
-    if (!sessionId || finalizing) return;
+    await completeSession(accessToken, sessionId);
 
-    //  Bestätigungs-Dialog
-    const confirmed = window.confirm(
-      "Sind Sie sicher, dass Sie dieses Assessment endgültig abschließen möchten?\n" +
-      "Danach können die Antworten nicht mehr geändert werden."
-    );
-    if (!confirmed) {
-      // User hat auf "Abbrechen" geklickt → einfach abbrechen
-      return;
-    }
+    setStatus("completed");
+    setProgress(prev => ({
+      ...prev,
+      answered: prev.total || prev.answered,
+    }));
 
     try {
-      setFinalizing(true);
-
-      //  Backend-Session wirklich abschließen
-      await completeSession(accessToken, sessionId);
-
-      // Status & Progress im State aktualisieren
-      setStatus("completed");
-      setProgress(prev => ({
+      const store = readStore();
+      const dashKey = makeDashKey(assignmentKeyId, themaId);
+      const prev = store[dashKey] ?? {};
+      store[dashKey] = {
         ...prev,
-        answered: prev.total || prev.answered, // sicherheitshalber „voll“
-      }));
-
-      // Auch im LocalStorage „fertig“ markieren,
-      // damit Katalog-Seite die 100 % sieht
-      try {
-        const store = readStore();
-        const dashKey = makeDashKey(assignmentKeyId, themaId);
-
-        const prev = store[dashKey] ?? {};
-        store[dashKey] = {
-          ...prev,
-          progress: 100,
-          completedAt: new Date().toISOString(),
-          sessionId,
-        };
-        writeStore(store);
-      } catch {
-        // ignore einfach 
-      }
-      //  Erfolgs-Meldung
-      window.alert("Katalog erfolgreich abgeschlossen.");
-      goBackToTopics();
-    } catch (e) {
-      console.error("completeSession failed", e);
-      window.alert("Das Assessment konnte nicht abgeschlossen werden. Bitte versuchen Sie es später erneut.");
-    } finally {
-      setFinalizing(false);
+        progress: 100,
+        completedAt: new Date().toISOString(),
+        sessionId,
+      };
+      writeStore(store);
+    } catch {
+      // ignore
     }
-  };
+
+    window.alert("Katalog erfolgreich abgeschlossen.");
+    goBackToTopics();
+  } catch (e) {
+    console.error("completeSession failed", e);
+    window.alert(
+      "Das Assessment konnte nicht abgeschlossen werden. Bitte versuchen Sie es später erneut."
+    );
+  } finally {
+    setFinalizing(false);
+  }
+};
+
 
   /*  Restart (Assessment nochmal machen)  */
   const restart = async () => {
@@ -915,7 +949,7 @@ export default function AssessmentPage() {
       />
     );
   }
-  console.log("Aktuelle Frage:", q); 
+  console.log("Aktuelle Frage:", q);
   const isCurrentRequiredUnanswered = (() => {
     if (!q) return false;
 
@@ -1451,12 +1485,12 @@ export default function AssessmentPage() {
                 )}
 
                 {q.type === "order" && (
-  <OrderQuestion
-    q={q}
-    value={answers[q.id] ?? []}
-    onChange={(arr) => setAnswer(q.id, arr, "order")}
-  />
-)}
+                  <OrderQuestion
+                    q={q}
+                    value={answers[q.id] ?? []}
+                    onChange={(arr) => setAnswer(q.id, arr, "order")}
+                  />
+                )}
 
 
                 {/* Navigation */}

@@ -31,7 +31,11 @@ import ProjectManagementPage from '@/features/admin-area/topics/project-manageme
 import CompanyListtest from '@/features/admin-panel/companies/testcomplist';
 import ConditionEditor from '@/features/admin-area/catalogs/ConditionEditor';
 import CatalogList from '@/features/admin-area/catalogs/CatalogList';
+<<<<<<< HEAD
 import ReifegradPage from '@/features/admin-area/topics/reifegradmodelle/Reifegradmodelle';
+=======
+import ProfileStrip from '@/apps/app/ProfileStrip';
+>>>>>>> 5a72eb5e (WIP: meine Änderungen vor Merge sichern)
 
 
 
@@ -78,6 +82,7 @@ export default function AppRoutes() {
           </ProtectedRoute>
         }
       />
+
 
       <Route
         path="/app/companylist/"
