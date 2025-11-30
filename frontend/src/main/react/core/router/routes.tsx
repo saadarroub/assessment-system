@@ -1,5 +1,6 @@
 // src/main/react/core/router/routes.tsx
 import { Routes, Route, Navigate } from 'react-router-dom';
+
 import LandingPage from '@/apps/landing/LandingPage';
 import LoginPage from '@/features/auth/LoginPage';
 import KatalogThemenPublic from '@/features/worker-area/KatalogThemenPublic';
@@ -19,7 +20,7 @@ import CompanyDetailPage from '@/features/worker-area/results/CompanyDetailPage'
 import CompanyListPage from '@/features/worker-area/results/CompanyListPage';
 import KatalogVerwaltung from '@/features/admin-area/KatalogVerwaltung';
 import Zuweisungen from '@/features/admin-panel/companies/zuweisungen';
-import InviteGate from "@/public/InviteGate";
+import InviteGate from '@/public/InviteGate';
 import ZugewiesenerKatalog from '@/public/ZugewiesenerKatalogPagePublic';
 import Ica3LandingSingle from '@/public/Ica3LandingSingle';
 
@@ -31,16 +32,9 @@ import ProjectManagementPage from '@/features/admin-area/topics/project-manageme
 import CompanyListtest from '@/features/admin-panel/companies/testcomplist';
 import ConditionEditor from '@/features/admin-area/catalogs/ConditionEditor';
 import CatalogList from '@/features/admin-area/catalogs/CatalogList';
-<<<<<<< HEAD
 import ReifegradPage from '@/features/admin-area/topics/reifegradmodelle/Reifegradmodelle';
-=======
-import ProfileStrip from '@/apps/app/ProfileStrip';
-<<<<<<< HEAD
->>>>>>> 5a72eb5e (WIP: meine Änderungen vor Merge sichern)
-=======
 import EmployeeProfile from '@/features/profile/ProfilePage';
 
->>>>>>> ba8b5303 (WIP: meine Änderungen vor Merge sichern 2)
 
 
 
@@ -49,10 +43,9 @@ export default function AppRoutes() {
     <Routes>
       <Route path="/" element={<Navigate to="/login" replace />} />
       <Route path="/startseite" element={<LandingPage />} />
-    <Route path="/login" element={<LoginPage />} />
+      <Route path="/login" element={<LoginPage />} />
       <Route path="/invite/:token" element={<InviteGate />} />
-       <Route path="/KatalogGate" element={<ZugewiesenerKatalog />} />
-
+      <Route path="/KatalogGate" element={<ZugewiesenerKatalog />} />
 
       <Route
         path="/app/reifegradmodelle"
@@ -71,6 +64,7 @@ export default function AppRoutes() {
           </ProtectedRoute>
         }
       />
+
       <Route
         path="/app/result/:companyId"
         element={
@@ -96,15 +90,15 @@ export default function AppRoutes() {
         }
       />
 
-
       <Route
-        path="/app/companylist/"
+        path="/app/companylist"
         element={
           <ProtectedRoute>
             <CompanyListPage />
           </ProtectedRoute>
         }
       />
+
       <Route
         path="/app/assessments"
         element={
@@ -113,6 +107,7 @@ export default function AppRoutes() {
           </ProtectedRoute>
         }
       />
+
       {/* Admin Dashboard */}
       <Route
         path="/admin"
@@ -122,13 +117,16 @@ export default function AppRoutes() {
           </ProtectedRoute>
         }
       />
-      <Route 
-         path="/admin/kataloge/verwaltung" 
-         element={
+
+      <Route
+        path="/admin/kataloge/verwaltung"
+        element={
           <ProtectedRoute>
             <KatalogVerwaltung />
           </ProtectedRoute>
-         } />
+        }
+      />
+
       <Route
         path="/admin/katalogzuweisen"
         element={
@@ -137,6 +135,7 @@ export default function AppRoutes() {
           </ProtectedRoute>
         }
       />
+
       <Route
         path="/admin/adminPanel"
         element={
@@ -145,6 +144,7 @@ export default function AppRoutes() {
           </ProtectedRoute>
         }
       />
+
       <Route
         path="/admin/adminPanel/users"
         element={
@@ -153,6 +153,7 @@ export default function AppRoutes() {
           </ProtectedRoute>
         }
       />
+
       <Route
         path="/admin/adminPanel/users/:id"
         element={
@@ -161,14 +162,16 @@ export default function AppRoutes() {
           </ProtectedRoute>
         }
       />
+
       <Route
         path="/admin/adminPanel/audit"
         element={
           <ProtectedRoute>
-            < AuditPage />
+            <AuditPage />
           </ProtectedRoute>
         }
       />
+
       <Route
         path="/admin/adminPanel/roles"
         element={
@@ -177,6 +180,7 @@ export default function AppRoutes() {
           </ProtectedRoute>
         }
       />
+
       <Route
         path="/admin/adminPanel/companies"
         element={
@@ -185,7 +189,8 @@ export default function AppRoutes() {
           </ProtectedRoute>
         }
       />
-          <Route
+
+      <Route
         path="/admin/adminPanel/zuweisungen"
         element={
           <ProtectedRoute>
@@ -193,6 +198,7 @@ export default function AppRoutes() {
           </ProtectedRoute>
         }
       />
+
       <Route
         path="/admin/adminPanel/companies/:id"
         element={
@@ -211,6 +217,7 @@ export default function AppRoutes() {
           </ProtectedRoute>
         }
       />
+
       <Route
         path="/admin/topics/operating-model"
         element={
@@ -219,6 +226,7 @@ export default function AppRoutes() {
           </ProtectedRoute>
         }
       />
+
       <Route
         path="/admin/topics/sourcing"
         element={
@@ -227,6 +235,7 @@ export default function AppRoutes() {
           </ProtectedRoute>
         }
       />
+
       <Route
         path="/admin/topics/project-management"
         element={
@@ -243,7 +252,7 @@ export default function AppRoutes() {
             <CatalogList />
           </ProtectedRoute>
         }
-     /> 
+      />
 
       <Route
         path="/admin/catalogs/:id/condition-editor"
@@ -253,6 +262,7 @@ export default function AppRoutes() {
           </ProtectedRoute>
         }
       />
+
       <Route
         path="/testComp"
         element={
@@ -261,6 +271,7 @@ export default function AppRoutes() {
           </ProtectedRoute>
         }
       />
+
       <Route
         path="/tests"
         element={
@@ -269,7 +280,6 @@ export default function AppRoutes() {
           </ProtectedRoute>
         }
       />
-
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
