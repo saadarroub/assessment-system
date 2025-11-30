@@ -6,12 +6,12 @@ import com.assessment.backend.dto.UpdateCompanyDTO;
 import com.assessment.backend.entity.Company;
 import com.assessment.backend.entity.Thema;
 import com.assessment.backend.service.CompanyService;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -71,6 +71,7 @@ public class CompanyController {
 
   //Change the current Status
   @PatchMapping("/status/change/{id}")
+  @PreAuthorize("hasAuthority('companies.change')")
   public ResponseEntity<Company> changeStatusById(@PathVariable("id") UUID id) {
     try {
       Company changedStatus = companyService.changeStatus(id);
@@ -85,6 +86,7 @@ public class CompanyController {
 
   //Deactivate All
   @PatchMapping("/status/deactivate")
+  @PreAuthorize("hasAuthority('companies.change')")
   public ResponseEntity<List<Company>> deactivateAll(){
     try{
       List<Company> deactivatedCompanies = companyService.deactivateAll();
@@ -97,12 +99,14 @@ public class CompanyController {
   }
 
     @PostMapping
+    @PreAuthorize("hasAuthority('companies.create')")
     public ResponseEntity<CompanyResponseDTO> createCompany(@Valid @RequestBody CreateCompanyDTO dto) {
         CompanyResponseDTO created = companyService.createCompany(dto);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('companies.edit')")
     public ResponseEntity<CompanyResponseDTO> updateCompany(
             @PathVariable UUID id, 
             @Valid @RequestBody UpdateCompanyDTO dto) {
@@ -111,6 +115,7 @@ public class CompanyController {
     }
 
     @PatchMapping("/{id}/status")
+    @PreAuthorize("hasAuthority('companies.change')")
     public ResponseEntity<CompanyResponseDTO> updateCompanyStatus(
             @PathVariable UUID id,
             @RequestBody Map<String, String> payload) {
@@ -123,6 +128,7 @@ public class CompanyController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('companies.delete')")
     public ResponseEntity<Void> deleteCompany(@PathVariable UUID id) {
         companyService.deleteCompany(id);
         return ResponseEntity.noContent().build();

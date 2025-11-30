@@ -4,6 +4,8 @@ import com.assessment.backend.entity.Catalog;
 import com.assessment.backend.entity.Thema;
 import com.assessment.backend.service.CatalogService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.prepost.PreAuthorize;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -22,6 +24,7 @@ public class CatalogController {
 
     // Create - POST /api/catalogs
     @PostMapping
+    @PreAuthorize("hasAuthority('catalogs.create')")
     public ResponseEntity<Catalog> createCatalog(@RequestBody Catalog catalog) {
         try {
             Catalog createdCatalog = catalogService.createCatalog(catalog);
@@ -87,6 +90,7 @@ public class CatalogController {
 
     // Update - PUT /api/catalogs/{id}
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('catalogs.edit')")
     public ResponseEntity<Catalog> updateCatalog(@PathVariable("id") UUID id, @RequestBody Catalog catalog) {
         try {
             Catalog updatedCatalog = catalogService.updateCatalog(id, catalog);
@@ -100,6 +104,7 @@ public class CatalogController {
 
   //Change the current Status
   @PatchMapping("/status/change/{id}")
+  @PreAuthorize("hasAuthority('catalogs.change')")
   public ResponseEntity<Catalog> changeStatusById(@PathVariable("id") UUID id) {
     try {
       Catalog changedStatus = catalogService.changeStatus(id);
@@ -114,6 +119,7 @@ public class CatalogController {
 
   //Deactivate All
   @PatchMapping("/status/deactivate")
+  @PreAuthorize("hasAuthority('catalogs.change')")
   public ResponseEntity<List<Catalog>> deactivateAll(){
     try{
       List<Catalog> deactivatedCatalogs = catalogService.deactivateAll();
@@ -127,6 +133,7 @@ public class CatalogController {
 
     // Delete - DELETE /api/catalogs/{id}
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('catalogs.delete')")
     public ResponseEntity<HttpStatus> deleteCatalog(@PathVariable("id") UUID id) {
         try {
             catalogService.deleteCatalog(id);
@@ -140,6 +147,7 @@ public class CatalogController {
 
     // Delete All - DELETE /api/catalogs
     @DeleteMapping
+    @PreAuthorize("hasAuthority('catalogs.delete')")
     public ResponseEntity<HttpStatus> deleteAllCatalogs() {
         try {
             catalogService.getAllCatalogs().forEach(catalog -> catalogService.deleteCatalog(catalog.getId()));

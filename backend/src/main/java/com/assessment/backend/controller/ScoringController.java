@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 import com.assessment.backend.dto.AdminManualScoringResponseDTO;
 import com.assessment.backend.dto.CatalogScoreDTO;
@@ -91,7 +92,7 @@ public class ScoringController {
      * }
      */
     @GetMapping("/company/{companyId}/overall")
-    @PreAuthorize("hasAuthority('ADMIN_PANEL_ADMIN')")
+    
     public ResponseEntity<?> getCompanyOverallScore(@PathVariable("companyId") String companyId) {
         try {
             UUID companyUuid = UUID.fromString(companyId);
@@ -136,7 +137,7 @@ public class ScoringController {
      * }
      */
     @GetMapping("/company/{companyId}/catalog/{catalogId}")
-    @PreAuthorize("hasAuthority('ADMIN_PANEL_ADMIN')")
+    
     public ResponseEntity<?> getCompanyCatalogScore(
             @PathVariable("companyId") String companyId,
             @PathVariable("catalogId") String catalogId) {
@@ -195,7 +196,7 @@ public class ScoringController {
      * }
      */
     @GetMapping("/company/{companyId}/catalog/{catalogId}/workers")
-    @PreAuthorize("hasAuthority('ADMIN_PANEL_ADMIN')")
+    
     public ResponseEntity<?> getCompanyCatalogScoreWithWorkers(
             @PathVariable("companyId") String companyId,
             @PathVariable("catalogId") String catalogId) {
@@ -242,7 +243,7 @@ public class ScoringController {
      * }
      */
     @GetMapping("/company/{companyId}/thema/{themaId}")
-    @PreAuthorize("hasAuthority('ADMIN_PANEL_ADMIN')")
+    
     public ResponseEntity<?> getCompanyThemaScore(
             @PathVariable("companyId") String companyId,
             @PathVariable("themaId") String themaId) {
@@ -289,7 +290,7 @@ public class ScoringController {
      * }
      */
     @GetMapping("/worker/{workerId}/thema/{themaId}")
-    @PreAuthorize("hasAuthority('ADMIN_PANEL_ADMIN')")
+    
     public ResponseEntity<?> getWorkerThemaScore(
             @PathVariable("workerId") String workerId,
             @PathVariable("themaId") String themaId) {
@@ -338,7 +339,7 @@ public class ScoringController {
      * }
      */
     @GetMapping("/worker/{workerId}/catalog/{catalogId}")
-    @PreAuthorize("hasAuthority('ADMIN_PANEL_ADMIN')")
+    
     public ResponseEntity<?> getWorkerCatalogScore(
             @PathVariable("workerId") String workerId,
             @PathVariable("catalogId") String catalogId) {

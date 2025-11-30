@@ -5,6 +5,7 @@ import com.assessment.backend.service.ThemaService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -21,6 +22,7 @@ public class  ThemaController {
 
     // Create - POST /api/themas
     @PostMapping
+    @PreAuthorize("hasAuthority('themas.create')")
     public ResponseEntity<Thema> createThema(@RequestBody Thema thema) {
         try {
             Thema createdThema = themaService.createThema(thema);
@@ -98,6 +100,7 @@ public class  ThemaController {
 
   //Change the current Status
   @PatchMapping("/status/change/{id}")
+  @PreAuthorize("hasAuthority('themas.change')")
   public ResponseEntity<Thema> changeStatusById(@PathVariable("id") UUID id) {
     try {
       Thema changedStatus = themaService.changeStatus(id);
@@ -112,6 +115,7 @@ public class  ThemaController {
 
   //Deactivate All
   @PatchMapping("/status/deactivate")
+  @PreAuthorize("hasAuthority('themas.change')")
   public ResponseEntity<List<Thema>> deactivateAll(){
       try{
         List<Thema> deactivatedThemas = themaService.deactivateAll();
@@ -140,6 +144,7 @@ public class  ThemaController {
 
     // Update - PUT /api/themas/{id}
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('themas.edit')")
     public ResponseEntity<Thema> updateThema(@PathVariable("id") UUID id, @RequestBody Thema thema) {
         try {
             Thema updatedThema = themaService.updateThema(id, thema);
@@ -153,6 +158,7 @@ public class  ThemaController {
 
     // Delete - DELETE /api/themas/{id}
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('themas.delete')")
     public ResponseEntity<HttpStatus> deleteThema(@PathVariable("id") UUID id) {
         try {
             themaService.deleteThema(id);
@@ -166,6 +172,7 @@ public class  ThemaController {
 
     // Delete All - DELETE /api/themas
     @DeleteMapping
+    @PreAuthorize("hasAuthority('themas.delete')")
     public ResponseEntity<HttpStatus> deleteAllThemas() {
         try {
             themaService.getAllThemas().forEach(thema -> themaService.deleteThema(thema.getId()));
@@ -210,6 +217,7 @@ public class  ThemaController {
 
     // Duplicate Thema - POST /api/themas/{id}/duplicate
     @PostMapping("/{id}/duplicate")
+    @PreAuthorize("hasAuthority('themas.duplicate')")
     public ResponseEntity<Thema> duplicateThema(@PathVariable("id") UUID id) {
         try {
             Thema duplicatedThema = themaService.duplicateThema(id);
