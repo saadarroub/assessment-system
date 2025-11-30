@@ -1,574 +1,288 @@
-import { useParams } from 'react-router-dom';
+// src/main/react/features/worker-area/results/ResultsPage.tsx
+
+import React, { useState, useRef, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import {
   Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
-  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
-  LineChart, Line, PieChart, Pie, Cell
+  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Cell
 } from 'recharts';
-import AppHeader from '@/apps/app/AppHeader';
+import AdminLayout from "@/apps/app/AdminLayout";
+import { ArrowLeft, CheckSquare, FileText, Mail, Save, AlertTriangle } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable'; 
+
+
+interface Question {
+  id: number;
+  type: 'choice' | 'text' | 'date';
+  question: string;
+  answer: string;
+  score: number | null; 
+  category: string;
+}
 
 export default function ResultsPage() {
   const { sessionId } = useParams();
+  const navigate = useNavigate();
+  
 
-  const securityData = [
-    { subject: 'Netzwerksicherheit', score: 85, maxScore: 100, category: 'Technisch' },
-    { subject: 'Datenschutz', score: 72, maxScore: 100, category: 'Compliance' },
-    { subject: 'Zugriffskontrolle', score: 90, maxScore: 100, category: 'Technisch' },
-    { subject: 'Physische Sicherheit', score: 65, maxScore: 100, category: 'Physisch' },
-    { subject: 'Mitarbeitersicherheit', score: 78, maxScore: 100, category: 'Human' },
-    { subject: 'Incident Response', score: 55, maxScore: 100, category: 'Prozess' }
-  ];
+  const radarChartRef = useRef<HTMLDivElement>(null);
 
-  const overallScore = Math.round(securityData.reduce((sum, item) => sum + item.score, 0) / securityData.length);
 
-  const competitorData = [
-    { category: 'Unsere Firma', Technisch: 87, Compliance: 72, Prozess: 66, Human: 78, Physisch: 65 },
-    { category: 'Branchendurchschnitt', Technisch: 75, Compliance: 80, Prozess: 70, Human: 72, Physisch: 68 },
-    { category: 'Top 25%', Technisch: 92, Compliance: 88, Prozess: 85, Human: 85, Physisch: 82 },
-  ];
+  const [questions, setQuestions] = useState<Question[]>([
+    { id: 1, type: 'choice', category: 'Netzwerk', question: 'Ist die Firewall aktiviert?', answer: 'Ja', score: 100 },
+    { id: 2, type: 'choice', category: 'Zugriff', question: 'Werden Passwörter alle 90 Tage geändert?', answer: 'Nein', score: 0 },
 
-  const trendData = [
-    { period: 'Q1 2024', score: 65 },
-    { period: 'Q2 2024', score: 68 },
-    { period: 'Q3 2024', score: 71 },
-    { period: 'Q4 2024', score: 73 },
-    { period: 'Q1 2025', score: overallScore }
-  ];
+    { id: 3, type: 'text', category: 'Incident Response', question: 'Beschreiben Sie den Prozess bei Datenverlust.', answer: 'Ich melde es dem IT-Support per E-Mail.', score: null },
+    { id: 4, type: 'date', category: 'Compliance', question: 'Wann war die letzte Schulung?', answer: '2023-11-01', score: null },
+    { id: 5, type: 'text', category: 'Physische Sicherheit', question: 'Wie werden Besucher protokolliert?', answer: 'Es liegt eine Liste am Empfang.', score: null },
+  ]);
 
-  const riskData = [
-    { name: 'Niedrig', value: 45, color: '#10B981' },
-    { name: 'Mittel', value: 30, color: '#F59E0B' },
-    { name: 'Hoch', value: 20, color: '#EF4444' },
-    { name: 'Kritisch', value: 5, color: '#DC2626' }
-  ];
+  const [adminNote, setAdminNote] = useState(''); 
+  const [isSaved, setIsSaved] = useState(false);
 
-  const getMaturityLevel = (score: number) => {
-    if (score >= 90) return { level: 'Optimiert', color: '#10B981', desc: 'Exzellente Sicherheitsstandards' };
-    if (score >= 80) return { level: 'Verwaltet', color: '#3B82F6', desc: 'Gute Sicherheitsmaßnahmen' };
-    if (score >= 70) return { level: 'Definiert', color: '#F59E0B', desc: 'Grundlegende Sicherheit vorhanden' };
-    if (score >= 50) return { level: 'Wiederholt', color: '#EF4444', desc: 'Verbesserungsbedarf' };
-    return { level: 'Initial', color: '#DC2626', desc: 'Dringende Maßnahmen erforderlich' };
+  const handleScoreChange = (id: number, val: string) => {
+    const numVal = val === '' ? null : Math.min(100, Math.max(0, Number(val)));
+    setQuestions(prev => prev.map(q => q.id === id ? { ...q, score: numVal } : q));
+    setIsSaved(false);
   };
 
-  const maturity = getMaturityLevel(overallScore);
-
-  const recommendations = [
-    { priority: 'Hoch', area: 'Incident Response', action: 'Incident Response Plan implementieren', effort: 'Hoch', timeline: '3-6 Monate' },
-    { priority: 'Hoch', area: 'Physische Sicherheit', action: 'Zugangskontrollen verstärken', effort: 'Mittel', timeline: '1-3 Monate' },
-    { priority: 'Mittel', area: 'Datenschutz', action: 'DSGVO-Compliance überprüfen', effort: 'Mittel', timeline: '2-4 Monate' },
-    { priority: 'Mittel', area: 'Mitarbeitersicherheit', action: 'Security Awareness Training', effort: 'Niedrig', timeline: '1-2 Monate' }
-  ];
-
-  const getPriorityColor = (priority: string): string => {
-    switch (priority) {
-      case 'Hoch': return 'bg-red-100 text-red-800';
-      case 'Mittel': return 'bg-yellow-100 text-yellow-800';
-      case 'Niedrig': return 'bg-green-100 text-green-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-  
-  {/*
-  const convertChartsToImages = async () => {
-    const charts = document.querySelectorAll('.recharts-wrapper');
-    const promises = Array.from(charts).map(async (chart) => {
-      try {
-        const parentElement = chart.parentNode as HTMLElement;
-        if (!parentElement) {
-          throw new Error('Parent element not found');
-        }
-
-        const canvas = await html2canvas(parentElement, {
-          backgroundColor: '#ffffff',
-          scale: 2,
-          useCORS: true,
-          allowTaint: true,
-          logging: false
-        });
-        
-        const imgData = canvas.toDataURL('image/png');
-        const img = document.createElement('img');
-        img.src = imgData;
-        img.style.width = `${parentElement.offsetWidth}px`;
-        img.style.height = `${parentElement.offsetHeight}px`;
-        img.style.display = 'block';
-        
-        (chart as HTMLElement).style.display = 'none';
-        parentElement.appendChild(img);
-      
-        return { chart, img };
-      } catch (error) {
-        console.error('Chart conversion error:', error);
-        return null;
-      }    
-    });
-  
-  const results = await Promise.all(promises);
-  return results.filter(result => result !== null);
-};
-*/}
-
-
-const exportToExcel = () => {
-  const excelButton = document.getElementById('excel-btn') as HTMLButtonElement;
-  if (excelButton) {
-    excelButton.disabled = true;
-    excelButton.textContent = 'Excel generieren...';
-  }
-
-  try {
-    const data = [
-      ['Sicherheitsbereich', 'Aktueller Score', 'Max Score', 'Kategorie'],
-      ...securityData.map(item => [item.subject, item.score, item.maxScore, item.category]),
-      [],
-      ['Empfehlungen'],
-      ['Priorität', 'Bereich', 'Maßnahme', 'Aufwand', 'Zeitrahmen'],
-      ...recommendations.map(rec => [rec.priority, rec.area, rec.action, rec.effort, rec.timeline])
-    ];
-    
-    const csvContent = data.map(row => row.join(',')).join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `Security_Assessment_${sessionId}_${new Date().toISOString().split('T')[0]}.csv`;
-    link.click();
-  } finally {
-    setTimeout(() => {
-      const btn = document.getElementById('excel-btn') as HTMLButtonElement;
-      if (btn) {
-        btn.disabled = false;
-        btn.textContent = 'Als Excel exportieren';
-      }
-    }, 1000);
-  }
-};
-{/*
-const convertSVGToImage = (svg: SVGElement): Promise<HTMLImageElement> => {
-  return new Promise((resolve) => {
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    const img = new Image();
-    
-    const svgData = new XMLSerializer().serializeToString(svg);
-    const svgBlob = new Blob([svgData], {type: 'image/svg+xml;charset=utf-8'});
-    const url = URL.createObjectURL(svgBlob);
-    
-    img.onload = () => {
-      const bounds = svg.getBoundingClientRect();
-      canvas.width = bounds.width;
-      canvas.height = bounds.height;
-      
-      if (ctx) {
-        ctx.drawImage(img, 0, 0);
-        URL.revokeObjectURL(url);
-        
-        canvas.toBlob((blob) => {
-          if (blob) {
-            const imgElement = document.createElement('img');
-            imgElement.src = URL.createObjectURL(blob);
-            imgElement.style.width = `${canvas.width}px`;
-            imgElement.style.height = `${canvas.height}px`;
-            resolve(imgElement);
-          }
-        });
-      }
-    };
-    
-    img.src = url;
+  const categories = Array.from(new Set(questions.map(q => q.category)));
+  const chartData = categories.map(cat => {
+    const list = questions.filter(q => q.category === cat && q.score !== null);
+    const avg = list.length ? Math.round(list.reduce((a, b) => a + (b.score || 0), 0) / list.length) : 0;
+    return { subject: cat, score: avg };
   });
-};
-*/}
+  const overallScore = Math.round(chartData.reduce((a, b) => a + b.score, 0) / (chartData.length || 1));
+
+  const handleSave = () => {
+    // fetch('/api/save-score', { method: 'POST', body: ... })
+    setIsSaved(true);
+    alert('Bewertung gespeichert!');
+  };
+
+  const generatePDF = async () => {
+    try {
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+      
+      // -- Header --
+      doc.setFontSize(18);
+      doc.setTextColor(41, 128, 185); // Blue
+      doc.text("Sicherheitsanalyse Report", 14, 20);
+      
+      doc.setFontSize(10);
+      doc.setTextColor(100);
+      doc.text(`Session ID: ${sessionId}`, 14, 28);
+      doc.text(`Datum: ${new Date().toLocaleDateString('de-DE')}`, 14, 33);
+      doc.text(`Gesamtscore: ${overallScore}/100`, 14, 38);
+
+      let yPos = 50;
+
+      if (radarChartRef.current) {
+        try {
+          const canvas = await html2canvas(radarChartRef.current, { 
+            scale: 2,
+            backgroundColor: '#ffffff' 
+          });
+          const imgData = canvas.toDataURL('image/png');
+          doc.addImage(imgData, 'PNG', 15, yPos, 80, 60); 
+          
+          doc.setFontSize(10);
+          doc.setTextColor(150);
+          doc.text("Ergebnis Visualisierung", 15, yPos - 2);
+          
+          yPos += 70; 
+        } catch (chartError) {
+          console.error("Chart capture failed:", chartError);
+        }
+      }
 
 
-const exportToPNG = async () => {
-  const element = document.getElementById('results-content');
-  if (!element) return;
+      if (adminNote) {
+        doc.setFontSize(12);
+        doc.setTextColor(0);
+        doc.text("Zusammenfassung & Maßnahmen:", 14, yPos);
+        yPos += 7;
+        
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "italic");
+        const splitNote = doc.splitTextToSize(adminNote, pageWidth - 28);
+        doc.text(splitNote, 14, yPos);
+        yPos += (splitNote.length * 5) + 10;
+      }
 
-  try {
-    const pngButton = document.getElementById('png-btn') as HTMLButtonElement;
-    if (pngButton) {
-      pngButton.disabled = true;
-      pngButton.textContent = 'PNG generieren...';
+      autoTable(doc, {
+        startY: yPos,
+        head: [['Kategorie', 'Frage', 'Antwort', 'Score']],
+        body: questions.map(q => [
+          q.category,
+          q.question,
+          q.answer,
+          q.score !== null ? `${q.score}` : 'Offen'
+        ]),
+        styles: { fontSize: 8, cellPadding: 3 },
+        headStyles: { fillColor: [41, 128, 185] },
+        columnStyles: { 
+          0: { cellWidth: 25 }, 
+          1: { cellWidth: 60 },
+          2: { cellWidth: 60 },
+          3: { cellWidth: 20, halign: 'center' }
+        },
+        margin: { top: 20 },
+      });
+
+
+      doc.save(`Report_${sessionId}.pdf`);
+      
+    } catch (error) {
+      console.error("PDF generation failed:", error);
+      alert("PDF Error");
     }
-
-    window.scrollTo(0, 0);
-    await new Promise(resolve => setTimeout(resolve, 500));
-
-    const canvas = await html2canvas(document.body, {
-      scale: 1,
-      useCORS: true,
-      allowTaint: true,
-      backgroundColor: '#ffffff',
-      x: element.offsetLeft,
-      y: element.offsetTop,
-      width: element.scrollWidth,
-      height: element.scrollHeight
-    });
-
-    const link = document.createElement('a');
-    link.download = `Security_Assessment_${sessionId}_${new Date().toISOString().split('T')[0]}.png`;
-    link.href = canvas.toDataURL('image/png');
-    link.click();
-    
-  } catch (error) {
-    console.error('PNG export error:', error);
-  } finally {
-    const pngButton = document.getElementById('png-btn') as HTMLButtonElement;
-    if (pngButton) {
-      pngButton.disabled = false;
-      pngButton.textContent = 'Als PNG exportieren';
-    }
-  }
-};
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  const exportToPDF = async () => {
-  const element = document.getElementById('results-content');
-  if (!element) return;
-
-  try {
-    const exportButton = document.getElementById('export-btn') as HTMLButtonElement;
-    if (exportButton) {
-      exportButton.disabled = true;
-      exportButton.textContent = 'PDF generieren...';
-    }
-
-    const canvas = await html2canvas(element, {
-      scale: 1,
-      useCORS: true,
-      allowTaint: true,
-      backgroundColor: '#ffffff',
-      width: element.scrollWidth,
-      height: element.scrollHeight
-    });
-
-    const imgData = canvas.toDataURL('image/png');
-    
-    const pdf = new jsPDF('p', 'mm', 'a4');
-    const pdfWidth = pdf.internal.pageSize.getWidth();
-    const pdfHeight = pdf.internal.pageSize.getHeight();
-    
-    const imgWidth = pdfWidth;
-    const imgHeight = (canvas.height * pdfWidth) / canvas.width;
-    
-    let heightLeft = imgHeight;
-    let position = 0;
-
-    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-    heightLeft -= pdfHeight;
-
-    while (heightLeft >= 0) {
-      position = heightLeft - imgHeight;
-      pdf.addPage();
-      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-      heightLeft -= pdfHeight;
-    }
-
-    const filename = `Security_Assessment_${sessionId || 'Report'}_${new Date().toISOString().split('T')[0]}.pdf`;
-    pdf.save(filename);
-
-  } catch (error) {
-    console.error('PDF export error:', error);
-    alert('PDF error.');
-  } finally {
-    const exportButton = document.getElementById('export-btn') as HTMLButtonElement;
-    if (exportButton) {
-      exportButton.disabled = false;
-      exportButton.textContent = 'Als PDF exportieren';
-    }
-  }
-};
+  };
 
   return (
-    <>
-      <AppHeader />
-      <div className="wrapper p-6 bg-gray-50 min-h-screen">
-        
-        
-        <div className="flex justify-between items-center mb-6">
-  <div>
-    <h1 className="text-2xl font-bold text-gray-900 mb-1">Ergebnisse</h1>
-    <p className="text-gray-500">Session: <strong>{sessionId ?? '—'}</strong></p>
-  </div>
-  <div className="flex gap-2">
-  <button
-    id="export-btn"
-    onClick={exportToPDF}
-    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow-md transition-colors duration-200 flex items-center gap-2"
-  >
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"> <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-    </svg>
-    Als PDF exportieren
-  </button>
-  
-  <button 
-    id="excel-btn"
-    onClick={exportToExcel} 
-    className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg shadow-md transition-colors duration-200 flex items-center gap-2"
-  >
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-    </svg>
-    Als Excel exportieren
-  </button>
-  
-  <button 
-    id="png-btn"
-    onClick={exportToPNG} 
-    className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg shadow-md transition-colors duration-200 flex items-center gap-2"
-  >
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-    </svg>
-    Als PNG exportieren
-  </button>
-</div>
-</div>
-
-        
-        <div id="results-content" className="space-y-8">
-        
-
-        {/* Gesamtpunktzahl - Full Width */}
-        <div className="mb-8 w-full">
-          <div className="bg-white p-8 rounded-lg shadow-md w-full">
-            <h2 className="text-xl font-bold text-gray-800 mb-6 text-center">Gesamtpunktzahl</h2>
-            <div className="flex items-center justify-center mb-6">
-              <div className="relative w-40 h-40">
-                <svg className="w-40 h-40 transform -rotate-90" viewBox="0 0 100 100">
-                  <circle cx="50" cy="50" r="45" stroke="#e0e0e0" strokeWidth="8" fill="none" />
-                  <circle
-                    cx="50"
-                    cy="50"
-                    r="45"
-                    stroke={maturity.color}
-                    strokeWidth="8"
-                    fill="none"
-                    strokeLinecap="round"
-                    strokeDasharray={`${overallScore * 2.83} 283`}
-                  />
-                </svg>
-                <div className="absolute inset-0 flex items-center justify-center flex-col">
-                  <span className="text-4xl font-bold text-gray-800">{overallScore}</span>
-                  <span className="text-sm text-gray-600">von 100</span>
-                </div>
+    <AdminLayout>
+      <div className="min-h-screen bg-gray-50 pb-20">
+        {/* Header Bar */}
+        <div className="bg-white shadow border-b border-gray-200 sticky top-0 z-10">
+          <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+            <div className="flex items-center gap-4">
+              <button onClick={() => navigate(-1)} className="text-gray-500 hover:text-gray-700">
+                <ArrowLeft />
+              </button>
+              <div>
+                <h1 className="text-xl font-bold text-gray-900">Manuelle Bewertung & Report</h1>
+                <p className="text-xs text-gray-500">Session: {sessionId}</p>
               </div>
             </div>
-            <div className="text-center">
-              <span
-                className="inline-block px-4 py-2 rounded-full text-sm font-medium mb-2"
-                style={{ backgroundColor: maturity.color + '20', color: maturity.color }}
-              >
-                {maturity.level}
-              </span>
-              <p className="text-sm text-gray-600">{maturity.desc}</p>
+            <div className="flex items-center gap-3">
+              <button onClick={handleSave} className="flex items-center gap-2 bg-white border border-blue-600 text-blue-600 px-4 py-2 rounded hover:bg-blue-50 transition">
+                <Save size={18} /> Speichern
+              </button>
+              <button onClick={generatePDF} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition shadow-sm">
+                <FileText size={18} /> PDF Export
+              </button>
             </div>
           </div>
         </div>
 
-        {/* Charts Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          {/* Radar Chart */}
-          <div className="bg-white p-6 rounded-lg shadow-md">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">Detailbewertung nach Bereichen</h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <RadarChart data={securityData}>
-                <PolarGrid />
-                <PolarAngleAxis dataKey="subject" tick={{ fontSize: 11 }} />
-                <PolarRadiusAxis angle={90} domain={[0, 100]} tick={{ fontSize: 10 }} />
-                <Radar name="Aktuelle Bewertung" dataKey="score" stroke="#3B82F6" fill="#3B82F6" fillOpacity={0.3} strokeWidth={2} />
-                <Tooltip />
-              </RadarChart>
-            </ResponsiveContainer>
-          </div>
-
-          {/* Bar Chart */}
-          <div className="bg-white p-6 rounded-lg shadow-md">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">Bewertung nach Sicherheitsbereichen</h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={securityData} margin={{ bottom: 80 }}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="subject" angle={-45} textAnchor="end" height={80} interval={0} tick={{ fontSize: 10 }} />
-                <YAxis domain={[0, 100]} />
-                <Tooltip />
-                <Bar dataKey="score" fill="#3B82F6">
-                  {securityData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.score < 70 ? '#EF4444' : entry.score < 85 ? '#F59E0B' : '#10B981'} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-
-          {/* Risiko-Verteilung */}
-          <div className="bg-white p-6 rounded-lg shadow-md">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">Risikoverteilung</h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie data={riskData} cx="50%" cy="50%" innerRadius={60} outerRadius={100} dataKey="value" label={({ name, value }) => `${name}: ${value}%`} labelLine={false}>
-                  {riskData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-
-          {/* Schlüsselmetriken */}
-          <div className="bg-white p-6 rounded-lg shadow-md">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">Schlüsselmetriken</h3>
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600">Stärkster Bereich:</span>
-                <span className="font-medium text-green-600 text-sm">
-                  {securityData.reduce((max, item) => item.score > max.score ? item : max).subject}
+        <div className="max-w-7xl mx-auto px-6 py-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
+          
+          <div className="lg:col-span-2 space-y-6">
+            
+            <div className="bg-white rounded-lg shadow border border-yellow-200 overflow-hidden">
+              <div className="bg-yellow-50 px-6 py-4 border-b border-yellow-200 flex justify-between items-center">
+                <h2 className="font-bold text-yellow-800 flex items-center gap-2">
+                  <AlertTriangle size={20} /> Manuelle Bewertung erforderlich
+                </h2>
+                <span className="text-xs bg-yellow-200 text-yellow-800 px-2 py-1 rounded-full">
+                  {questions.filter(q => q.score === null).length} Offen
                 </span>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600">Schwächster Bereich:</span>
-                <span className="font-medium text-red-600 text-sm">
-                  {securityData.reduce((min, item) => item.score < min.score ? item : min).subject}
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600">Offene Empfehlungen:</span>
-                <span className="font-medium text-blue-600">{recommendations.length}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600">Branchendurchschnitt:</span>
-                <span className="font-medium text-gray-800">73 Punkte</span>
-              </div>
-              <div className="pt-4 border-t border-gray-200">
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-blue-600 mb-1">{overallScore}</div>
-                  <div className="text-sm text-gray-500">Ihre Gesamtbewertung</div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Branchenvergleich */}
-          <div className="bg-white p-6 rounded-lg shadow-md">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">Branchenvergleich</h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={competitorData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="category" tick={{ fontSize: 11 }} />
-                <YAxis domain={[0, 100]} />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="Technisch" stackId="a" fill="#3B82F6" />
-                <Bar dataKey="Compliance" stackId="a" fill="#10B981" />
-                <Bar dataKey="Prozess" stackId="a" fill="#F59E0B" />
-                <Bar dataKey="Human" stackId="a" fill="#8B5CF6" />
-                <Bar dataKey="Physisch" stackId="a" fill="#EF4444" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-
-          {/* Sicherheitstrend */}
-          <div className="bg-white p-6 rounded-lg shadow-md">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">Sicherheitstrend</h3>
-            <ResponsiveContainer width="100%" height={260}>
-              <LineChart data={trendData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="period" />
-                <YAxis domain={[0, 100]} />
-                <Tooltip />
-                <Line
-                  type="monotone"
-                  dataKey="score"
-                  stroke="#3B82F6"
-                  strokeWidth={3}
-                  dot={{ fill: '#3B82F6', strokeWidth: 2, r: 6 }}
-                  activeDot={{ r: 8 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-            <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-              <p className="text-sm text-blue-800">
-                <strong>Trend:</strong> Kontinuierliche Verbesserung um {overallScore - 65} Punkte seit Q1 2024
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Handlungsempfehlungen */}
-        <div className="bg-white p-6 rounded-lg shadow-md mb-8">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Prioritäre Handlungsempfehlungen</h3>
-          <div className="overflow-x-auto">
-            <table className="min-w-full">
-              <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="text-left py-3 px-4 font-medium text-gray-600">Priorität</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-600">Bereich</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-600">Maßnahme</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-600">Aufwand</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-600">Zeitrahmen</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recommendations.map((rec, index) => (
-                  <tr key={index} className="border-b border-gray-100">
-                    <td className="py-3 px-4">
-                      <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(rec.priority)}`}>
-                        {rec.priority}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 font-medium text-gray-800">{rec.area}</td>
-                    <td className="py-3 px-4 text-gray-700">{rec.action}</td>
-                    <td className="py-3 px-4 text-gray-600">{rec.effort}</td>
-                    <td className="py-3 px-4 text-gray-600">{rec.timeline}</td>
-                  </tr>
+              <div className="p-6 space-y-6">
+                {questions.filter(q => q.type !== 'choice').map(q => (
+                  <div key={q.id} className="border-b border-gray-100 last:border-0 pb-6 last:pb-0">
+                    <div className="flex justify-between mb-2">
+                      <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">{q.category}</span>
+                      {q.score !== null ? (
+                        <span className="text-xs font-bold text-green-600 flex items-center gap-1"><CheckSquare size={12}/> Bewertet</span>
+                      ) : (
+                        <span className="text-xs font-bold text-red-500">Nicht bewertet</span>
+                      )}
+                    </div>
+                    <p className="font-medium text-gray-900 mb-2">{q.question}</p>
+                    <div className="bg-gray-50 p-3 rounded mb-3 text-sm text-gray-700 italic border-l-4 border-gray-300">
+                      "{q.answer}"
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <label className="text-sm font-medium text-gray-700">Score vergeben (0-100):</label>
+                      <input 
+                        type="number" 
+                        className="w-24 border border-gray-300 rounded p-1 text-center font-bold text-blue-600 focus:ring-2 focus:ring-blue-500 outline-none"
+                        value={q.score === null ? '' : q.score}
+                        placeholder="-"
+                        onChange={(e) => handleScoreChange(q.id, e.target.value)}
+                      />
+                    </div>
+                  </div>
                 ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* Footer Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-white p-6 rounded-lg shadow-md">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">Nächste Schritte</h3>
-            <ul className="space-y-2 text-gray-700">
-              <li className="flex items-start"><span className="text-blue-500 mr-2">•</span>Detailanalyse der kritischen Bereiche durchführen</li>
-              <li className="flex items-start"><span className="text-blue-500 mr-2">•</span>Implementierungsplan für Empfehlungen erstellen</li>
-              <li className="flex items-start"><span className="text-blue-500 mr-2">•</span>Quartalsbewertung für Fortschrittsmessung einplanen</li>
-              <li className="flex items-start"><span className="text-blue-500 mr-2">•</span>Mitarbeiterschulungen priorisieren</li>
-            </ul>
-          </div>
-
-          <div className="bg-white p-6 rounded-lg shadow-md">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">Kontakt & Support</h3>
-            <div className="text-gray-700 space-y-2">
-              <p><strong>Bewertungsdatum:</strong> {new Date().toLocaleDateString('de-DE')}</p>
-              <p><strong>Nächste Bewertung:</strong> {new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toLocaleDateString('de-DE')}</p>
-              <p><strong>Berichts-ID:</strong> SEC-2025-{Math.random().toString(36).substr(2, 9).toUpperCase()}</p>
-              <div className="mt-4 pt-4 border-t border-gray-200">
-                <p className="text-sm text-gray-600">
-                  Bei Fragen zu diesem Bericht oder Unterstützung bei der Implementierung kontaktieren Sie unser Security-Team.
-                </p>
               </div>
             </div>
+
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <FileText size={20} className="text-blue-500"/> Report Notizen & Maßnahmen
+              </h2>
+              <textarea 
+                className="w-full border border-gray-300 rounded-lg p-4 focus:ring-2 focus:ring-blue-500 outline-none h-32"
+                placeholder="Schreiben Sie hier eine Zusammenfassung oder empfohlene Maßnahmen für den PDF-Bericht..."
+                value={adminNote}
+                onChange={(e) => setAdminNote(e.target.value)}
+              />
+              <p className="text-xs text-gray-500 mt-2 text-right">Dieser Text erscheint im PDF-Export.</p>
+            </div>
+
+
+            <div className="bg-white rounded-lg shadow p-6 opacity-70 hover:opacity-100 transition-opacity">
+               <h2 className="font-bold text-gray-600 mb-4">Bereits bewertet (Automatisch)</h2>
+               <table className="w-full text-sm text-left">
+                 <thead className="text-gray-500 border-b">
+                   <tr>
+                     <th className="pb-2">Frage</th>
+                     <th className="pb-2">Antwort</th>
+                     <th className="pb-2 text-right">Score</th>
+                   </tr>
+                 </thead>
+                 <tbody className="divide-y">
+                   {questions.filter(q => q.type === 'choice').map(q => (
+                     <tr key={q.id}>
+                       <td className="py-2 pr-2">{q.question}</td>
+                       <td className="py-2 font-medium">{q.answer}</td>
+                       <td className="py-2 text-right font-bold text-blue-600">{q.score}</td>
+                     </tr>
+                   ))}
+                 </tbody>
+               </table>
+            </div>
           </div>
+
+
+          <div className="space-y-6">
+            
+            <div className="bg-white rounded-lg shadow p-6 text-center">
+              <p className="text-gray-500 mb-1">Aktueller Gesamtscore</p>
+              <div className="text-5xl font-bold text-blue-600 mb-2">{overallScore}</div>
+              <div className="w-full bg-gray-200 rounded-full h-2.5">
+                <div className="bg-blue-600 h-2.5 rounded-full transition-all duration-500" style={{ width: `${overallScore}%` }}></div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-lg shadow p-6">
+              <h3 className="font-bold text-gray-700 mb-4 text-center">Visualisierung</h3>
+              
+              <div ref={radarChartRef} className="bg-white p-2 flex justify-center">
+                 <ResponsiveContainer width="100%" height={250}>
+                    <RadarChart cx="50%" cy="50%" outerRadius="80%" data={chartData}>
+                      <PolarGrid />
+                      <PolarAngleAxis dataKey="subject" tick={{fontSize: 10}} />
+                      <PolarRadiusAxis angle={30} domain={[0, 100]} />
+                      <Radar name="Score" dataKey="score" stroke="#2563EB" fill="#3B82F6" fillOpacity={0.5} />
+                    </RadarChart>
+                 </ResponsiveContainer>
+              </div>
+              <p className="text-xs text-center text-gray-400 mt-2">Dieses Diagramm wird in das PDF übernommen.</p>
+            </div>
+
+            <button className="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-3 rounded-lg shadow flex items-center justify-center gap-2 transition">
+              <Mail size={20} /> Ergebnis per E-Mail senden
+            </button>
+
+          </div>
+
         </div>
       </div>
-      
-      
-      </div>
-    </>
+    </AdminLayout>
   );
 }
-
