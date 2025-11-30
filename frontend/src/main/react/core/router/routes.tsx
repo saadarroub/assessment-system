@@ -35,7 +35,12 @@ import CatalogList from '@/features/admin-area/catalogs/CatalogList';
 import ReifegradPage from '@/features/admin-area/topics/reifegradmodelle/Reifegradmodelle';
 =======
 import ProfileStrip from '@/apps/app/ProfileStrip';
+<<<<<<< HEAD
 >>>>>>> 5a72eb5e (WIP: meine Änderungen vor Merge sichern)
+=======
+import EmployeeProfile from '@/features/profile/ProfilePage';
+
+>>>>>>> ba8b5303 (WIP: meine Änderungen vor Merge sichern 2)
 
 
 
@@ -71,6 +76,14 @@ export default function AppRoutes() {
         element={
           <ProtectedRoute>
             <CompanyDetailPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/profile"
+        element={
+          <ProtectedRoute>
+            <EmployeeProfile />
           </ProtectedRoute>
         }
       />

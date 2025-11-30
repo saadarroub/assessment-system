@@ -3,14 +3,9 @@ import React, { useEffect, useRef, useState } from "react";
 /* ===== Typen ===== */
 
 type ProfileFormData = {
-  firstName: string;
-  lastName: string;
+  name: string;
   email: string;
   phone: string;
-  street: string;
-  zipCode: string;
-  city: string;
-  country: string;
 };
 
 type CardProps = {
@@ -25,7 +20,7 @@ const Card: React.FC<CardProps> = ({ title, icon, children }) => (
   <div className="mb-6 rounded-2xl bg-white shadow-md transition-shadow duration-300 hover:shadow-lg">
     <div className="border-b border-slate-100 px-6 pb-4 pt-6">
       <h2 className="flex items-center gap-3 text-lg font-semibold text-slate-800">
-        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-500/10 text-sky-500">
+        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#264555]/10 text-[#264555]">
           {icon}
         </span>
         {title}
@@ -41,14 +36,9 @@ const EmployeeProfile: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   const [form, setForm] = useState<ProfileFormData>({
-    firstName: "Max",
-    lastName: "Mustermann",
+    name: "Max Mustermann",
     email: "max.mustermann@unternehmen.de",
     phone: "+49 123 456789",
-    street: "Musterstraße 123",
-    zipCode: "12345",
-    city: "Berlin",
-    country: "Deutschland",
   });
 
   const [originalData, setOriginalData] = useState<ProfileFormData>(form);
@@ -58,8 +48,6 @@ const EmployeeProfile: React.FC = () => {
   const [profileName, setProfileName] = useState("Max Mustermann");
   const [profileEmail, setProfileEmail] = useState("max.mustermann@unternehmen.de");
   const [profileUpdated, setProfileUpdated] = useState("");
-  const [profileRole] = useState("Senior Developer");
-  const [profileCompany] = useState("Tech Solutions GmbH");
 
   // Avatar
   const [avatarImage, setAvatarImage] = useState<string | null>(null);
@@ -100,8 +88,8 @@ const EmployeeProfile: React.FC = () => {
   /* ===== Helper-Funktionen ===== */
 
   const updateProfileHeader = () => {
-    const name = `${form.firstName} ${form.lastName}`.trim();
-    setProfileName(name);
+    const name = form.name.trim();
+    setProfileName(name || "Unbekannter Benutzer");
     setProfileEmail(form.email);
 
     const today = new Date().toLocaleDateString("de-DE", {
@@ -190,12 +178,21 @@ const EmployeeProfile: React.FC = () => {
     }, 3000);
   };
 
-  const initials = `${form.firstName.charAt(0)}${form.lastName.charAt(0)}`.toUpperCase();
+  // Initialen aus dem Namen (max. 2 Buchstaben)
+  const initials =
+    form.name
+      .trim()
+      .split(" ")
+      .filter(Boolean)
+      .map((part) => part.charAt(0))
+      .slice(0, 2)
+      .join("")
+      .toUpperCase() || "U";
 
   /* ===== JSX ===== */
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 px-4 py-12">
+    <div className="min-h-screen bg-gradient-to-b from-[#ebebec] to-white px-4 py-12">
       <div className="mx-auto max-w-5xl">
         {/* Toast */}
         {toast.visible && (
@@ -214,9 +211,9 @@ const EmployeeProfile: React.FC = () => {
         ) : (
           <>
             {/* Header */}
-            <div className="relative mb-8 overflow-hidden rounded-3xl bg-gradient-to-r from-sky-500 via-indigo-500 to-purple-500 p-10 shadow-2xl">
-              <div className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-white/10 blur-3xl" />
-              <div className="pointer-events-none absolute -bottom-24 -left-24 h-52 w-52 rounded-full bg-white/5 blur-2xl" />
+            <div className="relative mb-8 overflow-hidden rounded-3xl bg-gradient-to-r from-[#264555] via-[#56768f] to-[#264555] p-10 shadow-2xl">
+              <div className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-white/15 blur-3xl" />
+              <div className="pointer-events-none absolute -bottom-24 -left-24 h-52 w-52 rounded-full bg-white/10 blur-2xl" />
 
               <div className="relative flex flex-col items-center gap-8 md:flex-row">
                 {/* Avatar */}
@@ -231,7 +228,7 @@ const EmployeeProfile: React.FC = () => {
                   <button
                     type="button"
                     onClick={openUploadModal}
-                    className="absolute bottom-1 right-1 flex h-10 w-10 items-center justify-center rounded-full bg-white text-sky-600 shadow-xl transition-transform duration-300 hover:scale-110 hover:rotate-6"
+                    className="absolute bottom-1 right-1 flex h-10 w-10 items-center justify-center rounded-full bg-white text-[#264555] shadow-xl transition-transform duration-300 hover:scale-110 hover:rotate-6"
                   >
                     <svg
                       width="18"
@@ -251,44 +248,12 @@ const EmployeeProfile: React.FC = () => {
                 <div className="text-center text-white md:flex-1 md:text-left">
                   <h1 className="mb-2 text-3xl font-bold drop-shadow-sm">{profileName}</h1>
                   <p className="mb-4 text-base opacity-90">{profileEmail}</p>
-
-                  <div className="mb-4 flex flex-wrap justify-center gap-2 md:justify-start">
-                    <span className="inline-flex items-center gap-1 rounded-full border border-white/40 bg-white/20 px-3 py-1 text-xs backdrop-blur">
-                      <svg
-                        width="12"
-                        height="12"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                      >
-                        <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
-                        <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
-                      </svg>
-                      <span>{profileRole}</span>
-                    </span>
-                    <span className="inline-flex items-center gap-1 rounded-full border border-white/40 bg-white/20 px-3 py-1 text-xs backdrop-blur">
-                      <svg
-                        width="12"
-                        height="12"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                      >
-                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
-                        <polyline points="9 22 9 12 15 12 15 22"></polyline>
-                      </svg>
-                      <span>{profileCompany}</span>
-                    </span>
-                  </div>
-
                   <p className="text-xs opacity-70">{profileUpdated}</p>
                 </div>
               </div>
             </div>
 
-            {/* Persönliche Daten */}
+            {/* Persönliche Daten – nur Name, E-Mail, Telefon */}
             <Card
               title="Persönliche Daten"
               icon={
@@ -306,112 +271,34 @@ const EmployeeProfile: React.FC = () => {
               }
             >
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs font-semibold text-slate-600">Vorname</label>
+                <div className="md:col-span-2 flex flex-col gap-1">
+                  <label className="text-xs font-semibold text-slate-600">Name</label>
                   <input
-                    className="h-11 rounded-lg border border-slate-200 px-3 text-sm text-slate-800 shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
-                    value={form.firstName}
-                    onChange={handleInputChange("firstName")}
-                  />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs font-semibold text-slate-600">Nachname</label>
-                  <input
-                    className="h-11 rounded-lg border border-slate-200 px-3 text-sm text-slate-800 shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
-                    value={form.lastName}
-                    onChange={handleInputChange("lastName")}
+                    className="h-11 rounded-lg border border-slate-200 px-3 text-sm text-slate-800 shadow-sm outline-none transition focus:border-[#56768f] focus:ring-2 focus:ring-[#56768f]/20"
+                    value={form.name}
+                    onChange={handleInputChange("name")}
+                    placeholder="Name eingeben"
                   />
                 </div>
                 <div className="flex flex-col gap-1">
                   <label className="text-xs font-semibold text-slate-600">E-Mail</label>
                   <input
                     type="email"
-                    className="h-11 rounded-lg border border-slate-200 px-3 text-sm text-slate-800 shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+                    className="h-11 rounded-lg border border-slate-200 px-3 text-sm text-slate-800 shadow-sm outline-none transition focus:border-[#56768f] focus:ring-2 focus:ring-[#56768f]/20"
                     value={form.email}
                     onChange={handleInputChange("email")}
+                    placeholder="E-Mail eingeben"
                   />
                 </div>
                 <div className="flex flex-col gap-1">
                   <label className="text-xs font-semibold text-slate-600">Telefonnummer</label>
                   <input
-                    className="h-11 rounded-lg border border-slate-200 px-3 text-sm text-slate-800 shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+                    className="h-11 rounded-lg border border-slate-200 px-3 text-sm text-slate-800 shadow-sm outline-none transition focus:border-[#56768f] focus:ring-2 focus:ring-[#56768f]/20"
                     value={form.phone}
                     onChange={handleInputChange("phone")}
+                    placeholder="Telefonnummer eingeben"
                   />
                 </div>
-                <div className="md:col-span-2 flex flex-col gap-1">
-                  <label className="text-xs font-semibold text-slate-600">
-                    Straße und Hausnummer
-                  </label>
-                  <input
-                    className="h-11 rounded-lg border border-slate-200 px-3 text-sm text-slate-800 shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
-                    value={form.street}
-                    onChange={handleInputChange("street")}
-                  />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs font-semibold text-slate-600">PLZ</label>
-                  <input
-                    className="h-11 rounded-lg border border-slate-200 px-3 text-sm text-slate-800 shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
-                    value={form.zipCode}
-                    onChange={handleInputChange("zipCode")}
-                  />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs font-semibold text-slate-600">Stadt</label>
-                  <input
-                    className="h-11 rounded-lg border border-slate-200 px-3 text-sm text-slate-800 shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
-                    value={form.city}
-                    onChange={handleInputChange("city")}
-                  />
-                </div>
-                <div className="md:col-span-2 flex flex-col gap-1">
-                  <label className="text-xs font-semibold text-slate-600">Land</label>
-                  <input
-                    className="h-11 rounded-lg border border-slate-200 px-3 text-sm text-slate-800 shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
-                    value={form.country}
-                    onChange={handleInputChange("country")}
-                  />
-                </div>
-              </div>
-            </Card>
-
-            {/* Unternehmensinformationen */}
-            <Card
-              title="Unternehmensinformationen"
-              icon={
-                <svg
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                >
-                  <rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect>
-                  <path d="M9 22v-4h6v4"></path>
-                </svg>
-              }
-            >
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                {[
-                  { label: "Unternehmen", value: "Tech Solutions GmbH" },
-                  { label: "Abteilung / Workspace", value: "IT & Development" },
-                  { label: "Rolle", value: "Senior Developer" },
-                  { label: "Eintrittsdatum", value: "2020-03-15", type: "date" },
-                ].map((field) => (
-                  <div key={field.label} className="flex flex-col gap-1">
-                    <label className="text-xs font-semibold text-slate-600">
-                      {field.label}
-                    </label>
-                    <input
-                      type={field.type ?? "text"}
-                      className="h-11 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-500 shadow-sm"
-                      value={field.value}
-                      disabled
-                    />
-                  </div>
-                ))}
               </div>
             </Card>
 
@@ -441,7 +328,7 @@ const EmployeeProfile: React.FC = () => {
                   <div className="relative">
                     <input
                       type={showPassword.current ? "text" : "password"}
-                      className="h-11 w-full rounded-lg border border-slate-200 px-3 pr-10 text-sm text-slate-800 shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+                      className="h-11 w-full rounded-lg border border-slate-200 px-3 pr-10 text-sm text-slate-800 shadow-sm outline-none transition focus:border-[#56768f] focus:ring-2 focus:ring-[#56768f]/20"
                       placeholder="Aktuelles Passwort eingeben"
                       value={currentPassword}
                       onChange={(e) => setCurrentPassword(e.target.value)}
@@ -464,7 +351,7 @@ const EmployeeProfile: React.FC = () => {
                   <div className="relative">
                     <input
                       type={showPassword.new ? "text" : "password"}
-                      className="h-11 w-full rounded-lg border border-slate-200 px-3 pr-10 text-sm text-slate-800 shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+                      className="h-11 w-full rounded-lg border border-slate-200 px-3 pr-10 text-sm text-slate-800 shadow-sm outline-none transition focus:border-[#56768f] focus:ring-2 focus:ring-[#56768f]/20"
                       placeholder="Neues Passwort"
                       value={newPassword}
                       onChange={(e) => {
@@ -490,7 +377,7 @@ const EmployeeProfile: React.FC = () => {
                   <div className="relative">
                     <input
                       type={showPassword.confirm ? "text" : "password"}
-                      className="h-11 w-full rounded-lg border border-slate-200 px-3 pr-10 text-sm text-slate-800 shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+                      className="h-11 w-full rounded-lg border border-slate-200 px-3 pr-10 text-sm text-slate-800 shadow-sm outline-none transition focus:border-[#56768f] focus:ring-2 focus:ring-[#56768f]/20"
                       placeholder="Passwort bestätigen"
                       value={confirmPassword}
                       onChange={(e) => {
@@ -524,7 +411,7 @@ const EmployeeProfile: React.FC = () => {
                 type="button"
                 disabled={!hasChanges}
                 onClick={resetChanges}
-                className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg border-2 border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 shadow-sm transition hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg border-2 border-[#d2c9b9] bg-white px-4 py-3 text-sm font-medium text-[#264555] shadow-sm transition hover:bg-[#ebebec] hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Zurücksetzen
               </button>
@@ -532,7 +419,7 @@ const EmployeeProfile: React.FC = () => {
                 type="button"
                 disabled={!hasChanges}
                 onClick={saveChanges}
-                className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-sky-500 px-4 py-3 text-sm font-medium text-white shadow-md transition hover:bg-sky-600 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60"
+                className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-[#56768f] px-4 py-3 text-sm font-medium text-white shadow-md transition hover:bg-[#264555] hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Änderungen speichern
               </button>
@@ -558,7 +445,7 @@ const EmployeeProfile: React.FC = () => {
             </div>
             <button
               type="button"
-              className="flex w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-200 px-4 py-10 text-sm text-slate-500 transition hover:border-sky-400 hover:bg-slate-50"
+              className="flex w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-200 px-4 py-10 text-sm text-slate-500 transition hover:border-[#56768f] hover:bg-[#ebebec]"
               onClick={() => fileInputRef.current?.click()}
             >
               <svg

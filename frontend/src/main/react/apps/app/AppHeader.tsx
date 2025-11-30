@@ -167,7 +167,8 @@ export default function AppHeader() {
                   role="menuitem"
                   onClick={() => {
                     setMenuOpen(false);
-                    navigate("/profile");
+                    //navigate("/profile");
+                    alert("Profil ansehen - Funktion noch nicht implementiert.");
                   }}
                 >
                   Profil
