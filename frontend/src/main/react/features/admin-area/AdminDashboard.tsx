@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
-import { useNavigate} from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import "@/styles/admin.css";
 import AdminLayout from "@/apps/app/AdminLayout";
 import TopicCard from "./TopicCard";
@@ -15,8 +15,7 @@ import {
   ListOrdered,
   Users,
   Clock,
-  ChevronRight,
-  Network,
+  ChevronRight,Network    
 } from "lucide-react";
 
 // API
@@ -320,8 +319,9 @@ export default function AdminDashboard() {
         `}
       </style>
 
- <PageHeader
-
+      {/* HEADER */}
+     <PageHeader
+      
   title="Fragenkatalog Administration"
   subtitle="Verwalten Sie Ihre Themen und erstellen Sie finale Kataloge"
   icon={<Network  size={40 } />}
@@ -330,6 +330,7 @@ export default function AdminDashboard() {
   showPattern={true}
  
 />
+
 
       {/* BODY */}
       <div className="dashboard-content bg-[hsl(0_0%_92%)] min-h-[calc(100vh-64px)] px-6 py-6">
@@ -503,10 +504,9 @@ export default function AdminDashboard() {
                         "relative",
                         isHighlight
                           ? [
-                              "scale-[1.05]",
+                             
                               "ring-4 ring-green-400 ring-offset-4",
-                              "[animation:blinkBg_.7s_ease-in-out_infinite]",
-                              "[box-shadow:0_0_24px_rgba(34,197,94,0.6)]",
+                             
                               "[animation:glowRing_.9s_ease-in-out_infinite]",
                             ].join(" ")
                           : "",
