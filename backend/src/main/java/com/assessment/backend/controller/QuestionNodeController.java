@@ -18,6 +18,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.access.prepost.PreAuthorize;
+
 
 import com.assessment.backend.entity.QuestionNode;
 import com.assessment.backend.service.QuestionNodeService;
@@ -32,6 +34,7 @@ public class QuestionNodeController {
 
     // Create - POST /api/question-nodes
     @PostMapping
+    @PreAuthorize("hasAuthority('questions.create')")
     public ResponseEntity<?> createQuestionNode(@RequestBody QuestionNode questionNode) {
         try {
             QuestionNode createdNode = questionNodeService.createQuestionNode(questionNode);
@@ -220,6 +223,7 @@ public class QuestionNodeController {
 
     // Update - PUT /api/question-nodes/{id}
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('questions.update')")
     public ResponseEntity<QuestionNode> updateQuestionNode(
             @PathVariable("id") UUID id,
             @RequestBody QuestionNode questionNode) {
@@ -235,6 +239,7 @@ public class QuestionNodeController {
 
     // Update Order Index - PATCH /api/question-nodes/{id}/order
     @PatchMapping("/{id}/order")
+    @PreAuthorize("hasAuthority('questions.move')")
     public ResponseEntity<QuestionNode> updateOrderIndex(
             @PathVariable("id") UUID id,
             @RequestParam("orderIndex") Integer orderIndex) {
@@ -250,6 +255,7 @@ public class QuestionNodeController {
 
     // Move Node - PATCH /api/question-nodes/{id}/move
     @PatchMapping("/{id}/move")
+    @PreAuthorize("hasAuthority('questions.move')")
     public ResponseEntity<QuestionNode> moveQuestionNode(
             @PathVariable("id") UUID id,
             @RequestParam(value = "newParentId", required = false) UUID newParentId,
@@ -266,6 +272,7 @@ public class QuestionNodeController {
 
     // Update Required Status - PATCH /api/question-nodes/{id}/required
     @PatchMapping("/{id}/required")
+    @PreAuthorize("hasAuthority('questions.edit')")
     public ResponseEntity<?> updateRequiredStatus(
             @PathVariable("id") UUID id,
             @RequestParam("isRequired") Boolean isRequired) {
@@ -293,6 +300,7 @@ public class QuestionNodeController {
 
     // Delete - DELETE /api/question-nodes/{id}
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('questions.delete')")
     public ResponseEntity<HttpStatus> deleteQuestionNode(@PathVariable("id") UUID id) {
         try {
             questionNodeService.deleteQuestionNode(id);
@@ -306,6 +314,7 @@ public class QuestionNodeController {
 
     // Delete all by Thema - DELETE /api/question-nodes/thema/{themaId}
     @DeleteMapping("/thema/{themaId}")
+    @PreAuthorize("hasAuthority('questions.delete')")
     public ResponseEntity<HttpStatus> deleteAllNodesByThemaId(@PathVariable("themaId") UUID themaId) {
         try {
             questionNodeService.deleteAllNodesByThemaId(themaId);
@@ -317,6 +326,7 @@ public class QuestionNodeController {
 
     // Delete all by Question - DELETE /api/question-nodes/question/{questionId}
     @DeleteMapping("/question/{questionId}")
+    @PreAuthorize("hasAuthority('questions.delete')")
     public ResponseEntity<HttpStatus> deleteAllNodesByQuestionId(@PathVariable("questionId") UUID questionId) {
         try {
             questionNodeService.deleteAllNodesByQuestionId(questionId);

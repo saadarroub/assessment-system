@@ -37,16 +37,53 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 // Public Endpoints (kein Token erforderlich)
                 .requestMatchers("/api/auth/login", "/api/auth/refresh", "/api/auth/logout").permitAll()
+                
+                // Public Access Routes - Alle HTTP-Methoden erlaubt (GET, POST, PUT für Assessment Session)
                 .requestMatchers("/public/access/**").permitAll()
-                .requestMatchers(HttpMethod.POST, "/api/users").permitAll()
-                .requestMatchers("/api/worker-catalog/**").permitAll() 
-                .requestMatchers("/api/thema-catalogs/**").permitAll()
-                .requestMatchers("/api/question-catalogs/**").permitAll()
-                .requestMatchers("/api/question-nodes/**").permitAll()
+                
+                
+                // Admin Panel Endpunkte - NUR GET öffentlich, andere Methoden brauchen Authentication
+                // WorkerCatalog
+                .requestMatchers(HttpMethod.GET, "/api/worker-catalog/**").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/worker-catalog/**").authenticated()
+                .requestMatchers(HttpMethod.PUT, "/api/worker-catalog/**").authenticated()
+                .requestMatchers(HttpMethod.PATCH, "/api/worker-catalog/**").authenticated()
+                .requestMatchers(HttpMethod.DELETE, "/api/worker-catalog/**").authenticated()
+                
+                // ThemaCatalog
+                .requestMatchers(HttpMethod.GET, "/api/thema-catalogs/**").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/thema-catalogs/**").authenticated()
+                .requestMatchers(HttpMethod.PUT, "/api/thema-catalogs/**").authenticated()
+                .requestMatchers(HttpMethod.PATCH, "/api/thema-catalogs/**").authenticated()
+                .requestMatchers(HttpMethod.DELETE, "/api/thema-catalogs/**").authenticated()
+                
+                // QuestionCatalog (falls verwendet)
+                .requestMatchers(HttpMethod.GET, "/api/question-catalogs/**").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/question-catalogs/**").authenticated()
+                .requestMatchers(HttpMethod.PUT, "/api/question-catalogs/**").authenticated()
+                .requestMatchers(HttpMethod.PATCH, "/api/question-catalogs/**").authenticated()
+                .requestMatchers(HttpMethod.DELETE, "/api/question-catalogs/**").authenticated()
+                
+                // QuestionNodes
+                .requestMatchers(HttpMethod.GET, "/api/question-nodes/**").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/question-nodes/**").authenticated()
+                .requestMatchers(HttpMethod.PUT, "/api/question-nodes/**").authenticated()
+                .requestMatchers(HttpMethod.PATCH, "/api/question-nodes/**").authenticated()
+                .requestMatchers(HttpMethod.DELETE, "/api/question-nodes/**").authenticated()
+                
+                // Assessments (falls verwendet)
                 .requestMatchers("/api/assessments/**").permitAll()
-                // Alle anderen Requests: Nur Authentication erforderlich
-                // Permission-Checks passieren via @PreAuthorize in Controllern
-                .anyRequest().authenticated()
+                
+                // Static resources & root path (für Frontend in Docker)
+                .requestMatchers("/", "/index.html", "/assets/**", "/static/**", "/*.js", "/*.css", "/*.ico", "/*.png", "/*.jpg", "/*.svg").permitAll()
+                
+                // Explicitly protect all other API endpoints
+                .requestMatchers("/api/**").authenticated()
+                .requestMatchers("/actuator/**").authenticated()
+                
+                // Allow everything else (SPA routes like /invite/..., /dashboard, etc.)
+                // WebConfig will handle forwarding to index.html
+                .anyRequest().permitAll()
             )
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
@@ -58,7 +95,7 @@ public class SecurityConfig {
         CorsConfiguration configuration = new CorsConfiguration();
 
         // WICHTIG: Bei allowCredentials=true KANN NICHT "*" verwendet werden!
-        configuration.setAllowedOrigins(Arrays.asList("http://localhost:5173"));
+        configuration.setAllowedOriginPatterns(Arrays.asList("http://localhost:*", "http://127.0.0.1:*"));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setAllowCredentials(true); // WICHTIG für httpOnly Cookies!

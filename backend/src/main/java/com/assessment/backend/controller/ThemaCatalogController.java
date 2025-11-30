@@ -8,6 +8,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.access.prepost.PreAuthorize;
+
 
 import java.util.List;
 import java.util.Map;
@@ -23,6 +25,7 @@ public class ThemaCatalogController {
 
     // Create - POST /api/thema-catalogs
     @PostMapping
+    @PreAuthorize("hasAuthority('catalogs.create')")
     public ResponseEntity<ThemaCatalog> addThemaToCatalog(@RequestBody Map<String, Object> request) {
         try {
             UUID themaId = UUID.fromString((String) request.get("themaId"));

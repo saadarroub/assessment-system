@@ -9,6 +9,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -33,6 +34,7 @@ public class QuestionController {
 
     // Create - POST /api/questions (mit DTO - automatische JSON-Konvertierung)
     @PostMapping
+    @PreAuthorize("hasAuthority('questions.create')")
     public ResponseEntity<?> createQuestion(@RequestBody QuestionDTO dto) {
         try {
             // DTO → Entity konvertieren
@@ -192,6 +194,7 @@ public class QuestionController {
 
     // Update - PUT /api/questions/{id} (mit DTO - automatische JSON-Konvertierung)
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('questions.edit')")
     public ResponseEntity<?> updateQuestion(@PathVariable("id") UUID id, @RequestBody QuestionDTO dto) {
         try {
             // Existierende Question laden
@@ -251,6 +254,7 @@ public class QuestionController {
 
     // Delete - DELETE /api/questions/{id}
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('questions.delete')")
     public ResponseEntity<HttpStatus> deleteQuestion(@PathVariable("id") UUID id) {
         try {
             questionService.deleteQuestion(id);
@@ -264,6 +268,7 @@ public class QuestionController {
 
     // Delete All - DELETE /api/questions
     @DeleteMapping
+    @PreAuthorize("hasAuthority('questions.delete')")
     public ResponseEntity<HttpStatus> deleteAllQuestions() {
         try {
             questionService.getAllQuestions().forEach(question -> questionService.deleteQuestion(question.getId()));

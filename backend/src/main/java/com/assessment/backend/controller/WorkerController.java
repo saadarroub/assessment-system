@@ -6,6 +6,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.access.prepost.PreAuthorize;
+
 
 import java.util.List;
 import java.util.UUID;
@@ -41,18 +43,21 @@ public class WorkerController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAuthority('workers.create')")
     public ResponseEntity<Worker> createWorker(@RequestBody Worker worker) {
         Worker createdWorker = workerService.createWorker(worker);
         return ResponseEntity.status(HttpStatus.CREATED).body(createdWorker);
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('workers.edit')")
     public ResponseEntity<Worker> updateWorker(@PathVariable UUID id, @RequestBody Worker worker) {
         Worker updatedWorker = workerService.updateWorker(id, worker);
         return ResponseEntity.ok(updatedWorker);
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('workers.delete')")
     public ResponseEntity<Void> deleteWorker(@PathVariable UUID id) {
         workerService.deleteWorker(id);
         return ResponseEntity.noContent().build();
