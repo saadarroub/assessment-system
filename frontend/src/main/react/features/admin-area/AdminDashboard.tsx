@@ -324,7 +324,7 @@ export default function AdminDashboard() {
       
   title="Fragenkatalog Administration"
   subtitle="Verwalten Sie Ihre Themen und erstellen Sie finale Kataloge"
-  icon={<Network  size={40} />}
+  icon={<Network  size={40 } />}
   gradient="navy"
   height="280px"
   showPattern={true}
