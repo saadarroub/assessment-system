@@ -11,19 +11,39 @@ export type WorkerApi = {
   updatedAt?: string;
 }; 
 
+// Company aus Backend
+export type CompanyApi = {
+  id: string;
+  name: string;
+  description?: string | null;
+  status?: "active" | "inactive" | string;
+  street?: string | null;
+  postalCode?: string | null;
+  city?: string | null;
+  country?: string | null;
+  website?: string | null;
+  phone?: string | null;
+  createdAt?: string;   // aus deinem JSON
+  updatedAt?: string;
+};
 
-export async function getCompanies() {
-  const { data } = await apiClient.get("/companies", {
+
+
+export async function getCompanies(): Promise<CompanyApi[]> {
+  const { data } = await apiClient.get<CompanyApi[]>("/companies", {
     headers: { Accept: "application/json" },
   });
+  return data ?? [];
+}
+
+export async function getCompany(id: string): Promise<CompanyApi> {
+  const { data } = await apiClient.get<CompanyApi>(
+    `/companies/${encodeURIComponent(id)}`,
+    { headers: { Accept: "application/json" } }
+  );
   return data;
 }
-export async function getCompany(id: string) {
-  const { data } = await apiClient.get(`/companies/${encodeURIComponent(id)}`, {
-    headers: { Accept: "application/json" },
-  });
-  return data;
-}
+
  
 export async function getWorkersByCompany(companyId: string) {
   const resp = await apiClient.get(`/workers/company/${encodeURIComponent(companyId)}`, {
@@ -90,7 +110,7 @@ export async function updateWorker(id: string, payload: UpdateWorkerDto): Promis
   return data;
 }
 
-// NEW: Delete worker
+//  Delete worker
 export async function deleteWorker(id: string): Promise<void> {
   await apiClient.delete(`/workers/${encodeURIComponent(id)}`, {
     headers: { Accept: "application/json" },

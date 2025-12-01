@@ -49,9 +49,11 @@ function cx(...x: Array<string | false | null | undefined>) {
 }
 
 type NavId =
+  | "dashboard"
   | "Themen Verwalten"
   | "catalog"
   | "Admin-Panel"
+  | "Ergebnis Analysieren"
   | "users"
   | "companies"
   | "roles"
@@ -60,7 +62,8 @@ type NavId =
   | "Audit-log";
 
 const NAV_PRIMARY: Array<{ id: NavId; label: string; Icon: React.FC<any>; to: string }> = [
-  { id: "Themen Verwalten", label: "Themen Verwalten", Icon: LayoutDashboard, to: "/admin" },
+  { id: "dashboard", label: "Dashboard", Icon: LayoutDashboard, to: "/admin/dashboard" },
+  { id: "Themen Verwalten", label: "Themen Verwalten", Icon: Settings, to: "/admin" },
   { id: "catalog", label: "Katalogen", Icon: FileText, to: "/admin/katalogzuweisen" },
 ];
 const NAV_Panel: Array<{ id: NavId; label: string; Icon: React.FC<any>; to: string }> = [
@@ -71,7 +74,10 @@ const NAV_Panel: Array<{ id: NavId; label: string; Icon: React.FC<any>; to: stri
   { id: "Zuweisungen", label: "Zuweisungen", Icon: FileText, to: "/admin/adminPanel/zuweisungen" },
   //{ id: "Audit-log", label: "Audit-log", Icon: BarChart3, to: "/admin/adminPanel/audit" },
 ];
-
+const NAV_Analyse: Array<{ id: NavId; label: string; Icon: React.FC<any>; to: string }> = [
+  { id: "Ergebnis Analysieren", label: "Ergebnisse Analysieren", Icon: ShoppingCart, to: "/app/companylist" },
+ 
+];
 
 export default function AdminLayout({ children }: AdminLayoutProps) {
   const [collapsed, setCollapsed] = useState(false);
@@ -370,7 +376,77 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                 </NavLink>
               );
             })}
-          </nav>
+             {/* Analyse */}
+            <div className={cx(collapsed && "invisible")} aria-hidden={collapsed}>
+              <h3
+                className="mt-3 mb-2 text-[0.72rem] font-bold tracking-[.12em] uppercase"
+                style={{ color: `color-mix(in hsl, hsl(${TOKENS.primary}) 55%, hsl(${TOKENS.sidebarMuted}))` }}
+              >
+                Analyse
+              </h3>
+            </div>
+            {NAV_Analyse.map(({ id, label, Icon, to }) => {
+              const baseCn = collapsed
+                ? "relative w-[48px] h-[48px] p-0 rounded-[12px] border border-transparent flex items-center justify-center transition"
+                : "relative w-full flex items-center gap-3 rounded-[18px] border border-transparent px-4 py-3 text-left transition";
+
+              return (
+                <NavLink
+                  key={id}
+                  to={to}
+                  end={to === "/admin" || to === "/admin/adminPanel"} //exakt nur für Übersicht
+                  className={({ isActive }) =>
+                    cx(
+                      baseCn,
+                      !collapsed && !isActive && "hover:[redbackground:var(--tw-hover-bg)] hover:border-white/10",
+                      !collapsed && isActive && "border-white/20"
+                    )
+                  }
+                  style={({ isActive }) => ({
+                    background: !collapsed && isActive ? TOKENS.activeBg : "transparent",
+                    // @ts-ignore: CSS var für Hover
+                    ["--tw-hover-bg" as any]: TOKENS.hoverBg,
+                    ...(collapsed ? {} : { minHeight: TOKENS.sizes.rowH }),
+                  })}
+                  title={label}
+                  aria-label={label}
+                >
+                  {({ isActive }) => (
+                    <>
+                      <span
+                        className="grid place-items-center rounded-[12px] border shadow-[0_8px_18px_-12px_rgba(0,0,0,.45)]"
+                        style={{
+                          width: collapsed ? TOKENS.sizes.collapsedTile : TOKENS.sizes.tile,
+                          height: collapsed ? TOKENS.sizes.collapsedTile : TOKENS.sizes.tile,
+                          background: isActive ? "rgba(255,255,255,.10)" : "rgba(255,255,255,.06)",
+                          borderColor: isActive ? "rgba(255,255,255,.22)" : "rgba(255,255,255,.18)",
+                          color: isActive ? "#fff" : `hsl(${TOKENS.sidebarMuted})`,
+                        }}
+                      >
+                        <Icon className="w-[18px] h-[18px]" />
+                      </span>
+
+                      {!collapsed && (
+                        <>
+                          <span className="flex-1 font-bold text-[0.95rem]">{label}</span>
+                          {/* kleiner Akzentbalken links; Sichtbarkeit über isActive */}
+                          <span
+                            aria-hidden
+                            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-[22px] w-1 rounded-[6px]"
+                            style={{
+                              //background: "#d0d0d0",
+                              opacity: isActive ? 1 : 0,
+                              transition: "opacity .15s ease",
+                            }}
+                          />
+                        </>
+                      )}
+                    </>
+                  )}
+                </NavLink>
+              );
+            })}
+          </nav> 
           {/* Profil-Leiste / Footer */}
           <div className="mt-auto space-y-3">
             {!collapsed && (    
@@ -435,8 +511,8 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                       className="block w-full text-left px-4 py-3 hover:bg-black/5"
                       onClick={() => {
                         setMenuOpen(false);
-                        // navigate("/profile");
-                        alert("Profil ansehen - Funktion noch nicht implementiert.");
+                        navigate("/profile");
+                       // alert("Profil ansehen - Funktion noch nicht implementiert.");
                       }}
                     >
                       Profil ansehen
