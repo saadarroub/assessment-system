@@ -62,7 +62,7 @@ type NavId =
 
 const NAV_PRIMARY: Array<{ id: NavId; label: string; Icon: React.FC<any>; to: string }> = [
   { id: "Themen Verwalten", label: "Themen Verwalten", Icon: LayoutDashboard, to: "/admin" },
-  { id: "catalog", label: "Katalogen", Icon: FileText, to: "/admin/katalogzuweisen" },
+  { id: "catalog", label: "Kataloge", Icon: FileText, to: "/admin/katalogzuweisen" },
 ];
 const NAV_Panel: Array<{ id: NavId; label: string; Icon: React.FC<any>; to: string }> = [
   //{ id: "Admin-Panel", label: "Admin-Panel", Icon: BarChart3, to: "/admin/adminPanel" },
