@@ -23,6 +23,7 @@ import Zuweisungen from '@/features/admin-panel/companies/zuweisungen';
 import InviteGate from '@/public/InviteGate';
 import ZugewiesenerKatalog from '@/public/ZugewiesenerKatalogPagePublic';
 import Ica3LandingSingle from '@/public/Ica3LandingSingle';
+import { DashboardPage } from '@/apps/app/DashboardPage';
 
 // Topic-Seiten
 import EamPage from '@/features/admin-area/topics/eam/EamPage';
@@ -109,6 +110,15 @@ export default function AppRoutes() {
       />
 
       {/* Admin Dashboard */}
+      <Route
+        path="/admin/dashboard"
+        element={
+          <ProtectedRoute>
+            <DashboardPage />
+          </ProtectedRoute>
+        }
+      />
+
       <Route
         path="/admin"
         element={
