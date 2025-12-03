@@ -324,7 +324,7 @@ export default function AdminDashboard() {
       
   title="Fragenkatalog Administration"
   subtitle="Verwalten Sie Ihre Themen und erstellen Sie finale Kataloge"
-  icon={<Network  size={40 } />}
+  icon={<Network  size={40} />}
   gradient="navy"
   height="280px"
   showPattern={true}
@@ -332,7 +332,7 @@ export default function AdminDashboard() {
 />
 
 
-      {/* BODY */}
+      {/* BODY */}     
       <div className="dashboard-content bg-[hsl(0_0%_92%)] min-h-[calc(100vh-64px)] px-6 py-6">
         {/* BUTTON */}
         <div className="flex justify-end mt-4">
