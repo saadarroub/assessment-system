@@ -187,8 +187,8 @@ export default function AssessmentResults(props: AssessmentResultsProps) {
     return effectiveTotal > 0 ? (effectiveAnswered / effectiveTotal) * 100 : 0;
   }, [effectiveAnswered, effectiveTotal]);
 
-  const countRequired = summary?.answeredQuestions?.filter(q => q.isAutoScored).length ?? 0;
-  const countNotRequired = summary?.answeredQuestions?.filter(q => !q.isAutoScored).length ?? 0;
+  const countRequired = summary?.answeredQuestions?.filter(q => q.isRequired).length ?? 0;
+  const countNotRequired = summary?.answeredQuestions?.filter(q => !q.isRequired).length ?? 0;
 
   return (
     <div
@@ -422,7 +422,7 @@ export default function AssessmentResults(props: AssessmentResultsProps) {
                           {/* required */}
                           <td className="py-3 px-4 align-top">
                             <span
-                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium ${q.isAuto
+                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium ${q.isRequired
                                   ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
                                   : "bg-amber-50 text-amber-700 border border-amber-100"
                                 }`}

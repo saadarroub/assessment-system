@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import AdminLayout from "@/apps/app/AdminLayout";
-import myLogo from "@/assets/Zero-6-icons-05.webp";
 import { Search, ArrowUpDown, Eye, Plus, Trash2, Pencil } from "lucide-react";
 import {
   getUsers,
