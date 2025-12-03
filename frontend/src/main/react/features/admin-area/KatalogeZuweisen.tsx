@@ -4,7 +4,6 @@ import { Building2, Settings, Pencil, Wrench, Plus, X, ListChecks } from "lucide
 import type { LucideIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
-import myLogo from "@/assets/Zero-6-icons-05.webp";
 
 import { getTopicCountForCatalog, fetchThemenByCatalog, type ThemaDto } from "../service/themaCatalogService";
 import { getCompanies, getWorkersByCompany, type WorkerApi } from "../service/companyService";

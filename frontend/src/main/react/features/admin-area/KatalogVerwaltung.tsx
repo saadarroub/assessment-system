@@ -3,8 +3,6 @@ import AdminLayout from "@/apps/app/AdminLayout";
 import { useEffect, useState } from "react";
 import { Building2 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import myLogo from "@/assets/Zero-6-icons-05.webp";
-
 import { getThemen, type ThemaApi } from "../service/themaService";
 import { getCatalogs, type CatalogApi } from "../service/catalogService";
 import { assignTopicsToCatalog, getQuestionCountForThema } from "../service/themaCatalogService";
@@ -174,7 +172,6 @@ export default function KatalogVerwaltung({ }: Props) {
     return (
         <AdminLayout>
             {/* Header */}
-            {/* HEADER */}
             <PageHeader
       
               title="Kataloginhalte ordnen"

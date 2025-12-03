@@ -92,6 +92,8 @@ export default function UsersPage() {
   const [ePassword, setEPassword] = useState("");
   const [updating, setUpdating] = useState(false);
   const [updateError, setUpdateError] = useState<string | null>(null);
+  const [eRoleId, setERoleId] = useState<string>("");   // neu
+
 
   // Users
   useEffect(() => {
@@ -279,6 +281,7 @@ export default function UsersPage() {
     setEName(u.name);
     setEEmail(u.email);
     setEPassword("");
+      setERoleId(u.roles[0] ?? "");
     setUpdateError(null);
     setOpenEdit(true);
   };
@@ -290,6 +293,7 @@ export default function UsersPage() {
     setEName("");
     setEEmail("");
     setEPassword("");
+    setERoleId(""); 
     setUpdateError(null);
   };
 
@@ -298,11 +302,14 @@ export default function UsersPage() {
     if (!editUser) return;
 
     // Für PUT immer volle Felder nehmen (Eingabe oder bestehende Werte)
-    const full: { name: string; email: string; password?: string } = {
+    const full: { name: string; email: string; password?: string; roleId?: string } = {
       name: eName.trim() || editUser.name,
       email: eEmail.trim() || editUser.email,
       ...(ePassword.trim() ? { password: ePassword.trim() } : {}),
     };
+    if (eRoleId) {
+  full.roleId = eRoleId;
+}
 
     try {
       setUpdating(true);
@@ -314,7 +321,7 @@ export default function UsersPage() {
       setItems(prev =>
         prev.map(row =>
           row.id === editUser.id
-            ? { ...row, name: updated.name ?? full.name, email: updated.email ?? full.email }
+            ? { ...row, name: updated.name ?? full.name, email: updated.email ?? full.email, roles: eRoleId ? [eRoleId] : row.roles, }
             : row
         )
       );
@@ -775,6 +782,29 @@ export default function UsersPage() {
                   placeholder="Leer lassen, um Passwort zu behalten"
                 />
               </div>
+                <div>
+    <label htmlFor="e-role" className="block text-sm font-medium mb-1">
+      Rolle
+    </label>
+    <select
+      id="e-role"
+      className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-300"
+      value={eRoleId}
+      onChange={(e) => setERoleId(e.target.value)}
+      disabled={updating}
+    >
+      <option value="">-- Bitte wählen --</option>
+      {availableRoles.map((role) => (
+        <option key={role.id} value={role.id}>
+          {role.name}
+        </option>
+      ))}
+    </select>
+    {rolesLoadError && (
+      <p className="text-xs text-red-600 mt-1">{rolesLoadError}</p>
+    )}
+  </div>
+
 
               <div className="flex justify-end gap-2 pt-1">
                 <button

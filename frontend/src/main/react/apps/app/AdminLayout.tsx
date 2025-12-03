@@ -100,7 +100,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   // zeigt kompaktes Icon, wenn genug gescrollt
   const [badgeMini, setBadgeMini] = useState(false);
 
-  // optional: Mini-Icon-Tooltip
+  //S Mini-Icon-Tooltip
   const [hoverMini, setHoverMini] = useState(false);
 
   useEffect(() => {
@@ -155,9 +155,8 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           background: `hsl(${TOKENS.sidebarHSL})`,
           color: `hsl(${TOKENS.sidebarFg})`,
           //borderColor: `hsl(${TOKENS.sidebarBorder})`,
-          border: "4px solid #a5a5a57f",
-          borderTopRightRadius: collapsed ? TOKENS.sizes.tileRadius : 14,
-          borderBottomRightRadius: 14,
+          //borderTopRightRadius: collapsed ? TOKENS.sizes.tileRadius : 14,
+          //borderBottomRightRadius: 14,
         }}
       >
         {/* Header */}

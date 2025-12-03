@@ -26,16 +26,17 @@ import {
   Activity,
   Users,
   TrendingUp,
-  BarChart3,
   Clock,
   Award
 } from "lucide-react";
 import { formatDistanceToNow } from "@/shared/utils/dateUtils";
+import { Network } from "lucide-react";
+import PageHeader from "@/features/admin-area/catalogs/PageHeader";
 
 type StatCardProps = {
   label: string;
   value: number;
-  icon: React.ReactNode;
+  icon: React.ReactNode; 
 };
 
 function StatCard({ label, value, icon }: StatCardProps) {
@@ -132,22 +133,17 @@ export function DashboardPage() {
 
   return (
     <AdminLayout>
-      <header className="main-header">
-        <div className="header-content">
-          <div className="header-left">
-            <div className="header-icon">
-              <BarChart3 size={24} />
-            </div>
-          </div>
-          <div className="header-center">
-            <div className="header-text">
-              <h1>Dashboard</h1>
-              <p>Übersicht über das Assessment-System</p>
-            </div>
-          </div>
-          <div className="header-right" />
-        </div>
-      </header>
+       {/* Header */}
+            <PageHeader
+      
+              title="Dashboard"
+              subtitle="Übersicht über das Assessment-System"
+              icon={<Network size={40} />}
+              gradient="navy"
+              height="280px"
+              showPattern={true}
+      
+            />
 
       <div style={{ 
         background: 'hsl(0 0% 92%)', 

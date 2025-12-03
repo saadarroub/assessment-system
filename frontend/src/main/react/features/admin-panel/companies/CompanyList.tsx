@@ -3,7 +3,6 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import AdminLayout from "@/apps/app/AdminLayout";
 import { Search, ArrowUpDown, Eye, Building2, Plus, Trash2, Pencil } from "lucide-react";
-import myLogo from "@/assets/Zero-6-icons-05.webp";
 import {
   getCompanies,
   //getCompany,
@@ -18,10 +17,27 @@ import {
 } from "@/features/service/companyService";
 import { Network } from "lucide-react";
 import PageHeader from "@/features/admin-area/catalogs/PageHeader";
+import type { CompanyApi } from "@/features/service/companyService";
+
 
 /* ================= Types ================= */
-type CompanyApi = { id: string; name: string; description?: string; createdAt?: string };
-type Company = { id: string; name: string; status?: "active" | "inactive"; description?:string; created: string | null };
+
+type Company = {
+  id: string;
+  name: string;
+  status?: "active" | "inactive";
+  description?: string | null;
+  street?: string | null;
+  postalCode?: string | null;
+  city?: string | null;
+  country?: string | null;
+  website?: string | null;
+  phone?: string | null;
+  created: string | null;
+  updated?: string | null;
+};
+
+
 
 type SortKey = "name" | "workers" | "catalogs" | "status" | "created";
 
@@ -29,11 +45,20 @@ function mapApiToCompany(x: CompanyApi): Company {
   return {
     id: String(x.id),
     name: String(x.name ?? "Unbenannte Firma"),
-    status: "active",
-    description: x.description ??"",
+    status: (x.status as "active" | "inactive") ?? "active",
+    description: x.description ?? null,
+    street: x.street ?? null,
+    postalCode: x.postalCode ?? null,
+    city: x.city ?? null,
+    country: x.country ?? null,
+    website: x.website ?? null,
+    phone: x.phone ?? null,
     created: x.createdAt ? new Date(x.createdAt).toISOString() : null,
+    updated: x.updatedAt ? new Date(x.updatedAt).toISOString() : null,
   };
 }
+
+
 const formatDate = (iso?: string | null) =>
   iso ? new Date(iso).toLocaleDateString("de-DE") : "–";
 
@@ -68,6 +93,12 @@ export default function CompaniesList() {
   const [openCreate, setOpenCreate] = useState(false);
   const [cName, setCName] = useState("");
   const [cDesc, setCDesc] = useState("");
+  const [cStreet, setCStreet] = useState("");
+const [cPostalCode, setCPostalCode] = useState("");
+const [cCity, setCCity] = useState("");
+const [cCountry, setCCountry] = useState("");
+const [cWebsite, setCWebsite] = useState("");
+const [cPhone, setCPhone] = useState("");
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
@@ -82,6 +113,12 @@ export default function CompaniesList() {
   const [editCompany, setEditCompany] = useState<Company | null>(null);
   const [eName, setEName] = useState("");
   const [eDesc, setEDesc] = useState("");
+  const [eStreet, setEStreet] = useState("");
+const [ePostalCode, setEPostalCode] = useState("");
+const [eCity, setECity] = useState("");
+const [eCountry, setECountry] = useState("");
+const [eWebsite, setEWebsite] = useState("");
+const [ePhone, setEPhone] = useState("");
   const [updating, setUpdating] = useState(false);
   const [updateError, setUpdateError] = useState<string | null>(null);
 
@@ -219,12 +256,29 @@ export default function CompaniesList() {
     setCreating(true);
     setCreateError(null);
     try {
-      const payload: CreateCompanyDto = { name: cName.trim(), description: cDesc.trim() || undefined };
+      const payload: CreateCompanyDto = {
+  name: cName.trim(),
+  description: cDesc.trim() || undefined,
+  street: cStreet.trim() || undefined,
+  postalCode: cPostalCode.trim() || undefined,
+  city: cCity.trim() || undefined,
+  country: cCountry.trim() || undefined,
+  website: cWebsite.trim() || undefined,
+  phone: cPhone.trim() || undefined,
+};
       const created = await createCompany(payload);
       const row = mapApiToCompany(created as any);
       setItems((prev) => [row, ...prev]);
       setWorkerCounts((prev) => ({ ...prev, [row.id]: 0 }));
-      setCName(""); setCDesc(""); setOpenCreate(false);
+      setCName(""); 
+      setCDesc(""); 
+      setCStreet("");
+setCPostalCode("");
+setCCity("");
+setCCountry("");
+setCWebsite("");
+setCPhone("");
+      setOpenCreate(false);
     } catch (err: any) {
       setCreateError(err?.message ?? String(err));
     } finally {
@@ -254,22 +308,45 @@ export default function CompaniesList() {
     setEditCompany(c);
     setEName(c.name);
     setEDesc(c.description ??"");
+    setEStreet(c.street ?? "");
+  setEPostalCode(c.postalCode ?? "");
+  setECity(c.city ?? "");
+  setECountry(c.country ?? "");
+  setEWebsite(c.website ?? "");
+  setEPhone(c.phone ?? "");
     setUpdateError(null);
     setOpenEdit(true);
   };
   const cancelEdit = () => {
     if (!updating) {
-      setOpenEdit(false); setEditCompany(null); setEName(""); setEDesc(""); setUpdateError(null);
+      setOpenEdit(false); 
+      setEditCompany(null); 
+      setEName(""); 
+      setEDesc(""); 
+    setEStreet("");
+    setEPostalCode("");
+    setECity("");
+    setECountry("");
+    setEWebsite("");
+    setEPhone("");
+      setUpdateError(null);
     }
   };
   async function onEditSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!editCompany) return;
 
-    const payload: UpdateCompanyDto = {
-      name: eName.trim() || editCompany.name,
-      ...(eDesc.trim() ? { description: eDesc.trim() } : {}),
-    };
+   const payload: UpdateCompanyDto = {
+  name: eName.trim() || editCompany.name,
+  description: eDesc.trim() || undefined,
+  street: eStreet.trim() || undefined,
+  postalCode: ePostalCode.trim() || undefined,
+  city: eCity.trim() || undefined,
+  country: eCountry.trim() || undefined,
+  website: eWebsite.trim() || undefined,
+  phone: ePhone.trim() || undefined,
+};
+
 
     try {
       setUpdating(true);
@@ -278,14 +355,18 @@ export default function CompaniesList() {
 
       setItems(prev =>
         prev.map(row =>
-          row.id === editCompany.id ? {
-             ...row, 
-             name: (updated as any).name ?? payload.name,
-            description:
-            (updated as any).description ??
-            payload.description ??
-            row.description,
-            } : row
+          row.id === editCompany.id 
+          ? {
+          ...row,
+          name: (updated as any).name ?? payload.name,
+          description: (updated as any).description ?? payload.description ?? row.description,
+          street: (updated as any).street ?? payload.street ?? row.street,
+          postalCode: (updated as any).postalCode ?? payload.postalCode ?? row.postalCode,
+          city: (updated as any).city ?? payload.city ?? row.city,
+          country: (updated as any).country ?? payload.country ?? row.country,
+          website: (updated as any).website ?? payload.website ?? row.website,
+          phone: (updated as any).phone ?? payload.phone ?? row.phone,
+        } : row
         )
       );
       cancelEdit();
@@ -553,18 +634,131 @@ export default function CompaniesList() {
             <h3 className="mb-3 text-lg font-semibold">Create Company</h3>
             {createError && <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{createError}</div>}
             <form onSubmit={onCreateCompany} className="space-y-3">
-              <div>
-                <label htmlFor="c-name" className="mb-1 block text-sm font-medium">Name *</label>
-                <input id="c-name" className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-300" value={cName} onChange={(e) => setCName(e.target.value)} placeholder="e.g. ACME GmbH" required />
-              </div>
-              <div>
-                <label htmlFor="c-desc" className="mb-1 block text-sm font-medium">Description</label>
-                <textarea id="c-desc" className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-300" rows={4} value={cDesc} onChange={(e) => setCDesc(e.target.value)} placeholder="Optional" />
-              </div>
-              <div className="flex justify-end gap-2 pt-1">
-                <button type="button" onClick={() => setOpenCreate(false)} className="inline-flex items-center rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50" disabled={creating}>Cancel</button>
-                <button type="submit" className="inline-flex items-center rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow hover:brightness-110 disabled:opacity-60" disabled={creating}>{creating ? "Creating…" : "Create"}</button>
-              </div>
+            {/* Name */}
+  <div>
+    <label htmlFor="c-name" className="mb-1 block text-sm font-medium">
+      Name *
+    </label>
+    <input
+      id="c-name"
+      className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-300"
+      placeholder="e.g. ACME GmbH"
+      value={cName}
+      onChange={(e) => setCName(e.target.value)}
+      required
+    />
+  </div>
+
+  {/* Description */}
+  <div>
+    <label htmlFor="c-desc" className="mb-1 block text-sm font-medium">
+      Description
+    </label>
+    <textarea
+      id="c-desc"
+      className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-300"
+      rows={3}
+      placeholder="Optional"
+      value={cDesc}
+      onChange={(e) => setCDesc(e.target.value)}
+    />
+  </div>
+
+  {/* Address */}
+  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+    <div>
+      <label htmlFor="c-street" className="mb-1 block text-sm font-medium">
+        Street
+      </label>
+      <input
+        id="c-street"
+        className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-300"
+        value={cStreet}
+        onChange={(e) => setCStreet(e.target.value)}
+      />
+    </div>
+    <div>
+      <label htmlFor="c-postal" className="mb-1 block text-sm font-medium">
+        Postal code
+      </label>
+      <input
+        id="c-postal"
+        className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-300"
+        value={cPostalCode}
+        onChange={(e) => setCPostalCode(e.target.value)}
+      />
+    </div>
+  </div>
+
+  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+    <div>
+      <label htmlFor="c-city" className="mb-1 block text-sm font-medium">
+        City
+      </label>
+      <input
+        id="c-city"
+        className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-300"
+        value={cCity}
+        onChange={(e) => setCCity(e.target.value)}
+      />
+    </div>
+    <div>
+      <label htmlFor="c-country" className="mb-1 block text-sm font-medium">
+        Country
+      </label>
+      <input
+        id="c-country"
+        className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-300"
+        value={cCountry}
+        onChange={(e) => setCCountry(e.target.value)}
+      />
+    </div>
+  </div>
+
+  {/* Contact */}
+  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+    <div>
+      <label htmlFor="c-phone" className="mb-1 block text-sm font-medium">
+        Phone
+      </label>
+      <input
+        id="c-phone"
+        className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-300"
+        value={cPhone}
+        onChange={(e) => setCPhone(e.target.value)}
+      />
+    </div>
+    <div>
+      <label htmlFor="c-website" className="mb-1 block text-sm font-medium">
+        Website
+      </label>
+      <input
+        id="c-website"
+        className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-300"
+        placeholder="https://example.com"
+        value={cWebsite}
+        onChange={(e) => setCWebsite(e.target.value)}
+      />
+    </div>
+  </div>
+
+  <div className="flex justify-end gap-2 pt-1">
+    <button
+      type="button"
+      onClick={() => setOpenCreate(false)}
+      className="inline-flex items-center rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+      disabled={creating}
+    >
+      Cancel
+    </button>
+    <button
+      type="submit"
+      className="inline-flex items-center rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow hover:brightness-110 disabled:opacity-60"
+      disabled={creating}
+    >
+      {creating ? "Creating…" : "Create"}
+    </button>
+  </div>
             </form>
           </div>
         </div>
@@ -592,14 +786,111 @@ export default function CompaniesList() {
             <h3 className="mb-3 text-lg font-semibold">Edit Company</h3>
             {updateError && <div className="mb-3 rounded-md border border-yellow-200 bg-yellow-50 px-3 py-2 text-sm text-yellow-800" role="alert">{updateError}</div>}
             <form onSubmit={onEditSubmit} className="space-y-3">
-              <div>
-                <label htmlFor="e-name" className="mb-1 block text-sm font-medium">Name *</label>
-                <input id="e-name" className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-300" value={eName} onChange={(e) => setEName(e.target.value)} placeholder="Firmenname" required />
-              </div>
-              <div>
-                <label htmlFor="e-desc" className="mb-1 block text-sm font-medium">Description *</label>
-                <textarea id="e-desc" className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-300" rows={4} value={eDesc} onChange={(e) => setEDesc(e.target.value)} placeholder="Beschreibung" />
-              </div>
+             {/* Name */}
+  <div>
+    <label htmlFor="e-name" className="mb-1 block text-sm font-medium">
+      Name *
+    </label>
+    <input
+      id="e-name"
+      className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-300"
+      value={eName}
+      onChange={(e) => setEName(e.target.value)}
+      required
+    />
+  </div>
+
+  {/* Description */}
+  <div>
+    <label htmlFor="e-desc" className="mb-1 block text-sm font-medium">
+      Description
+    </label>
+    <textarea
+      id="e-desc"
+      className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-300"
+      rows={3}
+      value={eDesc}
+      onChange={(e) => setEDesc(e.target.value)}
+    />
+  </div>
+
+  {/* Address Block */}
+  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+    <div>
+      <label htmlFor="e-street" className="mb-1 block text-sm font-medium">
+        Street
+      </label>
+      <input
+        id="e-street"
+        className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-300"
+        value={eStreet}
+        onChange={(e) => setEStreet(e.target.value)}
+      />
+    </div>
+    <div>
+      <label htmlFor="e-postal" className="mb-1 block text-sm font-medium">
+        Postal code
+      </label>
+      <input
+        id="e-postal"
+        className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-300"
+        value={ePostalCode}
+        onChange={(e) => setEPostalCode(e.target.value)}
+      />
+    </div>
+  </div>
+
+  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+    <div>
+      <label htmlFor="e-city" className="mb-1 block text-sm font-medium">
+        City
+      </label>
+      <input
+        id="e-city"
+        className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-300"
+        value={eCity}
+        onChange={(e) => setECity(e.target.value)}
+      />
+    </div>
+    <div>
+      <label htmlFor="e-country" className="mb-1 block text-sm font-medium">
+        Country
+      </label>
+      <input
+        id="e-country"
+        className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-300"
+        value={eCountry}
+        onChange={(e) => setECountry(e.target.value)}
+      />
+    </div>
+  </div>
+
+  {/* Contact Block */}
+  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+    <div>
+      <label htmlFor="e-phone" className="mb-1 block text-sm font-medium">
+        Phone
+      </label>
+      <input
+        id="e-phone"
+        className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-300"
+        value={ePhone}
+        onChange={(e) => setEPhone(e.target.value)}
+      />
+    </div>
+    <div>
+      <label htmlFor="e-website" className="mb-1 block text-sm font-medium">
+        Website
+      </label>
+      <input
+        id="e-website"
+        className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-300"
+        value={eWebsite}
+        onChange={(e) => setEWebsite(e.target.value)}
+        placeholder="https://example.com"
+      />
+    </div>
+  </div>
               <div className="flex justify-end gap-2 pt-1">
                 <button type="button" onClick={cancelEdit} className="inline-flex items-center rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60" disabled={updating}>Cancel</button>
                 <button type="submit" className="inline-flex items-center rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow hover:brightness-110 disabled:opacity-60" disabled={updating}>{updating ? "Saving…" : "Save"}</button>

@@ -3,7 +3,6 @@ import { Home, BarChart3, Target, PieChart, AlertTriangle } from "lucide-react";
 import type { ApiSummaryResponse, UiQuestion } from "@/features/service/publicAssessmentService";
 import confetti from "canvas-confetti";
 
-
 export type AssessmentResultsProps = {
   topicName?: string;
   onRestart?: () => void;
@@ -20,7 +19,6 @@ export type AssessmentResultsProps = {
   total: number;           // z.B. progress.total
   totalScore: number;      // z.B. dein vorhandener Score-Wert
   maxTotalScore: number;   // z.B. dein vorhandener MaxScore-Wert
-
 
   // optional nette Extras, falls du sie hast:
   completedAt?: string;    // ISO
@@ -49,7 +47,6 @@ export default function AssessmentResults(props: AssessmentResultsProps) {
 
   const [showCelebration, setShowCelebration] = useState(true);
 
-
   useEffect(() => {
     const defaults = {
       spread: 80,
@@ -58,7 +55,7 @@ export default function AssessmentResults(props: AssessmentResultsProps) {
       zIndex: 9999,
     };
 
-    // 1) großer Puff in der Mitte (3 Bursts)
+    // großer Puff in der Mitte (3 Bursts)
     const centerBursts = () => {
       confetti({
         ...defaults,
@@ -82,7 +79,7 @@ export default function AssessmentResults(props: AssessmentResultsProps) {
       });
     };
 
-    // 2) kurzer „Regen“ von oben
+    // kurzer „Regen“ von oben
     const duration = 900;
     const animationEnd = Date.now() + duration;
 
@@ -190,8 +187,8 @@ export default function AssessmentResults(props: AssessmentResultsProps) {
     return effectiveTotal > 0 ? (effectiveAnswered / effectiveTotal) * 100 : 0;
   }, [effectiveAnswered, effectiveTotal]);
 
-
-  const heroTitle = (topicName ?? "ASSESSMENT").replace(/-/g, " ").toUpperCase();
+  const countRequired = summary?.answeredQuestions?.filter(q => q.isAutoScored).length ?? 0;
+  const countNotRequired = summary?.answeredQuestions?.filter(q => !q.isAutoScored).length ?? 0;
 
   return (
     <div
@@ -297,7 +294,7 @@ export default function AssessmentResults(props: AssessmentResultsProps) {
           <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
             <div>
               <h1 className="text-3xl font-bold mb-2">Assessment Abgeschlossen!</h1>
-              <p className="text-lg/7 text-white/90">Ihre Bewertung für {heroTitle}</p>
+              <p className="text-lg/7 text-white/90">Übersicht Ihrer Antworten zum Thema <b>{topicName}</b></p>
             </div>
 
           </div>
@@ -308,13 +305,10 @@ export default function AssessmentResults(props: AssessmentResultsProps) {
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow">
             <div className="flex items-center gap-3 mb-3">
               <BarChart3 className="w-6 h-6 text-indigo-700" />
-              <h3 className="text-sm font-semibold">Gesamtscore</h3>
+              <h3 className="text-sm font-semibold">Bearbeitungsstand</h3>
             </div>
             <div className="text-2xl font-bold text-indigo-700 mb-3">
-              {totalScore}/{maxTotalScore}
-            </div>
-            <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
-              <div className="h-full bg-slate-900 transition-[width] duration-700" style={{ width: `${overallPct}%` }} />
+              fast fertig
             </div>
           </div>
 
@@ -366,11 +360,11 @@ export default function AssessmentResults(props: AssessmentResultsProps) {
               <div className="flex flex-wrap gap-2 text-xs">
                 <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 text-emerald-700 px-3 py-1 border border-emerald-100">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                  {summary.automatischBewertetAnzahl} automatisch bewertet
+                  {countRequired} Pflichtfragen
                 </span>
                 <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 text-amber-700 px-3 py-1 border border-amber-100">
                   <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
-                  {summary.manuellZuBewertenAnzahl} manuell zu bewerten
+                  {countNotRequired} Optionale Fragen
                 </span>
                 <span className="inline-flex items-center gap-1 rounded-full bg-slate-50 text-slate-700 px-3 py-1 border border-slate-200">
                   <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
@@ -387,18 +381,12 @@ export default function AssessmentResults(props: AssessmentResultsProps) {
                     <tr className="bg-slate-100/80 text-left text-xs uppercase tracking-wide text-slate-500">
                       <th className="py-3 pl-4 pr-4 font-semibold">Frage</th>
                       <th className="py-3 px-4 font-semibold">Antwort</th>
-                      <th className="py-3 px-4 font-semibold">Punkte</th>
-                      <th className="py-3 px-4 font-semibold">Erfüllung</th>
-                      <th className="py-3 px-4 font-semibold">Bewertung</th>
+                      <th className="py-3 px-4 font-semibold">Required</th>
                       <th className="py-3 px-4 font-semibold text-right">Aktion</th>
                     </tr>
                   </thead>
                   <tbody>
                     {rows.map((q, idx) => {
-                      const pct =
-                        q.maxScore > 0 ? Math.round((q.score / q.maxScore) * 100) : 0;
-                      const isPerfect = q.score === q.maxScore;
-
                       const answeredValue = Array.isArray(q.answeredValue)
                         ? q.answeredValue.join(", ")
                         : (q.answeredValue === "" || q.answeredValue == null)
@@ -431,26 +419,7 @@ export default function AssessmentResults(props: AssessmentResultsProps) {
                             {answeredValue}
                           </td>
 
-                          {/* Punkte */}
-                          <td className="py-3 px-4 align-top text-slate-800 whitespace-nowrap">
-                            {q.score}/{q.maxScore}
-                          </td>
-
-                          {/* Erfüllung mit Progressbar */}
-                          <td className="py-3 px-4 align-top">
-                            <div className="flex items-center gap-3">
-                              <div className="w-24 h-2.5 rounded-full bg-slate-200 overflow-hidden">
-                                <div
-                                  className={`h-full ${isPerfect ? "bg-emerald-500" : "bg-indigo-500"
-                                    }`}
-                                  style={{ width: `${pct}%` }}
-                                />
-                              </div>
-                              <span className="text-xs text-slate-600">{pct}%</span>
-                            </div>
-                          </td>
-
-                          {/* automatisch / manuell */}
+                          {/* required */}
                           <td className="py-3 px-4 align-top">
                             <span
                               className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium ${q.isAuto
@@ -458,7 +427,7 @@ export default function AssessmentResults(props: AssessmentResultsProps) {
                                   : "bg-amber-50 text-amber-700 border border-amber-100"
                                 }`}
                             >
-                              {q.isAuto ? "automatisch" : "manuell"}
+                              {q.isRequired? "Ja" : "Nein"}
                             </span>
                           </td>
 
@@ -493,7 +462,7 @@ export default function AssessmentResults(props: AssessmentResultsProps) {
                                 setEditError(null);
                               }}
                             >
-                              Frage bearbeiten
+                              Antwort bearbeiten
                             </button>
                           </td>
                         </tr>

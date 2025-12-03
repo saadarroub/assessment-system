@@ -1,69 +1,934 @@
-
-import { useEffect } from "react";
+import { useMemo, useState, useEffect } from "react";
+import { Home, BarChart3, Target, PieChart, AlertTriangle } from "lucide-react";
+import type { ApiSummaryResponse, UiQuestion } from "@/features/service/publicAssessmentService";
 import confetti from "canvas-confetti";
 
-type Props = {
+
+export type AssessmentResultsProps = {
   topicName?: string;
-  onRestart: () => void;
-  onBackToTopics: () => void;
-  // Optional: falls du später Fortschritt anzeigen willst
-  percent?: number;
-  answered?: number;
-  total?: number;
+  onRestart?: () => void;
+  onBackToTopics?: () => void;
+  onComplete?: () => void;   // Klick auf "Abschließen"
+  // onChangeAnswer?: (questionId: string, newValue: string) => Promise<void> | void; 
+  //  für Bearbeiten
+  questionsById?: Record<string, UiQuestion>;
+  answerValues?: Record<string, any>;
+  onChangeAnswer?: (questionId: string, uiValue: any) => Promise<void> | void;
+
+  // harte Zahlen direkt aus deiner Page:
+  answered: number;        // z.B. progress.answered
+  total: number;           // z.B. progress.total
+  totalScore: number;      // z.B. dein vorhandener Score-Wert
+  maxTotalScore: number;   // z.B. dein vorhandener MaxScore-Wert
+
+
+  // optional nette Extras, falls du sie hast:
+  completedAt?: string;    // ISO
+  overallLevel?: string;   // "niedrig" | "mittel" | "hoch" | ...
+  percent?: number;        // falls du pct schon berechnet hast (0..100)
+  summary?: ApiSummaryResponse | null;
 };
 
+export default function AssessmentResults(props: AssessmentResultsProps) {
+  const {
+    topicName, onBackToTopics, onComplete, onChangeAnswer, questionsById, answerValues,
 
-export default function AssessmentCompleted({
-  topicName,
-  onRestart,
-  onBackToTopics,
-  percent,
-  answered,
-  total,
-}: Props) {
-  
+    answered, total, totalScore, maxTotalScore,
+    completedAt, percent, summary,
+  } = props;
+
+
+  const [editQuestion, setEditQuestion] = useState<UiQuestion | null>(null);
+  const [editValue, setEditValue] = useState<any>(null);
+
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+
+  // oben hast du schon: const [editQuestion, ...] = useState(...);
+
+  const [showCelebration, setShowCelebration] = useState(true);
+
+
+  useEffect(() => {
+    const defaults = {
+      spread: 80,
+      ticks: 90,
+      gravity: 1,
+      zIndex: 9999,
+    };
+
+    // 1) großer Puff in der Mitte (3 Bursts)
+    const centerBursts = () => {
+      confetti({
+        ...defaults,
+        startVelocity: 45,
+        particleCount: 140,
+        origin: { x: 0.5, y: 0.6 },
+      });
+
+      confetti({
+        ...defaults,
+        startVelocity: 40,
+        particleCount: 90,
+        origin: { x: 0.3, y: 0.55 },
+      });
+
+      confetti({
+        ...defaults,
+        startVelocity: 40,
+        particleCount: 90,
+        origin: { x: 0.7, y: 0.55 },
+      });
+    };
+
+    // 2) kurzer „Regen“ von oben
+    const duration = 900;
+    const animationEnd = Date.now() + duration;
+
+    const topRain = setInterval(() => {
+      const timeLeft = animationEnd - Date.now();
+      if (timeLeft <= 0) {
+        clearInterval(topRain);
+        return;
+      }
+
+      confetti({
+        ...defaults,
+        startVelocity: 25,
+        particleCount: 35,
+        gravity: 1.2,
+        origin: {
+          x: 0.2 + Math.random() * 0.6, // irgendwo über der Mitte
+          y: 0,                          // von ganz oben
+        },
+      });
+    }, 200);
+
+    centerBursts();
+
+    // Celebration nach 4s ausblenden (für Ballons)
+    const hideTimeout = setTimeout(() => setShowCelebration(false), 4000);
+
+    return () => {
+      clearInterval(topRain);
+      clearTimeout(hideTimeout);
+    };
+  }, []);
+
+  function getInitialUiValueForQuestion(
+    q: UiQuestion,
+    answerValues?: Record<string, any>,
+    fallbackAnsweredValue?: any
+  ) {
+    const raw = answerValues?.[String(q.id)] ?? fallbackAnsweredValue;
+
+    switch (q.type) {
+      case "checkbox":
+      case "order":
+        if (Array.isArray(raw)) return [...raw];
+        if (raw === null || raw === undefined || raw === "") return [];
+        return [String(raw)];
+
+      case "slider":
+      case "number": {
+        if (typeof raw === "number") return raw;
+        const min = (q as any).min ?? 0;
+        const max = (q as any).max ?? 10;
+        return Math.floor((min + max) / 2);
+      }
+
+      case "radio":
+      case "select":
+      case "text":
+      case "textarea":
+      case "date":
+      default:
+        if (raw === null || raw === undefined) return "";
+        if (Array.isArray(raw)) return raw[0] ?? "";
+        return String(raw);
+    }
+  }
+  const rows = useMemo(() => {
+    if (!summary) return [];
+
+    const answered = summary.answeredQuestions ?? [];
+
+    return answered
+      .map(q => ({
+        ...q,
+        // falls du irgendwann ein Flag vom Backend bekommst:
+        // isAuto: (q as any).isAuto ?? (q as any).automatic ?? false,
+        isAuto: q.isAutoScored,
+      }))
+      .sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0));
+  }, [summary]);
+  // --- Counts aus summary ableiten ---
+  const totalFromSummary = summary?.answeredQuestions?.length ?? 0;
+  const skippedFromSummary = summary?.uebersprungenAnzahl ?? 0;
+
+  // Deine Logik: "geskippt" nicht mitzählen
+  const answeredFromSummary =
+    totalFromSummary > 0
+      ? Math.max(totalFromSummary - skippedFromSummary, 0)
+      : 0;
+
+  // Fallback: wenn summary nicht da ist, nimm die Props
+  const effectiveTotal = totalFromSummary || total;
+  const effectiveAnswered = totalFromSummary ? answeredFromSummary : answered;
+
+
+  // Prozentanzeige: bevorzugt dein percent; sonst aus Score; sonst aus answered/total
+  const overallPct = useMemo(() => {
+    if (typeof percent === "number") return Math.max(0, Math.min(100, Math.round(percent)));
+    if (maxTotalScore > 0) return Math.round((totalScore / maxTotalScore) * 100);
+    if (total > 0) return Math.round((answered / total) * 100);
+    return 0;
+  }, [percent, totalScore, maxTotalScore, answered, total]);
+
+  const answeredPct = useMemo(() => {
+    return effectiveTotal > 0 ? (effectiveAnswered / effectiveTotal) * 100 : 0;
+  }, [effectiveAnswered, effectiveTotal]);
+
+
+  const heroTitle = (topicName ?? "ASSESSMENT").replace(/-/g, " ").toUpperCase();
+
   return (
-   <div className="relative px-6 py-10 text-center">
-      {/* 🎉 kleines Celebration-Badge oben – nur Tailwind */}
-      <div className="pointer-events-none fixed inset-x-0 top-6 z-40 flex justify-center">
-        <div className="flex items-center gap-2 rounded-full bg-black/70 px-4 py-2 text-xs sm:text-sm font-semibold text-white shadow-lg">
-          <span className="animate-bounce">🎉</span>
-          <span>Assessment erfolgreich abgeschlossen!</span>
-        </div>
-      </div>
-       <div className="text-6xl mb-5">✓</div>
-        <div className="text-[28px] font-bold text-[#1a1a1a] mb-2">
-        Assessment abgeschlossen
+    <div
+      className="
+      relative
+      min-h-screen
+      overflow-hidden
+      bg-[radial-gradient(circle_at_top,_#f9fafb_0%,_#e5e7eb_40%,_#f9fafb_100%)]
+      text-slate-900
+    "
+    >
+      <div className="pointer-events-none absolute inset-0">
+        {/* Dunkler Blob oben links */}
+        <div
+          className="
+        absolute -top-32 -left-20 h-64 w-64
+        rounded-full blur-3xl
+        bg-[hsla(215,60%,25%,0.22)]
+      "
+        />
+        {/* Goldener Blob rechts */}
+        <div
+          className="
+        absolute top-1/3 -right-28 h-72 w-72
+        rounded-full blur-3xl
+        bg-[hsla(45,70%,60%,0.25)]
+      "
+        />
       </div>
 
-      <div className="text-[16px] text-[#666] mb-3">
-        {`Vielen Dank für die Teilnahme am ${topicName || "Assessment"}. Ihre Antworten wurden gespeichert.`}
-      </div>
+      <style>{`
+      @keyframes stamp-appear {
+        0% { transform: rotate(25deg) scale(0) translateY(-100px); opacity: 0; }
+        50% { transform: rotate(25deg) scale(1.1) translateY(0); opacity: 1; }
+        100% { transform: rotate(25deg) scale(1) translateY(0); opacity: 1; }
+      }
 
-      {/* Optionaler Fortschritt, nur anzeigen wenn übergeben */}
-      {(typeof percent === "number" || (answered != null && total != null)) && (
-        <div className="text-sm text-[#475569] mb-6">
-          {typeof percent === "number" && <span>{percent}% abgeschlossen</span>}
-          {answered != null && total != null && (
-            <span className="ml-2">{`(${answered} von ${total} Fragen)`}</span>
-          )}
+      @keyframes balloon-pop {
+        0%   { transform: scale(0.2) translateY(20px); opacity: 0; }
+        60%  { transform: scale(1.05) translateY(-4px); opacity: 1; }
+        100% { transform: scale(1) translateY(0); opacity: 1; }
+      }
+
+      @keyframes balloon-float-small {
+        0%   { transform: translateY(0); }
+        100% { transform: translateY(-12px); }
+      }
+    `}</style>
+      {/*  Ballons – nur zeigen, solange showCelebration true ist */}
+      {showCelebration && (
+        <div className="pointer-events-none fixed inset-0 z-30 flex justify-center mt-20">
+          <div className="relative w-[260px] h-[160px]">
+            {/* blauer Ballon links */}
+            <div className="absolute left-0 bottom-6 w-10 h-10 rounded-full bg-blue-400 shadow-md animate-[balloon-pop_0.4s_ease-out,balloon-float-small_2s_ease-in-out_0.4s_infinite_alternate]" />
+
+            {/* grüner Ballon rechts */}
+            <div className="absolute right-2 bottom-3 w-11 h-11 rounded-full bg-green-400 shadow-md animate-[balloon-pop_0.45s_ease-out_0.05s,balloon-float-small_2.2s_ease-in-out_0.5s_infinite_alternate]" />
+
+            {/* gelbes Konfetti-Blättchen */}
+            <div className="absolute left-10 top-4 w-2 h-5 bg-yellow-300 rounded-sm rotate-6 animate-[balloon-pop_0.35s_ease-out_0.1s]" />
+
+            {/* rotes Konfetti-Blättchen */}
+            <div className="absolute right-10 top-10 w-2 h-5 bg-red-400 rounded-sm -rotate-12 animate-[balloon-pop_0.35s_ease-out_0.15s]" />
+          </div>
         </div>
       )}
 
-      <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-        <button
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold bg-blue-600 text-white hover:bg-blue-700 transition"
-          onClick={onRestart}
-        >
-          Assessment erneut starten
-        </button>
-        <button
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold bg-[#d4af37] text-[#333] hover:bg-[#c29d2f] transition"
-          onClick={onBackToTopics}
-        >
-          🏠 Zur Übersicht
-        </button>
+
+
+      <div className="max-w-[1152px] mx-auto px-6 py-8">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
+          {onBackToTopics ? (
+            <button
+              onClick={onBackToTopics}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium hover:bg-slate-100"
+            >
+              <Home className="w-5 h-5" />
+              Zur Übersicht
+            </button>
+          ) : (
+            <a
+              href="/"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium hover:bg-slate-100"
+            >
+              <Home className="w-5 h-5" />
+              Zur Übersicht
+            </a>
+          )}
+        </div>
+
+
+        {/* Hero */}
+        <div className="relative rounded-2xl border border-slate-200 shadow bg-gradient-to-br from-slate-900 to-blue-500 text-white p-8 mb-8 overflow-hidden">
+          <div className="absolute top-5 -right-10 opacity-0 animate-[stamp-appear_0.6s_cubic-bezier(0.68,-0.55,0.265,1.55)_0.3s_forwards] rotate-[25deg] z-10">
+            <div className="inline-block px-10 py-3 text-2xl font-black tracking-widest uppercase rounded-xl border-[6px] border-white/40 shadow-[0_0_0_3px_rgba(255,255,255,0.3),inset_0_0_20px_rgba(255,255,255,0.2),0_8px_24px_rgba(0,0,0,0.3)] relative bg-white/10 backdrop-blur-[2px]">
+              <span>COMPLETED</span>
+              <span className="pointer-events-none absolute inset-[-8px] rounded-2xl border-[3px] border-white/30 border-dashed" />
+              <span className="pointer-events-none absolute inset-[-2px] rounded-xl bg-gradient-to-br from-transparent via-white/10 to-transparent" />
+            </div>
+          </div>
+
+          <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+            <div>
+              <h1 className="text-3xl font-bold mb-2">Assessment Abgeschlossen!</h1>
+              <p className="text-lg/7 text-white/90">Ihre Bewertung für {heroTitle}</p>
+            </div>
+
+          </div>
+        </div>
+
+        {/* Stats */}
+        <div className="grid gap-6 md:grid-cols-3 mb-8">
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow">
+            <div className="flex items-center gap-3 mb-3">
+              <BarChart3 className="w-6 h-6 text-indigo-700" />
+              <h3 className="text-sm font-semibold">Gesamtscore</h3>
+            </div>
+            <div className="text-2xl font-bold text-indigo-700 mb-3">
+              {totalScore}/{maxTotalScore}
+            </div>
+            <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
+              <div className="h-full bg-slate-900 transition-[width] duration-700" style={{ width: `${overallPct}%` }} />
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow">
+            <div className="flex items-center gap-3 mb-3">
+              <Target className="w-6 h-6 text-sky-600" />
+              <h3 className="text-sm font-semibold">Beantwortete Fragen</h3>
+            </div>
+            <div className="text-2xl font-bold text-sky-600 mb-3">
+              {effectiveAnswered}/{effectiveTotal}
+            </div>
+            <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
+              <div className="h-full bg-sky-600 transition-[width] duration-700" style={{ width: `${answeredPct}%` }} />
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow">
+            <div className="flex items-center gap-3 mb-3">
+              <PieChart className="w-6 h-6 text-blue-500" />
+              <h3 className="text-sm font-semibold">Abgeschlossen am</h3>
+            </div>
+            <div className="text-[18px] font-medium mt-2">
+              {completedAt
+                ? new Date(completedAt).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })
+                : "—"}
+            </div>
+          </div>
+        </div>
+        {/* Kleine /summary-Box */}
+
+        {summary && (
+          <div className="mb-10 rounded-2xl border border-slate-200 bg-white p-6 shadow">
+            {/* Header / Meta wie bisher, nur leicht verfeinert */}
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-2xl bg-indigo-50 flex items-center justify-center border border-indigo-100">
+                  <BarChart3 className="w-5 h-5 text-indigo-700" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-900">
+                    Zusammenfassung Ihres Assessments
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Thema: {summary.themaName}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-2 text-xs">
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 text-emerald-700 px-3 py-1 border border-emerald-100">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                  {summary.automatischBewertetAnzahl} automatisch bewertet
+                </span>
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 text-amber-700 px-3 py-1 border border-amber-100">
+                  <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                  {summary.manuellZuBewertenAnzahl} manuell zu bewerten
+                </span>
+                <span className="inline-flex items-center gap-1 rounded-full bg-slate-50 text-slate-700 px-3 py-1 border border-slate-200">
+                  <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
+                  {summary.uebersprungenAnzahl} übersprungen
+                </span>
+              </div>
+            </div>
+
+            {/* Tabelle in „Card-Look“ */}
+            {rows.length > 0 && (
+              <div className="mt-3 overflow-hidden rounded-2xl border border-slate-100 bg-slate-50/70">
+                <table className="min-w-full text-sm">
+                  <thead>
+                    <tr className="bg-slate-100/80 text-left text-xs uppercase tracking-wide text-slate-500">
+                      <th className="py-3 pl-4 pr-4 font-semibold">Frage</th>
+                      <th className="py-3 px-4 font-semibold">Antwort</th>
+                      <th className="py-3 px-4 font-semibold">Punkte</th>
+                      <th className="py-3 px-4 font-semibold">Erfüllung</th>
+                      <th className="py-3 px-4 font-semibold">Bewertung</th>
+                      <th className="py-3 px-4 font-semibold text-right">Aktion</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((q, idx) => {
+                      const pct =
+                        q.maxScore > 0 ? Math.round((q.score / q.maxScore) * 100) : 0;
+                      const isPerfect = q.score === q.maxScore;
+
+                      const answeredValue = Array.isArray(q.answeredValue)
+                        ? q.answeredValue.join(", ")
+                        : (q.answeredValue === "" || q.answeredValue == null)
+                          ? "übersprungen"
+                          : String(q.answeredValue);
+
+                      return (
+                        <tr
+                          key={q.questionId}
+                          className={`
+                    border-t border-slate-100
+                    ${idx % 2 === 0 ? "bg-white" : "bg-slate-50/60"}
+                    hover:bg-white/90 transition-colors
+                  `}
+                        >
+                          {/* Frage */}
+                          <td className="py-3 pl-4 pr-4 align-top">
+                            <div className="flex items-start gap-2">
+                              <span className="mt-1 h-2 w-2 rounded-full bg-indigo-400" />
+                              <div>
+                                <div className="font-medium text-slate-900">
+                                  {q.questionText}
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* Antwort */}
+                          <td className="py-3 px-4 align-top text-slate-700">
+                            {answeredValue}
+                          </td>
+
+                          {/* Punkte */}
+                          <td className="py-3 px-4 align-top text-slate-800 whitespace-nowrap">
+                            {q.score}/{q.maxScore}
+                          </td>
+
+                          {/* Erfüllung mit Progressbar */}
+                          <td className="py-3 px-4 align-top">
+                            <div className="flex items-center gap-3">
+                              <div className="w-24 h-2.5 rounded-full bg-slate-200 overflow-hidden">
+                                <div
+                                  className={`h-full ${isPerfect ? "bg-emerald-500" : "bg-indigo-500"
+                                    }`}
+                                  style={{ width: `${pct}%` }}
+                                />
+                              </div>
+                              <span className="text-xs text-slate-600">{pct}%</span>
+                            </div>
+                          </td>
+
+                          {/* automatisch / manuell */}
+                          <td className="py-3 px-4 align-top">
+                            <span
+                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium ${q.isAuto
+                                  ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
+                                  : "bg-amber-50 text-amber-700 border border-amber-100"
+                                }`}
+                            >
+                              {q.isAuto ? "automatisch" : "manuell"}
+                            </span>
+                          </td>
+
+                          {/* Aktion rechtsbündig */}
+                          <td className="py-3 px-4 align-top text-right">
+                            <button
+                              type="button"
+                              className="text-xs font-medium text-sky-600 hover:text-sky-700 hover:underline"
+                              onClick={() => {
+                                if (!questionsById) return;
+                                const qMeta = questionsById[String(q.questionId)];
+                                if (!qMeta) {
+                                  console.warn(
+                                    "Kein UiQuestion-Meta für",
+                                    q.questionId
+                                  );
+                                  return;
+                                }
+
+                                const fallbackValue = Array.isArray(q.answeredValue)
+                                  ? q.answeredValue
+                                  : q.answeredValue;
+
+                                const initial = getInitialUiValueForQuestion(
+                                  qMeta,
+                                  answerValues,
+                                  fallbackValue
+                                );
+
+                                setEditQuestion(qMeta);
+                                setEditValue(initial);
+                                setEditError(null);
+                              }}
+                            >
+                              Frage bearbeiten
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+          </div>
+        )}
+
+
+        {/* Actions */}
+        <div className="flex items-center justify-center gap-4 flex-wrap">
+
+          {/*  Abschließen -> completeSession */}
+          {onComplete && (
+            <button
+              //onClick={onComplete}
+              onClick={() => setShowConfirmModal(true)}
+              className="inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-semibold shadow hover:[filter:brightness(1.05)] focus:outline-none"
+              style={{
+                background: "hsl(40,60%,63%)",           // Gelb wie Users/Zuweisungen
+                color: "hsl(200,32%,22%)",               // dunkles Blau-Grau
+                boxShadow: "0 1px 2px rgba(0,0,0,.05)"
+              }}
+              aria-label="New Company"
+            >
+              Ab­schließen
+            </button>
+          )}
+
+        </div>
       </div>
+      {/* ===== Bearbeiten-Modal ===== */}
+      {editQuestion && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="w-full max-w-2xl px-4 sm:px-0">
+            {/* OBERER CARD-BLOCK – nur Inhalt */}
+            <div className="relative overflow-hidden rounded-3xl bg-white shadow-2xl border border-slate-200/80">
+              {/* gleiche Glows wie beim Abschluss-Dialog */}
+              <div
+                className="pointer-events-none absolute -right-24 -top-24 h-52 w-52 rounded-full bg-gradient-to-br from-[#E3BB62]/40 via-amber-400/20 to-transparent opacity-60"
+                aria-hidden="true"
+              />
+              <div
+                className="pointer-events-none absolute -left-24 -bottom-24 h-52 w-52 rounded-full bg-gradient-to-tr from-sky-500/20 via-indigo-500/10 to-transparent opacity-60"
+                aria-hidden="true"
+              />
+
+              {/* Inhalt */}
+              <div className="relative px-6 pt-6 pb-4">
+                <h2 className="text-lg sm:text-xl font-semibold text-slate-900 mb-1">
+                  Frage bearbeiten
+                </h2>
+                <p className="text-sm text-slate-500 mb-4">
+                  {editQuestion.text}
+                </p>
+
+                {/* === alle deine Eingabetypen – unverändert übernommen === */}
+                {editQuestion.type === "radio" && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {editQuestion.options.map((opt: string) => {
+                      const checked = editValue === opt;
+                      return (
+                        <label
+                          key={opt}
+                          className={`flex items-center p-4 border-2 rounded-lg cursor-pointer transition bg-white
+                      ${checked
+                              ? "border-[#E3BB62] bg-[#FFFAEB]"
+                              : "border-gray-200 hover:border-[#264555] hover:bg-[#f8fafc]"
+                            }`}
+                        >
+                          <input
+                            type="radio"
+                            name={`edit-q-${editQuestion.id}`}
+                            className="mr-3 w-[18px] h-[18px] cursor-pointer accent-[#56768f]"
+                            checked={checked}
+                            onChange={() => setEditValue(opt)}
+                          />
+                          <span className="text-[15px] text-[#333]">{opt}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {editQuestion.type === "checkbox" && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {editQuestion.options.map((opt: string) => {
+                      const list: string[] = Array.isArray(editValue)
+                        ? editValue
+                        : [];
+                      const checked = list.includes(opt);
+
+                      const toggle = () => {
+                        const next = [...list];
+                        const idx = next.indexOf(opt);
+                        if (idx >= 0) next.splice(idx, 1);
+                        else next.push(opt);
+                        setEditValue(next);
+                      };
+
+                      return (
+                        <label
+                          key={opt}
+                          className={`flex items-center p-4 border-2 rounded-lg cursor-pointer transition bg-white
+                      ${checked
+                              ? "border-[#E3BB62] bg-[#FFFAEB]"
+                              : "border-gray-200 hover:border-[#264555] hover:bg-[#f8fafc]"
+                            }`}
+                        >
+                          <input
+                            type="checkbox"
+                            className="mr-3 w-[18px] h-[18px] cursor-pointer accent-[#56768f]"
+                            checked={checked}
+                            onChange={toggle}
+                          />
+                          <span className="text-[15px] text-[#333]">{opt}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {editQuestion.type === "slider" && (
+                  <div className="py-4">
+                    <input
+                      type="range"
+                      min={(editQuestion as any).min}
+                      max={(editQuestion as any).max}
+                      value={
+                        typeof editValue === "number"
+                          ? editValue
+                          : getInitialUiValueForQuestion(editQuestion, answerValues)
+                      }
+                      onChange={(e) => setEditValue(Number(e.target.value))}
+                      className="w-full h-2 rounded bg-[#ebebec] outline-none
+                  [accent-color:#56768f]
+                  [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:h-6
+                  [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[#56768f]
+                  [&::-moz-range-thumb]:w-6 [&::-moz-range-thumb]:h-6 [&::-moz-range-thumb]:rounded-full
+                  [&::-moz-range-thumb]:bg-[#56768f] [&::-moz-range-thumb]:border-0"
+                    />
+                    <div className="text-center text-[18px] font-semibold text-[#56768f] mt-2">
+                      {String(editValue)}
+                    </div>
+                    {(editQuestion as any).labels && (
+                      <div className="flex justify-between mt-2 text-sm text-[#666]">
+                        <span>{(editQuestion as any).labels[0]}</span>
+                        <span>{(editQuestion as any).labels[1]}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {editQuestion.type === "textarea" && (
+                  <textarea
+                    className="w-full min-h-[120px] p-4 border-2 border-gray-200 rounded-lg text-[15px] resize-y outline-none focus:border-blue-500"
+                    value={editValue ?? ""}
+                    onChange={(e) => setEditValue(e.target.value)}
+                  />
+                )}
+
+                {editQuestion.type === "text" && (
+                  <input
+                    type="text"
+                    className="w-full p-4 border-2 border-gray-200 rounded-lg text-[15px] outline-none focus:border-blue-500"
+                    value={editValue ?? ""}
+                    onChange={(e) => setEditValue(e.target.value)}
+                  />
+                )}
+
+                {editQuestion.type === "select" && (
+                  <select
+                    className="w-full p-4 border-2 border-gray-200 rounded-lg text-[15px] outline-none focus:border-blue-500 bg-white"
+                    value={editValue ?? ""}
+                    onChange={(e) => setEditValue(e.target.value)}
+                  >
+                    <option value="" disabled>
+                      Bitte auswählen …
+                    </option>
+                    {editQuestion.options.map((opt: string) => (
+                      <option key={opt} value={opt}>
+                        {opt}
+                      </option>
+                    ))}
+                  </select>
+                )}
+
+                {editQuestion.type === "number" && (
+                  <input
+                    type="number"
+                    className="w-full p-4 border-2 border-gray-200 rounded-lg text-[15px] outline-none focus:border-blue-500"
+                    min={(editQuestion as any).min}
+                    max={(editQuestion as any).max}
+                    step={(editQuestion as any).step ?? 1}
+                    value={editValue ?? ""}
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      setEditValue(raw === "" ? "" : Number(raw));
+                    }}
+                  />
+                )}
+
+                {editQuestion.type === "date" && (
+                  <input
+                    type="date"
+                    className="w-full p-4 border-2 border-gray-200 rounded-lg text-[15px] outline-none focus:border-blue-500"
+                    value={editValue ?? ""}
+                    onChange={(e) => setEditValue(e.target.value)}
+                  />
+                )}
+
+                {editQuestion.type === "order" && (() => {
+                  const base = (editQuestion as any).options || [];
+                  const current: string[] = Array.isArray(editValue)
+                    ? editValue
+                    : base;
+
+                  const move = (idx: number, dir: -1 | 1) => {
+                    const ni = idx + dir;
+                    if (ni < 0 || ni >= current.length) return;
+                    const arr = [...current];
+                    [arr[idx], arr[ni]] = [arr[ni], arr[idx]];
+                    setEditValue(arr);
+                  };
+
+                  return (
+                    <ul className="space-y-2">
+                      {current.map((opt, i) => (
+                        <li
+                          key={opt}
+                          className="flex items-center justify-between p-3 border-2 border-gray-200 rounded-lg bg-white"
+                        >
+                          <span className="text-[15px] text-[#333]">
+                            {i + 1}. {opt}
+                          </span>
+                          <div className="flex gap-2">
+                            <button
+                              className="px-3 py-1.5 rounded-lg border border-gray-300 bg-white hover:bg-gray-50"
+                              onClick={() => move(i, -1)}
+                              disabled={i === 0}
+                            >
+                              ↑
+                            </button>
+                            <button
+                              className="px-3 py-1.5 rounded-lg border border-gray-300 bg-white hover:bg-gray-50"
+                              onClick={() => move(i, +1)}
+                              disabled={i === current.length - 1}
+                            >
+                              ↓
+                            </button>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  );
+                })()}
+
+                {editError && (
+                  <p className="mt-3 text-xs text-red-600">{editError}</p>
+                )}
+              </div>
+            </div>
+
+            {/* KLEINER ABSTAND – wie beim Abschluss-Dialog */}
+            <div className="h-3" />
+
+            {/* UNTERE BUTTON-LEISTE – 1:1 wie beim Abschluss-Dialog, nur mit 'Speichern' */}
+            <div className="mt-1 flex gap-2">
+              {/* Abbrechen */}
+              <button
+                type="button"
+                onClick={() => !savingEdit && setEditQuestion(null)}
+                disabled={savingEdit}
+                className="
+            flex-1
+            h-12
+            text-sm font-medium
+            text-slate-800
+            bg-[#f3f3f3]
+            hover:bg-[#e5e5e5]
+            border border-slate-200
+            rounded-xl
+          "
+              >
+                Abbrechen
+              </button>
+
+              {/* Speichern */}
+              <button
+                type="button"
+                disabled={savingEdit || !onChangeAnswer}
+                onClick={async () => {
+                  if (!editQuestion || !onChangeAnswer) return;
+                  try {
+                    setSavingEdit(true);
+                    setEditError(null);
+                    await onChangeAnswer(String(editQuestion.id), editValue);
+                    setEditQuestion(null);
+                  } catch (e) {
+                    console.error(e);
+                    setEditError(
+                      "Konnte die Antwort nicht speichern. Bitte versuchen Sie es erneut."
+                    );
+                  } finally {
+                    setSavingEdit(false);
+                  }
+                }}
+                className="
+            flex-1
+            h-12
+            text-sm font-semibold
+            rounded-xl
+            bg-[#E3BB62]
+            text-[#264555]
+            hover:bg-[#d8ac55]
+            disabled:opacity-60
+            shadow-[0_10px_30px_rgba(0,0,0,0.18)]
+            transition
+            hover:-translate-y-[1px]
+          "
+              >
+                Speichern
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showConfirmModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="w-full max-w-xl px-4 sm:px-0">
+            {/* Oberer Content-Block */}
+            <div className="relative overflow-hidden rounded-3xl bg-white shadow-2xl border border-slate-200/80">
+              {/* Dekorativer Glow rechts oben */}
+              <div
+                className="pointer-events-none absolute -right-24 -top-24 h-52 w-52 rounded-full bg-gradient-to-br from-[#E3BB62]/40 via-amber-400/20 to-transparent opacity-60"
+                aria-hidden="true"
+              />
+              {/* Dekorativer Glow links unten */}
+              <div
+                className="pointer-events-none absolute -left-24 -bottom-24 h-52 w-52 rounded-full bg-gradient-to-tr from-sky-500/20 via-indigo-500/10 to-transparent opacity-60"
+                aria-hidden="true"
+              />
+
+              {/* Inhalt */}
+              <div className="relative px-6 pt-6 pb-5">
+                <div className="flex items-start gap-4">
+                  {/* Icon-Badge */}
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-100 to-amber-50 border border-amber-200 shadow-sm">
+                    <AlertTriangle></AlertTriangle>
+                  </div>
+
+                  <div className="flex-1">
+                    {/* Titel + Badge */}
+                    <div className="flex flex-wrap items-center gap-2 mb-1">
+                      <h2 className="text-lg sm:text-xl font-semibold text-slate-900">
+                        Assessment endgültig abschließen?
+                      </h2>
+                    </div>
+
+                    {/* Haupt-Text */}
+                    <p className="text-sm text-slate-600 leading-relaxed">
+                      Bitte bestätigen Sie, dass Sie dieses Assessment endgültig
+                      abschließen möchten.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Hinweis-Box */}
+                <div className="mt-4 rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
+                  <p className="text-xs font-semibold tracking-wide text-slate-500 uppercase mb-1">
+                    Hinweis
+                  </p>
+                  <p className="text-sm text-slate-600">
+                    Nach dem endgültigen Abschluss können die gegebenen Antworten
+                    <span className="font-semibold"> nicht mehr geändert</span> werden.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Abstand zwischen Card und Buttons */}
+            <div className="h-3" />
+
+            {/* Untere Button-Leiste – wie gehabt, aber mit etwas Abstand und Shadow */}
+            <div className="mt-1 flex gap-2">
+              {/* Abbrechen */}
+              <button
+                type="button"
+                onClick={() => setShowConfirmModal(false)}
+                className="
+            flex-1
+            h-12
+            text-sm font-medium
+            text-slate-800
+            bg-[#f3f3f3]
+            hover:bg-[#e5e5e5]
+            border border-slate-200
+            rounded-xl
+          "
+              >
+                Abbrechen
+              </button>
+
+              {/* Ja, endgültig abschließen */}
+              <button
+                type="button"
+                onClick={() => {
+                  setShowConfirmModal(false);
+                  onComplete?.();
+                }}
+                className="
+            flex-1
+            h-12
+            text-sm font-semibold
+            rounded-xl
+            bg-[#E3BB62]
+            text-[#264555]
+            hover:bg-[#d8ac55]
+            shadow-[0_10px_30px_rgba(0,0,0,0.18)]
+            transition
+            hover:-translate-y-[1px]
+          "
+              >
+                Ja, endgültig abschließen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

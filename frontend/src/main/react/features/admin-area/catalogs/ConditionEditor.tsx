@@ -1564,7 +1564,7 @@ export default function ConditionEditor() {
                           <input
                             type="number"
                             placeholder="Score"
-                            min={0}
+                            min={-1}
                             max={5}
                             step={1}
                             value={

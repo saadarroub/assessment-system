@@ -4,7 +4,8 @@ import { Link, useLocation } from "react-router-dom";
 import { Search, ArrowUpDown, Copy, Check, Link as LinkIcon, X } from "lucide-react";
 import AdminLayout from "@/apps/app/AdminLayout";
 import { listAssignments, type AssignmentApi } from "@/features/service/assignmentService";
-import myLogo from "@/assets/Zero-6-icons-05.webp";
+import { Network } from "lucide-react";
+import PageHeader from "@/features/admin-area/catalogs/PageHeader";
 
 type SortKey = "worker" | "catalog" | "status" | "assignedAt" | "expiresAt" | "completedAt";
 
@@ -167,37 +168,17 @@ export default function Zuweisungen() {
     return (
         <AdminLayout>
             {/* Kopfbereich (unverändert außer Breite) */}
-            <header
-                className="relative bg-[hsl(60_9%_97.8%)] border-b border-[hsl(214.3_31.8%_91.4%)] px-8 py-4" //bg-[hsl(0_0%_92%)] min-h-[calc(100vh-64px)] mt-2 px-6 py-6 zum testen
-            >
-                <div className="pointer-events-none absolute left-0 right-0 top-[calc(64px-1px)] h-0 [box-shadow:0_10px_16px_-14px_rgba(15,23,42,.18)]" />
-                <div className="grid grid-cols-3 items-center gap-2 lg:grid-cols-1 lg:justify-items-center lg:text-center">
-                    <div className="justify-self-start hidden lg:flex items-center lg:justify-self-center" />
-                    <div className="justify-self-center">
-                        <div className="[&>h1]:text-[clamp(28px,6vw,56px)] [&>h1]:font-extrabold [&>h1]:tracking-[-0.02em] [&>h1]:m-0 [&>h1]:mb-4 [&>h1]:leading-[1.05]
-             [&>h1]:text-[#264555] [&>p]:mt-0 [&>p]:text-[#334155] [&>p]:opacity-90 [&>p]:text-[clamp(14px,1.6vw,18px)]">
-                            <div className="flex items-center justify-center gap-4">
-                                <img
-                                    src={myLogo}
-                                    alt="Dein Logo"
-                                    className="h-[200px] w-[200px] object-contain shrink-0"
-                                    width={200}
-                                    height={200}
-                                />
-                                <div className="text-center">
-                                    <h1 className="text-[clamp(28px,6vw,56px)] font-extrabold tracking-[-0.02em] mb-2 leading-[1.05] text-[#264555]">
-                                        Zuweisungen Administration
-                                    </h1>
-                                    <p className="mt-0 text-[#334155]/90 text-[clamp(14px,1.6vw,18px)]">
-                                        Alle Katalog-Zuweisungen an Kunden verwalten
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="justify-self-end inline-flex lg:justify-self-center" />
-                </div>
-            </header>
+              {/* HEADER */}
+            <PageHeader
+      
+              title=" Zuweisungen Administration"
+              subtitle="Alle Katalog-Zuweisungen an Kunden verwalten"
+              icon={<Network size={40} />}
+              gradient="navy"
+              height="280px"
+              showPattern={true}
+      
+            />
 
             <main className="bg-[hsl(0_0%_92%)] min-h-[calc(100vh-64px)] mt-2 px-6 py-6" style={{ background: CSS.adminBg }}>
                 <nav className="max-w-[1400px] xl:max-w-[1600px] mx-auto mb-4 flex items-center gap-2 text-[0.9rem]" style={{ color: CSS.mutedFg }}>

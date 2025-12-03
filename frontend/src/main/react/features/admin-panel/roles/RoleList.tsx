@@ -89,6 +89,7 @@ export default function RoleList() {
   const [editingRole, setEditingRole] = useState<RoleRow | null>(null);
   const [eName, setEName] = useState("");
   const [eDesc, setEDesc] = useState("");
+  
   const [updating, setUpdating] = useState(false);
   const [updateError, setUpdateError] = useState<string | null>(null);
 
