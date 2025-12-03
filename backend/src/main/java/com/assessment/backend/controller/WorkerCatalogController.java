@@ -6,6 +6,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.access.prepost.PreAuthorize;
+
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -29,6 +31,7 @@ public class WorkerCatalogController {
      * Body: { "workerId": "uuid", "catalogId": "uuid", "expiresAt": "2025-12-31T23:59:59", "notes": "..." }
      */
     @PostMapping("/assign")
+    @PreAuthorize("hasAuthority('catalogs.assign')")
     public ResponseEntity<?> assignCatalogToWorker(@RequestBody Map<String, Object> request) {
         try {
             UUID workerId = UUID.fromString((String) request.get("workerId"));
@@ -64,6 +67,7 @@ public class WorkerCatalogController {
      * Body: { "workerIds": ["uuid1", "uuid2"], "catalogId": "uuid", "expiresAt": "...", "notes": "..." }
      */
     @PostMapping("/assign/bulk")
+    @PreAuthorize("hasAuthority('catalogs.assign')")
     public ResponseEntity<?> assignCatalogToMultipleWorkers(@RequestBody Map<String, Object> request) {
         try {
             @SuppressWarnings("unchecked")

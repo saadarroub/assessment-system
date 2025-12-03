@@ -13,20 +13,38 @@ import {
   deleteWorker,
   type WorkerApi,
   getAssignmentsByCompany,
-  type AssignmentApi
+  type AssignmentApi,
+  type CompanyApi,
 } from "@/features/service/companyService";
-import { Pencil, Loader2, Trash, UserPlus } from "lucide-react";
-
+import {
+  Pencil,
+  Loader2,
+  Trash,
+  UserPlus,
+  Globe2,
+  MapPin,
+  Clock3,
+  Phone,
+  Globe,
+} from "lucide-react";
 /* ---------- API & UI Types ---------- */
-type CompanyApi = { id: string; name: string; description?: string; created_at?: string; createdAt?: string; };
 type CompanyDetailsT = {
   id: string;
   name: string;
-  status?: "active" | "inactive";
+  status: "active" | "inactive";
   created: string | null;
+  updated: string | null;
+  description?: string | null;
+  street?: string | null;
+  postalCode?: string | null;
+  city?: string | null;
+  country?: string | null;
+  website?: string | null;
+  phone?: string | null;
   usersCount?: number;
   catalogsCount?: number;
 };
+
 
 const toISOorNull = (s?: string) => {
   if (!s) return null;
@@ -38,10 +56,20 @@ function mapApiToDetails(x: CompanyApi): CompanyDetailsT {
   return {
     id: String(x.id),
     name: String(x.name ?? "Unbenannte Firma"),
-    status: "active",
-    created: toISOorNull(x.created_at ?? x.createdAt),
+    status: (x.status as "active" | "inactive") ?? "active",
+    created: toISOorNull((x as any).created_at ?? x.createdAt),
+    updated: toISOorNull(x.updatedAt),
+    description: x.description ?? null,
+    street: x.street ?? null,
+    postalCode: x.postalCode ?? null,
+    city: x.city ?? null,
+    country: x.country ?? null,
+    website: x.website ?? null,
+    phone: x.phone ?? null,
   };
 }
+
+
 const formatDate = (iso?: string | null) =>
   iso ? new Date(iso).toLocaleDateString("de-DE") : "—";
 type TabKey = "users" | "catalogs";
@@ -370,8 +398,6 @@ export default function CompanyDetails() {
           <div className="flex flex-col gap-6 min-w-0">
             <section className="admin-card p-6">
               {/* Company Kopf */}
-              {/* Company Kopf – Name + Badge in EINER Zeile */}
-              {/* Company Kopf – Name links, Badge ganz rechts */}
               <div className="mb-6">
                 <div className="flex items-center gap-4">
                   <div
@@ -395,28 +421,188 @@ export default function CompanyDetails() {
                 </div>
               </div>
               {/* Stats (mit farbigen Top-Akzenten wie im Screenshot) */}
+              {/* Stats / Kennzahlen */}
+              {/* Stats – subtilere, einheitliche Cards */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                 {/* Workers */}
-                <div className="text-center p-4 border border-[hsl(var(--border))] rounded-lg border-t-4 border-t-[#94a3b8]">
-                  <span className="text-2xl text-[hsl(var(--primary))] mb-2 block" aria-hidden>👥</span>
-                  <span className="block text-[1.5rem] font-extrabold text-[hsl(var(--foreground))]">{usersCount}</span>
-                  <div className="text-[0.875rem] text-[hsl(var(--muted-foreground))]">Workers</div>
+                <div className="relative overflow-hidden text-center p-4 border border-[hsl(var(--border))] rounded-2xl bg-white/95 shadow-sm transition-shadow hover:shadow-md">
+                  {/* dezente goldene & dunkle Glows */}
+                  <div className="pointer-events-none absolute -top-10 -right-6 h-24 w-24 rounded-full bg-[radial-gradient(circle_at_center,_rgba(250,204,21,0.18),_transparent_65%)]" />
+                  <div className="pointer-events-none absolute -bottom-6 left-0 h-16 w-16 rounded-full bg-[radial-gradient(circle_at_center,_rgba(15,23,42,0.1),_transparent_70%)]" />
+
+                  <span className="text-[0.7rem] font-semibold uppercase tracking-[0.16em] text-[hsl(var(--muted-foreground))]">
+                    Workers
+                  </span>
+                  <span className="mt-2 block text-[1.8rem] font-extrabold text-[hsl(var(--foreground))] leading-none">
+                    {usersCount}
+                  </span>
+                  <div className="mt-2 text-[0.8rem] text-[hsl(var(--muted-foreground))]">
+                    Team overview
+                  </div>
                 </div>
+
                 {/* Catalogs */}
-                <div className="text-center p-4 border border-[hsl(var(--border))] rounded-lg border-t-4 border-t-[#60a5fa]">
-                  <span className="text-2xl text-[hsl(var(--primary))] mb-2 block" aria-hidden>📂</span>
-                  <span className="block text-[1.5rem] font-extrabold text-[hsl(var(--foreground))]">{catalogsCount}</span>
-                  <div className="text-[0.875rem] text-[hsl(var(--muted-foreground))]">Catalogs</div>
+                <div className="relative overflow-hidden text-center p-4 border border-[hsl(var(--border))] rounded-2xl bg-white/95 shadow-sm transition-shadow hover:shadow-md">
+                  <div className="pointer-events-none absolute -top-10 -right-6 h-24 w-24 rounded-full bg-[radial-gradient(circle_at_center,_rgba(250,204,21,0.18),_transparent_65%)]" />
+                  <div className="pointer-events-none absolute -bottom-6 left-0 h-16 w-16 rounded-full bg-[radial-gradient(circle_at_center,_rgba(15,23,42,0.1),_transparent_70%)]" />
+
+                  <span className="text-[0.7rem] font-semibold uppercase tracking-[0.16em] text-[hsl(var(--muted-foreground))]">
+                    Catalogs
+                  </span>
+                  <span className="mt-2 block text-[1.8rem] font-extrabold text-[hsl(var(--foreground))] leading-none">
+                    {catalogsCount}
+                  </span>
+                  <div className="mt-2 text-[0.8rem] text-[hsl(var(--muted-foreground))]">
+                    Assessment sets
+                  </div>
                 </div>
+
                 {/* Created */}
-                <div className="text-center p-4 border border-[hsl(var(--border))] rounded-lg border-t-4 border-t-[#86efac]">
-                  <span className="text-2xl text-[hsl(var(--primary))] mb-2 block" aria-hidden>📅</span>
-                  <div className="text-[1rem] font-semibold text-[hsl(var(--foreground))] mt-1">{formatDate(company.created)}</div>
-                  <div className="text-[0.875rem] text-[hsl(var(--muted-foreground))]">Created</div>
+                <div className="relative overflow-hidden text-center p-4 border border-[hsl(var(--border))] rounded-2xl bg-white/95 shadow-sm transition-shadow hover:shadow-md">
+                  <div className="pointer-events-none absolute -top-10 -right-6 h-24 w-24 rounded-full bg-[radial-gradient(circle_at_center,_rgba(250,204,21,0.18),_transparent_65%)]" />
+                  <div className="pointer-events-none absolute -bottom-6 left-0 h-16 w-16 rounded-full bg-[radial-gradient(circle_at_center,_rgba(15,23,42,0.1),_transparent_70%)]" />
+
+                  <span className="text-[0.7rem] font-semibold uppercase tracking-[0.16em] text-[hsl(var(--muted-foreground))]">
+                    Created
+                  </span>
+                  <div className="mt-2 text-[1.05rem] font-semibold text-[hsl(var(--foreground))] leading-none">
+                    {formatDate(company.created)}
+                  </div>
+                  <div className="mt-2 text-[0.8rem] text-[hsl(var(--muted-foreground))]">
+                    Since launch
+                  </div>
                 </div>
               </div>
-              {/* Tabs */}
-              {/* Tabs */}
+
+
+
+              {/* Company Info / Adresse / Kontakt */}
+              {/* Company Info / Adresse / Kontakt */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                {/* Unternehmensprofil – 2 Spalten breit */}
+                <div className="relative lg:col-span-2 border border-[hsl(var(--border))] rounded-2xl bg-white/95 p-5 shadow-sm overflow-hidden">
+                  {/* zarter bläulicher Glow rechts oben */}
+                  <div className="pointer-events-none absolute -top-10 -right-4 h-28 w-28 rounded-full bg-[radial-gradient(circle_at_center,_rgba(59,130,246,0.12),_transparent_65%)]" />
+
+                  <div className="flex items-start justify-between gap-4 mb-3 relative">
+                    <div>
+                      <h3 className="text-[1rem] font-semibold text-[hsl(var(--foreground))] mb-1">
+                        Unternehmensprofil
+                      </h3>
+                      <p className="text-[0.95rem] text-[hsl(var(--muted-foreground))] m-0">
+                        {company.description
+                          ? company.description
+                          : "Keine Unternehmensbeschreibung hinterlegt."}
+                      </p>
+                    </div>
+
+                    {/* kleines „Meta“-Badge rechts oben */}
+                    {company.updated && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-slate-50 px-3 py-1 text-[0.75rem] font-medium text-slate-600">
+                        <Clock3 className="h-3 w-3 text-indigo-500" />
+                        Zuletzt aktualisiert: {formatDate(company.updated)}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* kleine Badges unten wie im Screenshot */}
+                  <div className="mt-4 flex flex-wrap gap-2 relative">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-slate-50 px-3 py-1 text-[0.8rem] font-medium text-slate-700">
+                      <Globe2 className="h-3 w-3 text-emerald-500" />
+                      {company.country || "Land unbekannt"}
+                    </span>
+
+                    <span className="inline-flex items-center gap-1 rounded-full bg-slate-50 px-3 py-1 text-[0.8rem] font-medium text-slate-700">
+                      <MapPin className="h-3 w-3 text-rose-500" />
+                      {company.city || "Ort unbekannt"}
+                    </span>
+
+                    {company.created && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-slate-50 px-3 py-1 text-[0.8rem] font-medium text-slate-700">
+                        <Clock3 className="h-3 w-3 text-sky-500" />
+                        Erstellt am {formatDate(company.created)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Rechte Spalte: Adresse + Kontakt übereinander */}
+                <div className="flex flex-col gap-4">
+                  {/* Adresse */}
+                  <div className="relative border border-[hsl(var(--border))] rounded-2xl bg-white/95 p-4 shadow-sm overflow-hidden">
+                    {/* leichter blauer Glow */}
+                    <div className="pointer-events-none absolute -top-8 -right-4 h-20 w-20 rounded-full bg-[radial-gradient(circle_at_center,_rgba(59,130,246,0.14),_transparent_65%)]" />
+
+                    <div className="flex items-center gap-2 mb-2 relative">
+                      <div className="h-8 w-8 rounded-xl bg-slate-50 flex items-center justify-center">
+                        <MapPin className="h-4 w-4 text-rose-500" />
+                      </div>
+                      <h3 className="text-[0.95rem] font-semibold text-[hsl(var(--foreground))] m-0">
+                        Adresse
+                      </h3>
+                    </div>
+
+                    {company.street || company.postalCode || company.city || company.country ? (
+                      <div className="text-[0.9rem] text-[hsl(var(--muted-foreground))] space-y-0.5 relative">
+                        {company.street && <div>{company.street}</div>}
+                        {(company.postalCode || company.city) && (
+                          <div>
+                            {company.postalCode} {company.city}
+                          </div>
+                        )}
+                        {company.country && <div>{company.country}</div>}
+                      </div>
+                    ) : (
+                      <p className="text-[0.9rem] text-[hsl(var(--muted-foreground))] m-0 relative">
+                        Keine Adressdaten hinterlegt.
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Kontakt */}
+                  <div className="relative border border-[hsl(var(--border))] rounded-2xl bg-white/95 p-4 shadow-sm overflow-hidden">
+                    {/* leichter grünlicher Glow */}
+                    <div className="pointer-events-none absolute -top-8 -right-4 h-20 w-20 rounded-full bg-[radial-gradient(circle_at_center,_rgba(34,197,94,0.16),_transparent_65%)]" />
+
+                    <div className="flex items-center gap-2 mb-2 relative">
+                      <div className="h-8 w-8 rounded-xl bg-slate-50 flex items-center justify-center">
+                        <Phone className="h-4 w-4 text-emerald-500" />
+                      </div>
+                      <h3 className="text-[0.95rem] font-semibold text-[hsl(var(--foreground))] m-0">
+                        Kontakt
+                      </h3>
+                    </div>
+
+                    <div className="space-y-1 text-[0.9rem] text-[hsl(var(--muted-foreground))] relative">
+                      <div>
+                        <span className="font-medium text-[hsl(var(--foreground))]">Telefon:</span>{" "}
+                        {company.phone || "Keine Telefonnummer hinterlegt."}
+                      </div>
+                      <div>
+                        <span className="font-medium text-[hsl(var(--foreground))]">Website:</span>{" "}
+                        {company.website ? (
+                          <a
+                            href={company.website}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1 underline underline-offset-2 hover:opacity-80"
+                          >
+                            <Globe className="h-3 w-3" />
+                            {company.website}
+                          </a>
+                        ) : (
+                          "Keine Website hinterlegt."
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+            </section>
+
+            {/* Tabs */}
+            <section className="admin-card p-6">
               <div className="border-b border-[hsl(var(--border))] mb-6" role="tablist" aria-label="Company Tabs">
                 <div className="flex gap-2">
                   {/* Workers */}

@@ -1,12 +1,12 @@
 import AdminLayout from "@/apps/app/AdminLayout";
 import { useMemo, useState, useEffect, useRef } from "react";
-import { Building2, Settings, Pencil, Wrench, Plus, X } from "lucide-react";
+import { Building2, Settings, Pencil, Wrench, Plus, X ,ListChecks  } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
 import myLogo from "@/assets/Zero-6-icons-05.webp";
 
-import { getTopicCountForCatalog } from "../service/themaCatalogService";
+import { getTopicCountForCatalog, fetchThemenByCatalog, type ThemaDto } from "../service/themaCatalogService";
 import { getCompanies, getWorkersByCompany, type WorkerApi } from "../service/companyService";
 import { getCatalogs, createCatalog, type CatalogApi, updateCatalog, deleteCatalog } from "../service/catalogService";
 import { assignWorkerCatalogBulk } from "../service/assignmentService";
@@ -70,6 +70,10 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
 
   // Auswahl Kataloge
   const [selectedCatalogId, setSelectedCatalogId] = useState<string | null>(null);; // useState<Set<string>>(new Set())
+
+  const [selectedCatalogTopics, setSelectedCatalogTopics] = useState<ThemaDto[] | null>(null);
+  const [loadingTopics, setLoadingTopics] = useState(false);
+  const [topicsError, setTopicsError] = useState<string | null>(null);
 
   // Edit/Lösch-Modus (Icon-Toggle, kein Text)
   const [editMode, setEditMode] = useState(false);
@@ -231,6 +235,43 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
     return () => document.removeEventListener("click", onDocClick);
   }, []);
 
+  //  Themen des ausgewählten Katalogs laden
+  useEffect(() => {
+    if (!selectedCatalogId) {
+      // Kein Katalog gewählt → Themen zurücksetzen
+      setSelectedCatalogTopics(null);
+      setTopicsError(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        setLoadingTopics(true);
+        setTopicsError(null);
+
+        const themen = await fetchThemenByCatalog(selectedCatalogId);
+        if (cancelled) return;
+
+        setSelectedCatalogTopics(themen);
+      } catch (e) {
+        console.error(e);
+        if (!cancelled) {
+          setTopicsError("Themen konnten nicht geladen werden.");
+          setSelectedCatalogTopics([]);
+        }
+      } finally {
+        if (!cancelled) setLoadingTopics(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedCatalogId]);
+
+
   /* ---------- Form/Actions ---------- */
   const canAssign = !!companyId && recipientIds.length > 0 && !!selectedCatalogId && !!dueDate;
 
@@ -260,65 +301,65 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
       return Array.from(set);
     });
   }
-function getAssignedByIdFromSession(): string {
-  try {
-    //  Session Storage (auth_session)
-    const rawSession = sessionStorage.getItem("auth_session");
-    if (rawSession) {
-      const parsed = JSON.parse(rawSession);
-      const id = parsed?.user?.id;
-      if (id && typeof id === "string") return id;
-    }
+  function getAssignedByIdFromSession(): string {
+    try {
+      //  Session Storage (auth_session)
+      const rawSession = sessionStorage.getItem("auth_session");
+      if (rawSession) {
+        const parsed = JSON.parse(rawSession);
+        const id = parsed?.user?.id;
+        if (id && typeof id === "string") return id;
+      }
 
-    // Fallback: alter Weg über localStorage("user"),
-    //    falls irgendwo noch benutzt
-    const rawLocal = localStorage.getItem("user");
-    if (rawLocal) {
-      const parsedLocal = JSON.parse(rawLocal);
-      const id = parsedLocal?.id;
-      if (id && typeof id === "string") return id;
+      // Fallback: alter Weg über localStorage("user"),
+      //    falls irgendwo noch benutzt
+      const rawLocal = localStorage.getItem("user");
+      if (rawLocal) {
+        const parsedLocal = JSON.parse(rawLocal);
+        const id = parsedLocal?.id;
+        if (id && typeof id === "string") return id;
+      }
+    } catch {
+      // einfach leer zurückgeben
     }
-  } catch {
-    // einfach leer zurückgeben
+    return "";
   }
-  return "";
-}
 
   async function handleAssign() {
-  if (!canAssign) return;
+    if (!canAssign) return;
 
-  const assignedById = getAssignedByIdFromSession();
-  if (!assignedById) {
-    alert("Fehler: Kein Benutzer gefunden. Bitte erneut anmelden.");
-    return;
+    const assignedById = getAssignedByIdFromSession();
+    if (!assignedById) {
+      alert("Fehler: Kein Benutzer gefunden. Bitte erneut anmelden.");
+      return;
+    }
+
+    const catalogId = selectedCatalogId;
+    if (!catalogId) return;
+
+    if (!dueDate) {
+      alert("Bitte ein Fälligkeitsdatum wählen.");
+      return;
+    }
+
+    const expiresAt = `${dueDate}T00:00:00.000`;
+
+    const payload = {
+      workerIds: recipientIds,
+      catalogId,
+      expiresAt,
+      assignedById,
+      notes: note || description || undefined,
+    };
+
+    try {
+      const res = await assignWorkerCatalogBulk(payload);
+      alert(`Zuweisung erfolgreich: ${res.success}/${res.total}`);
+      navigate("/admin/adminPanel/zuweisungen", { replace: true });
+    } catch (e: any) {
+      alert(`Zuweisung fehlgeschlagen: ${e?.message ?? e}`);
+    }
   }
-
-  const catalogId = selectedCatalogId;
-  if (!catalogId) return;
-
-  if (!dueDate) {
-    alert("Bitte ein Fälligkeitsdatum wählen.");
-    return;
-  }
-
-  const expiresAt = `${dueDate}T00:00:00.000`;
-
-  const payload = {
-    workerIds: recipientIds,
-    catalogId,
-    expiresAt,
-    assignedById,
-    notes: note || description || undefined,
-  };
-
-  try {
-    const res = await assignWorkerCatalogBulk(payload);
-    alert(`Zuweisung erfolgreich: ${res.success}/${res.total}`);
-    navigate("/admin/adminPanel/zuweisungen", { replace: true });
-  } catch (e: any) {
-    alert(`Zuweisung fehlgeschlagen: ${e?.message ?? e}`);
-  }
-}
 
 
   /* ---------- Dialog Helper ---------- */
@@ -629,8 +670,64 @@ function getAssignedByIdFromSession(): string {
                     onChange={(e) => setNote(e.target.value)}
                   />
                 </div>
+
+                {/* Themen im ausgewählten Katalog */}
+{selectedCatalogId && (
+  <div className="mt-6 space-y-3 rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3 shadow-sm">
+    <div className="flex items-center gap-3">
+      <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-white shadow-sm">
+        <ListChecks className="h-4 w-4 text-slate-600" />
+      </span>
+
+      <div className="min-w-0">
+        <p className="text-sm font-medium text-slate-800">
+          Themen im ausgewählten Katalog
+        </p>
+
+        {loadingTopics && (
+          <p className="text-xs text-slate-500">Themen werden geladen…</p>
+        )}
+
+        {!loadingTopics && topicsError && (
+          <p className="text-xs text-red-600">{topicsError}</p>
+        )}
+
+        {!loadingTopics && !topicsError && selectedCatalogTopics && (
+          <p className="text-xs text-slate-600">
+            {selectedCatalogTopics.length === 1
+              ? "1 Thema"
+              : `${selectedCatalogTopics.length} Themen`}
+          </p>
+        )}
+      </div>
+    </div>
+
+    {/* Liste der Themen */}
+    {!loadingTopics && !topicsError && selectedCatalogTopics && selectedCatalogTopics.length > 0 && (
+      <ul className="max-h-36 space-y-1 overflow-y-auto rounded-lg bg-white px-3 py-2 text-xs text-slate-700">
+        {selectedCatalogTopics.map((t) => (
+          <li key={t.id} className="flex items-start gap-2">
+            <span className="mt-[5px] h-1.5 w-1.5 rounded-full bg-emerald-500" />
+            <span className="leading-relaxed">{t.name}</span>
+          </li>
+        ))}
+      </ul>
+    )}
+
+    {/* Fallback, falls keine Themen vorhanden */}
+    {!loadingTopics && !topicsError && selectedCatalogTopics && selectedCatalogTopics.length === 0 && (
+      <p className="text-xs text-slate-500">
+        Für diesen Katalog sind noch keine Themen zugeordnet.
+      </p>
+    )}
+  </div>
+)}
+
+
               </div>
+
             </div>
+
           </div>
 
           {/* Right: Katalog-Karten */}

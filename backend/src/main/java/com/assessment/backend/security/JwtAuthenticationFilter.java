@@ -140,6 +140,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return true;
         }
 
+        if (path.startsWith("/api/assessments/")) {
+            return true;
+        }
+
         return false;
     }
 }

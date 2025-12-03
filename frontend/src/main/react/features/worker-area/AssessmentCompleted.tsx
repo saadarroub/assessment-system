@@ -1,4 +1,7 @@
 
+import { useEffect } from "react";
+import confetti from "canvas-confetti";
+
 type Props = {
   topicName?: string;
   onRestart: () => void;
@@ -18,10 +21,18 @@ export default function AssessmentCompleted({
   answered,
   total,
 }: Props) {
+  
   return (
-    <div className="px-6 py-10 text-center">
-      <div className="text-6xl mb-5">✓</div>
-      <div className="text-[28px] font-bold text-[#1a1a1a] mb-2">
+   <div className="relative px-6 py-10 text-center">
+      {/* 🎉 kleines Celebration-Badge oben – nur Tailwind */}
+      <div className="pointer-events-none fixed inset-x-0 top-6 z-40 flex justify-center">
+        <div className="flex items-center gap-2 rounded-full bg-black/70 px-4 py-2 text-xs sm:text-sm font-semibold text-white shadow-lg">
+          <span className="animate-bounce">🎉</span>
+          <span>Assessment erfolgreich abgeschlossen!</span>
+        </div>
+      </div>
+       <div className="text-6xl mb-5">✓</div>
+        <div className="text-[28px] font-bold text-[#1a1a1a] mb-2">
         Assessment abgeschlossen
       </div>
 

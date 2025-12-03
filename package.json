@@ -4,16 +4,20 @@
     "@headlessui/react": "^2.2.9",
     "@minoru/react-dnd-treeview": "^3.5.3",
     "axios": "^1.13.1",
+    "canvas-confetti": "^1.9.4",
     "dnd-kit-sortable-tree": "^0.1.73",
     "html2canvas": "^1.4.1",
-    "jspdf": "^3.0.3",
+    "jspdf": "^3.0.4",
+    "jspdf-autotable": "^5.0.2",
     "lucide-react": "^0.545.0",
     "react-dnd": "^16.0.1",
     "react-dnd-html5-backend": "^16.0.1",
     "react-window": "^2.2.3",
-    "recharts": "^3.1.2"
+    "recharts": "^3.1.2",
+    "tailwind-merge": "^3.4.0"
   },
   "devDependencies": {
+    "@types/canvas-confetti": "^1.9.0",
     "@types/html2canvas": "^0.5.35",
     "autoprefixer": "^10.4.21",
     "postcss": "^8.5.6",

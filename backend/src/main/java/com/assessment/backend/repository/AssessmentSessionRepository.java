@@ -1,9 +1,12 @@
 package com.assessment.backend.repository;
 
 import com.assessment.backend.entity.AssessmentSession;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -16,4 +19,24 @@ public interface AssessmentSessionRepository extends JpaRepository<AssessmentSes
     Optional<AssessmentSession> findFirstByWorkerIdAndThemaIdOrderByCreatedAtDesc(
             UUID workerId, UUID themaId
     );
+    
+    // Dashboard queries
+    List<AssessmentSession> findByStatusOrderByCompletedAtDesc(String status, Pageable pageable);
+    
+    Long countByStatus(String status);
+    
+    @Query("SELECT t.name, AVG((s.totalScore * 100.0) / NULLIF(s.maxPossibleScore, 0)) " +
+           "FROM AssessmentSession s JOIN Thema t ON s.themaId = t.id " +
+           "WHERE s.status = 'completed' AND s.maxPossibleScore > 0 " +
+           "GROUP BY t.name ORDER BY AVG((s.totalScore * 100.0) / NULLIF(s.maxPossibleScore, 0)) DESC")
+    List<Object[]> findAverageScoresByTheme(Pageable pageable);
+    
+    // Count completed sessions for a worker and thema
+    Long countByWorkerIdAndThemaIdAndStatus(UUID workerId, UUID themaId, String status);
+    
+    // Count all sessions for a worker at a company
+    Long countByWorkerIdAndCompanyId(UUID workerId, UUID companyId);
+    
+    // Count completed sessions for a worker at a company
+    Long countByWorkerIdAndCompanyIdAndStatus(UUID workerId, UUID companyId, String status);
 }

@@ -284,9 +284,10 @@ export default function Zuweisungen() {
                                 ) : (
                                     pageData.map((r) => {
                                         const wName = r.worker?.name || "—";
-                                        const wId = r.worker?.id || "—";
+                                        const companyName = r.company?.name || "—";
+                                        //const wId = r.worker?.id || "—";
                                         const cTitle = r.catalog?.title || "—";
-                                        const cId = r.catalog?.id || "—";
+                                       // const cId = r.catalog?.id || "—";
                                         const { date: aDate, time: aTime } = fmtParts(r.assignedAt);
                                         const { date: eDate, time: eTime } = fmtParts(r.expiresAt);
                                         const expired = isExpired(r.expiresAt);
@@ -300,7 +301,7 @@ export default function Zuweisungen() {
                                                 <td className="px-4 py-4 text-[0.95rem] border-t align-top" style={{ borderColor: CSS.border }}>
                                                     <div className="font-semibold" style={{ color: CSS.fg }}>{wName}</div>
                                                     <div className="mt-1 inline-block rounded text-[0.75rem]" style={{ color: CSS.mutedFg, background: "hsla(40,15%,92%,0.5)" }}>
-                                                        <span className="px-2 py-1 font-mono">{wId}</span>
+                                                        <span className="px-2 py-1 font-mono">{companyName}</span>
                                                     </div>
                                                 </td>
 
@@ -308,7 +309,6 @@ export default function Zuweisungen() {
                                                 <td className="px-4 py-4 text-[0.95rem] border-t align-top" style={{ borderColor: CSS.border }}>
                                                     <div className="font-semibold" style={{ color: CSS.fg }}>{cTitle}</div>
                                                     <div className="mt-1 inline-block rounded text-[0.75rem]" style={{ color: CSS.mutedFg, background: "hsla(40,15%,92%,0.5)" }}>
-                                                        <span className="px-2 py-1 font-mono">{cId}</span>
                                                     </div>
                                                 </td>
 
