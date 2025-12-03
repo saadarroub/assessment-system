@@ -30,4 +30,13 @@ public interface AssessmentSessionRepository extends JpaRepository<AssessmentSes
            "WHERE s.status = 'completed' AND s.maxPossibleScore > 0 " +
            "GROUP BY t.name ORDER BY AVG((s.totalScore * 100.0) / NULLIF(s.maxPossibleScore, 0)) DESC")
     List<Object[]> findAverageScoresByTheme(Pageable pageable);
+    
+    // Count completed sessions for a worker and thema
+    Long countByWorkerIdAndThemaIdAndStatus(UUID workerId, UUID themaId, String status);
+    
+    // Count all sessions for a worker at a company
+    Long countByWorkerIdAndCompanyId(UUID workerId, UUID companyId);
+    
+    // Count completed sessions for a worker at a company
+    Long countByWorkerIdAndCompanyIdAndStatus(UUID workerId, UUID companyId, String status);
 }

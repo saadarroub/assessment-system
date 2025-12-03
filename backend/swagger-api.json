@@ -1,0 +1,2143 @@
+{
+    "openapi": "3.0.3",
+    "info": {
+        "title": "Assessment System API",
+        "description": "Vollständige API-Dokumentation für das Assessment-System mit allen Endpunkten für Authentifizierung, Benutzerverwaltung, Katalogverwaltung, Bewertung und öffentliche Zugriffe",
+        "version": "1.0.0",
+        "contact": {
+            "name": "Assessment System Support"
+        }
+    },
+    "servers": [
+        {
+            "url": "http://localhost:8080",
+            "description": "Local Development Server"
+        }
+    ],
+    "tags": [
+        {
+            "name": "Authentifizierung",
+            "description": "Login, Logout, Token-Verwaltung, Berechtigungen"
+        },
+        {
+            "name": "Benutzer",
+            "description": "Benutzerverwaltung (CRUD), Rollenzuweisung"
+        },
+        {
+            "name": "Rollen & Berechtigungen",
+            "description": "Rollen, Permissions und deren Zuordnungen"
+        },
+        {
+            "name": "Unternehmen",
+            "description": "Firmenverwaltung"
+        },
+        {
+            "name": "Mitarbeiter",
+            "description": "Worker-Verwaltung"
+        },
+        {
+            "name": "Kataloge",
+            "description": "Assessment-Kataloge verwalten"
+        },
+        {
+            "name": "Themen",
+            "description": "Themen-Verwaltung"
+        },
+        {
+            "name": "Thema-Katalog-Zuordnung",
+            "description": "Themen zu Katalogen zuweisen"
+        },
+        {
+            "name": "Mitarbeiter-Katalog-Zuordnung",
+            "description": "Kataloge zu Mitarbeitern zuweisen"
+        },
+        {
+            "name": "Fragen",
+            "description": "Fragenverwaltung"
+        },
+        {
+            "name": "Fragentypen",
+            "description": "Verfügbare Fragetypen"
+        },
+        {
+            "name": "Fragenbaum",
+            "description": "Hierarchische Fragen-Nodes"
+        },
+        {
+            "name": "Bewertung",
+            "description": "Score-Abfragen, manuelle Bewertung"
+        },
+        {
+            "name": "Dashboard",
+            "description": "Dashboard-Statistiken"
+        },
+        {
+            "name": "Öffentlicher Zugriff",
+            "description": "Endpunkte für Assessment-Sessions ohne Login"
+        }
+    ],
+    "components": {
+        "securitySchemes": {
+            "bearerAuth": {
+                "type": "http",
+                "scheme": "bearer",
+                "bearerFormat": "JWT",
+                "description": "JWT Token aus dem /api/auth/login Endpoint"
+            }
+        },
+        "schemas": {
+            "LoginRequest": {
+                "type": "object",
+                "required": [
+                    "email",
+                    "password"
+                ],
+                "properties": {
+                    "email": {
+                        "type": "string",
+                        "format": "email"
+                    },
+                    "password": {
+                        "type": "string"
+                    }
+                }
+            },
+            "LoginResponse": {
+                "type": "object",
+                "properties": {
+                    "accessToken": {
+                        "type": "string"
+                    },
+                    "expiresAt": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "user": {
+                        "$ref": "#/components/schemas/UserSummary"
+                    }
+                }
+            },
+            "User": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "email": {
+                        "type": "string"
+                    },
+                    "password": {
+                        "type": "string"
+                    }
+                }
+            },
+            "UserSummary": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "email": {
+                        "type": "string"
+                    },
+                    "roles": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/Role"
+                        }
+                    },
+                    "permissions": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "Role": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": "string"
+                    }
+                }
+            },
+            "Permission": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": "string"
+                    }
+                }
+            },
+            "Company": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "parentCompanyId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "workSpaceRef": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "active",
+                            "inactive"
+                        ]
+                    }
+                }
+            },
+            "Worker": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "firstName": {
+                        "type": "string"
+                    },
+                    "lastName": {
+                        "type": "string"
+                    },
+                    "email": {
+                        "type": "string"
+                    },
+                    "companyId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "workSpaceRef": {
+                        "type": "string"
+                    }
+                }
+            },
+            "Catalog": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "isActive": {
+                        "type": "boolean"
+                    }
+                }
+            },
+            "Thema": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "isActive": {
+                        "type": "boolean"
+                    }
+                }
+            },
+            "Question": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "text": {
+                        "type": "string"
+                    },
+                    "questionTypeId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "inputType": {
+                        "type": "string"
+                    },
+                    "options": {
+                        "type": "string",
+                        "description": "JSON string"
+                    },
+                    "scoringSchema": {
+                        "type": "string",
+                        "description": "JSON string"
+                    }
+                }
+            },
+            "QuestionNode": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "themaId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "questionId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "parentNodeId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "orderIndex": {
+                        "type": "integer"
+                    },
+                    "required": {
+                        "type": "boolean"
+                    }
+                }
+            },
+            "WorkerCatalog": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "workerId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "catalogId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "companyId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "accessToken": {
+                        "type": "string"
+                    },
+                    "accessCode": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "expiresAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "ErrorResponse": {
+                "type": "object",
+                "properties": {
+                    "error": {
+                        "type": "string"
+                    }
+                }
+            }
+        }
+    },
+    "security": [
+        {
+            "bearerAuth": []
+        }
+    ],
+    "paths": {
+        "/api/auth/login": {
+            "post": {
+                "tags": [
+                    "Authentifizierung"
+                ],
+                "summary": "Benutzer anmelden",
+                "description": "Authentifiziert einen Benutzer mit E-Mail und Passwort. Gibt Access Token (15 Min gültig) und Refresh Token (7 Tage, httpOnly Cookie) zurück",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/LoginRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Erfolgreich angemeldet",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/LoginResponse"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Ungültige Anmeldedaten"
+                    }
+                },
+                "security": []
+            }
+        },
+        "/api/auth/refresh": {
+            "post": {
+                "tags": [
+                    "Authentifizierung"
+                ],
+                "summary": "Access Token erneuern",
+                "description": "Generiert einen neuen Access Token basierend auf dem Refresh Token aus dem Cookie",
+                "responses": {
+                    "200": {
+                        "description": "Neuer Access Token generiert",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "accessToken": {
+                                            "type": "string"
+                                        },
+                                        "expiresAt": {
+                                            "type": "integer"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Ungültiger oder abgelaufener Refresh Token"
+                    }
+                },
+                "security": []
+            }
+        },
+        "/api/auth/logout": {
+            "post": {
+                "tags": [
+                    "Authentifizierung"
+                ],
+                "summary": "Benutzer abmelden",
+                "description": "Meldet Benutzer ab und löscht Refresh Token Cookie",
+                "responses": {
+                    "200": {
+                        "description": "Erfolgreich abgemeldet"
+                    }
+                }
+            }
+        },
+        "/api/auth/permissions": {
+            "get": {
+                "tags": [
+                    "Authentifizierung"
+                ],
+                "summary": "Berechtigungen des aktuellen Benutzers",
+                "description": "Gibt alle Permissions des eingeloggten Users zurück",
+                "responses": {
+                    "200": {
+                        "description": "Liste der Permissions",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/users": {
+            "get": {
+                "tags": [
+                    "Benutzer"
+                ],
+                "summary": "Alle Benutzer abrufen",
+                "description": "Gibt Liste aller Benutzer mit Rollen und Permissions zurück (benötigt 'users.view')",
+                "responses": {
+                    "200": {
+                        "description": "Liste der Benutzer",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/UserSummary"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "Benutzer"
+                ],
+                "summary": "Benutzer erstellen",
+                "description": "Erstellt neuen Benutzer mit Rolle (benötigt 'users.create')",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "name": {
+                                        "type": "string"
+                                    },
+                                    "email": {
+                                        "type": "string"
+                                    },
+                                    "password": {
+                                        "type": "string"
+                                    },
+                                    "roleId": {
+                                        "type": "string",
+                                        "format": "uuid"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Benutzer erstellt"
+                    },
+                    "400": {
+                        "description": "Ungültige Eingabe"
+                    }
+                }
+            }
+        },
+        "/api/users/{id}": {
+            "get": {
+                "tags": [
+                    "Benutzer"
+                ],
+                "summary": "Benutzer nach ID abrufen",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Benutzer gefunden"
+                    },
+                    "404": {
+                        "description": "Benutzer nicht gefunden"
+                    }
+                }
+            },
+            "put": {
+                "tags": [
+                    "Benutzer"
+                ],
+                "summary": "Benutzer aktualisieren",
+                "description": "Aktualisiert Benutzerdaten (benötigt 'users.edit')",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/User"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Benutzer aktualisiert"
+                    },
+                    "404": {
+                        "description": "Benutzer nicht gefunden"
+                    }
+                }
+            },
+            "delete": {
+                "tags": [
+                    "Benutzer"
+                ],
+                "summary": "Benutzer löschen",
+                "description": "Löscht einen Benutzer (benötigt 'users.delete')",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Benutzer gelöscht"
+                    },
+                    "404": {
+                        "description": "Benutzer nicht gefunden"
+                    }
+                }
+            }
+        },
+        "/api/users/{userId}/roles/{roleId}": {
+            "post": {
+                "tags": [
+                    "Benutzer"
+                ],
+                "summary": "Rolle zu Benutzer zuweisen",
+                "parameters": [
+                    {
+                        "name": "userId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "roleId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Rolle zugewiesen"
+                    }
+                }
+            },
+            "delete": {
+                "tags": [
+                    "Benutzer"
+                ],
+                "summary": "Rolle von Benutzer entfernen",
+                "parameters": [
+                    {
+                        "name": "userId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "roleId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Rolle entfernt"
+                    }
+                }
+            }
+        },
+        "/api/roles": {
+            "get": {
+                "tags": [
+                    "Rollen & Berechtigungen"
+                ],
+                "summary": "Alle Rollen abrufen",
+                "responses": {
+                    "200": {
+                        "description": "Liste aller Rollen",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Role"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "Rollen & Berechtigungen"
+                ],
+                "summary": "Neue Rolle erstellen",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Role"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Rolle erstellt"
+                    }
+                }
+            }
+        },
+        "/api/permissions": {
+            "get": {
+                "tags": [
+                    "Rollen & Berechtigungen"
+                ],
+                "summary": "Alle Berechtigungen abrufen",
+                "responses": {
+                    "200": {
+                        "description": "Liste aller Permissions",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Permission"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/role-permissions/grant": {
+            "post": {
+                "tags": [
+                    "Rollen & Berechtigungen"
+                ],
+                "summary": "Berechtigung zu Rolle hinzufügen",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "roleId": {
+                                        "type": "string",
+                                        "format": "uuid"
+                                    },
+                                    "permissionId": {
+                                        "type": "string",
+                                        "format": "uuid"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Berechtigung zugewiesen"
+                    }
+                }
+            }
+        },
+        "/api/companies": {
+            "get": {
+                "tags": [
+                    "Unternehmen"
+                ],
+                "summary": "Alle Unternehmen abrufen",
+                "responses": {
+                    "200": {
+                        "description": "Liste aller Unternehmen",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Company"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "Unternehmen"
+                ],
+                "summary": "Unternehmen erstellen",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Company"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Unternehmen erstellt"
+                    }
+                }
+            }
+        },
+        "/api/companies/{id}": {
+            "get": {
+                "tags": [
+                    "Unternehmen"
+                ],
+                "summary": "Unternehmen nach ID abrufen",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Unternehmen gefunden"
+                    }
+                }
+            },
+            "put": {
+                "tags": [
+                    "Unternehmen"
+                ],
+                "summary": "Unternehmen aktualisieren",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Company"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Unternehmen aktualisiert"
+                    }
+                }
+            },
+            "delete": {
+                "tags": [
+                    "Unternehmen"
+                ],
+                "summary": "Unternehmen löschen",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Unternehmen gelöscht"
+                    }
+                }
+            }
+        },
+        "/api/workers": {
+            "get": {
+                "tags": [
+                    "Mitarbeiter"
+                ],
+                "summary": "Alle Mitarbeiter abrufen",
+                "responses": {
+                    "200": {
+                        "description": "Liste aller Mitarbeiter",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Worker"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "Mitarbeiter"
+                ],
+                "summary": "Mitarbeiter erstellen",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Worker"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Mitarbeiter erstellt"
+                    }
+                }
+            }
+        },
+        "/api/catalogs": {
+            "get": {
+                "tags": [
+                    "Kataloge"
+                ],
+                "summary": "Alle Kataloge abrufen",
+                "responses": {
+                    "200": {
+                        "description": "Liste aller Kataloge",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Catalog"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "Kataloge"
+                ],
+                "summary": "Katalog erstellen",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Catalog"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Katalog erstellt"
+                    }
+                }
+            }
+        },
+        "/api/catalogs/{id}": {
+            "get": {
+                "tags": [
+                    "Kataloge"
+                ],
+                "summary": "Katalog nach ID abrufen",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Katalog gefunden"
+                    }
+                }
+            },
+            "put": {
+                "tags": [
+                    "Kataloge"
+                ],
+                "summary": "Katalog aktualisieren",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Katalog aktualisiert"
+                    }
+                }
+            },
+            "delete": {
+                "tags": [
+                    "Kataloge"
+                ],
+                "summary": "Katalog löschen",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Katalog gelöscht"
+                    }
+                }
+            }
+        },
+        "/api/themas": {
+            "get": {
+                "tags": [
+                    "Themen"
+                ],
+                "summary": "Alle Themen abrufen",
+                "responses": {
+                    "200": {
+                        "description": "Liste aller Themen"
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "Themen"
+                ],
+                "summary": "Thema erstellen",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Thema"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Thema erstellt"
+                    }
+                }
+            }
+        },
+        "/api/themas/{id}": {
+            "get": {
+                "tags": [
+                    "Themen"
+                ],
+                "summary": "Thema nach ID",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Thema gefunden"
+                    }
+                }
+            },
+            "put": {
+                "tags": [
+                    "Themen"
+                ],
+                "summary": "Thema aktualisieren",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Thema aktualisiert"
+                    }
+                }
+            },
+            "delete": {
+                "tags": [
+                    "Themen"
+                ],
+                "summary": "Thema löschen",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Thema gelöscht"
+                    }
+                }
+            }
+        },
+        "/api/thema-catalogs": {
+            "post": {
+                "tags": [
+                    "Thema-Katalog-Zuordnung"
+                ],
+                "summary": "Thema zu Katalog hinzufügen",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "themaId": {
+                                        "type": "string",
+                                        "format": "uuid"
+                                    },
+                                    "catalogId": {
+                                        "type": "string",
+                                        "format": "uuid"
+                                    },
+                                    "orderIndex": {
+                                        "type": "integer"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Thema zu Katalog hinzugefügt"
+                    }
+                }
+            }
+        },
+        "/api/thema-catalogs/catalog/{catalogId}": {
+            "get": {
+                "tags": [
+                    "Thema-Katalog-Zuordnung"
+                ],
+                "summary": "Alle Themen eines Katalogs",
+                "parameters": [
+                    {
+                        "name": "catalogId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Liste der Themen"
+                    }
+                }
+            }
+        },
+        "/api/worker-catalog/assign": {
+            "post": {
+                "tags": [
+                    "Mitarbeiter-Katalog-Zuordnung"
+                ],
+                "summary": "Katalog zu Mitarbeiter zuweisen",
+                "description": "Weist einem Worker einen Katalog zu und generiert Access Token/Code",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "workerId": {
+                                        "type": "string",
+                                        "format": "uuid"
+                                    },
+                                    "catalogId": {
+                                        "type": "string",
+                                        "format": "uuid"
+                                    },
+                                    "expiresAt": {
+                                        "type": "string",
+                                        "format": "date-time"
+                                    },
+                                    "notes": {
+                                        "type": "string"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Zuweisung erstellt"
+                    }
+                }
+            }
+        },
+        "/api/worker-catalog/worker/{workerId}": {
+            "get": {
+                "tags": [
+                    "Mitarbeiter-Katalog-Zuordnung"
+                ],
+                "summary": "Alle Zuweisungen eines Mitarbeiters",
+                "parameters": [
+                    {
+                        "name": "workerId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Liste der Zuweisungen"
+                    }
+                }
+            }
+        },
+        "/api/questions": {
+            "get": {
+                "tags": [
+                    "Fragen"
+                ],
+                "summary": "Alle Fragen abrufen",
+                "responses": {
+                    "200": {
+                        "description": "Liste aller Fragen"
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "Fragen"
+                ],
+                "summary": "Frage erstellen",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Question"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Frage erstellt"
+                    }
+                }
+            }
+        },
+        "/api/questions/{id}": {
+            "get": {
+                "tags": [
+                    "Fragen"
+                ],
+                "summary": "Frage nach ID",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Frage gefunden"
+                    }
+                }
+            },
+            "put": {
+                "tags": [
+                    "Fragen"
+                ],
+                "summary": "Frage aktualisieren",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Frage aktualisiert"
+                    }
+                }
+            },
+            "delete": {
+                "tags": [
+                    "Fragen"
+                ],
+                "summary": "Frage löschen",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Frage gelöscht"
+                    }
+                }
+            }
+        },
+        "/api/question-types": {
+            "get": {
+                "tags": [
+                    "Fragentypen"
+                ],
+                "summary": "Alle Fragentypen abrufen",
+                "responses": {
+                    "200": {
+                        "description": "Liste aller Question Types"
+                    }
+                }
+            }
+        },
+        "/api/question-nodes": {
+            "get": {
+                "tags": [
+                    "Fragenbaum"
+                ],
+                "summary": "Alle Question Nodes abrufen",
+                "responses": {
+                    "200": {
+                        "description": "Liste aller Nodes"
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "Fragenbaum"
+                ],
+                "summary": "Question Node erstellen",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/QuestionNode"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Node erstellt"
+                    }
+                }
+            }
+        },
+        "/api/question-nodes/thema/{themaId}": {
+            "get": {
+                "tags": [
+                    "Fragenbaum"
+                ],
+                "summary": "Alle Fragen eines Themas",
+                "parameters": [
+                    {
+                        "name": "themaId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Liste aller Nodes für das Thema"
+                    }
+                }
+            }
+        },
+        "/api/scoring/company/{companyId}/overall": {
+            "get": {
+                "tags": [
+                    "Bewertung"
+                ],
+                "summary": "Gesamt-Score einer Firma",
+                "description": "Gibt Gesamtübersicht aller Scores für eine Firma zurück (Average Score, Sessions, Worker, etc.)",
+                "parameters": [
+                    {
+                        "name": "companyId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Overall Score Übersicht",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "companyId": {
+                                            "type": "string"
+                                        },
+                                        "companyName": {
+                                            "type": "string"
+                                        },
+                                        "averagePercentageScore": {
+                                            "type": "number"
+                                        },
+                                        "totalCompletedSessions": {
+                                            "type": "integer"
+                                        },
+                                        "totalSessions": {
+                                            "type": "integer"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/scoring/admin/sessions/{sessionId}/manual-scoring": {
+            "get": {
+                "tags": [
+                    "Bewertung"
+                ],
+                "summary": "Session für manuelle Bewertung",
+                "description": "Holt alle Fragen kategorisiert (auto-bewertet, manuell zu bewerten, übersprungen)",
+                "parameters": [
+                    {
+                        "name": "sessionId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Fragen kategorisiert für Manual Scoring"
+                    }
+                }
+            }
+        },
+        "/api/scoring/admin/sessions/{sessionId}/answers/{answerId}/score": {
+            "patch": {
+                "tags": [
+                    "Bewertung"
+                ],
+                "summary": "Manuelle Bewertung setzen",
+                "description": "Admin setzt manuellen Score für eine Antwort",
+                "parameters": [
+                    {
+                        "name": "sessionId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "answerId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "score": {
+                                        "type": "number"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Score aktualisiert"
+                    }
+                }
+            }
+        },
+        "/api/dashboard/stats/overview": {
+            "get": {
+                "tags": [
+                    "Dashboard"
+                ],
+                "summary": "Dashboard Übersicht",
+                "description": "Gibt allgemeine Stats zurück (Gesamt Sessions, Workers, etc.)",
+                "responses": {
+                    "200": {
+                        "description": "Dashboard Stats"
+                    }
+                }
+            }
+        },
+        "/api/dashboard/stats/recent-assignments": {
+            "get": {
+                "tags": [
+                    "Dashboard"
+                ],
+                "summary": "Letzte Zuweisungen",
+                "parameters": [
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer",
+                            "default": 10
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Liste der letzten Assignments"
+                    }
+                }
+            }
+        },
+        "/public/access/{accessToken}/meta": {
+            "get": {
+                "tags": [
+                    "Öffentlicher Zugriff"
+                ],
+                "summary": "Katalog-Metadaten ohne Code-Verifizierung",
+                "description": "Für Landing-Page mit Code-Eingabe",
+                "security": [],
+                "parameters": [
+                    {
+                        "name": "accessToken",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Katalog Meta-Infos"
+                    }
+                }
+            }
+        },
+        "/public/access/{accessToken}/verify": {
+            "post": {
+                "tags": [
+                    "Öffentlicher Zugriff"
+                ],
+                "summary": "Access Code verifizieren",
+                "description": "Verifiziert den Access Code und gibt Session Token zurück",
+                "security": [],
+                "parameters": [
+                    {
+                        "name": "accessToken",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "code": {
+                                        "type": "string"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Code verifiziert"
+                    },
+                    "401": {
+                        "description": "Ungültiger Code"
+                    }
+                }
+            }
+        },
+        "/public/access/{accessToken}/themas": {
+            "get": {
+                "tags": [
+                    "Öffentlicher Zugriff"
+                ],
+                "summary": "Themen-Übersicht mit Progress",
+                "description": "Gibt alle Themas im zugewiesenen Katalog mit Fortschritt zurück",
+                "security": [],
+                "parameters": [
+                    {
+                        "name": "accessToken",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Themen mit Progress"
+                    }
+                }
+            }
+        },
+        "/public/access/{accessToken}/themas/{themaId}/start": {
+            "post": {
+                "tags": [
+                    "Öffentlicher Zugriff"
+                ],
+                "summary": "Session starten/fortsetzen",
+                "description": "Startet oder setzt eine Session fort und gibt erste offene Frage zurück",
+                "security": [],
+                "parameters": [
+                    {
+                        "name": "accessToken",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "themaId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Session gestartet",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "sessionId": {
+                                            "type": "string"
+                                        },
+                                        "status": {
+                                            "type": "string"
+                                        },
+                                        "themaId": {
+                                            "type": "string"
+                                        },
+                                        "firstOrNextQuestion": {
+                                            "type": "object",
+                                            "properties": {
+                                                "questionId": {
+                                                    "type": "string"
+                                                },
+                                                "index": {
+                                                    "type": "integer"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/public/access/{accessToken}/sessions/{sessionId}/next": {
+            "get": {
+                "tags": [
+                    "Öffentlicher Zugriff"
+                ],
+                "summary": "Nächste Frage",
+                "description": "Gibt die nächste unbeantwortete Frage zurück",
+                "security": [],
+                "parameters": [
+                    {
+                        "name": "accessToken",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "sessionId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Nächste Frage"
+                    },
+                    "204": {
+                        "description": "Keine weiteren Fragen"
+                    }
+                }
+            }
+        },
+        "/public/access/{accessToken}/sessions/{sessionId}/previous": {
+            "get": {
+                "tags": [
+                    "Öffentlicher Zugriff"
+                ],
+                "summary": "Vorherige Frage",
+                "description": "Gibt die vorherige beantwortete Frage mit gespeicherter Antwort zurück",
+                "security": [],
+                "parameters": [
+                    {
+                        "name": "accessToken",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "sessionId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "currentQuestionId",
+                        "in": "query",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Vorherige Frage mit Antwort"
+                    },
+                    "204": {
+                        "description": "Am Anfang der Session"
+                    }
+                }
+            }
+        },
+        "/public/access/{accessToken}/sessions/{sessionId}/answers/{questionId}": {
+            "put": {
+                "tags": [
+                    "Öffentlicher Zugriff"
+                ],
+                "summary": "Antwort speichern",
+                "description": "Speichert Antwort und führt automatisches Scoring durch",
+                "security": [],
+                "parameters": [
+                    {
+                        "name": "accessToken",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "sessionId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "questionId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "value": {
+                                        "description": "Antwort-Wert (je nach Fragetyp)"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Antwort gespeichert",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "answerId": {
+                                            "type": "string"
+                                        },
+                                        "score": {
+                                            "type": "number"
+                                        },
+                                        "answered": {
+                                            "type": "integer"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/public/access/{accessToken}/sessions/{sessionId}/summary": {
+            "get": {
+                "tags": [
+                    "Öffentlicher Zugriff"
+                ],
+                "summary": "Session-Zusammenfassung",
+                "description": "Gibt Übersicht aller beantworteten Fragen mit Scores zurück",
+                "security": [],
+                "parameters": [
+                    {
+                        "name": "accessToken",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "sessionId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Session Summary",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "sessionId": {
+                                            "type": "string"
+                                        },
+                                        "status": {
+                                            "type": "string"
+                                        },
+                                        "themaId": {
+                                            "type": "string"
+                                        },
+                                        "themaName": {
+                                            "type": "string"
+                                        },
+                                        "totalScore": {
+                                            "type": "number"
+                                        },
+                                        "maxPossibleScore": {
+                                            "type": "number"
+                                        },
+                                        "answeredCount": {
+                                            "type": "integer"
+                                        },
+                                        "totalQuestions": {
+                                            "type": "integer"
+                                        },
+                                        "progressPercent": {
+                                            "type": "integer"
+                                        },
+                                        "automatischBewertetAnzahl": {
+                                            "type": "integer"
+                                        },
+                                        "manuellZuBewertenAnzahl": {
+                                            "type": "integer"
+                                        },
+                                        "uebersprungenAnzahl": {
+                                            "type": "integer"
+                                        },
+                                        "answeredQuestions": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "questionId": {
+                                                        "type": "string"
+                                                    },
+                                                    "questionText": {
+                                                        "type": "string"
+                                                    },
+                                                    "inputType": {
+                                                        "type": "string"
+                                                    },
+                                                    "answeredValue": {},
+                                                    "score": {
+                                                        "type": "number"
+                                                    },
+                                                    "maxScore": {
+                                                        "type": "number"
+                                                    },
+                                                    "isSkipped": {
+                                                        "type": "boolean"
+                                                    },
+                                                    "isManualReview": {
+                                                        "type": "boolean"
+                                                    },
+                                                    "isAutoScored": {
+                                                        "type": "boolean"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/public/access/{accessToken}/sessions/{sessionId}/complete": {
+            "post": {
+                "tags": [
+                    "Öffentlicher Zugriff"
+                ],
+                "summary": "Session abschließen",
+                "description": "Schließt die Assessment-Session ab",
+                "security": [],
+                "parameters": [
+                    {
+                        "name": "accessToken",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "sessionId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Session completed",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "completed": {
+                                            "type": "boolean"
+                                        },
+                                        "sessionId": {
+                                            "type": "string"
+                                        },
+                                        "status": {
+                                            "type": "string"
+                                        },
+                                        "totalScore": {
+                                            "type": "number"
+                                        },
+                                        "maxPossibleScore": {
+                                            "type": "number"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

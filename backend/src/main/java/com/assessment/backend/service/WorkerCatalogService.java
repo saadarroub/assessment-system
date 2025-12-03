@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 public class WorkerCatalogService {
@@ -36,6 +37,9 @@ public class WorkerCatalogService {
 
     @Autowired
     private CompanyRepository companyRepository;
+
+    @Autowired
+    private com.assessment.backend.repository.AssessmentSessionRepository assessmentSessionRepository;
 
     private static final int MAX_CODE_GENERATION_ATTEMPTS = 10;
 
@@ -259,6 +263,57 @@ public class WorkerCatalogService {
 
     public List<WorkerCatalog> findByStatus(String status) {
         return repository.findByStatus(status);
+    }
+
+    /**
+     * Prüft ob alle Sessions einer Zuweisung abgeschlossen sind und setzt den Assignment-Status auf "completed"
+     * Wird nach jedem Session-Complete aufgerufen
+     */
+    @Transactional
+    public void checkAndCompleteAssignment(UUID assignmentId) {
+        WorkerCatalog assignment = repository.findById(assignmentId).orElse(null);
+        if (assignment == null || "completed".equals(assignment.getStatus())) {
+            return; // Bereits completed oder nicht gefunden
+        }
+
+        UUID companyId = assignment.getCompany().getId();
+        UUID workerId = assignment.getWorker().getId();
+
+        // Alle Sessions dieses Workers bei dieser Company zählen
+        Long totalSessions = assessmentSessionRepository.countByWorkerIdAndCompanyId(workerId, companyId);
+        if (totalSessions == 0) {
+            return; // Keine Sessions vorhanden
+        }
+
+        // Completed Sessions zählen
+        Long completedSessions = assessmentSessionRepository
+            .countByWorkerIdAndCompanyIdAndStatus(workerId, companyId, "completed");
+
+        // Wenn alle Sessions completed sind, Assignment auf completed setzen
+        if (completedSessions.equals(totalSessions)) {
+            assignment.setStatus("completed");
+            assignment.setCompletedAt(LocalDateTime.now());
+            repository.save(assignment);
+        }
+    }
+
+    /**
+     * Setzt Status auf "in_progress" wenn erste erforderliche Antwort gespeichert wird
+     * Wird nach jedem Speichern einer Antwort aufgerufen (nur wenn Status="started")
+     */
+    @Transactional
+    public void advanceToInProgressIfNeeded(UUID assignmentId) {
+        WorkerCatalog assignment = repository.findById(assignmentId).orElse(null);
+        if (assignment == null) {
+            return;
+        }
+
+        // Nur von "started" zu "in_progress" wechseln
+        if ("started".equals(assignment.getStatus())) {
+            assignment.setStatus("in_progress");
+            assignment.setLastAccessAt(LocalDateTime.now());
+            repository.save(assignment);
+        }
     }
 
 }

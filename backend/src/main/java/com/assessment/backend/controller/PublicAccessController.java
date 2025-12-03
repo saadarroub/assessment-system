@@ -918,6 +918,10 @@ public class PublicAccessController {
                 assessmentSessionService.recalculateTotals(session.getId());
 
                 long answered = answerService.countAnswered(session.getId());
+                
+                // Status auf in_progress setzen wenn erste erforderliche Antwort
+                workerCatalogService.advanceToInProgressIfNeeded(assignment.getId());
+                
                 AccessGuardUtil.touchLastAccess(workerCatalogService, assignment.getId());
 
                 SaveAnswerResponseDTO response = new SaveAnswerResponseDTO(
@@ -945,6 +949,10 @@ public class PublicAccessController {
                 assessmentSessionService.recalculateTotals(session.getId());
 
                 long answered = answerService.countAnswered(session.getId());
+                
+                // Status auf in_progress setzen wenn erste erforderliche Antwort
+                workerCatalogService.advanceToInProgressIfNeeded(assignment.getId());
+                
                 AccessGuardUtil.touchLastAccess(workerCatalogService, assignment.getId());
 
                 SaveAnswerResponseDTO response = new SaveAnswerResponseDTO(
@@ -966,6 +974,10 @@ public class PublicAccessController {
             assessmentSessionService.recalculateTotals(session.getId());
 
             long answered = answerService.countAnswered(session.getId());
+            
+            // Status auf in_progress setzen wenn erste erforderliche Antwort
+            workerCatalogService.advanceToInProgressIfNeeded(assignment.getId());
+            
             AccessGuardUtil.touchLastAccess(workerCatalogService, assignment.getId());
 
             SaveAnswerResponseDTO response = new SaveAnswerResponseDTO(
@@ -1008,6 +1020,9 @@ public class PublicAccessController {
             if (ownDenied != null) return ownDenied;
 
             session = assessmentSessionService.complete(session.getId());
+
+            // Prüfen ob alle Themen des Katalogs abgeschlossen sind und ggf. Assignment-Status aktualisieren
+            workerCatalogService.checkAndCompleteAssignment(assignment.getId());
 
             AccessGuardUtil.touchLastAccess(workerCatalogService, assignment.getId());
 
