@@ -135,8 +135,8 @@ public class PublicAccessController {
                 return null;
             }
             
-            // Validierung: 0-5
-            if (intValue < 0 || intValue > 5) return null;
+            // Validierung: 0-6
+            if (intValue < 0 || intValue > 6) return null;
             return intValue;
         } catch (NumberFormatException e) {
             return null;

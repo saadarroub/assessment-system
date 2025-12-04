@@ -249,20 +249,49 @@ const [ePhone, setEPhone] = useState("");
   /* ============== Create ============== */
   async function onCreateCompany(e: React.FormEvent) {
     e.preventDefault();
+    
+    // Validierung der Pflichtfelder
     if (!cName.trim()) {
       setCreateError("Bitte einen Firmennamen eingeben.");
       return;
     }
+    if (!cStreet.trim()) {
+      setCreateError("Bitte eine Straße eingeben.");
+      return;
+    }
+    if (!cPostalCode.trim()) {
+      setCreateError("Bitte eine Postleitzahl eingeben.");
+      return;
+    }
+    if (!cCity.trim()) {
+      setCreateError("Bitte eine Stadt eingeben.");
+      return;
+    }
+    if (!cCountry.trim()) {
+      setCreateError("Bitte ein Land eingeben.");
+      return;
+    }
+    
+    // Validierung für optionale Felder (Format)
+    if (cWebsite.trim() && !cWebsite.trim().match(/^[a-zA-Z0-9][a-zA-Z0-9-_.]*\.[a-zA-Z]{2,}$/)) {
+      setCreateError("Bitte eine gültige Website eingeben (z.B. example.com oder www.example.de).");
+      return;
+    }
+    if (cPhone.trim() && !cPhone.trim().match(/^[+]?[(]?[0-9]{1,4}[)]?[-\s\.]?[(]?[0-9]{1,4}[)]?[-\s\.]?[0-9]{1,9}$/)) {
+      setCreateError("Bitte eine gültige Telefonnummer eingeben (z.B. +49 123 456789).");
+      return;
+    }
+    
     setCreating(true);
     setCreateError(null);
     try {
       const payload: CreateCompanyDto = {
   name: cName.trim(),
   description: cDesc.trim() || undefined,
-  street: cStreet.trim() || undefined,
-  postalCode: cPostalCode.trim() || undefined,
-  city: cCity.trim() || undefined,
-  country: cCountry.trim() || undefined,
+  street: cStreet.trim(),
+  postalCode: cPostalCode.trim(),
+  city: cCity.trim(),
+  country: cCountry.trim(),
   website: cWebsite.trim() || undefined,
   phone: cPhone.trim() || undefined,
 };
@@ -336,21 +365,53 @@ setCPhone("");
     e.preventDefault();
     if (!editCompany) return;
 
+    // Validierung der Pflichtfelder
+    if (!eName.trim()) {
+      setUpdateError("Bitte einen Firmennamen eingeben.");
+      return;
+    }
+    if (!eStreet.trim()) {
+      setUpdateError("Bitte eine Straße eingeben.");
+      return;
+    }
+    if (!ePostalCode.trim()) {
+      setUpdateError("Bitte eine Postleitzahl eingeben.");
+      return;
+    }
+    if (!eCity.trim()) {
+      setUpdateError("Bitte eine Stadt eingeben.");
+      return;
+    }
+    if (!eCountry.trim()) {
+      setUpdateError("Bitte ein Land eingeben.");
+      return;
+    }
+    
+    // Validierung für optionale Felder (Format)
+    if (eWebsite.trim() && !eWebsite.trim().match(/^[a-zA-Z0-9][a-zA-Z0-9-_.]*\.[a-zA-Z]{2,}$/)) {
+      setUpdateError("Bitte eine gültige Website eingeben (z.B. example.com oder www.example.de).");
+      return;
+    }
+    if (ePhone.trim() && !ePhone.trim().match(/^[+]?[(]?[0-9]{1,4}[)]?[-\s\.]?[(]?[0-9]{1,4}[)]?[-\s\.]?[0-9]{1,9}$/)) {
+      setUpdateError("Bitte eine gültige Telefonnummer eingeben (z.B. +49 123 456789).");
+      return;
+    }
+
+    setUpdating(true);
+    setUpdateError(null);
+
    const payload: UpdateCompanyDto = {
-  name: eName.trim() || editCompany.name,
+  name: eName.trim(),
   description: eDesc.trim() || undefined,
-  street: eStreet.trim() || undefined,
-  postalCode: ePostalCode.trim() || undefined,
-  city: eCity.trim() || undefined,
-  country: eCountry.trim() || undefined,
+  street: eStreet.trim(),
+  postalCode: ePostalCode.trim(),
+  city: eCity.trim(),
+  country: eCountry.trim(),
   website: eWebsite.trim() || undefined,
   phone: ePhone.trim() || undefined,
 };
 
-
     try {
-      setUpdating(true);
-      setUpdateError(null);
       const updated = await updateCompany(editCompany.id, payload);
 
       setItems(prev =>
@@ -668,24 +729,26 @@ setCPhone("");
   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
     <div>
       <label htmlFor="c-street" className="mb-1 block text-sm font-medium">
-        Street
+        Street *
       </label>
       <input
         id="c-street"
         className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-300"
         value={cStreet}
         onChange={(e) => setCStreet(e.target.value)}
+        required
       />
     </div>
     <div>
       <label htmlFor="c-postal" className="mb-1 block text-sm font-medium">
-        Postal code
+        Postal code *
       </label>
       <input
         id="c-postal"
         className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-300"
         value={cPostalCode}
         onChange={(e) => setCPostalCode(e.target.value)}
+        required
       />
     </div>
   </div>
@@ -693,24 +756,26 @@ setCPhone("");
   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
     <div>
       <label htmlFor="c-city" className="mb-1 block text-sm font-medium">
-        City
+        City *
       </label>
       <input
         id="c-city"
         className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-300"
         value={cCity}
         onChange={(e) => setCCity(e.target.value)}
+        required
       />
     </div>
     <div>
       <label htmlFor="c-country" className="mb-1 block text-sm font-medium">
-        Country
+        Country *
       </label>
       <input
         id="c-country"
         className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-300"
         value={cCountry}
         onChange={(e) => setCCountry(e.target.value)}
+        required
       />
     </div>
   </div>
@@ -723,7 +788,9 @@ setCPhone("");
       </label>
       <input
         id="c-phone"
+        type="tel"
         className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-300"
+        placeholder="z.B. +49 123 456789"
         value={cPhone}
         onChange={(e) => setCPhone(e.target.value)}
       />
@@ -734,8 +801,9 @@ setCPhone("");
       </label>
       <input
         id="c-website"
+        type="text"
         className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-300"
-        placeholder="https://example.com"
+        placeholder="example.com"
         value={cWebsite}
         onChange={(e) => setCWebsite(e.target.value)}
       />
@@ -818,24 +886,26 @@ setCPhone("");
   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
     <div>
       <label htmlFor="e-street" className="mb-1 block text-sm font-medium">
-        Street
+        Street *
       </label>
       <input
         id="e-street"
         className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-300"
         value={eStreet}
         onChange={(e) => setEStreet(e.target.value)}
+        required
       />
     </div>
     <div>
       <label htmlFor="e-postal" className="mb-1 block text-sm font-medium">
-        Postal code
+        Postal code *
       </label>
       <input
         id="e-postal"
         className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-300"
         value={ePostalCode}
         onChange={(e) => setEPostalCode(e.target.value)}
+        required
       />
     </div>
   </div>
@@ -843,24 +913,26 @@ setCPhone("");
   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
     <div>
       <label htmlFor="e-city" className="mb-1 block text-sm font-medium">
-        City
+        City *
       </label>
       <input
         id="e-city"
         className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-300"
         value={eCity}
         onChange={(e) => setECity(e.target.value)}
+        required
       />
     </div>
     <div>
       <label htmlFor="e-country" className="mb-1 block text-sm font-medium">
-        Country
+        Country *
       </label>
       <input
         id="e-country"
         className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-300"
         value={eCountry}
         onChange={(e) => setECountry(e.target.value)}
+        required
       />
     </div>
   </div>
@@ -873,7 +945,9 @@ setCPhone("");
       </label>
       <input
         id="e-phone"
+        type="tel"
         className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-300"
+        placeholder="z.B. +49 123 456789"
         value={ePhone}
         onChange={(e) => setEPhone(e.target.value)}
       />
@@ -884,10 +958,11 @@ setCPhone("");
       </label>
       <input
         id="e-website"
+        type="text"
         className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-300"
         value={eWebsite}
         onChange={(e) => setEWebsite(e.target.value)}
-        placeholder="https://example.com"
+        placeholder="example.com"
       />
     </div>
   </div>

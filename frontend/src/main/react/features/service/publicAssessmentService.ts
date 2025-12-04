@@ -420,8 +420,8 @@ export function normalizeApiQuestion(q: ApiQuestion): UiQuestion {
       id: q.questionId,
       text: q.text,
       type: "slider",
-      min: q.min ?? 1,
-      max: q.max ?? 5,
+      min: q.min ?? 0,
+      max: q.max ?? 6,
       labels: q.labels,
        isRequired:required,
     };

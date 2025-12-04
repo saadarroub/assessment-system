@@ -23,6 +23,7 @@ import {
   ChevronDown,
   ChevronRight,
   Search,
+  Eye,
 } from "lucide-react";
 
 import {
@@ -114,6 +115,10 @@ export default function ConditionEditor() {
   const [draggingId, setDraggingId] = useState<string | null>(null);
 
   const [isRequired, setIsRequired] = useState(true); // Standard: true (Pflichtfrage)
+
+  // 👁️ Preview-State für Fragen-Simulation
+  const [previewQuestion, setPreviewQuestion] = useState<any | null>(null);
+  const [previewAnswer, setPreviewAnswer] = useState<any>(null);
 
   const isOrderType = selectedType?.value === "order";
   const { showSuccess, showError } = useToast();
@@ -1023,11 +1028,11 @@ export default function ConditionEditor() {
                         .filter((n: number) => !isNaN(n))
                         .reduce((a: number, b: number) => a + b, 0);
 
-                      return sum > 0 ? sum : 5; // falls keine gültigen Scores → 5
+                      return sum > 0 ? sum : 6; // falls keine gültigen Scores → 6
                     }
 
-                    // 2. andere Typen → Standard 5
-                    return 5;
+                    // 2. andere Typen (manuelle) → Standard 6
+                    return 6;
                   })()}
                 </span>
               </div>
@@ -1036,6 +1041,18 @@ export default function ConditionEditor() {
 
           {/* Rechts */}
           <div className="flex items-center gap-6">
+            {/* Preview/Simulate */}
+            <button
+              onClick={() => {
+                setPreviewQuestion(q);
+                setPreviewAnswer(null);
+              }}
+              className="transition-all duration-200 hover:scale-125 hover:opacity-80"
+              title="Vorschau: So sieht die Frage im Assessment aus"
+            >
+              <Eye size={20} className="text-purple-600" />
+            </button>
+
             {/* Add */}
             <button
               onClick={() => {
@@ -1457,11 +1474,7 @@ export default function ConditionEditor() {
                       <button
                         key={type.id}
                         onClick={() => {
-                          // Reihenfolge-Typ noch nicht verfügbar
-                          if (type.value === "order") {
-      alert("Dieser Fragetyp ist noch nicht verfügbar.");
-      return;
-    }
+                         
                           setSelectedType(type);
                           if (errorType) setErrorType(null); // 🔥 Fehler zurücksetzen
                           setErrorOptions(null);
@@ -1565,7 +1578,7 @@ export default function ConditionEditor() {
                             type="number"
                             placeholder="Score"
                             min={-1}
-                            max={5}
+                            max={6}
                             step={1}
                             value={
                               opt.score == null || Number.isNaN(opt.score)
@@ -1595,8 +1608,8 @@ export default function ConditionEditor() {
                                 return;
                               }
 
-                              // Tastatureingabe (0–5)
-                              if (/^[0-5]$/.test(val)) {
+                              // Tastatureingabe (0–6)
+                              if (/^[0-6]$/.test(val)) {
                                 setOptions(
                                   options.map((o, j) =>
                                     j === i ? { ...o, score: Number(val) } : o
@@ -1612,6 +1625,7 @@ export default function ConditionEditor() {
                                 "3",
                                 "4",
                                 "5",
+                                "6",
                                 "Backspace",
                                 "Delete",
                                 "Tab",
@@ -1636,10 +1650,10 @@ export default function ConditionEditor() {
 
                                 // Erstes Pfeil-Klicken bei leerem Feld
                                 if (current == null) {
-                                  current = e.key === "ArrowUp" ? 0 : 5; // ✅ GENAU DAS HIER
+                                  current = e.key === "ArrowUp" ? 0 : 6; // ✅ GENAU DAS HIER
                                 } else {
                                   if (e.key === "ArrowUp")
-                                    current = Math.min(5, current + 1);
+                                    current = Math.min(6, current + 1);
                                   if (e.key === "ArrowDown")
                                     current = Math.max(0, current - 1);
                                 }
@@ -1705,8 +1719,320 @@ export default function ConditionEditor() {
             </div>
           </div>
         )}
+
+        {/* 👁️ Preview Modal - Zeigt wie die Frage im Assessment aussieht */}
+        {previewQuestion && (
+          <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+            <div className="w-full max-w-3xl mx-4 max-h-[90vh] overflow-y-auto rounded-2xl bg-gradient-to-b from-white to-[#f5f5f7] border border-white/80 shadow-2xl">
+              {/* Header */}
+              <div className="sticky top-0 z-10 p-6 bg-white/95 backdrop-blur-sm border-b border-[#e4e4e7] rounded-t-2xl">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <Eye className="w-5 h-5 text-purple-600" />
+                      <h2 className="text-lg font-semibold text-[#1a1a1a]">Vorschau: So sieht die Frage aus</h2>
+                    </div>
+                    <p className="text-sm text-[#666] mt-1">Simulation der Frage im Assessment-Flow</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setPreviewQuestion(null);
+                      setPreviewAnswer(null);
+                    }}
+                    className="p-2 rounded-lg hover:bg-gray-100 transition"
+                  >
+                    <X size={20} className="text-gray-500" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Content - Question Preview */}
+              <div className="p-6">
+                {/* Frage-Text */}
+                <div className="text-[18px] font-semibold text-[#1a1a1a] mb-6 leading-relaxed">
+                  {previewQuestion.text}
+                </div>
+
+                {/* Badges */}
+                <div className="flex flex-wrap items-center gap-2 mb-6">
+                  <span className="inline-block text-xs text-[#4a65b9] bg-[#e6edff] px-2 py-0.5 rounded-full">
+                    {questionTypes.find((t) => t.value === previewQuestion.type)?.label || previewQuestion.type}
+                  </span>
+                  {previewQuestion.required ? (
+                    <span className="inline-block text-xs text-[#8b5d00] bg-[#fff4d6] px-2 py-0.5 rounded-full">
+                      Pflicht
+                    </span>
+                  ) : (
+                    <span className="inline-block text-xs text-[#555] bg-[#eaeaea] px-2 py-0.5 rounded-full">
+                      Optional
+                    </span>
+                  )}
+                </div>
+
+                {/* Radio */}
+                {previewQuestion.type === "radio" && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {(previewQuestion.options || []).map((opt: any) => {
+                      const optLabel = typeof opt === "string" ? opt : opt.label;
+                      const checked = previewAnswer === optLabel;
+                      return (
+                        <label
+                          key={optLabel}
+                          className={`flex items-center p-5 border-2 rounded-lg cursor-pointer transition bg-white
+                          ${checked
+                              ? "border-[#E3BB62] bg-[#FFFAEB]"
+                              : "border-gray-200 hover:border-[#264555] hover:bg-[#f8fafc]"
+                            }`}
+                        >
+                          <input
+                            type="radio"
+                            name="preview-radio"
+                            className="mr-3 w-[18px] h-[18px] cursor-pointer accent-[#56768f]"
+                            checked={checked}
+                            onChange={() => setPreviewAnswer(optLabel)}
+                          />
+                          <span className="text-[15px] text-[#333]">{optLabel}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Checkbox */}
+                {previewQuestion.type === "checkbox" && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {(previewQuestion.options || []).map((opt: any) => {
+                      const optLabel = typeof opt === "string" ? opt : opt.label;
+                      const list: string[] = Array.isArray(previewAnswer) ? previewAnswer : [];
+                      const checked = list.includes(optLabel);
+                      return (
+                        <label
+                          key={optLabel}
+                          className={`flex items-center p-5 border-2 rounded-lg cursor-pointer transition bg-white
+                          ${checked
+                              ? "border-[#E3BB62] bg-[#FFFAEB]"
+                              : "border-gray-200 hover:border-[#264555] hover:bg-[#f8fafc]"
+                            }`}
+                        >
+                          <input
+                            type="checkbox"
+                            className="mr-3 w-[18px] h-[18px] cursor-pointer accent-[#56768f]"
+                            checked={checked}
+                            onChange={() => {
+                              const next = [...list];
+                              const idx = next.indexOf(optLabel);
+                              if (idx >= 0) next.splice(idx, 1);
+                              else next.push(optLabel);
+                              setPreviewAnswer(next);
+                            }}
+                          />
+                          <span className="text-[15px] text-[#333]">{optLabel}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Slider / Range (Skala) */}
+                {(previewQuestion.type === "slider" || previewQuestion.type === "range") && (
+                  <div className="py-5">
+                    <input
+                      type="range"
+                      min={0}
+                      max={6}
+                      value={previewAnswer ?? 3}
+                      onChange={(e) => setPreviewAnswer(Number(e.target.value))}
+                      className="w-full h-2 rounded bg-[#ebebec] outline-none cursor-pointer
+                        [accent-color:#56768f]
+                        [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:h-6
+                        [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[#56768f] [&::-webkit-slider-thumb]:cursor-pointer
+                        [&::-moz-range-thumb]:w-6 [&::-moz-range-thumb]:h-6 [&::-moz-range-thumb]:rounded-full
+                        [&::-moz-range-thumb]:bg-[#56768f] [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:cursor-pointer"
+                    />
+                    <div className="text-center text-[18px] font-semibold text-[#56768f] mt-2">
+                      {previewAnswer ?? 3}
+                    </div>
+                    <div className="flex justify-between mt-2 text-sm text-[#666]">
+                      <span>Niedrig</span>
+                      <span>Hoch</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Textarea */}
+                {previewQuestion.type === "textarea" && (
+                  <textarea
+                    className="w-full min-h-[120px] p-4 border-2 border-gray-200 rounded-lg text-[15px] resize-y outline-none focus:border-blue-500"
+                    placeholder="Ihre Antwort hier eingeben..."
+                    value={previewAnswer || ""}
+                    onChange={(e) => setPreviewAnswer(e.target.value)}
+                  />
+                )}
+
+                {/* Text */}
+                {previewQuestion.type === "text" && (
+                  <input
+                    type="text"
+                    className="w-full p-4 border-2 border-gray-200 rounded-lg text-[15px] outline-none focus:border-blue-500"
+                    placeholder="Ihre Antwort hier eingeben..."
+                    value={previewAnswer || ""}
+                    onChange={(e) => setPreviewAnswer(e.target.value)}
+                  />
+                )}
+
+                {/* Select/Dropdown */}
+                {previewQuestion.type === "select" && (
+                  <select
+                    className="w-full p-4 border-2 border-gray-200 rounded-lg text-[15px] outline-none focus:border-blue-500 bg-white"
+                    value={previewAnswer ?? ""}
+                    onChange={(e) => setPreviewAnswer(e.target.value)}
+                  >
+                    <option value="" disabled>Bitte auswählen …</option>
+                    {(previewQuestion.options || []).map((opt: any) => {
+                      const optLabel = typeof opt === "string" ? opt : opt.label;
+                      return (
+                        <option key={optLabel} value={optLabel}>{optLabel}</option>
+                      );
+                    })}
+                  </select>
+                )}
+
+                {/* Number */}
+                {previewQuestion.type === "number" && (
+                  <input
+                    type="number"
+                    className="w-full p-4 border-2 border-gray-200 rounded-lg text-[15px] outline-none focus:border-blue-500"
+                    placeholder="Zahl eingeben..."
+                    value={previewAnswer ?? ""}
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      setPreviewAnswer(raw === "" ? "" : Number(raw));
+                    }}
+                  />
+                )}
+
+                {/* Date */}
+                {previewQuestion.type === "date" && (
+                  <input
+                    type="date"
+                    className="w-full p-4 border-2 border-gray-200 rounded-lg text-[15px] outline-none focus:border-blue-500"
+                    value={previewAnswer ?? ""}
+                    onChange={(e) => setPreviewAnswer(e.target.value)}
+                  />
+                )}
+
+                {/* Order (Sortierung) - Interaktiv mit Drag & Drop */}
+                {previewQuestion.type === "order" && (
+                  <PreviewOrderQuestion 
+                    options={(previewQuestion.options || []).map((opt: any) => 
+                      typeof opt === "string" ? opt : opt.label
+                    )}
+                  />
+                )}
+
+                {/* Beispiel-Navigation (deaktiviert) */}
+                <div className="mt-8 pt-6 border-t border-gray-200">
+                  <div className="flex items-center justify-between gap-3">
+                    <button
+                      disabled
+                      className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold bg-white text-[#666] border border-[#ddd] opacity-50 cursor-not-allowed"
+                    >
+                      ← Zurück
+                    </button>
+                    <button
+                      disabled
+                      className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold
+                        bg-[#E3BB62] text-[#264555] opacity-50 cursor-not-allowed"
+                    >
+                      Weiter →
+                    </button>
+                  </div>
+                  <p className="text-center text-xs text-[#999] mt-3">
+                    Dies ist nur eine Vorschau. Die Navigation ist deaktiviert.
+                  </p>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="sticky bottom-0 flex justify-end gap-3 px-6 py-4 border-t bg-white rounded-b-2xl">
+                <button
+                  onClick={() => {
+                    setPreviewQuestion(null);
+                    setPreviewAnswer(null);
+                  }}
+                  className="px-4 py-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 font-medium"
+                >
+                  Schließen
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>{" "}
       {/* End of gray background container */}
     </AdminLayout>
+  );
+}
+
+// 👁️ Hilfsfunktion für Preview Order Items (Drag & Drop)
+function PreviewOrderItem({ id, label }: { id: string; label: string }) {
+  const { attributes, listeners, setNodeRef, transform, transition } =
+    useSortable({ id });
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="flex items-center gap-4 p-4 rounded-xl border shadow-sm bg-gradient-to-br from-[#ece9df] to-[#f5f3eb] cursor-grab active:cursor-grabbing"
+    >
+      <div
+        {...attributes}
+        {...listeners}
+        className="cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600"
+      >
+        <GripVertical size={22} />
+      </div>
+      <span className="text-gray-800 text-sm font-medium">{label}</span>
+    </div>
+  );
+}
+
+// 👁️ Preview Order Question - Vollständige Drag & Drop Komponente
+function PreviewOrderQuestion({ options }: { options: string[] }) {
+  const [items, setItems] = useState<string[]>(options);
+
+  // Zurücksetzen wenn sich die Optionen ändern
+  useEffect(() => {
+    setItems(options);
+  }, [options]);
+
+  return (
+    <div className="space-y-2">
+      <p className="text-sm text-[#666] mb-3">Elemente per Drag & Drop sortieren:</p>
+      <DndContext
+        collisionDetection={closestCorners}
+        onDragEnd={({ active, over }) => {
+          if (!over || active.id === over.id) return;
+
+          const oldIndex = items.findIndex((x) => x === active.id);
+          const newIndex = items.findIndex((x) => x === over.id);
+
+          setItems(arrayMove(items, oldIndex, newIndex) as string[]);
+        }}
+      >
+        <SortableContext items={items} strategy={verticalListSortingStrategy}>
+          <div className="space-y-2">
+            {items.map((opt) => (
+              <PreviewOrderItem key={opt} id={opt} label={opt} />
+            ))}
+          </div>
+        </SortableContext>
+      </DndContext>
+    </div>
   );
 }

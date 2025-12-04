@@ -372,14 +372,14 @@ public class PublicQueryUtil {
      * Helper: Berechnet max Score für eine einzelne Frage basierend auf inputType und scoringSchema
      */
     private java.math.BigDecimal calculateMaxForSingleQuestion(String inputType, String scoringSchemaJson) {
-        // Für rating_scale: max = 5
+        // Für rating_scale: max = 6
         if ("rating_scale".equalsIgnoreCase(inputType) || "rating".equalsIgnoreCase(inputType)) {
-            return java.math.BigDecimal.valueOf(5);
+            return java.math.BigDecimal.valueOf(6);
         }
         
         // Fallback wenn kein scoringSchema vorhanden
         if (scoringSchemaJson == null || scoringSchemaJson.isBlank()) {
-            return java.math.BigDecimal.valueOf(5);
+            return java.math.BigDecimal.valueOf(6);
         }
         
         // Parse scoringSchema JSON und finde Maximum
@@ -398,16 +398,16 @@ public class PublicQueryUtil {
                     }
                 }
             }
-            return java.math.BigDecimal.valueOf(maxValue > 0 ? maxValue : 5.0);
+            return java.math.BigDecimal.valueOf(maxValue > 0 ? maxValue : 6.0);
         } catch (Exception e) {
-            return java.math.BigDecimal.valueOf(5);
+            return java.math.BigDecimal.valueOf(6);
         }
     }
 
     /**
      * Berechnet max_possible_score für ein Thema:
      * - Auto-Scoring: Summe aller max Punkte aus scoring_schema
-     * - Manual Scoring: 5 Punkte pro Frage
+     * - Manual Scoring: 6 Punkte pro Frage
      * 
      * @param themaId UUID des Themas
      * @return max_possible_score als BigDecimal

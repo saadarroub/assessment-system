@@ -267,13 +267,17 @@ export default function CompanyDetails() {
       setCreateErr("Bitte Name und Email ausfüllen.");
       return;
     }
+    if (!invWorkspace.trim()) {
+      setCreateErr("Bitte Workspace ausfüllen.");
+      return;
+    }
     setCreating(true);
     setCreateErr(null);
     try {
       const created = await createWorker({
         name: invName.trim(),
         email: invEmail.trim(),
-        workSpaceRef: invWorkspace.trim() || undefined,
+        workSpaceRef: invWorkspace.trim(),
         companyId: id,
       });
       setWorkers(prev => [created, ...prev]);
@@ -297,6 +301,16 @@ export default function CompanyDetails() {
   async function onSave(e: React.FormEvent) {
     e.preventDefault();
     if (!editing || !company) return;
+    
+    if (!formName.trim() || !formEmail.trim()) {
+      setSaveError("Bitte Name und Email ausfüllen.");
+      return;
+    }
+    if (!formWs.trim()) {
+      setSaveError("Bitte Workspace ausfüllen.");
+      return;
+    }
+    
     setSaving(true);
     setSaveError(null);
 
@@ -307,7 +321,7 @@ export default function CompanyDetails() {
       const updated = await updateWorker(editing.id, {
         name: formName.trim(),
         email: formEmail.trim(),
-        workSpaceRef: (formWs ?? "").trim(),
+        workSpaceRef: formWs.trim(),
         companyId: company.id,
       });
       setWorkers(prev => prev.map(x => (x.id === updated.id ? updated : x)));
@@ -911,13 +925,14 @@ export default function CompanyDetails() {
               </div>
 
               <div>
-                <label htmlFor="cw-ws" className="block text-sm font-medium mb-1">Workspace (optional)</label>
+                <label htmlFor="cw-ws" className="block text-sm font-medium mb-1">Workspace *</label>
                 <input
                   id="cw-ws"
                   className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-300"
                   value={invWorkspace}
                   onChange={(e) => setInvWorkspace(e.target.value)}
                   placeholder="z. B. HQ-01"
+                  required
                 />
               </div>
 
@@ -982,13 +997,14 @@ export default function CompanyDetails() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1" htmlFor="w-ws">Workspace</label>
+                <label className="block text-sm font-medium mb-1" htmlFor="w-ws">Workspace *</label>
                 <input
                   id="w-ws"
                   className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-300"
                   value={formWs}
                   onChange={(e) => setFormWs(e.target.value)}
                   placeholder="z. B. Senior Consulting"
+                  required
                 />
               </div>
 
