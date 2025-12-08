@@ -25,16 +25,30 @@ public class UserSummaryDTO {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private List<RoleSummaryDTO> roles;
+    private String phone;
+    private String street;
+    private String postalCode;
+    private String city;
+    private String country;
+    private String profileImagePath;
 
     public UserSummaryDTO() {}
 
-    public UserSummaryDTO(UUID id, String name, String email, LocalDateTime createdAt, LocalDateTime updatedAt, List<RoleSummaryDTO> roles) {
+    public UserSummaryDTO(UUID id, String name, String email, LocalDateTime createdAt, LocalDateTime updatedAt, 
+                          List<RoleSummaryDTO> roles, String phone, String street, String postalCode, 
+                          String city, String country, String profileImagePath) {
         this.id = id;
         this.name = name;
         this.email = email;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
         this.roles = roles;
+        this.phone = phone;
+        this.street = street;
+        this.postalCode = postalCode;
+        this.city = city;
+        this.country = country;
+        this.profileImagePath = profileImagePath;
     }
 
     public static UserSummaryDTO fromEntity(User user, RolePermissionService rolePermissionService) {
@@ -65,7 +79,13 @@ public class UserSummaryDTO {
             user.getEmail(),
             user.getCreatedAt(),
             user.getUpdatedAt(),
-            roleDTOs
+            roleDTOs,
+            user.getPhone(),
+            user.getStreet(),
+            user.getPostalCode(),
+            user.getCity(),
+            user.getCountry(),
+            user.getProfileImagePath()
         );
     }
 
@@ -81,4 +101,16 @@ public class UserSummaryDTO {
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
     public List<RoleSummaryDTO> getRoles() { return roles; }
     public void setRoles(List<RoleSummaryDTO> roles) { this.roles = roles; }
+    public String getPhone() { return phone; }
+    public void setPhone(String phone) { this.phone = phone; }
+    public String getStreet() { return street; }
+    public void setStreet(String street) { this.street = street; }
+    public String getPostalCode() { return postalCode; }
+    public void setPostalCode(String postalCode) { this.postalCode = postalCode; }
+    public String getCity() { return city; }
+    public void setCity(String city) { this.city = city; }
+    public String getCountry() { return country; }
+    public void setCountry(String country) { this.country = country; }
+    public String getProfileImagePath() { return profileImagePath; }
+    public void setProfileImagePath(String profileImagePath) { this.profileImagePath = profileImagePath; }
 }

@@ -1,5 +1,7 @@
 package com.assessment.backend.service;
 
+import com.assessment.backend.dto.ChangePasswordDTO;
+import com.assessment.backend.dto.UpdateUserProfileDTO;
 import com.assessment.backend.entity.User;
 import com.assessment.backend.entity.UserRole;
 import com.assessment.backend.repository.UserRepository;
@@ -43,6 +45,7 @@ public class UserService {
         user.setName(request.name);
         user.setEmail(request.email);
         user.setPassword(passwordEncoder.encode(request.password));
+        user.setProfileImagePath("default-avatar.jpg"); // Set default avatar
         System.out.println("ENCODED PASSWORD (create) = " + user.getPassword());
         User savedUser = userRepository.save(user);
         if (request.roleId != null) {
@@ -86,6 +89,78 @@ public class UserService {
 
     public List<UserRole> getUserRoles(UUID userId) {
         return userRoleRepository.findByUserId(userId);
+    }
+
+    /**
+     * Update user avatar path.
+     * 
+     * @param id the user ID
+     * @param avatarFilename the new avatar filename
+     * @return the updated user
+     */
+    @Transactional
+    public User updateUserAvatar(UUID id, String avatarFilename) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("User not found with id: " + id));
+        
+        user.setProfileImagePath(avatarFilename);
+        return userRepository.save(user);
+    }
+
+    /**
+     * Update user profile information including address and phone.
+     * Requires current password for verification.
+     * 
+     * @param id the user ID
+     * @param profileDTO the profile update data
+     * @return the updated user
+     * @throws IllegalArgumentException if current password is incorrect
+     */
+    @Transactional
+    public User updateUserProfile(UUID id, UpdateUserProfileDTO profileDTO) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("User not found with id: " + id));
+
+        // Verify current password
+        if (!passwordEncoder.matches(profileDTO.getCurrentPassword(), user.getPassword())) {
+            throw new IllegalArgumentException("Das eingegebene Passwort ist falsch");
+        }
+
+        // Update basic info
+        user.setName(profileDTO.getName());
+        user.setEmail(profileDTO.getEmail());
+
+        // Update optional fields
+        user.setPhone(profileDTO.getPhone());
+        user.setStreet(profileDTO.getStreet());
+        user.setPostalCode(profileDTO.getPostalCode());
+        user.setCity(profileDTO.getCity());
+        user.setCountry(profileDTO.getCountry());
+
+        return userRepository.save(user);
+    }
+
+    /**
+     * Change user password.
+     * Requires current password for verification.
+     * 
+     * @param id the user ID
+     * @param passwordDTO the password change data
+     * @throws IllegalArgumentException if current password is incorrect
+     */
+    @Transactional
+    public void changePassword(UUID id, ChangePasswordDTO passwordDTO) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("User not found with id: " + id));
+
+        // Verify current password
+        if (!passwordEncoder.matches(passwordDTO.getCurrentPassword(), user.getPassword())) {
+            throw new IllegalArgumentException("Das aktuelle Passwort ist falsch");
+        }
+
+        // Update password
+        user.setPassword(passwordEncoder.encode(passwordDTO.getNewPassword()));
+        userRepository.save(user);
     }
 }
 
