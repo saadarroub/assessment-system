@@ -288,10 +288,39 @@ export default function CompaniesList() {
   /* ============== Create ============== */
   async function onCreateCompany(e: React.FormEvent) {
     e.preventDefault();
+    
+    // Validierung der Pflichtfelder
     if (!cName.trim()) {
       setCreateError("Bitte einen Firmennamen eingeben.");
       return;
     }
+    if (!cStreet.trim()) {
+      setCreateError("Bitte eine Straße eingeben.");
+      return;
+    }
+    if (!cPostalCode.trim()) {
+      setCreateError("Bitte eine Postleitzahl eingeben.");
+      return;
+    }
+    if (!cCity.trim()) {
+      setCreateError("Bitte eine Stadt eingeben.");
+      return;
+    }
+    if (!cCountry.trim()) {
+      setCreateError("Bitte ein Land eingeben.");
+      return;
+    }
+    
+    // Validierung für optionale Felder (Format)
+    if (cWebsite.trim() && !cWebsite.trim().match(/^[a-zA-Z0-9][a-zA-Z0-9-_.]*\.[a-zA-Z]{2,}$/)) {
+      setCreateError("Bitte eine gültige Website eingeben (z.B. example.com oder www.example.de).");
+      return;
+    }
+    if (cPhone.trim() && !cPhone.trim().match(/^[+]?[(]?[0-9]{1,4}[)]?[-\s\.]?[(]?[0-9]{1,4}[)]?[-\s\.]?[0-9]{1,9}$/)) {
+      setCreateError("Bitte eine gültige Telefonnummer eingeben (z.B. +49 123 456789).");
+      return;
+    }
+    
     setCreating(true);
     setCreateError(null);
     try {
@@ -415,8 +444,6 @@ export default function CompaniesList() {
     };
 
     try {
-      setUpdating(true);
-      setUpdateError(null);
       const updated = await updateCompany(editCompany.id, payload);
 
       setItems((prev) =>

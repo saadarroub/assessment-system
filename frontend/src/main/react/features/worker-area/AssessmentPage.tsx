@@ -1402,9 +1402,9 @@ export default function AssessmentPage() {
                   <div className="py-5">
                     <input
                       type="range"
-                      min={(q as any).min}
-                      max={(q as any).max}
-                      value={answers[q.id] ?? Math.floor((((q as any).min ?? 0) + ((q as any).max ?? 10)) / 2)}
+                      min={(q as any).min ?? 0}
+                      max={(q as any).max ?? 6}
+                      value={answers[q.id] ?? Math.floor((((q as any).min ?? 0) + ((q as any).max ?? 6)) / 2)}
                       onChange={(e) => setAnswer(q.id, Number(e.target.value), "slider")}
                       className=" w-full h-2 rounded bg-[#ebebec] outline-none
     [accent-color:#56768f]
@@ -1414,7 +1414,7 @@ export default function AssessmentPage() {
     [&::-moz-range-thumb]:bg-[#56768f] [&::-moz-range-thumb]:border-0"
                     />
                     <div className="text-center text-[18px] font-semibold text-[#56768f] mt-2">
-                      {answers[q.id] ?? Math.floor((((q as any).min ?? 0) + ((q as any).max ?? 10)) / 2)}
+                      {answers[q.id] ?? Math.floor((((q as any).min ?? 0) + ((q as any).max ?? 6)) / 2)}
                     </div>
                     {(q as any).labels && (
                       <div className="flex justify-between mt-2 text-sm text-[#666]">

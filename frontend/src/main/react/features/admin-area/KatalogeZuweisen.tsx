@@ -79,6 +79,9 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
   // Edit/Lösch-Modus (Icon-Toggle, kein Text)
   const [editMode, setEditMode] = useState(false);
 
+  // Katalog-Suche
+  const [catalogSearch, setCatalogSearch] = useState("");
+
   // Empfänger-Dropdown
   const [openRecipients, setOpenRecipients] = useState(false);
   const [recipientSearch, setRecipientSearch] = useState("");
@@ -221,6 +224,16 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
       r.name.toLowerCase().includes(q) || (r.email ?? "").toLowerCase().includes(q)
     );
   }, [recipientSearch, recipients]);
+
+  // Gefilterte Kataloge basierend auf Suchbegriff
+  const filteredCatalogs = useMemo(() => {
+    const q = catalogSearch.trim().toLowerCase();
+    if (!q) return catalogs;
+    return catalogs.filter(k => 
+      k.name.toLowerCase().includes(q) || 
+      (k.subtitle && k.subtitle.toLowerCase().includes(q))
+    );
+  }, [catalogSearch, catalogs]);
 
   const allFilteredSelected =
     filteredRecipients.length > 0 &&
@@ -744,26 +757,65 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
                 </div>
               </div>
 
-              <p className="mb-4 flex items-center justify-between text-sm text-[#56768f]">
-                <span className="truncate">
-                  {loadingCatalogs ? "Kataloge werden geladen…" : "Wählen Sie die Kataloge aus, die Sie zuweisen möchten"}
+              {/* Such-Feld für Kataloge */}
+              <div className="mb-4">
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Kataloge durchsuchen..."
+                    value={catalogSearch}
+                    onChange={(e) => setCatalogSearch(e.target.value)}
+                    className="h-10 w-full rounded-lg border border-slate-300 pl-10 pr-3 text-sm placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/10"
+                  />
+                  <svg
+                    className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                    />
+                  </svg>
+                </div>
+              </div>
+
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <span className="text-sm text-[#56768f] truncate">
+                  {loadingCatalogs ? "Kataloge werden geladen…" : 
+                   catalogSearch ? `${filteredCatalogs.length} ${filteredCatalogs.length === 1 ? 'Ergebnis' : 'Ergebnisse'} gefunden` :
+                   "Wählen Sie die Kataloge aus, die Sie zuweisen möchten"}
                 </span>
 
-                <button
-                  type="button"
-                  onClick={openCreateDialog}
-                  className="ml-3 shrink-0 inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 bg-white hover:bg-slate-50"
-                  title="Neuen Katalog anlegen"
-                  aria-label="Neuen Katalog anlegen"
-                >
-                  <Plus size={16} />
-                </button>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700">
+                    <span className="font-semibold text-slate-900">{catalogs.length}</span>
+                    <span>{catalogs.length === 1 ? "Katalog" : "Kataloge"}</span>
+                  </span>
 
-              </p>
+                  <button
+                    type="button"
+                    onClick={openCreateDialog}
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 bg-white hover:bg-slate-50"
+                    title="Neuen Katalog anlegen"
+                    aria-label="Neuen Katalog anlegen"
+                  >
+                    <Plus size={16} />
+                  </button>
+                </div>
+              </div>
 
               {/* Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 ">
-                {catalogs.map((k) => {
+                {filteredCatalogs.length === 0 && catalogSearch ? (
+                  <div className="col-span-full text-center py-12">
+                    <p className="text-sm text-slate-500">Keine Kataloge gefunden für "{catalogSearch}"</p>
+                  </div>
+                ) : (
+                  filteredCatalogs.map((k) => {
                   const Icon = k.icon ?? Building2;
                   const selected = selectedCatalogId === k.id;//selectedCatalogIds.has(k.id)
                   const metaLabel = (k.topicCount ?? 0) === 1
@@ -866,7 +918,8 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
                       </div>
                     </div>
                   );
-                })}
+                })
+                )}
               </div>
 
               {/* Footer-Zeile */}

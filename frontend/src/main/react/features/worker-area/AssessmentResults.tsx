@@ -133,7 +133,7 @@ export default function AssessmentResults(props: AssessmentResultsProps) {
       case "number": {
         if (typeof raw === "number") return raw;
         const min = (q as any).min ?? 0;
-        const max = (q as any).max ?? 10;
+        const max = (q as any).max ?? 6;
         return Math.floor((min + max) / 2);
       }
 
@@ -596,8 +596,8 @@ export default function AssessmentResults(props: AssessmentResultsProps) {
                   <div className="py-4">
                     <input
                       type="range"
-                      min={(editQuestion as any).min}
-                      max={(editQuestion as any).max}
+                      min={(editQuestion as any).min ?? 0}
+                      max={(editQuestion as any).max ?? 6}
                       value={
                         typeof editValue === "number"
                           ? editValue
