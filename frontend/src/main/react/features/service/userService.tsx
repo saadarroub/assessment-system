@@ -4,7 +4,7 @@ export type UserApi = {
   id: string;
   name: string;
   email: string;
-  roles?: string[];
+  roles?: any;
   created_at?: string;
   updatedAt?: string;
 };
@@ -76,7 +76,7 @@ export async function deleteUser(userId: string): Promise<void> {
   });
 }
 
-export type UpdateUserDto = { name: string; email: string; password?: string };
+export type UpdateUserDto = { name: string; email: string; password?: string ;};
 
 export async function updateUser(userId: string, payload: UpdateUserDto): Promise<UserApi> {
   const { data } = await apiClient.put<UserApi>(
@@ -92,4 +92,23 @@ export async function updateUser(userId: string, payload: UpdateUserDto): Promis
   }
 
   return { id: userId, ...payload } as UserApi;
+}
+export async function deleteUserRole(userId: string, roleId: string): Promise<void> {
+  const res = await apiClient.delete(`/users/${userId}/roles/${roleId}`);
+  if (res.status !== 204) {
+    throw new Error(`Rolle konnte nicht entfernt werden (Status ${res.status})`);
+  }
+}
+export async function assignUserRole(userId: string, roleId: string): Promise<void> {
+  const res = await apiClient.post(
+    `/users/${encodeURIComponent(userId)}/roles/${encodeURIComponent(roleId)}`,
+    null, // kein Body
+    {
+      headers: { Accept: "application/json" },
+    }
+  );
+
+  if (![200, 201, 204].includes(res.status)) {
+    throw new Error(`Rolle konnte nicht zugewiesen werden (Status ${res.status})`);
+  }
 }

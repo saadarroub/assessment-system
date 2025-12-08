@@ -816,46 +816,46 @@ export default function AssessmentPage() {
     }
   };
 
-const finalizeSession = async () => {
-  if (!sessionId || finalizing) return;
-
-  try {
-    setFinalizing(true);
-
-    await completeSession(accessToken, sessionId);
-
-    setStatus("completed");
-    setProgress(prev => ({
-      ...prev,
-      answered: prev.total || prev.answered,
-    }));
+  const finalizeSession = async () => {
+    if (!sessionId || finalizing) return;
 
     try {
-      const store = readStore();
-      const dashKey = makeDashKey(assignmentKeyId, themaId);
-      const prev = store[dashKey] ?? {};
-      store[dashKey] = {
-        ...prev,
-        progress: 100,
-        completedAt: new Date().toISOString(),
-        sessionId,
-      };
-      writeStore(store);
-    } catch {
-      // ignore
-    }
+      setFinalizing(true);
 
-    window.alert("Katalog erfolgreich abgeschlossen.");
-    goBackToTopics();
-  } catch (e) {
-    console.error("completeSession failed", e);
-    window.alert(
-      "Das Assessment konnte nicht abgeschlossen werden. Bitte versuchen Sie es später erneut."
-    );
-  } finally {
-    setFinalizing(false);
-  }
-};
+      await completeSession(accessToken, sessionId);
+
+      setStatus("completed");
+      setProgress(prev => ({
+        ...prev,
+        answered: prev.total || prev.answered,
+      }));
+
+      try {
+        const store = readStore();
+        const dashKey = makeDashKey(assignmentKeyId, themaId);
+        const prev = store[dashKey] ?? {};
+        store[dashKey] = {
+          ...prev,
+          progress: 100,
+          completedAt: new Date().toISOString(),
+          sessionId,
+        };
+        writeStore(store);
+      } catch {
+        // ignore
+      }
+
+      window.alert("Katalog erfolgreich abgeschlossen.");
+      goBackToTopics();
+    } catch (e) {
+      console.error("completeSession failed", e);
+      window.alert(
+        "Das Assessment konnte nicht abgeschlossen werden. Bitte versuchen Sie es später erneut."
+      );
+    } finally {
+      setFinalizing(false);
+    }
+  };
 
 
   /*  Restart (Assessment nochmal machen)  */

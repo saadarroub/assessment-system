@@ -1,7 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import AdminLayout from "@/apps/app/AdminLayout";
-import myLogo from "@/assets/Zero-6-icons-05.webp";
 import { Search, ArrowUpDown, Shield, Plus, Trash2, Pencil } from "lucide-react";
 
 import {
@@ -20,6 +19,7 @@ import { WithPermissionCheck } from "@/shared/components/WithPermissionCheck";
 import { useToast } from "@/shared/contexts/ToastContext";
 import { Network } from "lucide-react";
 import PageHeader from "@/features/admin-area/catalogs/PageHeader";
+import ConfirmModal from "@/shared/components/ConfirmModal";
 
 /* ================= Types ================= */
 type RoleRow = {
@@ -38,7 +38,7 @@ function mapApiToRole(r: RoleApi): RoleRow {
     name: String(r.name ?? "Unnamed Role"),
     description: String(r.description ?? ""),
     permissionCount: 0, // Wird später geladen
-    created: r.createdAt || r.created_at || new Date().toISOString(),
+    created: (r as any).createdAt || (r as any).created_at || new Date().toISOString(),
   };
 }
 
@@ -55,6 +55,15 @@ const CSS = {
   mutedBg: "hsla(200,32%,22%,0.05)",
 };
 
+const BRAND = {
+  navy: "#264555",
+  steel: "#56768f",
+  gray: "#808080",
+  sand: "#d2c9b9",
+  fog: "#ebebec",
+  gold: "#E3BB62",
+};
+
 export default function RoleList() {
   const { showSuccess, showError } = useToast();
 
@@ -69,9 +78,10 @@ export default function RoleList() {
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [asc, setAsc] = useState(true);
 
-  // Pagination – wie bei Users
+  // Pagination – im Users-Stil
   const [page, setPage] = useState(1);
-  const pageSize = 10;
+  const [pageSize, setPageSize] = useState(10);
+  const PAGE_SIZE_OPTIONS = [5, 10, 25, 50];
 
   // Create Modal
   const [openCreate, setOpenCreate] = useState(false);
@@ -84,20 +94,13 @@ export default function RoleList() {
   const [createError, setCreateError] = useState<string | null>(null);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
 
-  // ===== Edit Role Modal =====
+  // Edit Role Modal
   const [openEdit, setOpenEdit] = useState(false);
   const [editingRole, setEditingRole] = useState<RoleRow | null>(null);
   const [eName, setEName] = useState("");
   const [eDesc, setEDesc] = useState("");
-  
   const [updating, setUpdating] = useState(false);
   const [updateError, setUpdateError] = useState<string | null>(null);
-
-  // ===== Delete Role Modal =====
-  const [openDelete, setOpenDelete] = useState(false);
-  const [deletingRole, setDeletingRole] = useState<RoleRow | null>(null);
-  const [deleting, setDeleting] = useState(false);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   // EDIT: Permissions
   const [editAllPermissions, setEditAllPermissions] = useState<PermissionApi[]>([]);
@@ -105,7 +108,13 @@ export default function RoleList() {
   const [editPermsLoading, setEditPermsLoading] = useState(false);
   const [editActiveCategory, setEditActiveCategory] = useState<string | null>(null);
   const [editSelectedPermissionsBeforeEdit, setEditSelectedPermissionsBeforeEdit] = useState<string[]>([]);
-  
+
+  // Delete Role
+  const [openDelete, setOpenDelete] = useState(false);
+  const [deletingRole, setDeletingRole] = useState<RoleRow | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
   /* ============== Data Load ============== */
   useEffect(() => {
     let alive = true;
@@ -125,7 +134,7 @@ export default function RoleList() {
     };
   }, []);
 
-  // Load permission counts for each role
+  // Permission-Counts für jede Rolle laden
   useEffect(() => {
     if (!items.length) return;
     let alive = true;
@@ -158,7 +167,7 @@ export default function RoleList() {
     setActiveCategory(null);
     setOpenCreate(true);
 
-    // Load all permissions
+    // Permissions nur einmal laden
     if (!allPermissions.length) {
       setPermissionsLoading(true);
       try {
@@ -193,21 +202,22 @@ export default function RoleList() {
     setCreateError(null);
 
     try {
-      //  Create role
       const newRole = await createRole({
         name: cName.trim(),
         description: cDesc.trim() || undefined,
       });
 
-      // Grant selected permissions
+      // Permissions zuweisen
       if (selectedPermissions.length > 0) {
         await grantPermissions(newRole.id, selectedPermissions);
       }
 
-      // Update UI
       const mapped = mapApiToRole(newRole);
       setItems((prev) => [mapped, ...prev]);
-      setPermissionCounts((prev) => ({ ...prev, [newRole.id]: selectedPermissions.length }));
+      setPermissionCounts((prev) => ({
+        ...prev,
+        [newRole.id]: selectedPermissions.length,
+      }));
 
       showSuccess(`Rolle "${newRole.name}" erfolgreich erstellt!`);
       closeCreateModal();
@@ -230,66 +240,25 @@ export default function RoleList() {
     setEDesc(role.description);
     setUpdateError(null);
     setOpenEdit(true);
-    // PERMISSIONS LADEN
+
     setEditPermsLoading(true);
     try {
-      // 1. Hole alle Permissions aus /permissions
       const all = await getAllPermissions();
       setEditAllPermissions(all);
 
-      // 2. Hole aktuelle Permissions der Rolle
       const rolePerms = await getRolePermissions(role.id);
       const ids = rolePerms.map((p) => p.permissionId);
       setEditSelectedPermissions(ids);
       setEditSelectedPermissionsBeforeEdit(ids);
 
-      // 3. Standard-Kategorie setzen
-      const cats = all.map(p => p.name.split(".")[0]);
+      const cats = all.map((p) =>
+        p.name.includes(".") ? p.name.split(".")[0] : "other"
+      );
       setEditActiveCategory(cats[0] || null);
-
     } finally {
       setEditPermsLoading(false);
     }
   };
-  // Permissions toggeln
-  const toggleEditPermission = (id: string) => {
-    setEditSelectedPermissions(prev =>
-      prev.includes(id)
-        ? prev.filter(x => x !== id)
-        : [...prev, id]
-    );
-  };
-  // Kategorien gruppieren (für Edit-Modal)
-  const editGroupedPermissions = useMemo(() => {
-    const groups: Record<string, PermissionApi[]> = {};
-
-    editAllPermissions.forEach((perm) => {
-      const category = perm.name.includes(".")
-        ? perm.name.split(".")[0]
-        : "other";
-      if (!groups[category]) groups[category] = [];
-      groups[category].push(perm);
-    });
-
-    return Object.entries(groups);
-  }, [editAllPermissions]);
-  // Welche Permissions gehören zur aktuell aktiven Edit-Kategorie?
-  const activeEditCategoryPerms = useMemo(() => {
-    if (!editActiveCategory) return [];
-    const found = editGroupedPermissions.find(
-      ([cat]) => cat === editActiveCategory
-    );
-    return found ? found[1] : [];
-  }, [editGroupedPermissions, editActiveCategory]);
-
-  // Default-Kategorie setzen, wenn noch keine gewählt
-  useEffect(() => {
-    if (!editActiveCategory && editGroupedPermissions.length > 0) {
-      setEditActiveCategory(editGroupedPermissions[0][0]);
-    }
-  }, [editGroupedPermissions, editActiveCategory]);
-
-
 
   const closeEditModal = () => {
     if (updating) return;
@@ -300,6 +269,38 @@ export default function RoleList() {
     setUpdateError(null);
   };
 
+  const toggleEditPermission = (id: string) => {
+    setEditSelectedPermissions((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
+
+  const editGroupedPermissions = useMemo(() => {
+    const groups: Record<string, PermissionApi[]> = {};
+    editAllPermissions.forEach((perm) => {
+      const category = perm.name.includes(".")
+        ? perm.name.split(".")[0]
+        : "other";
+      if (!groups[category]) groups[category] = [];
+      groups[category].push(perm);
+    });
+    return Object.entries(groups);
+  }, [editAllPermissions]);
+
+  const activeEditCategoryPerms = useMemo(() => {
+    if (!editActiveCategory) return [];
+    const found = editGroupedPermissions.find(
+      ([cat]) => cat === editActiveCategory
+    );
+    return found ? found[1] : [];
+  }, [editGroupedPermissions, editActiveCategory]);
+
+  useEffect(() => {
+    if (!editActiveCategory && editGroupedPermissions.length > 0) {
+      setEditActiveCategory(editGroupedPermissions[0][0]);
+    }
+  }, [editGroupedPermissions, editActiveCategory]);
+
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingRole) return;
@@ -308,34 +309,28 @@ export default function RoleList() {
     setUpdateError(null);
 
     try {
-      // === 1) Name + Beschreibung speichern ===
       await updateRole(editingRole.id, {
         name: eName.trim(),
         description: eDesc.trim() || undefined,
       });
 
-      // === 2) Berechne Unterschiede ===
       const oldPerms = new Set(editSelectedPermissionsBeforeEdit);
       const newPerms = new Set(editSelectedPermissions);
 
-      const toAdd = [...newPerms].filter(x => !oldPerms.has(x));
-      const toRemove = [...oldPerms].filter(x => !newPerms.has(x));
+      const toAdd = [...newPerms].filter((x) => !oldPerms.has(x));
+      const toRemove = [...oldPerms].filter((x) => !newPerms.has(x));
 
-      // === 3) API: Permissions hinzufügen ===
       if (toAdd.length > 0) {
         await grantPermissions(editingRole.id, toAdd);
       }
-
-      // === 4) API: Permissions entfernen ===
       if (toRemove.length > 0) {
         await revokePermissions(editingRole.id, toRemove);
       }
 
       showSuccess("Rolle erfolgreich aktualisiert!");
 
-      // UI aktualisieren (Name, Beschreibung, Counts)
-      setItems(prev =>
-        prev.map(r =>
+      setItems((prev) =>
+        prev.map((r) =>
           r.id === editingRole.id
             ? {
               ...r,
@@ -348,7 +343,6 @@ export default function RoleList() {
       );
 
       closeEditModal();
-
     } catch (err: any) {
       setUpdateError(err?.message ?? "Fehler beim Aktualisieren");
     } finally {
@@ -380,10 +374,9 @@ export default function RoleList() {
     try {
       await deleteRole(deletingRole.id);
 
-      setItems(prev => prev.filter(r => r.id !== deletingRole.id));
+      setItems((prev) => prev.filter((r) => r.id !== deletingRole.id));
 
-      // Permission-Count im State entfernen
-      setPermissionCounts(prev => {
+      setPermissionCounts((prev) => {
         const copy = { ...prev };
         delete copy[deletingRole.id];
         return copy;
@@ -402,26 +395,26 @@ export default function RoleList() {
     }
   };
 
+  /* ============== Create-Modal Permissions ============== */
 
   const togglePermission = (permId: string) => {
     setSelectedPermissions((prev) =>
-      prev.includes(permId) ? prev.filter((id) => id !== permId) : [...prev, permId]
+      prev.includes(permId)
+        ? prev.filter((id) => id !== permId)
+        : [...prev, permId]
     );
   };
 
-  // Group permissions by category (prefix before first dot)
   const groupedPermissions = useMemo(() => {
     const groups: Record<string, PermissionApi[]> = {};
-
     allPermissions.forEach((perm) => {
-      const category = perm.name.includes(".") ? perm.name.split(".")[0] : "other";
-      if (!groups[category]) {
-        groups[category] = [];
-      }
+      const category = perm.name.includes(".")
+        ? perm.name.split(".")[0]
+        : "other";
+      if (!groups[category]) groups[category] = [];
       groups[category].push(perm);
     });
 
-    // Sort categories alphabetically, but put 'other' last
     const sorted = Object.entries(groups).sort(([a], [b]) => {
       if (a === "other") return 1;
       if (b === "other") return -1;
@@ -431,14 +424,12 @@ export default function RoleList() {
     return sorted;
   }, [allPermissions]);
 
-  // Standard-ActiveCategory setzen
   useEffect(() => {
     if (!activeCategory && groupedPermissions.length > 0) {
       setActiveCategory(groupedPermissions[0][0]);
     }
   }, [groupedPermissions, activeCategory]);
 
-  // Get permissions for active category
   const activeCategoryPerms = useMemo(() => {
     if (!activeCategory) return [];
     const found = groupedPermissions.find(([cat]) => cat === activeCategory);
@@ -446,6 +437,7 @@ export default function RoleList() {
   }, [groupedPermissions, activeCategory]);
 
   /* ============== Filtering & Sorting ============== */
+
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
     const base = term
@@ -473,10 +465,9 @@ export default function RoleList() {
     return base;
   }, [items, q, sortKey, asc, permissionCounts]);
 
-  // Pagination wie bei Users
   useEffect(() => {
     setPage(1);
-  }, [q, sortKey, asc, items.length]);
+  }, [q, sortKey, asc, items.length, pageSize]);
 
   const total = filtered.length;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
@@ -503,190 +494,339 @@ export default function RoleList() {
 
   return (
     <AdminLayout>
-      {/* ===== Hero wie bei Users ===== */}
-      {/* HEADER */}
-            <PageHeader
-      
-              title="Rollen Verwaltung"
-              subtitle="Verwalte Benutzerrollen und deren Berechtigungen"
-              icon={<Network size={40} />}
-              gradient="navy"
-              height="280px"
-              showPattern={true}
-      
-            />
+      {/* HEADER / Hero wie Users */}
+      <PageHeader
+        title="Rollen Verwaltung"
+        subtitle="Verwalte Benutzerrollen und deren Berechtigungen"
+        icon={<Network size={40} />}
+        gradient="navy"
+        height="280px"
+        showPattern={true}
+      />
 
-      {/* ===== Main wie UsersPage ===== */}
       <main
-        className="bg-[hsl(0_0%_92%)] min-h-[calc(100vh-64px)] mt-2 px-6 py-6"
-        style={{ background: CSS.adminBg }}
+        className="min-h-[calc(100vh-64px)] mt-0 px-6 pb-8 pt-20"
+        style={{
+          background:
+            "radial-gradient(circle at 0 0, rgba(227,187,98,0.13) 0, transparent 40%)," +
+            "radial-gradient(circle at 100% 0, rgba(56,189,248,0.10) 0, transparent 42%)," +
+            "linear-gradient(to bottom, #f3f4f7 0, #e6e9ef 240px, #f4f5f8 100%)",
+        }}
       >
-        {/* Top-Bar: Breadcrumb + Add-Button (eine Zeile) */}
+
+        {/* ===== Top-Bar: Breadcrumb-Pill + Button (wie UsersPage) ===== */}
         <div className="max-w-[1400px] xl:max-w-[1600px] mx-auto mb-3 flex items-center justify-between">
-          {/* Breadcrumb links */}
-          <nav
-            className="flex items-center gap-2 text-[0.9rem]"
-            style={{ color: CSS.mutedFg }}
-          >
-            <Link
-              to="/admin/adminPanel"
-              className="hover:underline"
-              style={{ color: CSS.mutedFg }}
+          {/* Breadcrumb als Pill */}
+          <nav className="flex items-center">
+            <div
+              className="
+                inline-flex items-center gap-2
+                rounded-full border
+                px-3 py-1.5
+                shadow-[0_4px_10px_rgba(0,0,0,0.06)]
+                text-xs sm:text-sm
+                bg-white/80
+                backdrop-blur-[2px]
+              "
+              style={{ borderColor: BRAND.sand }}
             >
-              Admin Panel
-            </Link>
-            <span className="opacity-60">›</span>
-            <span
-              className="font-semibold"
-              style={{ color: "hsl(var(--foreground))" }}
-            >
-              Roles
-            </span>
+              <span
+                className="inline-flex h-6 w-6 items-center justify-center rounded-full"
+                style={{
+                  background: "rgba(38,69,85,0.06)",
+                  color: BRAND.navy,
+                }}
+              >
+                <Shield size={14} />
+              </span>
+
+              <Link
+                to="/admin/adminPanel"
+                className="hover:underline"
+                style={{ color: CSS.mutedFg }}
+              >
+                Admin Panel
+              </Link>
+
+              <span
+                className="text-[11px] opacity-60"
+                style={{ color: CSS.mutedFg }}
+              >
+                ›
+              </span>
+
+              <span
+                className="font-semibold"
+                style={{ color: "hsl(var(--foreground))" }}
+              >
+                Roles
+              </span>
+            </div>
           </nav>
 
-          {/* Create Role Button – Gelb wie in UsersPage */}
+          {/* Button wie bei Users */}
           <button
             type="button"
             onClick={openCreateModal}
-            className="inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-semibold shadow hover:[filter:brightness(1.05)] focus:outline-none"
+            className="
+    inline-flex items-center gap-2
+    rounded-full
+    px-5 py-2.5
+    text-sm font-semibold
+    shadow-[0_6px_18px_rgba(0,0,0,0.16)]
+    focus:outline-none
+    transition
+    hover:-translate-y-[1px]
+    hover:brightness-105
+  "
             style={{
-              background: "hsl(40,60%,63%)", // Gelb
-              color: "hsl(200,32%,22%)", // dunkles Blau-Grau
-              boxShadow: "0 1px 2px rgba(0,0,0,.05)",
+              background: "hsl(40,60%,63%)",
+              color: "hsl(200,32%,22%)",
+              border: "1px solid rgba(255,255,255,0.9)",
             }}
             aria-label="Add Role"
           >
             <Plus size={16} />
             Neue Rolle
           </button>
+
         </div>
 
-        {/* Suche + Count – wie in UsersPage */}
+        {/* ===== Suche + Count – im Users-Stil ===== */}
         <div
-          className="max-w-[1400px] xl:max-w-[1600px] mx-auto mb-4 rounded-[12px] border bg-white/85 [backdrop-filter:saturate(1.2)_blur(4px)] shadow-[0_1px_3px_rgba(0,0,0,0.06)]"
-          style={{ borderColor: CSS.border }}
+          className="
+            max-w-[1400px] xl:max-w-[1600px] mx-auto mb-4
+            rounded-[18px] border
+            px-4 py-3 md:px-5 md:py-4
+            shadow-[0_10px_30px_rgba(0,0,0,0.06)]
+          "
+          style={{
+            background: "linear-gradient(to bottom, #ffffff, #f7f7f7)",
+            borderColor: BRAND.sand,
+          }}
         >
-          <div className="p-4 md:p-5 flex flex-wrap items-center justify-between gap-3 md:gap-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 md:gap-4">
             {/* Suche */}
             <div className="relative flex-1 min-w-[220px] max-w-[36rem]">
               <span
                 className="absolute left-3 top-1/2 -translate-y-1/2"
-                style={{ color: CSS.mutedFg }}
+                style={{ color: BRAND.gray }}
               >
                 <Search size={16} />
               </span>
+
               <input
                 type="text"
                 placeholder="Suche Rollen (Name oder Beschreibung)…"
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
-                className="w-full h-10 md:h-11 rounded-md border pl-10 pr-3 text-sm outline-none transition focus:ring-2"
+                className="
+                  w-full h-10 md:h-11
+                  rounded-[999px]
+                  border
+                  pl-10 pr-4
+                  text-sm
+                  outline-none
+                  transition
+                  bg-white
+                "
                 style={{
-                  borderColor: CSS.border,
-                  background: CSS.card,
+                  borderColor: BRAND.sand,
                   color: CSS.fg,
-                  boxShadow: "0 0 #0000",
+                  boxShadow: "0 1px 2px rgba(0,0,0,0.03)",
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.boxShadow =
+                    "0 0 0 2px rgba(227,187,98,0.75)";
+                  e.currentTarget.style.borderColor = BRAND.gold;
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.boxShadow =
+                    "0 1px 2px rgba(0,0,0,0.03)";
+                  e.currentTarget.style.borderColor = BRAND.sand;
                 }}
               />
             </div>
 
-            {/* Zähler rechts */}
-            <div
-              className="inline-block text-sm font-medium px-3 md:px-4 py-2 rounded-lg border"
-              style={{
-                background: CSS.card,
-                color: CSS.mutedFg,
-                borderColor: CSS.border,
-              }}
-            >
-              Zeige{" "}
-              <span
-                className="font-semibold"
-                style={{ color: CSS.fg }}
+            {/* Count-Badge */}
+            <div className="flex items-center gap-3">
+              <div
+                className="
+                  inline-flex items-center gap-2
+                  rounded-full
+                  px-3 md:px-4 py-1.5
+                  text-xs md:text-sm font-medium
+                "
+                style={{
+                  background: BRAND.navy,
+                  color: "white",
+                }}
               >
-                {filtered.length}
-              </span>{" "}
-              Rollen
+                <span
+                  className="h-2 w-2 rounded-full"
+                  style={{ background: BRAND.gold }}
+                />
+                <span>
+                  Zeige{" "}
+                  <span className="font-semibold">
+                    {filtered.length}
+                  </span>{" "}
+                  Rollen
+                </span>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* ===== Card (um die Tabelle) ===== */}
-        <WithPermissionCheck error={error} loading={loading} minHeight="400px">
+        {/* ===== Tabelle im Card-Wrapper ===== */}
+        <WithPermissionCheck error={error} loading={loading} minHeight="auto">
           <section
-            className="max-w-[1400px] xl:max-w-[1600px] mx-auto rounded-[10px] border shadow-[0_4px_6px_-1px_rgba(38,69,85,.08)]"
-            style={{ background: CSS.card, borderColor: CSS.border }}
+            className="
+              max-w-[1400px] xl:max-w-[1600px]
+              mx-auto
+              rounded-[12px]
+              border
+              shadow-[0_4px_6px_-1px_rgba(38,69,85,.08)]
+              overflow-hidden
+            "
+            style={{
+              borderColor: CSS.border,
+              background: BRAND.fog,
+            }}
           >
-            {/* Table */}
             <div className="overflow-x-auto">
-              <table className="w-full border-collapse bg-[hsl(var(--card))]">
+              <table className="w-full border-collapse">
                 <thead
-                  className="bg-[hsla(200,32%,22%,0.05)]"
-                  style={{
-                    borderBottom: "2px solid hsla(200,32%,22%,0.1)",
-                  }}
-                >
-                  <tr>
-                    {[
-                      { k: "name", label: "Rolle" },
-                      { k: "description", label: "Beschreibung" },
-                      { k: "permissionCount", label: "Berechtigungen" },
-                      { k: "created", label: "Erstellt" },
-                      { k: null, label: "Aktionen" },
-                    ].map((col, idx) => (
-                      <th
-                        key={idx}
-                        className={`px-4 py-3 text-[0.85rem] font-semibold ${col.label === "Aktionen"
-                            ? "text-center"
-                            : "text-left"
-                          }`}
-                        style={{ color: CSS.fg }}
-                      >
-                        {col.k ? (
-                          <button
-                            type="button"
-                            onClick={() => setSort(col.k as SortKey)}
-                            className="inline-flex items-center gap-2 hover:brightness-110"
-                            style={{ color: "inherit" }}
-                          >
-                            <span>{col.label}</span>
-                            <ArrowUpDown
-                              size={14}
-                              className="opacity-60"
-                            />
-                          </button>
-                        ) : (
-                          <span>{col.label}</span>
-                        )}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
+  className="text-left text-xs font-semibold uppercase tracking-[0.04em]"
+  style={{
+    background: "linear-gradient(to right, #ebebec, #ffffff)",
+    borderBottom: "2px solid #d2c9b9",
+    color: "#264555",
+  }}
+>
+  <tr>
+    {[
+      { k: "name", label: "Rolle" },
+      { k: "description", label: "Beschreibung" },
+      { k: "permissionCount", label: "Berechtigungen" },
+      { k: "created", label: "Erstellt" },
+      { k: null, label: "Actions" },
+    ].map((col, idx) => {
+      const isCenter =
+        col.label === "Berechtigungen" || col.label === "Actions";
+
+      return (
+        <th
+          key={idx}
+          className={`
+            px-4 py-3 text-[0.85rem] font-semibold
+            ${isCenter ? "text-center w-[120px]" : "text-left"}
+          `}
+          style={{ color: CSS.fg }}
+        >
+          {col.k ? (
+            <button
+              type="button"
+              onClick={() => setSort(col.k as SortKey)}
+              className="inline-flex items-center gap-2 hover:brightness-110"
+              style={{ color: "inherit" }}
+            >
+              <span>{col.label}</span>
+              <ArrowUpDown size={14} className="opacity-60" />
+            </button>
+          ) : (
+            <span>{col.label}</span>
+          )}
+        </th>
+      );
+    })}
+  </tr>
+</thead>
+
 
                 <tbody>
                   {loading ? (
                     <tr>
                       <td
                         colSpan={5}
-                        className="px-4 py-4"
+                        className="px-4 py-4 bg-white"
                       >
                         Lade Rollen…
                       </td>
                     </tr>
-                  ) : pageData.length === 0 ? (
+                  ) : filtered.length === 0 ? (
                     <tr>
                       <td
                         colSpan={5}
-                        className="px-4 py-4"
+                        className="px-4 py-10 bg-white"
                       >
-                        {q ? "Keine Rollen gefunden." : "Noch keine Rollen vorhanden."}
+                        <div className="flex flex-col items-center justify-center gap-3 text-center">
+                          <div
+                            className="flex h-12 w-12 items-center justify-center rounded-full bg-[hsla(200,32%,22%,0.06)]"
+                            style={{ color: "hsla(200,32%,22%,0.65)" }}
+                          >
+                            <Search size={20} />
+                          </div>
+                          <div className="space-y-1">
+                            <p
+                              className="text-sm font-semibold"
+                              style={{ color: CSS.fg }}
+                            >
+                              {q.trim()
+                                ? "Keine Treffer für deine Suche"
+                                : "Noch keine Rollen vorhanden"}
+                            </p>
+                            <p className="text-xs text-slate-500 max-w-md">
+                              {q.trim()
+                                ? "Bitte passe den Suchbegriff an oder setze den Filter zurück."
+                                : "Lege die erste Rolle an, um mit der Berechtigungsverwaltung zu starten."}
+                            </p>
+                          </div>
+                          <div className="mt-1 flex flex-wrap items-center justify-center gap-2">
+                            {q.trim() && (
+                              <button
+                                type="button"
+                                onClick={() => setQ("")}
+                                className="rounded-md border px-3 py-1.5 text-xs font-semibold hover:bg-slate-50"
+                                style={{
+                                  borderColor: CSS.border,
+                                  color: CSS.mutedFg,
+                                }}
+                              >
+                                Filter zurücksetzen
+                              </button>
+                            )}
+                            {!q.trim() && (
+                              <button
+                                type="button"
+                                onClick={openCreateModal}
+                                className="inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-semibold shadow hover:[filter:brightness(1.05)]"
+                                style={{
+                                  background: "hsl(40,60%,63%)",
+                                  color: "hsl(200,32%,22%)",
+                                  boxShadow: "0 1px 2px rgba(0,0,0,.05)",
+                                }}
+                              >
+                                <Plus size={14} />
+                                Rolle anlegen
+                              </button>
+                            )}
+                          </div>
+                        </div>
                       </td>
                     </tr>
                   ) : (
                     pageData.map((role) => (
                       <tr
                         key={role.id}
-                        className="transition border-l-[4px] border-transparent hover:bg-[hsla(40,60%,63%,0.05)] hover:border-[hsl(40,60%,63%)]"
+                        className="
+                          bg-white
+                          transition
+                          border-l-[4px] border-transparent
+                          hover:border-[#E3BB62]
+                          hover:bg-[#fff9ec]
+                          hover:shadow-[0_4px_10px_rgba(0,0,0,0.04)]
+                        "
                       >
                         {/* Rolle */}
                         <td
@@ -696,10 +836,7 @@ export default function RoleList() {
                           }}
                         >
                           <div className="flex items-center gap-2">
-                            <Shield
-                              size={16}
-                              className="text-gray-400"
-                            />
+                            <Shield size={16} className="text-gray-400" />
                             <span>{role.name}</span>
                           </div>
                         </td>
@@ -716,25 +853,30 @@ export default function RoleList() {
                         </td>
 
                         {/* Permissions Count */}
-                        <td
-                          className="px-4 py-4 text-center"
-                          style={{
-                            borderBottom: `1px solid ${CSS.border}`,
-                          }}
-                        >
-                          {countsLoading && permissionCounts[role.id] == null ? (
-                            <span
-                              className="text-[0.875rem]"
-                              style={{ color: CSS.mutedFg }}
-                            >
-                              …
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center justify-center rounded-full bg-[#e5ebf0] px-3 py-1 text-xs font-semibold text-[#264555]">
-                              {permissionCounts[role.id] ?? 0}
-                            </span>
-                          )}
-                        </td>
+                      <td
+  className="px-4 py-4 text-center w-[120px]"
+  style={{ borderBottom: `1px solid ${CSS.border}` }}
+>
+  {countsLoading && permissionCounts[role.id] == null ? (
+    <span className="text-[0.875rem]" style={{ color: CSS.mutedFg }}>
+      …
+    </span>
+  ) : (
+    <span
+      className="
+        inline-flex items-center justify-center
+        rounded-md px-3 py-1
+        text-[12px] font-semibold
+      "
+      style={{
+        background: CSS.muted,
+        color: CSS.mutedFg,
+      }}
+    >
+      {permissionCounts[role.id] ?? 0}
+    </span>
+  )}
+</td>
 
                         {/* Erstellt */}
                         <td
@@ -755,34 +897,56 @@ export default function RoleList() {
                           }}
                         >
                           <div className="inline-flex items-center justify-center gap-2">
-                            {/* Edit */}
+                            {/* Edit – gleicher Style wie bei Companies */}
                             <button
                               type="button"
                               aria-label="Edit role"
                               title="Bearbeiten"
-                              className="inline-flex items-center justify-center w-8 h-8 rounded-md border hover:bg-slate-50"
+                              onClick={() => void openEditModal(role)}
+                              className="
+        inline-flex items-center justify-center
+        rounded-full
+        px-2.5 py-1.5
+        text-[11px] font-medium
+        border
+        transition
+        hover:bg-[#f5f0e4]
+      "
                               style={{
-                                borderColor: CSS.border,
-                                color: CSS.fg,
+                                borderColor: "#d2c9b9",
+                                color: "#264555",
+                                background: "#ffffff",
                               }}
-                              onClick={() => openEditModal(role)}
                             >
-                              <Pencil size={16} />
+                              <Pencil size={13} />
                             </button>
 
-                            {/* Delete */}
+                            {/* Delete – gleicher Style wie bei Companies */}
                             <button
                               type="button"
                               aria-label="Delete role"
                               title="Löschen"
-                              className="inline-flex items-center justify-center w-8 h-8 rounded-md border text-red-600 hover:bg-red-50"
-                              style={{ borderColor: "rgb(254 202 202)" }}
                               onClick={() => openDeleteModal(role)}
+                              className="
+        inline-flex items-center justify-center
+        rounded-full
+        px-2.5 py-1.5
+        text-[11px] font-medium
+        border
+        transition
+        hover:bg-[#fff1f1]
+      "
+                              style={{
+                                borderColor: "rgba(248,113,113,0.8)",
+                                color: "rgb(185,28,28)",
+                                background: "#ffffff",
+                              }}
                             >
-                              <Trash2 size={16} />
+                              <Trash2 size={13} />
                             </button>
                           </div>
                         </td>
+
                       </tr>
                     ))
                   )}
@@ -792,38 +956,140 @@ export default function RoleList() {
           </section>
         </WithPermissionCheck>
 
-        {/* Pagination*/}
+        {/* ===== Pagination im Users-Stil ===== */}
         <div
-          className="max-w-[1400px] xl:max-w-[1600px] mx-auto mt-4 rounded-[12px] border bg-white/85 px-4 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
-          style={{ borderColor: CSS.border }}
+          className="
+            max-w-[1400px] xl:max-w-[1600px] mx-auto mt-4
+            rounded-[18px] border
+            px-4 py-3 md:px-5 md:py-3
+            shadow-[0_10px_30px_rgba(0,0,0,0.06)]
+          "
+          style={{
+            background: "linear-gradient(to bottom, #ffffff, #f7f7f7)",
+            borderColor: BRAND.sand,
+          }}
         >
-          <div className="flex items-center justify-between">
-            <div
-              className="text-sm"
-              style={{ color: CSS.mutedFg }}
-            >
-              Zeige {startIdx}-{endIdx} von {total} Einträgen
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            {/* Range Info */}
+            <div className="text-xs sm:text-sm" style={{ color: "#808080" }}>
+              Zeige{" "}
+              <span className="font-semibold" style={{ color: "#264555" }}>
+                {startIdx}
+              </span>
+              –
+              <span className="font-semibold" style={{ color: "#264555" }}>
+                {endIdx}
+              </span>{" "}
+              von{" "}
+              <span className="font-semibold" style={{ color: "#264555" }}>
+                {total}
+              </span>{" "}
+              Einträgen
             </div>
 
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page <= 1 || total === 0}
-                className="rounded-lg border px-3 py-1.5 text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[hsla(40,60%,63%,0.08)]"
-                style={{ borderColor: CSS.border, color: CSS.mutedFg }}
+            {/* Rows per page + Page X of Y + Pfeile */}
+            <div className="flex flex-wrap items-center gap-3 sm:justify-end">
+              <div className="flex items-center gap-2">
+                <span
+                  className="text-xs sm:text-sm"
+                  style={{ color: "#808080" }}
+                >
+                  Anzahl der Zeilen pro Seite
+                </span>
+
+                <div className="relative">
+                  <select
+                    value={pageSize}
+                    onChange={(e) => setPageSize(Number(e.target.value))}
+                    className="
+                      h-9 min-w-[72px]
+                      rounded-full
+                      border
+                      bg-white
+                      px-3 pr-8
+                      text-sm font-medium
+                      outline-none
+                      appearance-none
+                      shadow-sm
+                      focus:ring-2
+                    "
+                    style={{
+                      borderColor: "#d2c9b9",
+                      color: "#264555",
+                    }}
+                  >
+                    {PAGE_SIZE_OPTIONS.map((n) => (
+                      <option key={n} value={n}>
+                        {n}
+                      </option>
+                    ))}
+                  </select>
+                  <span
+                    className="
+                      pointer-events-none
+                      absolute right-3 top-1/2 -translate-y-1/2
+                      text-[10px]
+                    "
+                    style={{ color: "#b0b0b0" }}
+                  >
+                    ▾
+                  </span>
+                </div>
+              </div>
+
+              <span
+                className="
+                  inline-flex items-center
+                  rounded-full
+                  px-3 py-1.5
+                  text-xs sm:text-sm font-semibold
+                "
+                style={{
+                  background: "#264555",
+                  color: "white",
+                }}
               >
-                Zurück
-              </button>
-              <button
-                type="button"
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                disabled={page >= totalPages || total === 0}
-                className="rounded-lg border px-3 py-1.5 text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[hsla(40,60%,63%,0.08)]"
-                style={{ borderColor: CSS.border, color: CSS.mutedFg }}
-              >
-                Weiter
-              </button>
+                Seite {page} von {totalPages}
+              </span>
+
+              <div className="flex items-center gap-1">
+                {[
+                  { label: "«", onClick: () => setPage(1), disabled: page <= 1 || total === 0 },
+                  { label: "‹", onClick: () => setPage((p) => Math.max(1, p - 1)), disabled: page <= 1 || total === 0 },
+                  { label: "›", onClick: () => setPage((p) => Math.min(totalPages, p + 1)), disabled: page >= totalPages || total === 0 },
+                  { label: "»", onClick: () => setPage(totalPages), disabled: page >= totalPages || total === 0 },
+                ].map((btn, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={btn.onClick}
+                    disabled={btn.disabled}
+                    className="
+                      flex h-8 w-8 items-center justify-center
+                      rounded-full border text-xs sm:text-sm font-medium
+                      disabled:opacity-50 disabled:cursor-not-allowed
+                      transition
+                    "
+                    style={{
+                      borderColor: "#d2c9b9",
+                      color: "#264555",
+                      background: "#ffffff",
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!btn.disabled) {
+                        e.currentTarget.style.background = "#fff9ec";
+                        e.currentTarget.style.borderColor = "#E3BB62";
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = "#ffffff";
+                      e.currentTarget.style.borderColor = "#d2c9b9";
+                    }}
+                  >
+                    {btn.label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </div>
@@ -832,489 +1098,670 @@ export default function RoleList() {
       {/* ========== Create Role Modal ========== */}
       {openCreate && (
         <div
-          className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/40 px-4"
-          onClick={closeCreateModal}
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/40 backdrop-blur-sm"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) closeCreateModal();
+          }}
         >
           <div
-            className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl bg-white shadow-2xl"
+            className="w-full max-w-2xl px-4 sm:px-0"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Header */}
-            <div className="sticky top-0 z-10 flex items-center justify-between border-b bg-white px-6 py-4">
-              <h2
-                className="text-xl font-semibold"
-                style={{ color: CSS.fg }}
-              >
-                Neue Rolle erstellen
-              </h2>
+            {/* Karten-Block mit Glow – wie Create User */}
+            <div className="relative overflow-hidden rounded-3xl bg-white shadow-2xl border border-slate-200/80">
+              {/* Deko-Glows */}
+              <div
+                className="pointer-events-none absolute -right-24 -top-24 h-52 w-52 rounded-full bg-gradient-to-br from-[#E3BB62]/40 via-amber-400/20 to-transparent opacity-60"
+                aria-hidden="true"
+              />
+              <div
+                className="pointer-events-none absolute -left-24 -bottom-24 h-52 w-52 rounded-full bg-gradient-to-tr from-sky-500/20 via-indigo-500/10 to-transparent opacity-60"
+                aria-hidden="true"
+              />
+
+              {/* Inhalt / Formular */}
+              <div className="relative px-6 pt-6 pb-5">
+                <h3 className="text-lg sm:text-xl font-semibold text-slate-900 mb-1">
+                  Neue Rolle erstellen
+                </h3>
+                <p className="text-xs text-slate-500 mb-4">
+                  Felder mit <span className="text-red-500">*</span> sind Pflichtfelder.
+                </p>
+
+                {createError && (
+                  <div
+                    className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+                    role="alert"
+                  >
+                    {createError}
+                  </div>
+                )}
+
+                <form
+                  id="create-role-form"
+                  onSubmit={handleCreateSubmit}
+                  className="space-y-4"
+                >
+                  {/* Rollenname */}
+                  <div>
+                    <label
+                      htmlFor="role-name"
+                      className="block text-sm font-medium mb-1 text-slate-700"
+                    >
+                      Rollenname <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      id="role-name"
+                      type="text"
+                      value={cName}
+                      onChange={(e) => setCName(e.target.value)}
+                      placeholder="z.B. EDITOR"
+                      className="
+                  w-full rounded-xl border px-3 py-2.5 text-sm
+                  bg-slate-50
+                  border-slate-200
+                  outline-none
+                  focus:bg-white
+                  focus:border-[#E3BB62]
+                  focus:ring-2 focus:ring-[rgba(227,187,98,0.45)]
+                  transition
+                "
+                      disabled={creating}
+                      required
+                    />
+                  </div>
+
+                  {/* Beschreibung */}
+                  <div>
+                    <label
+                      htmlFor="role-desc"
+                      className="block text-sm font-medium mb-1 text-slate-700"
+                    >
+                      Beschreibung
+                    </label>
+                    <textarea
+                      id="role-desc"
+                      value={cDesc}
+                      onChange={(e) => setCDesc(e.target.value)}
+                      placeholder="Optionale Beschreibung"
+                      rows={3}
+                      className="
+                  w-full rounded-xl border px-3 py-2.5 text-sm
+                  bg-slate-50
+                  border-slate-200
+                  outline-none
+                  focus:bg-white
+                  focus:border-[#E3BB62]
+                  focus:ring-2 focus:ring-[rgba(227,187,98,0.45)]
+                  transition
+                  resize-none
+                "
+                      disabled={creating}
+                    />
+                  </div>
+
+                  {/* Berechtigungen */}
+                  <div>
+                    <label className="block text-sm font-medium mb-2 text-slate-700">
+                      Berechtigungen ({selectedPermissions.length} ausgewählt)
+                    </label>
+
+                    {permissionsLoading ? (
+                      <div className="py-6 text-center text-sm" style={{ color: CSS.mutedFg }}>
+                        Lade Berechtigungen...
+                      </div>
+                    ) : allPermissions.length === 0 ? (
+                      <div className="py-4 text-center text-sm" style={{ color: CSS.mutedFg }}>
+                        Keine Berechtigungen verfügbar
+                      </div>
+                    ) : (
+                      <div
+                        className="border rounded-2xl bg-slate-50/70"
+                        style={{ borderColor: CSS.border }}
+                      >
+                        {/* Kategorie-Tabs */}
+                        <div
+                          className="flex flex-wrap gap-1 border-b px-3 pt-3 pb-2"
+                          style={{ borderColor: CSS.border }}
+                        >
+                          {groupedPermissions.map(([category, perms]) => {
+                            const isActive = activeCategory === category;
+                            const selectedInCategory = perms.filter((p) =>
+                              selectedPermissions.includes(p.id)
+                            ).length;
+                            const hasSelected = selectedInCategory > 0;
+
+                            return (
+                              <button
+                                key={category}
+                                type="button"
+                                onClick={() => setActiveCategory(category)}
+                                disabled={creating}
+                                className={`
+                                      inline-flex items-center gap-2 px-3 py-1.5 text-xs sm:text-sm
+                                    rounded-full border
+                                         ${isActive
+                                    ? "bg-white text-[#264555]"
+                                    : "bg-transparent text-slate-500"
+                                  }
+                                         ${hasSelected
+                                    ? "border-[#E3BB62]"
+                                    : "border-transparent hover:border-slate-200"
+                                  }
+                                             `}
+                              >
+                                <span className="uppercase tracking-wide">
+                                  {category}
+                                </span>
+                                <span className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded-full bg-slate-100">
+                                  {selectedInCategory > 0 && <span>{selectedInCategory}/</span>}
+                                  <span>{perms.length}</span>
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+
+
+                        {/* Aktive Kategorie */}
+                        {activeCategory && activeCategoryPerms.length > 0 && (
+                          <div className="p-4">
+                            {/* Kopfzeile: Info + Alle wählen/abwählen */}
+                            <div
+                              className="flex items-center justify-between mb-3 pb-3 border-b"
+                              style={{ borderColor: CSS.border }}
+                            >
+                              <span
+                                className="text-sm font-medium"
+                                style={{ color: CSS.fg }}
+                              >
+                                {
+                                  activeCategoryPerms.filter((p) =>
+                                    selectedPermissions.includes(p.id)
+                                  ).length
+                                }{" "}
+                                von {activeCategoryPerms.length} ausgewählt
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const ids = activeCategoryPerms.map((p) => p.id);
+                                  const allSelected = ids.every((id) =>
+                                    selectedPermissions.includes(id)
+                                  );
+                                  if (allSelected) {
+                                    setSelectedPermissions((prev) =>
+                                      prev.filter((id) => !ids.includes(id))
+                                    );
+                                  } else {
+                                    setSelectedPermissions((prev) => [
+                                      ...new Set([...prev, ...ids]),
+                                    ]);
+                                  }
+                                }}
+                                className="
+    text-xs font-semibold px-3 py-1.5 rounded-md
+    bg-[#E3BB62] text-[#264555]
+    hover:bg-[#d8ac55]
+    shadow-sm
+    disabled:opacity-60
+    transition
+  "
+                                disabled={creating}
+                              >
+                                {activeCategoryPerms.every((p) =>
+                                  selectedPermissions.includes(p.id)
+                                )
+                                  ? "Alle abwählen"
+                                  : "Alle wählen"}
+                              </button>
+
+                            </div>
+
+                            {/* Liste – 2 Spalten, mehr Luft, kein horizontales Scroll */}
+                            <div className="max-h-[340px] overflow-y-auto">
+                              <div className="grid gap-1 sm:grid-cols-2">
+                                {activeCategoryPerms.map((perm) => (
+                                  <label
+                                    key={perm.id}
+                                    className="flex items-start gap-3 p-2.5 rounded-lg hover:bg-white cursor-pointer transition-colors"
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={selectedPermissions.includes(perm.id)}
+                                      onChange={() => togglePermission(perm.id)}
+                                      className="mt-1 h-4 w-4 rounded border-gray-300 focus:ring-[#E3BB62]"
+                                      style={{ accentColor: BRAND.gold }}
+                                      disabled={creating}
+                                    />
+
+                                    <div className="flex-1 min-w-0">
+                                      <div
+                                        className="text-sm font-medium"
+                                        style={{ color: CSS.fg }}
+                                      >
+                                        {perm.name}
+                                      </div>
+                                      {perm.description && (
+                                        <div
+                                          className="text-xs mt-0.5"
+                                          style={{ color: CSS.mutedFg }}
+                                        >
+                                          {perm.description}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </label>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                </form>
+              </div>
+            </div>
+
+            {/* kleiner Abstand wie bei User-Create */}
+            <div className="h-3" />
+
+            {/* Footer-Buttons – gleich wie bei Create User */}
+            <div className="mt-1 flex gap-2">
               <button
                 type="button"
                 onClick={closeCreateModal}
-                className="rounded-lg p-2 hover:bg-gray-100 transition-colors"
+                className="
+            flex-1
+            h-12
+            text-sm font-medium
+            text-slate-800
+            bg-[#f3f3f3]
+            hover:bg-[#e5e5e5]
+            border border-slate-200
+            rounded-xl
+            disabled:opacity-60
+          "
                 disabled={creating}
               >
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
+                Abbrechen
+              </button>
+
+              <button
+                type="submit"
+                form="create-role-form"
+                className="
+            flex-1
+            h-12
+            text-sm font-semibold
+            rounded-xl
+            bg-[#E3BB62]
+            text-[#264555]
+            hover:bg-[#d8ac55]
+            shadow-[0_10px_30px_rgba(0,0,0,0.18)]
+            transition
+            hover:-translate-y-[1px]
+            disabled:opacity-60
+          "
+                disabled={creating || !cName.trim()}
+              >
+                {creating ? "Erstellt…" : "Erstellen"}
               </button>
             </div>
+          </div>
+        </div>
+      )}
 
-            {/* Body */}
-            <form
-              onSubmit={handleCreateSubmit}
-              className="p-6 space-y-4"
-            >
-              {/* Name */}
-              <div>
-                <label
-                  className="block text-sm font-medium mb-1"
-                  style={{ color: CSS.fg }}
-                >
-                  Rollenname <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={cName}
-                  onChange={(e) => setCName(e.target.value)}
-                  placeholder="z.B. EDITOR"
-                  className="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:border-[#264555] transition-colors"
-                  style={{ borderColor: CSS.border }}
-                  disabled={creating}
-                  required
-                />
-              </div>
 
-              {/* Description */}
-              <div>
-                <label
-                  className="block text-sm font-medium mb-1"
-                  style={{ color: CSS.fg }}
-                >
-                  Beschreibung
-                </label>
-                <textarea
-                  value={cDesc}
-                  onChange={(e) => setCDesc(e.target.value)}
-                  placeholder="Optionale Beschreibung"
-                  rows={3}
-                  className="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:border-[#264555] transition-colors resize-none"
-                  style={{ borderColor: CSS.border }}
-                  disabled={creating}
-                />
-              </div>
+      {/* ========== Edit Role Modal (neuer Style + Alle wählen) ========== */}
+      {openEdit && editingRole && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0  z-[1000] flex items-center justify-center bg-black/40 backdrop-blur-sm"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) closeEditModal();
+          }}
+        >
+          <div
+            className="w-full max-w-2xl px-4 sm:px-0"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Karten-Block mit Glow*/}
+            <div className="relative overflow-hidden rounded-3xl bg-white shadow-2xl border border-slate-200/80">
+              {/* Deko-Glows */}
+              <div
+                className="pointer-events-none absolute -right-24 -top-24 h-52 w-52 rounded-full bg-gradient-to-br from-[#E3BB62]/40 via-amber-400/20 to-transparent opacity-60"
+                aria-hidden="true"
+              />
+              <div
+                className="pointer-events-none absolute -left-24 -bottom-24 h-52 w-52 rounded-full bg-gradient-to-tr from-sky-500/20 via-indigo-500/10 to-transparent opacity-60"
+                aria-hidden="true"
+              />
 
-              {/* Permissions Multi-Select */}
-              <div>
-                <label
-                  className="block text-sm font-medium mb-2"
-                  style={{ color: CSS.fg }}
-                >
-                  Berechtigungen ({selectedPermissions.length} ausgewählt)
-                </label>
+              {/* Inhalt / Formular */}
+              <div className="relative px-6 pt-6 pb-5">
+                <h3 className="text-lg sm:text-xl font-semibold text-slate-900 mb-1">
+                  Rolle bearbeiten
+                </h3>
+                <p className="text-xs text-slate-500 mb-4">
+                  Felder mit <span className="text-red-500">*</span> sind Pflichtfelder.
+                </p>
 
-                {permissionsLoading ? (
+                {updateError && (
                   <div
-                    className="text-center py-8 text-sm"
-                    style={{ color: CSS.mutedFg }}
+                    className="mb-3 rounded-md border border-yellow-200 bg-yellow-50 px-3 py-2 text-sm text-yellow-800"
+                    role="alert"
                   >
-                    Lade Berechtigungen...
+                    {updateError}
                   </div>
-                ) : allPermissions.length === 0 ? (
-                  <div
-                    className="text-center py-4 text-sm"
-                    style={{ color: CSS.mutedFg }}
-                  >
-                    Keine Berechtigungen verfügbar
-                  </div>
-                ) : (
-                  <div
-                    className="rounded-lg border"
-                    style={{ borderColor: CSS.border }}
-                  >
-                    {/* Category Tabs Navigation */}
-                    <div
-                      className="flex overflow-x-auto border-b"
-                      style={{ borderColor: CSS.border }}
+                )}
+
+                <form
+                  id="edit-role-form"
+                  onSubmit={handleEditSubmit}
+                  className="space-y-4"
+                >
+                  {/* Rollenname */}
+                  <div>
+                    <label
+                      htmlFor="edit-role-name"
+                      className="block text-sm font-medium text-slate-700 mb-1"
                     >
-                      {groupedPermissions.map(([category, perms]) => {
-                        const categoryPermIds = perms.map((p) => p.id);
-                        const selectedInCategory = categoryPermIds.filter((id) =>
-                          selectedPermissions.includes(id)
-                        ).length;
-                        const isActive = activeCategory === category;
+                      Rollenname <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      id="edit-role-name"
+                      type="text"
+                      value={eName}
+                      onChange={(e) => setEName(e.target.value)}
+                      className="
+                  w-full rounded-xl border px-3 py-2.5 text-sm
+                  bg-slate-50 border-slate-200
+                  outline-none
+                  focus:bg-white
+                  focus:border-[#E3BB62]
+                  focus:ring-2 focus:ring-[rgba(227,187,98,0.45)]
+                  transition
+                "
+                      disabled={updating}
+                      required
+                    />
+                  </div>
 
-                        return (
-                          <button
-                            key={category}
-                            type="button"
-                            onClick={() => setActiveCategory(category)}
-                            disabled={creating}
-                            className="relative flex-shrink-0 px-4 py-3 text-sm font-medium transition-all border-b-2 whitespace-nowrap"
-                            style={{
-                              color: isActive ? CSS.primary : CSS.mutedFg,
-                              borderBottomColor: isActive
-                                ? CSS.primary
-                                : "transparent",
-                              background: isActive ? CSS.mutedBg : "transparent",
-                            }}
-                          >
-                            <div className="flex items-center gap-2">
-                              <span className="uppercase tracking-wide">
-                                {category}
-                              </span>
-                              <span
-                                className="flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-full"
-                                style={{
-                                  background: isActive
-                                    ? CSS.primary
-                                    : CSS.border,
-                                  color: isActive ? "white" : CSS.mutedFg,
-                                }}
-                              >
-                                {selectedInCategory > 0 && (
-                                  <span>{selectedInCategory}/</span>
-                                )}
-                                <span>{perms.length}</span>
-                              </span>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
+                  {/* Beschreibung */}
+                  <div>
+                    <label
+                      htmlFor="edit-role-desc"
+                      className="block text-sm font-medium text-slate-700 mb-1"
+                    >
+                      Beschreibung
+                    </label>
+                    <textarea
+                      id="edit-role-desc"
+                      value={eDesc}
+                      onChange={(e) => setEDesc(e.target.value)}
+                      rows={3}
+                      className="
+                  w-full rounded-xl border px-3 py-2.5 text-sm
+                  bg-slate-50 border-slate-200
+                  outline-none
+                  focus:bg-white
+                  focus:border-[#E3BB62]
+                  focus:ring-2 focus:ring-[rgba(227,187,98,0.45)]
+                  transition
+                  resize-none
+                "
+                      disabled={updating}
+                    />
+                  </div>
 
-                    {/* Active Category Content */}
-                    {activeCategory && activeCategoryPerms.length > 0 && (
-                      <div className="p-4">
-                        {/* Category Actions */}
+                  {/* ===== Berechtigungen mit "Alle wählen" ===== */}
+                  <div>
+                    <label className="block text-sm font-medium mb-2 text-slate-700">
+                      Berechtigungen ({editSelectedPermissions.length} ausgewählt)
+                    </label>
+
+                    {editPermsLoading ? (
+                      <div className="py-6 text-center text-sm text-slate-500">
+                        Lade Berechtigungen…
+                      </div>
+                    ) : (
+                      <div
+                        className="border rounded-2xl bg-slate-50/70"
+                        style={{ borderColor: CSS.border }}
+                      >
+                        {/* Kategorie-Tabs – flex-wrap, kein horizontaler Scroll */}
+                        {/* Kategorie-Tabs – flex-wrap, kein horizontaler Scroll */}
                         <div
-                          className="flex items-center justify-between mb-3 pb-3 border-b"
+                          className="flex flex-wrap gap-1 border-b px-3 pt-3 pb-2"
                           style={{ borderColor: CSS.border }}
                         >
-                          <span
-                            className="text-sm font-medium"
-                            style={{ color: CSS.fg }}
-                          >
-                            {
-                              activeCategoryPerms.filter((p) =>
-                                selectedPermissions.includes(p.id)
-                              ).length
-                            }{" "}
-                            von {activeCategoryPerms.length} ausgewählt
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const categoryPermIds = activeCategoryPerms.map(
-                                (p) => p.id
-                              );
-                              const allSelected = categoryPermIds.every((id) =>
-                                selectedPermissions.includes(id)
-                              );
-                              if (allSelected) {
-                                setSelectedPermissions((prev) =>
-                                  prev.filter(
-                                    (id) => !categoryPermIds.includes(id)
-                                  )
-                                );
-                              } else {
-                                setSelectedPermissions((prev) => [
-                                  ...new Set([...prev, ...categoryPermIds]),
-                                ]);
-                              }
-                            }}
-                            className="text-xs font-medium px-3 py-1.5 rounded-md hover:opacity-90 transition-all"
-                            style={{ background: CSS.primary, color: "white" }}
-                            disabled={creating}
-                          >
-                            {activeCategoryPerms.every((p) =>
-                              selectedPermissions.includes(p.id)
-                            )
-                              ? "Alle abwählen"
-                              : "Alle wählen"}
-                          </button>
+                          {editGroupedPermissions.map(([cat, perms]) => {
+                            const isActive = editActiveCategory === cat;
+                            const selectedInCat = perms.filter((p) =>
+                              editSelectedPermissions.includes(p.id)
+                            ).length;
+                            const hasSelected = selectedInCat > 0;
+
+                            return (
+                              <button
+                                key={cat}
+                                type="button"
+                                onClick={() => setEditActiveCategory(cat)}
+                                className={`
+          inline-flex items-center gap-2 px-3 py-1.5 text-xs sm:text-sm
+          rounded-full border
+          ${isActive
+                                    ? "bg-white text-[#264555]"
+                                    : "bg-transparent text-slate-500"
+                                  }
+          ${hasSelected
+                                    ? "border-[#E3BB62]"
+                                    : "border-transparent hover:border-slate-200"
+                                  }
+        `}
+                                disabled={updating}
+                              >
+                                <span className="uppercase tracking-wide">{cat}</span>
+                                <span className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded-full bg-slate-100">
+                                  {selectedInCat > 0 && <span>{selectedInCat}/</span>}
+                                  <span>{perms.length}</span>
+                                </span>
+                              </button>
+                            );
+                          })}
                         </div>
 
-                        {/* Permissions List */}
-                        <div className="max-h-64 overflow-y-auto space-y-1">
-                          {activeCategoryPerms.map((perm) => (
-                            <label
-                              key={perm.id}
-                              className="flex items-start gap-3 p-2.5 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={selectedPermissions.includes(perm.id)}
-                                onChange={() => togglePermission(perm.id)}
-                                className="mt-0.5 rounded border-gray-300 text-[#264555] focus:ring-[#264555]"
-                                disabled={creating}
-                              />
-                              <div className="flex-1 min-w-0">
-                                <div
-                                  className="text-sm font-medium"
-                                  style={{ color: CSS.fg }}
+
+                        {/* Aktive Kategorie */}
+                        <div className="p-4">
+                          {activeEditCategoryPerms.length === 0 ? (
+                            <div className="text-sm text-slate-500">
+                              Keine Berechtigungen in dieser Kategorie.
+                            </div>
+                          ) : (
+                            <>
+                              {/* Kopf mit Zähler + Alle wählen/abwählen */}
+                              <div className="flex items-center justify-between mb-3 pb-3 border-b border-slate-200">
+                                <span className="text-sm text-slate-700">
+                                  {
+                                    activeEditCategoryPerms.filter((p) =>
+                                      editSelectedPermissions.includes(p.id)
+                                    ).length
+                                  }{" "}
+                                  von {activeEditCategoryPerms.length} ausgewählt
+                                </span>
+
+                                <button
+                                  type="button"
+                                  disabled={updating}
+                                  onClick={() => {
+                                    const ids = activeEditCategoryPerms.map((p) => p.id);
+                                    const allSelected = ids.every((id) =>
+                                      editSelectedPermissions.includes(id)
+                                    );
+                                    if (allSelected) {
+                                      setEditSelectedPermissions((prev) =>
+                                        prev.filter((id) => !ids.includes(id))
+                                      );
+                                    } else {
+                                      setEditSelectedPermissions((prev) => [
+                                        ...new Set([...prev, ...ids]),
+                                      ]);
+                                    }
+                                  }}
+                                  className="
+    text-xs font-semibold px-3 py-1.5 rounded-md
+    bg-[#E3BB62] text-[#264555]
+    hover:bg-[#d8ac55]
+    shadow-sm
+    disabled:opacity-60
+  "
                                 >
-                                  {perm.name}
-                                </div>
-                                {perm.description && (
-                                  <div
-                                    className="text-xs mt-0.5"
-                                    style={{ color: CSS.mutedFg }}
-                                  >
-                                    {perm.description}
-                                  </div>
-                                )}
+                                  {activeEditCategoryPerms.every((p) =>
+                                    editSelectedPermissions.includes(p.id)
+                                  )
+                                    ? "Alle abwählen"
+                                    : "Alle wählen"}
+                                </button>
+
                               </div>
-                            </label>
-                          ))}
+
+                              {/* Liste – 2 Spalten */}
+                              <div className="max-h-[340px] overflow-y-auto">
+                                <div className="grid gap-1 sm:grid-cols-2">
+                                  {activeEditCategoryPerms.map((perm) => (
+                                    <label
+                                      key={perm.id}
+                                      className="
+                      flex items-start gap-3 p-2.5 rounded-lg
+                      hover:bg-white cursor-pointer
+                    "
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        className="mt-0.5 h-4 w-4 rounded border-gray-300 focus:ring-[#E3BB62]"
+                                        style={{ accentColor: BRAND.gold }}
+                                        checked={editSelectedPermissions.includes(perm.id)}
+                                        onChange={() => toggleEditPermission(perm.id)}
+                                        disabled={updating}
+                                      />
+
+                                      <div className="flex-1 min-w-0">
+                                        <div className="text-sm font-medium text-slate-800">
+                                          {perm.name}
+                                        </div>
+                                        {perm.description && (
+                                          <div className="text-xs text-slate-500 mt-0.5">
+                                            {perm.description}
+                                          </div>
+                                        )}
+                                      </div>
+                                    </label>
+                                  ))}
+                                </div>
+                              </div>
+                            </>
+                          )}
                         </div>
                       </div>
                     )}
                   </div>
-                )}
-              </div>
 
-              {/* Error */}
-              {createError && (
-                <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-800">
-                  {createError}
-                </div>
-              )}
-
-              {/* Actions */}
-              <div className="flex items-center justify-end gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={closeCreateModal}
-                  disabled={creating}
-                  className="rounded-lg border px-4 py-2 text-sm font-medium transition-colors hover:bg-gray-50 disabled:opacity-50"
-                  style={{ borderColor: CSS.border, color: CSS.fg }}
-                >
-                  Abbrechen
-                </button>
-                <button
-                  type="submit"
-                  disabled={creating || !cName.trim()}
-                  className="rounded-lg px-4 py-2 text-sm font-medium text-white transition-all hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
-                  style={{ background: CSS.primary }}
-                >
-                  {creating ? "Erstellt..." : "Rolle erstellen"}
-                </button>
+                </form>
               </div>
-            </form>
-          </div>
-        </div>
-      )}
-      {/* ========== Edit Role Modal ========== */}
-      {openEdit && editingRole && (
-        <div
-          className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/40 px-4"
-          onClick={closeEditModal}
-        >
-          <div
-            className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-xl bg-white shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="sticky top-0 z-10 flex items-center justify-between border-b bg-white px-6 py-4">
-              <h2 className="text-xl font-semibold" style={{ color: CSS.fg }}>
-                Rolle bearbeiten
-              </h2>
+            </div>
+
+            {/* kleiner Abstand wie bei User-Modals */}
+            <div className="h-3" />
+
+            {/* Footer-Buttons – gleich wie Users (Abbrechen / Speichern) */}
+            <div className="mt-1 flex gap-2">
               <button
                 type="button"
                 onClick={closeEditModal}
-                className="rounded-lg p-2 hover:bg-gray-100 transition-colors"
                 disabled={updating}
-              >
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              </button>
-            </div>
-
-            <form onSubmit={handleEditSubmit} className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1" style={{ color: CSS.fg }}>
-                  Rollenname <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={eName}
-                  onChange={(e) => setEName(e.target.value)}
-                  className="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:border-[#264555] transition-colors"
-                  style={{ borderColor: CSS.border }}
-                  disabled={updating}
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1" style={{ color: CSS.fg }}>
-                  Beschreibung
-                </label>
-                <textarea
-                  value={eDesc}
-                  onChange={(e) => setEDesc(e.target.value)}
-                  rows={3}
-                  className="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:border-[#264555] transition-colors resize-none"
-                  style={{ borderColor: CSS.border }}
-                  disabled={updating}
-                />
-              </div>
-              {/* ===== Permissions ===== */}
-              <div>
-                <label className="block text-sm font-medium mb-2" style={{ color: CSS.fg }}>
-                  Berechtigungen ({editSelectedPermissions.length} ausgewählt)
-                </label>
-
-                {editPermsLoading ? (
-                  <div className="py-6 text-center text-sm" style={{ color: CSS.mutedFg }}>
-                    Lade Berechtigungen…
-                  </div>
-                ) : (
-                  <div className="border rounded-lg" style={{ borderColor: CSS.border }}>
-
-                    {/* Kategorie-Tabs */}
-                    <div className="flex border-b overflow-x-auto" style={{ borderColor: CSS.border }}>
-                      {editGroupedPermissions.map(([cat, perms]) => (
-                        <button
-                          key={cat}
-                          type="button"
-                          onClick={() => setEditActiveCategory(cat)}
-                          className={`px-4 py-2 text-sm font-medium border-b-2 ${editActiveCategory === cat
-                              ? "border-blue-600 text-blue-600"
-                              : "border-transparent text-gray-500"
-                            }`}
-                        >
-                          {cat} ({perms.length})
-                        </button>
-                      ))}
-                    </div>
-
-                    {/* Permission-Liste */}
-                    <div className="max-h-64 overflow-y-auto p-4">
-                      {activeEditCategoryPerms.map((perm) => (
-                        <label
-                          key={perm.id}
-                          className="flex items-start gap-3 p-2 rounded-lg hover:bg-gray-50 cursor-pointer"
-                        >
-                          <input
-                            type="checkbox"
-                            className="mt-1"
-                            checked={editSelectedPermissions.includes(perm.id)}
-                            onChange={() => toggleEditPermission(perm.id)}
-                            disabled={updating}
-                          />
-                          <div>
-                            <div className="text-sm font-medium">{perm.name}</div>
-                            {perm.description && (
-                              <div className="text-xs text-gray-500">{perm.description}</div>
-                            )}
-                          </div>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-
-              {updateError && (
-                <div className="rounded-lg bg-yellow-50 border border-yellow-200 px-4 py-3 text-sm text-yellow-800">
-                  {updateError}
-                </div>
-              )}
-
-              <div className="flex items-center justify-end gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={closeEditModal}
-                  disabled={updating}
-                  className="rounded-lg border px-4 py-2 text-sm font-medium transition-colors hover:bg-gray-50 disabled:opacity-50"
-                  style={{ borderColor: CSS.border, color: CSS.fg }}
-                >
-                  Abbrechen
-                </button>
-                <button
-                  type="submit"
-                  disabled={updating || !eName.trim()}
-                  className="rounded-lg px-4 py-2 text-sm font-medium text-white transition-all hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
-                  style={{ background: CSS.primary }}
-                >
-                  {updating ? "Speichere..." : "Speichern"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-      {/* ========== Delete Role Modal ========== */}
-      {openDelete && deletingRole && (
-        <div
-          className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/40 px-4"
-          onClick={closeDeleteModal}
-        >
-          <div
-            className="relative w-full max-w-md rounded-xl bg-white shadow-2xl p-6"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2 className="text-lg font-semibold mb-2 text-red-600">
-              Rolle löschen?
-            </h2>
-            <p className="text-sm mb-3" style={{ color: CSS.mutedFg }}>
-              Möchtest du die Rolle{" "}
-              <b>{deletingRole.name}</b> wirklich löschen?
-              Diese Aktion kann nicht rückgängig gemacht werden.
-            </p>
-
-            {deleteError && (
-              <div className="mb-3 rounded-lg bg-red-50 border border-red-200 px-4 py-2 text-sm text-red-800">
-                {deleteError}
-              </div>
-            )}
-
-            <div className="flex justify-end gap-2 pt-2">
-              <button
-                type="button"
-                onClick={closeDeleteModal}
-                disabled={deleting}
-                className="rounded-lg border px-4 py-2 text-sm font-medium hover:bg-gray-50 disabled:opacity-50"
-                style={{ borderColor: CSS.border, color: CSS.fg }}
+                className="
+            flex-1
+            h-12
+            text-sm font-medium
+            text-slate-800
+            bg-[#f3f3f3]
+            hover:bg-[#e5e5e5]
+            border border-slate-200
+            rounded-xl
+            disabled:opacity-60
+          "
               >
                 Abbrechen
               </button>
+
               <button
-                type="button"
-                onClick={handleDeleteConfirm}
-                disabled={deleting}
-                className="rounded-lg px-4 py-2 text-sm font-medium text-white bg-red-600 hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
+                type="submit"
+                form="edit-role-form"
+                disabled={updating || !eName.trim()}
+                className="
+            flex-1
+            h-12
+            text-sm font-semibold
+            rounded-xl
+            bg-[#E3BB62]
+            text-[#264555]
+            hover:bg-[#d8ac55]
+            shadow-[0_10px_30px_rgba(0,0,0,0.18)]
+            transition
+            hover:-translate-y-[1px]
+            disabled:opacity-60
+          "
               >
-                {deleting ? "Lösche..." : "Ja, löschen"}
+                {updating ? "Speichere…" : "Speichern"}
               </button>
             </div>
           </div>
         </div>
       )}
 
-
+      {/* ========== Delete Role – mit ConfirmModal im gleichen Style wie bei User ========= */}
+      <ConfirmModal
+        open={openDelete && !!deletingRole}
+        title="Rolle löschen?"
+        description={
+          <>
+            Möchtest du die Rolle{" "}
+            <span className="font-semibold">{deletingRole?.name}</span> wirklich
+            löschen?
+          </>
+        }
+        hintTitle="Hinweis"
+        hintText={
+          <>
+            Diese Aktion kann{" "}
+            <span className="font-semibold text-red-700">
+              nicht rückgängig gemacht
+            </span>{" "}
+            werden.
+            {deleteError && (
+              <span className="mt-2 block text-red-700">
+                Fehler: {deleteError}
+              </span>
+            )}
+          </>
+        }
+        cancelLabel="Abbrechen"
+        confirmLabel={deleting ? "Lösche…" : "Ja, löschen"}
+        onCancel={closeDeleteModal}
+        onConfirm={() => {
+          if (!deleting) {
+            void handleDeleteConfirm();
+          }
+        }}
+        icon={<Trash2 className="text-red-500" />}
+      />
     </AdminLayout>
   );
 }

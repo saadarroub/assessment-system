@@ -1,16 +1,16 @@
-
-
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import AdminLayout from "@/apps/app/AdminLayout";
-import { Search, ArrowUpDown, Eye, Plus, Trash2, Pencil } from "lucide-react";
+import { Search, ArrowUpDown, Eye, Plus, Trash2, Pencil, Users } from "lucide-react";
+import ConfirmModal from "@/shared/components/ConfirmModal";
 import {
   getUsers,
-  getUserRoles,
   createUser,
   deleteUser,
   type UserApi,
   updateUser,
+  deleteUserRole,
+  assignUserRole,
 } from "@/features/service/userService";
 import { getRoles, type RoleApi } from "@/features/service/roleService";
 import { WithPermissionCheck } from "@/shared/components/WithPermissionCheck";
@@ -22,23 +22,43 @@ export type UserRow = {
   id: string;
   name: string;
   email: string;
-  roles: string[];
+  roles: { id: string; name: string }[];
   status: "active" | "invited" | "disabled";
-  lastLogin: string | null;
 };
 
-type SortKey = "name" | "email" | "status" | "lastLogin";
+type SortKey = "name" | "email" | "status";
 
 function mapApiToUser(u: UserApi): UserRow {
+  const rawRoles: any = (u as any).roles;
+
+  let roles: { id: string; name: string }[] = [];
+
+  if (Array.isArray(rawRoles)) {
+    if (rawRoles.length > 0 && typeof rawRoles[0] === "string") {
+      // roles: string[]
+      roles = rawRoles.map((r: string) => ({
+        id: String(r),
+        name: String(r),
+      }));
+    } else {
+      // roles: { id, name }[]
+      roles = rawRoles.map((r: any) => ({
+        id: String(r.id),
+        name: String(r.name ?? ""),
+      }));
+    }
+  }
+
   return {
     id: String(u.id),
     name: String(u.name ?? "Unbenannter User"),
     email: String(u.email ?? ""),
-    roles: [],
+    roles,
     status: "active",
-    lastLogin: null,
   };
 }
+
+
 
 // HSL-Token-Fallbacks (wie in deiner CSS)
 const CSS = {
@@ -51,13 +71,21 @@ const CSS = {
   primaryFg: "hsl(var(--primary-foreground,0 0% 98%))",
   muted: "hsl(var(--muted,210 40% 97%))",
 };
+const BRAND = {
+  navy: "#264555",
+  steel: "#56768f",
+  gray: "#808080",
+  sand: "#d2c9b9",
+  fog: "#ebebec",
+  gold: "#E3BB62",
+};
+
 
 export default function UsersPage() {
   const { showSuccess, showError } = useToast();
 
   const [items, setItems] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [rolesLoading, setRolesLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
   const [q, setQ] = useState("");
@@ -83,7 +111,7 @@ export default function UsersPage() {
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  // NEW: Edit Modal
+  // Edit Modal
   const [openEdit, setOpenEdit] = useState(false);
   const [editUser, setEditUser] = useState<UserRow | null>(null);
   const [eName, setEName] = useState("");
@@ -91,7 +119,47 @@ export default function UsersPage() {
   const [ePassword, setEPassword] = useState("");
   const [updating, setUpdating] = useState(false);
   const [updateError, setUpdateError] = useState<string | null>(null);
-  const [eRoleId, setERoleId] = useState<string>("");   // neu
+  const [eRoleId, setERoleId] = useState<string>("");
+  const [highlightedId, setHighlightedId] = useState<string | null>(null);
+
+  const [removingRole, setRemovingRole] = useState(false);
+  const [removeRoleError, setRemoveRoleError] = useState<string | null>(null);
+
+  async function onRemoveRole() {
+    if (!editUser || !editUser.roles.length) return;
+
+    // Wir nehmen die erste / einzige Rolle des Users
+    const roleIdToRemove = editUser.roles[0].id;
+
+    try {
+      setRemovingRole(true);
+      setRemoveRoleError(null);
+
+      await deleteUserRole(editUser.id, roleIdToRemove);
+
+      // Tabelle updaten
+      setItems(prev =>
+        prev.map(row =>
+          row.id === editUser.id ? { ...row, roles: [] } : row
+        )
+      );
+
+      // Edit-Modal-State updaten
+      setEditUser(prev => (prev ? { ...prev, roles: [] } : prev));
+      setERoleId(""); // Select später wieder von Null starten
+
+      showSuccess("Rolle erfolgreich entfernt.");
+    } catch (err: any) {
+      const msg = err?.message ?? String(err);
+      setRemoveRoleError(msg);
+
+      if ((err as any)?.response?.status !== 403) {
+        showError(`Fehler beim Entfernen der Rolle: ${msg}`);
+      }
+    } finally {
+      setRemovingRole(false);
+    }
+  }
 
 
   // Users
@@ -100,7 +168,7 @@ export default function UsersPage() {
     (async () => {
       try {
         const raw = await getUsers();
-        const mapped = (raw ?? []).map(mapApiToUser);
+        const mapped = (raw.reverse() ?? []).map(mapApiToUser);
         if (alive) setItems(mapped);
       } catch (e: any) {
         if (alive) setError(e); // Error-Objekt direkt setzen, nicht nur message
@@ -126,45 +194,6 @@ export default function UsersPage() {
       alive = false;
     };
   }, []);
-  // Roles per user – speichere nur roleIds im State
-  useEffect(() => {
-    if (!items.length) return;
-
-    let alive = true;
-    setRolesLoading(true);
-
-    (async () => {
-      try {
-        const pairs = await Promise.all(
-          items.map(async (u) => {
-            try {
-              const roleIds = await getUserRoles(u.id); // string[]: roleIds
-              return [u.id, roleIds] as const;
-            } catch {
-              return [u.id, [] as string[]] as const;
-            }
-          })
-        );
-
-        if (!alive) return;
-
-        const rolesById = Object.fromEntries(pairs) as Record<string, string[]>;
-
-        setItems((prev) =>
-          prev.map((u) => ({
-            ...u,
-            roles: rolesById[u.id] ?? [],
-          }))
-        );
-      } finally {
-        if (alive) setRolesLoading(false);
-      }
-    })();
-
-    return () => {
-      alive = false;
-    };
-  }, [items.length]);
 
 
   // Filter + Sort
@@ -177,7 +206,6 @@ export default function UsersPage() {
     base.sort((a, b) => {
       const dir = asc ? 1 : -1;
       const val = (u: UserRow): string | number => {
-        if (sortKey === "lastLogin") return u.lastLogin ? new Date(u.lastLogin).getTime() : -Infinity;
         if (sortKey === "status") return u.status;
         if (sortKey === "email") return u.email.toLowerCase();
         return u.name.toLowerCase();
@@ -222,6 +250,10 @@ export default function UsersPage() {
 
       const row = mapApiToUser(created);
       setItems((prev) => [row, ...prev]);
+      setHighlightedId(row.id);
+      setTimeout(() => {
+        setHighlightedId(null);
+      }, 2000);
       setUName("");
       setUEmail("");
       setUPassword("");
@@ -274,13 +306,13 @@ export default function UsersPage() {
     }
   };
 
-  // === NEW: Edit flow ===
+  // === Edit flow ===
   const openEditFor = (u: UserRow) => {
     setEditUser(u);
     setEName(u.name);
     setEEmail(u.email);
     setEPassword("");
-      setERoleId(u.roles[0] ?? "");
+    setERoleId(u.roles[0]?.id ?? "");
     setUpdateError(null);
     setOpenEdit(true);
   };
@@ -292,7 +324,7 @@ export default function UsersPage() {
     setEName("");
     setEEmail("");
     setEPassword("");
-    setERoleId(""); 
+    setERoleId("");
     setUpdateError(null);
   };
 
@@ -300,37 +332,45 @@ export default function UsersPage() {
     e.preventDefault();
     if (!editUser) return;
 
-    // Für PUT immer volle Felder nehmen (Eingabe oder bestehende Werte)
-    const full: { name: string; email: string; password?: string; roleId?: string } = {
+    // Stammdaten vorbereiten (ohne Rolle)
+    const userPayload = {
       name: eName.trim() || editUser.name,
       email: eEmail.trim() || editUser.email,
       ...(ePassword.trim() ? { password: ePassword.trim() } : {}),
     };
-    if (eRoleId) {
-  full.roleId = eRoleId;
-}
+
+    // aktuelle & neue Rolle ermitteln
+    const oldRoleId = editUser.roles[0]?.id ?? null;   // aktuelle Rolle aus Tabelle/State
+    const newRoleId = eRoleId || null;                 // aus dem Select (kann "" sein)
 
     try {
       setUpdating(true);
       setUpdateError(null);
 
-      const updated = await updateUser(editUser.id, full);
+      // User-Daten updaten (Name/Email/Passwort)
+      await updateUser(editUser.id, userPayload);
 
-      // Tabelle lokal aktualisieren
-      setItems(prev =>
-        prev.map(row =>
-          row.id === editUser.id
-            ? { ...row, name: updated.name ?? full.name, email: updated.email ?? full.email, roles: eRoleId ? [eRoleId] : row.roles, }
-            : row
-        )
-      );
+      // alte Rolle löschen, wenn sie sich ändert
+      if (oldRoleId && oldRoleId !== newRoleId) {
+        await deleteUserRole(editUser.id, oldRoleId);
+      }
+
+      //  neue Rolle setzen, wenn gewählt und anders als vorher
+      if (newRoleId && newRoleId !== oldRoleId) {
+        await assignUserRole(editUser.id, newRoleId);
+      }
+
+      //  Users neu laden, damit roles sicher korrekt sind
+      const raw = await getUsers();
+      const mapped = (raw ?? []).map(mapApiToUser).reverse();
+      setItems(mapped);
 
       cancelEdit();
-      showSuccess(`Benutzer "${full.name}" erfolgreich aktualisiert!`);
+      showSuccess(`Benutzer "${userPayload.name}" erfolgreich aktualisiert!`);
     } catch (err: any) {
       const errorMsg = err?.message ?? String(err);
       setUpdateError(errorMsg);
-      // 403 wird global vom PermissionToastListener gefangen
+
       if ((err as any)?.response?.status !== 403) {
         showError(`Fehler beim Aktualisieren: ${errorMsg}`);
       }
@@ -338,11 +378,15 @@ export default function UsersPage() {
       setUpdating(false);
     }
   }
-  // === Pagination (wie in Zuweisungen) ===
-  const [page, setPage] = useState(1);
-  const pageSize = 6;
 
-  useEffect(() => { setPage(1); }, [q, sortKey, asc, items]);
+
+
+  // === Pagination ===
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10); // Start mit 10 Zeilen pro Seite
+  const PAGE_SIZE_OPTIONS = [5, 10, 25, 50];
+
+  useEffect(() => { setPage(1); }, [q, sortKey, asc, items, pageSize]);
 
   const total = filtered.length;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
@@ -357,99 +401,236 @@ export default function UsersPage() {
 
   return (
     <AdminLayout>
-      {/* ===== Hero ===== */}
       {/* HEADER */}
-            <PageHeader
-      
-              title=" Benutzer Administration"
-              subtitle=" Verwalte Benutzerkonten, Rollen und Berechtigungen in CapConsulting"
-              icon={<Network size={40} />}
-              gradient="navy"
-              height="280px"
-              showPattern={true}
-      
-            />
+      <PageHeader
+
+        title=" Benutzer Administration"
+        subtitle=" Verwalte Benutzerkonten, Rollen und Berechtigungen in CapConsulting"
+        icon={<Network size={40} />}
+        gradient="navy"
+        height="280px"
+        showPattern={true}
+
+      />
 
       {/* ===== Außenbereich unter dem Hero ===== */}
-      <main className="bg-[hsl(0_0%_92%)] min-h-[calc(100vh-64px)] mt-2 px-6 py-6" style={{ background: CSS.adminBg }}>
+      <main
+        className="min-h-[calc(100vh-64px)] mt-0 px-6 pb-8 pt-20"
+        style={{
+          background:
+            // oben weicher Übergang vom dunklen Header
+            "radial-gradient(circle at 0 0, rgba(227,187,98,0.13) 0, transparent 40%)," +
+            "radial-gradient(circle at 100% 0, rgba(56,189,248,0.10) 0, transparent 42%)," +
+            // Grundfläche: sehr sanftes, leicht blau-graues Licht
+            "linear-gradient(to bottom, #f3f4f7 0, #e6e9ef 240px, #f4f5f8 100%)",
+        }}
+      >
+
         {/* ===== Top-Bar: Breadcrumb + Add-Button (eine Zeile) ===== */}
         <div className="max-w-[1400px] xl:max-w-[1600px] mx-auto mb-3 flex items-center justify-between">
-          {/* Breadcrumb links */}
-          <nav className="flex items-center gap-2 text-[0.9rem]" style={{ color: CSS.mutedFg }}>
-            <Link to="/admin/adminPanel" className="hover:underline" style={{ color: CSS.mutedFg }}>
-              Admin Panel
-            </Link>
-            <span className="opacity-60">›</span>
-            <span className="font-semibold" style={{ color: "hsl(var(--foreground))" }}>Users</span>
+          {/* Breadcrumb links – als hübscher Pill */}
+          <nav className="flex items-center">
+            <div
+              className="
+        inline-flex items-center gap-2
+        rounded-full border
+        px-3 py-1.5
+        shadow-[0_4px_10px_rgba(0,0,0,0.06)]
+        text-xs sm:text-sm
+        bg-white/80
+        backdrop-blur-[2px]
+      "
+              style={{ borderColor: BRAND.sand }}
+            >
+              {/* kleines Icon-Badge */}
+              <span
+                className="inline-flex h-6 w-6 items-center justify-center rounded-full"
+                style={{
+                  background: "rgba(38,69,85,0.06)",   // Navy ganz leicht
+                  color: BRAND.navy,
+                }}
+              >
+                <Users size={14} />
+              </span>
+
+              {/* Admin Panel Link */}
+              <Link
+                to="/admin/adminPanel"
+                className="hover:underline"
+                style={{ color: CSS.mutedFg }}
+              >
+                Admin Panel
+              </Link>
+
+              {/* Trenner */}
+              <span className="text-[11px] opacity-60" style={{ color: CSS.mutedFg }}>
+                ›
+              </span>
+
+              {/* Aktuelle Seite */}
+              <span
+                className="font-semibold"
+                style={{ color: "hsl(var(--foreground))" }}
+              >
+                Users
+              </span>
+            </div>
           </nav>
 
-          {/* Add User rechts – GELB wie in Zuweisungen */}
+          {/* Add User rechts – bleibt wie vorher */}
           <button
             type="button"
             onClick={() => setOpenCreate(true)}
-            className="inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-semibold shadow hover:[filter:brightness(1.05)] focus:outline-none"
-            style={{
-              background: "hsl(40,60%,63%)",      // Gelb
-              color: "hsl(200,32%,22%)",          // dunkles Blau-Grau
-              boxShadow: "0 1px 2px rgba(0,0,0,.05)"
-            }}
             aria-label="Add User"
+            className="
+    inline-flex items-center gap-2
+    rounded-full
+    px-4 py-2
+    text-sm font-semibold
+    focus:outline-none
+    transition
+    hover:-translate-y-[1px]
+  "
+            style={{
+              background: "hsl(40,60%,63%)",        // gleiches Cap-Gold
+              color: "hsl(200,32%,22%)",
+              boxShadow: "0 6px 14px rgba(0,0,0,0.12)",
+              borderRadius: "999px",
+              border: "1px solid rgba(255,255,255,0.8)",
+            }}
           >
             <Plus size={16} />
-            Add User
+            <span>Add User</span>
           </button>
+
         </div>
 
-        {/* Suche + Count */}
+
+        {/*  Suche + Count – Cap Farbwelt */}
         <div
-          className="max-w-[1400px] xl:max-w-[1600px] mx-auto mb-4 rounded-[12px] border bg-white/85 [backdrop-filter:saturate(1.2)_blur(4px)] shadow-[0_1px_3px_rgba(0,0,0,0.06)]"
-          style={{ borderColor: CSS.border }}
+          className="
+    max-w-[1400px] xl:max-w-[1600px] mx-auto mb-4
+    rounded-[18px] border
+    px-4 py-3 md:px-5 md:py-4
+    shadow-[0_10px_30px_rgba(0,0,0,0.06)]
+  "
+          style={{
+            // dezente Card: oben minimal heller, unten etwas dunkler
+            background: "linear-gradient(to bottom, #ffffff, #f7f7f7)",
+            borderColor: BRAND.sand, // #d2c9b9
+          }}
         >
-          <div className="p-4 md:p-5 flex flex-wrap items-center justify-between gap-3 md:gap-4">
+
+          <div className="flex flex-wrap items-center justify-between gap-3 md:gap-4">
             {/* Suche */}
             <div className="relative flex-1 min-w-[220px] max-w-[36rem]">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: CSS.mutedFg }}>
+              <span
+                className="absolute left-3 top-1/2 -translate-y-1/2"
+                style={{ color: BRAND?.gray ?? "#808080" }}
+              >
                 <Search size={16} />
               </span>
+
               <input
                 type="text"
                 placeholder="Suche Benutzer (Name oder E-Mail)…"
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
-                className="w-full h-10 md:h-11 rounded-md border pl-10 pr-3 text-sm outline-none transition focus:ring-2"
-                style={{ borderColor: CSS.border, background: CSS.card, color: CSS.fg, boxShadow: '0 0 #0000' }}
+                className="
+                  w-full h-10 md:h-11
+                  rounded-[999px]
+                  border
+                  pl-10 pr-4
+                  text-sm
+                  outline-none
+                  transition
+                  bg-white
+                "
+                style={{
+                  borderColor: BRAND?.sand ?? "#d2c9b9",
+                  color: CSS.fg,
+                  boxShadow: "0 1px 2px rgba(0,0,0,0.03)",
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.boxShadow =
+                    "0 0 0 2px rgba(227,187,98,0.75)";
+                  e.currentTarget.style.borderColor = BRAND?.gold ?? "#E3BB62";
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.boxShadow = "0 1px 2px rgba(0,0,0,0.03)";
+                  e.currentTarget.style.borderColor = BRAND?.sand ?? "#d2c9b9";
+                }}
               />
             </div>
 
-            {/* Zähler rechts */}
-            <div
-              className="inline-block text-sm font-medium px-3 md:px-4 py-2 rounded-lg border"
-              style={{ background: CSS.card, color: CSS.mutedFg, borderColor: CSS.border }}
-            >
-              Zeige <span className="font-semibold" style={{ color: CSS.fg }}>{filtered.length}</span> Benutzer
+            {/* Zähler rechts – dezente Badge */}
+            <div className="flex items-center gap-3">
+              <div
+                className="
+                  inline-flex items-center gap-2
+                  rounded-full
+                  px-3 md:px-4 py-1.5
+                  text-xs md:text-sm font-medium
+                "
+                style={{
+                  background: BRAND?.navy ?? "#264555",
+                  color: "white",
+                }}
+              >
+                <span
+                  className="h-2 w-2 rounded-full"
+                  style={{ background: BRAND?.gold ?? "#E3BB62" }}
+                />
+                <span>
+                  Zeige{" "}
+                  <span className="font-semibold">
+                    {filtered.length}
+                  </span>{" "}
+                  Benutzer
+                </span>
+              </div>
             </div>
           </div>
         </div>
 
 
+
         {/* ===== Card (um die Tabelle) ===== */}
-        <WithPermissionCheck error={error} loading={loading} minHeight="400px">
-          <section className="max-w-[1400px] xl:max-w-[1600px] mx-auto rounded-[10px] border shadow-[0_4px_6px_-1px_rgba(38,69,85,.08)]" style={{ background: CSS.card, borderColor: CSS.border }}>
+        <WithPermissionCheck error={error} loading={loading} minHeight="auto">
+          <section
+            className="
+      max-w-[1400px] xl:max-w-[1600px]
+      mx-auto
+      rounded-[12px]
+      border
+      shadow-[0_4px_6px_-1px_rgba(38,69,85,.08)]
+      overflow-hidden
+    "
+            style={{
+              borderColor: CSS.border,
+              background: BRAND.fog,
+            }}
+          >
+
 
             {/* Table */}
             <div className="overflow-x-auto">
-              <table className="w-full border-collapse bg-[hsl(var(--card))]">
+              <table className="w-full border-collapse">
                 <thead
-                  className="bg-[hsla(200,32%,22%,0.05)]"
-                  style={{ borderBottom: "2px solid hsla(200,32%,22%,0.1)" }}
+                  className="text-left text-xs font-semibold uppercase tracking-[0.04em]"
+                  style={{
+                    background: "linear-gradient(to right, #ebebec, #ffffff)", // Fog → weiß
+                    borderBottom: "2px solid #d2c9b9",                         // Sand
+                    color: "#264555",                                          // Navy
+                  }}
                 >
+
                   <tr>
                     {[
                       { k: "name", label: "Name" },
                       { k: "email", label: "Email" },
                       { k: null, label: "Roles" },
                       { k: "status", label: "Status" },
-                      { k: "lastLogin", label: "Last Login" },
                       { k: null, label: "Actions" },
                     ].map((col, idx) => (
                       <th
@@ -478,40 +659,110 @@ export default function UsersPage() {
                 <tbody>
                   {loading ? (
                     <tr>
-                      <td colSpan={6} className="px-4 py-4">Lade Users…</td>
+                      <td colSpan={6} className="px-4 py-4 bg-white">Lade Users…</td>
                     </tr>
                   ) : filtered.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-4 py-4">Keine Einträge gefunden.</td>
+                      <td colSpan={6} className="px-4 py-10 bg-white">
+                        <div className="flex flex-col items-center justify-center gap-3 text-center">
+                          {/* Icon-Kreis */}
+                          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[hsla(200,32%,22%,0.06)]"
+                            style={{ color: "hsla(200,32%,22%,0.65)" }}>
+                            <Search size={20} />
+                          </div>
+
+                          {/* Texte */}
+                          <div className="space-y-1">
+                            <p className="text-sm font-semibold" style={{ color: CSS.fg }}>
+                              {q.trim()
+                                ? "Keine Treffer für deine Suche"
+                                : "Noch keine Benutzer vorhanden"}
+                            </p>
+
+                            <p className="text-xs text-slate-500 max-w-md">
+                              {q.trim()
+                                ? "Bitte passe den Suchbegriff an oder setze den Filter zurück."
+                                : "Lege den ersten Benutzer an, um mit der Administration zu starten."}
+                            </p>
+                          </div>
+
+                          {/* Aktionen */}
+                          <div className="mt-1 flex flex-wrap items-center justify-center gap-2">
+                            {q.trim() && (
+                              <button
+                                type="button"
+                                onClick={() => setQ("")}
+                                className="rounded-md border px-3 py-1.5 text-xs font-semibold hover:bg-slate-50"
+                                style={{ borderColor: CSS.border, color: CSS.mutedFg }}
+                              >
+                                Filter zurücksetzen
+                              </button>
+                            )}
+
+                            {!q.trim() && (
+                              <button
+                                type="button"
+                                onClick={() => setOpenCreate(true)}
+                                className="inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-semibold shadow hover:[filter:brightness(1.05)]"
+                                style={{
+                                  background: "hsl(40,60%,63%)",
+                                  color: "hsl(200,32%,22%)",
+                                  boxShadow: "0 1px 2px rgba(0,0,0,.05)",
+                                }}
+                              >
+                                <Plus size={14} />
+                                Benutzer anlegen
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </td>
                     </tr>
                   ) : (
                     pageData.map((u) => (
-                      <tr key={u.id} className="transition border-l-[4px] border-transparent hover:bg-[hsla(40,60%,63%,0.05)] hover:border-[hsl(40,60%,63%)]">
+                      <tr
+                        key={u.id}
+                        className={`
+    bg-white
+    transition
+    border-l-[4px] border-transparent
+    hover:border-[#E3BB62]
+    hover:bg-[#fff9ec]
+    hover:shadow-[0_4px_10px_rgba(0,0,0,0.04)]
+    ${highlightedId === u.id ? "animate-pulse" : ""}
+  `}
+                        style={
+                          highlightedId === u.id
+                            ? {
+                              borderLeftColor: "rgb(34 197 94)", // grün links
+                              boxShadow: "0 0 0 2px rgba(34,197,94,0.25)",
+                              background:
+                                "linear-gradient(to right, rgba(34,197,94,0.08), rgba(255,255,255,1))",
+                            }
+                            : undefined
+                        }
+                      >
+
+
                         <td className="px-4 py-4 font-semibold" style={{ borderBottom: `1px solid ${CSS.border}` }}>{u.name}</td>
                         <td className="px-4 py-4 text-[0.875rem]" style={{ color: CSS.mutedFg, borderBottom: `1px solid ${CSS.border}` }}>{u.email}</td>
                         <td className="px-4 py-4" style={{ borderBottom: `1px solid ${CSS.border}` }}>
                           <div className="flex flex-wrap gap-2">
-                            {rolesLoading && u.roles.length === 0 ? (
-                              <span className="text-[0.875rem]" style={{ color: CSS.mutedFg }}>…</span>
-                            ) : u.roles.length ? (
-                             u.roles.map((roleId) => {
-    const role = availableRoles.find((r) => r.id === roleId);
-    const label = role ? role.name : roleId; // Fallback: ID
-
-    return (
-      <span
-        key={roleId}
-        className="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold bg-[#e5ebf0] text-[#264555]"
-      >
-        {label}
-      </span>
-    );
-  })
+                            {u.roles.length ? (
+                              u.roles.map((r) => (
+                                <span
+                                  key={r.id}
+                                  className="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold bg-[#e5ebf0] text-[#264555]"
+                                >
+                                  {r.name}
+                                </span>
+                              ))
                             ) : (
                               <span className="text-[0.875rem]" style={{ color: CSS.mutedFg }}>—</span>
                             )}
                           </div>
                         </td>
+
                         <td className="px-4 py-4" style={{ borderBottom: `1px solid ${CSS.border}` }}>
                           <span
                             className={
@@ -525,36 +776,56 @@ export default function UsersPage() {
                             {u.status}
                           </span>
                         </td>
-                        <td className="px-4 py-4 text-[0.875rem]" style={{ color: CSS.mutedFg, borderBottom: `1px solid ${CSS.border}` }}>
-                          {u.lastLogin ? new Date(u.lastLogin).toLocaleDateString("de-DE") : "Never"}
-                        </td>
                         <td className="px-4 py-4 text-center whitespace-nowrap" style={{ borderBottom: `1px solid ${CSS.border}` }}>
                           <div className="inline-flex items-center justify-center gap-2">
-                            {/* View (wie bisher) */}
                             <Link
                               to={`/admin/adminPanel/users/${u.id}`}
                               title="View"
-                              className="inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-semibold text-white shadow hover:brightness-110 bg-[#264555]"
+                              className="
+    inline-flex items-center gap-1.5
+    rounded-full
+    px-3 py-1.5
+    text-[11px] font-semibold
+    focus:outline-none
+    transition
+    hover:-translate-y-[0.5px]
+  "
                               style={{
-                                background: "hsl(40,60%,63%)",           // Gelb wie in Zuweisungen
-                                color: "hsl(200,32%,22%)"                 // dunkles Blau-Grau für Text/Icon
+                                background: "hsl(40,60%,63%)",
+                                color: "hsl(200,32%,22%)",
+                                boxShadow: "0 4px 10px rgba(0,0,0,0.10)",
+                                border: "1px solid rgba(255,255,255,0.9)",
                               }}
                             >
-                              <Eye size={14} />
+                              <Eye size={13} />
                               <span className="hidden sm:inline">View</span>
                             </Link>
 
-                            {/* NEW: Edit Icon-Button (öffnet Edit-Modal) */}
+
+                            {/* Edit Icon-Button (öffnet Edit-Modal) */}
                             <button
                               type="button"
                               aria-label="Edit user"
                               onClick={() => openEditFor(u)}
                               title="Edit"
-                              className="inline-flex items-center justify-center w-8 h-8 rounded-md border hover:bg-slate-50"
-                              style={{ borderColor: CSS.border, color: CSS.fg }}
+                              className="
+    inline-flex items-center justify-center
+    rounded-full
+    px-2.5 py-1.5
+    text-[11px] font-medium
+    border
+    transition
+    hover:bg-[#f5f0e4]
+  "
+                              style={{
+                                borderColor: "#d2c9b9",          // sand
+                                color: "#264555",                // navy
+                                background: "#ffffff",
+                              }}
                             >
-                              <Pencil size={16} />
+                              <Pencil size={13} />
                             </button>
+
 
                             {/* Delete (wie bisher) */}
                             <button
@@ -562,11 +833,24 @@ export default function UsersPage() {
                               aria-label="Delete user"
                               onClick={() => askDelete(u)}
                               title="Löschen"
-                              className="inline-flex items-center justify-center w-8 h-8 rounded-md border text-red-600 hover:bg-red-50"
-                              style={{ borderColor: "rgb(254 202 202)" }}
+                              className="
+    inline-flex items-center justify-center
+    rounded-full
+    px-2.5 py-1.5
+    text-[11px] font-medium
+    border
+    transition
+    hover:bg-[#fff1f1]
+  "
+                              style={{
+                                borderColor: "rgba(248,113,113,0.8)",   // rot
+                                color: "rgb(185,28,28)",                // dunkler rot Text/Icon
+                                background: "#ffffff",
+                              }}
                             >
-                              <Trash2 size={16} />
+                              <Trash2 size={13} />
                             </button>
+
                           </div>
                         </td>
                       </tr>
@@ -577,255 +861,668 @@ export default function UsersPage() {
             </div>
           </section>
         </WithPermissionCheck>
-
-        {/* === Pagination (abgesetzt, wie Zuweisungen) === */}
+        {/* === Pagination (mit Rows per page + Page X of Y) === */}
         <div
-          className="max-w-[1400px] xl:max-w-[1600px] mx-auto mt-4 rounded-[12px] border bg-white/85 px-4 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
-          style={{ borderColor: CSS.border }}
+          className="
+    max-w-[1400px] xl:max-w-[1600px] mx-auto mt-4
+    rounded-[18px] border
+    px-4 py-3 md:px-5 md:py-3
+    shadow-[0_10px_30px_rgba(0,0,0,0.06)]
+  "
+          style={{
+            background: "linear-gradient(to bottom, #ffffff, #f7f7f7)",
+            borderColor: BRAND.sand,
+          }}
         >
-          <div className="flex items-center justify-between">
-            <div className="text-sm" style={{ color: CSS.mutedFg }}>
-              Zeige {startIdx}-{endIdx} von {total} Einträgen
+
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            {/* Links: Range-Info */}
+            <div className="text-xs sm:text-sm" style={{ color: "#808080" }}>
+              Zeige <span className="font-semibold" style={{ color: "#264555" }}>{startIdx}</span>
+              –
+              <span className="font-semibold" style={{ color: "#264555" }}>{endIdx}</span>
+              {" "}von{" "}
+              <span className="font-semibold" style={{ color: "#264555" }}>{total}</span> Einträgen
             </div>
 
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page <= 1 || total === 0}
-                className="rounded-lg border px-3 py-1.5 text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[hsla(40,60%,63%,0.08)]"
-                style={{ borderColor: CSS.border, color: CSS.mutedFg }}
+            {/* Rechts: Rows per page + Page X of Y + Pfeile */}
+            <div className="flex flex-wrap items-center gap-3 sm:justify-end">
+              {/* Rows per page */}
+              <div className="flex items-center gap-2">
+                <span
+                  className="text-xs sm:text-sm"
+                  style={{ color: "#808080" }}
+                >
+                  Anzahl der Zeilen pro Seite
+                </span>
+
+                <div className="relative">
+                  <select
+                    value={pageSize}
+                    onChange={(e) => setPageSize(Number(e.target.value))}
+                    className="
+                      h-9 min-w-[72px]
+                      rounded-full
+                      border
+                      bg-white
+                      px-3 pr-8
+                      text-sm font-medium
+                      outline-none
+                      appearance-none
+                      shadow-sm
+                      focus:ring-2
+                    "
+                    style={{
+                      borderColor: "#d2c9b9",
+                      color: "#264555",
+                    }}
+                  >
+                    {PAGE_SIZE_OPTIONS.map((n) => (
+                      <option key={n} value={n}>
+                        {n}
+                      </option>
+                    ))}
+                  </select>
+                  <span
+                    className="
+                      pointer-events-none
+                      absolute right-3 top-1/2 -translate-y-1/2
+                      text-[10px]
+                    "
+                    style={{ color: "#b0b0b0" }}
+                  >
+                    ▾
+                  </span>
+                </div>
+              </div>
+
+              {/* Page X of Y */}
+              <span
+                className="
+                  inline-flex items-center
+                  rounded-full
+                  px-3 py-1.5
+                  text-xs sm:text-sm font-semibold
+                "
+                style={{
+                  background: "#264555", // Navy
+                  color: "white",
+                }}
               >
-                Zurück
-              </button>
-              <button
-                type="button"
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                disabled={page >= totalPages || total === 0}
-                className="rounded-lg border px-3 py-1.5 text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[hsla(40,60%,63%,0.08)]"
-                style={{ borderColor: CSS.border, color: CSS.mutedFg }}
-              >
-                Weiter
-              </button>
+                Seite {page} von {totalPages}
+              </span>
+
+              {/* Pfeil-Buttons */}
+              <div className="flex items-center gap-1">
+                {[
+                  { label: "«", onClick: () => setPage(1), disabled: page <= 1 || total === 0 },
+                  { label: "‹", onClick: () => setPage((p) => Math.max(1, p - 1)), disabled: page <= 1 || total === 0 },
+                  { label: "›", onClick: () => setPage((p) => Math.min(totalPages, p + 1)), disabled: page >= totalPages || total === 0 },
+                  { label: "»", onClick: () => setPage(totalPages), disabled: page >= totalPages || total === 0 },
+                ].map((btn, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={btn.onClick}
+                    disabled={btn.disabled}
+                    className="
+                      flex h-8 w-8 items-center justify-center
+                      rounded-full border text-xs sm:text-sm font-medium
+                      disabled:opacity-50 disabled:cursor-not-allowed
+                      transition
+                    "
+                    style={{
+                      borderColor: "#d2c9b9",
+                      color: "#264555",
+                      background: "#ffffff",
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!btn.disabled) {
+                        e.currentTarget.style.background = "#fff9ec";
+                        e.currentTarget.style.borderColor = "#E3BB62";
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = "#ffffff";
+                      e.currentTarget.style.borderColor = "#d2c9b9";
+                    }}
+                  >
+                    {btn.label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </div>
 
+
+
+
       </main>
 
-      {/* ===== Create User Modal ===== */}
+      {/* ===== Create User Modal (gleicher Style wie Edit/Confirm) ===== */}
       {openCreate && (
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-[1000] bg-black/40 flex items-center justify-center p-4"
-          onClick={(e) => { if (e.target === e.currentTarget) setOpenCreate(false); }}
+          className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/40 backdrop-blur-sm"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setOpenCreate(false);
+          }}
         >
-          <div className="w-[min(520px,92vw)] rounded-xl bg-white shadow-2xl p-5 relative">
-            <h3 className="text-lg font-semibold mb-3">Create User</h3>
-            {createError && (<div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{createError}</div>)}
-            <form onSubmit={onCreateUser} className="space-y-3">
-              <div>
-                <label htmlFor="u-name" className="block text-sm font-medium mb-1">Name *</label>
-                <input
-                  id="u-name"
-                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-300"
-                  value={uName}
-                  onChange={(e) => setUName(e.target.value)}
-                  placeholder="z. B. Max Mustermann"
-                  required
-                />
-              </div>
-              <div>
-                <label htmlFor="u-email" className="block text-sm font-medium mb-1">Email *</label>
-                <input
-                  id="u-email"
-                  type="email"
-                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-300"
-                  value={uEmail}
-                  onChange={(e) => setUEmail(e.target.value)}
-                  placeholder="user@example.com"
-                  required
-                />
-              </div>
-              <div>
-                <label htmlFor="u-pass" className="block text-sm font-medium mb-1">Password *</label>
-                <input
-                  id="u-pass"
-                  type="password"
-                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-300"
-                  value={uPassword}
-                  onChange={(e) => setUPassword(e.target.value)}
-                  placeholder="●●●●●●●●"
-                  required
-                />
-              </div>
-              <div>
-                <label htmlFor="u-role" className="block text-sm font-medium mb-1">Rolle *</label>
-                <select
-                  id="u-role"
-                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-300"
-                  value={selectedRoleId}
-                  onChange={(e) => setSelectedRoleId(e.target.value)}
-                  disabled={creating}
-                  required
-                >
-                  <option value="">-- Bitte wählen --</option>
-                  {availableRoles.map((role) => (
-                    <option key={role.id} value={role.id}>
-                      {role.name}
-                    </option>
-                  ))}
-                </select>
-                {rolesLoadError && (
-                  <p className="text-xs text-red-600 mt-1">{rolesLoadError}</p>
-                )}
-              </div>
-              <div className="flex justify-end gap-2 pt-1">
-                <button type="button" onClick={() => setOpenCreate(false)} className="inline-flex items-center rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50" disabled={creating}>
-                  Abbrechen
-                </button>
-                <button type="submit" className="inline-flex items-center rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow hover:brightness-110 disabled:opacity-60" disabled={creating}>
-                  {creating ? "Erstelle…" : "Erstellen"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+          <div
+            className="w-full max-w-xl px-4 sm:px-0"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Karten-Block mit Glow */}
+            <div className="relative overflow-hidden rounded-3xl bg-white shadow-2xl border border-slate-200/80">
+              {/* Deko-Glows */}
+              <div
+                className="pointer-events-none absolute -right-24 -top-24 h-52 w-52 rounded-full bg-gradient-to-br from-[#E3BB62]/40 via-amber-400/20 to-transparent opacity-60"
+                aria-hidden="true"
+              />
+              <div
+                className="pointer-events-none absolute -left-24 -bottom-24 h-52 w-52 rounded-full bg-gradient-to-tr from-sky-500/20 via-indigo-500/10 to-transparent opacity-60"
+                aria-hidden="true"
+              />
 
-      {/* ===== Delete Confirm Modal ===== */}
-      {openDelete && targetUser && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="fixed inset-0 z-[1000] bg-black/40 flex items-center justify-center p-4"
-          onClick={(e) => { if (e.target === e.currentTarget) cancelDelete(); }}
-        >
-          <div className="w-[min(460px,92vw)] rounded-xl bg-white shadow-2xl p-5 relative">
-            <h3 className="text-lg font-semibold mb-1 text-red-600">User löschen?</h3>
-            <p className="text-sm text-slate-600 mb-3">
-              Willst du den Benutzer <b>{targetUser.name}</b> ({targetUser.email}) wirklich löschen?
-              Diese Aktion kann nicht rückgängig gemacht werden.
-            </p>
-            {deleteError && <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{deleteError}</div>}
-            <div className="flex justify-end gap-2">
+              {/* Inhalt / Formular */}
+              <div className="relative px-6 pt-6 pb-5">
+                <h3 className="text-lg sm:text-xl font-semibold text-slate-900 mb-1">
+                  Create User
+                </h3>
+                <p className="text-xs text-slate-500 mb-4">
+                  Felder mit <span className="text-red-500">*</span> sind Pflichtfelder.
+                </p>
+
+                {createError && (
+                  <div
+                    className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+                    role="alert"
+                  >
+                    {createError}
+                  </div>
+                )}
+
+                <form
+                  id="create-user-form"
+                  onSubmit={onCreateUser}
+                  className="space-y-4"
+                >
+                  <div>
+                    <label
+                      htmlFor="u-name"
+                      className="block text-sm font-medium text-slate-700 mb-1"
+                    >
+                      Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      id="u-name"
+                      className="
+                        w-full rounded-xl border px-3 py-2.5 text-sm
+                        bg-slate-50
+                        border-slate-200
+                        outline-none
+                        focus:bg-white
+                        focus:border-[#E3BB62]
+                        focus:ring-2 focus:ring-[rgba(227,187,98,0.45)]
+                        transition
+                      "
+                      value={uName}
+                      onChange={(e) => setUName(e.target.value)}
+                      placeholder="z. B. Max Mustermann"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="u-email"
+                      className="block text-sm font-medium text-slate-700 mb-1"
+                    >
+                      Email <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      id="u-email"
+                      type="email"
+                      className="
+                        w-full rounded-xl border px-3 py-2.5 text-sm
+                        bg-slate-50
+                        border-slate-200
+                        outline-none
+                        focus:bg-white
+                        focus:border-[#E3BB62]
+                        focus:ring-2 focus:ring-[rgba(227,187,98,0.45)]
+                        transition
+                      "
+                      value={uEmail}
+                      onChange={(e) => setUEmail(e.target.value)}
+                      placeholder="user@example.com"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="u-pass"
+                      className="block text-sm font-medium text-slate-700 mb-1"
+                    >
+                      Password <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      id="u-pass"
+                      type="password"
+                      className="
+                        w-full rounded-xl border px-3 py-2.5 text-sm
+                        bg-slate-50
+                        border-slate-200
+                        outline-none
+                        focus:bg-white
+                        focus:border-[#E3BB62]
+                        focus:ring-2 focus:ring-[rgba(227,187,98,0.45)]
+                        transition
+                      "
+                      value={uPassword}
+                      onChange={(e) => setUPassword(e.target.value)}
+                      placeholder="●●●●●●●●"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="u-role"
+                      className="block text-sm font-medium text-slate-700 mb-1"
+                    >
+                      Rolle <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      id="u-role"
+                      className="
+                        w-full rounded-xl border px-3 py-2.5 text-sm
+                        bg-slate-50
+                        border-slate-200
+                        outline-none
+                        focus:bg-white
+                        focus:border-[#E3BB62]
+                        focus:ring-2 focus:ring-[rgba(227,187,98,0.45)]
+                        transition
+                      "
+                      value={selectedRoleId}
+                      onChange={(e) => setSelectedRoleId(e.target.value)}
+                      disabled={creating}
+                      required
+                    >
+                      <option value="">-- Bitte wählen --</option>
+                      {availableRoles.map((role) => (
+                        <option key={role.id} value={role.id}>
+                          {role.name}
+                        </option>
+                      ))}
+                    </select>
+                    {rolesLoadError && (
+                      <p className="text-xs text-red-600 mt-1">
+                        {rolesLoadError}
+                      </p>
+                    )}
+                  </div>
+                </form>
+              </div>
+            </div>
+
+            {/* kleiner Abstand wie bei den anderen Modals */}
+            <div className="h-3" />
+
+            {/* Button-Leiste – gleich wie Confirm/Edit */}
+            <div className="mt-1 flex gap-2">
               <button
                 type="button"
-                onClick={cancelDelete}
-                className="inline-flex items-center rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-                disabled={deleting}
+                onClick={() => setOpenCreate(false)}
+                className="
+                  flex-1
+                  h-12
+                  text-sm font-medium
+                  text-slate-800
+                  bg-[#f3f3f3]
+                  hover:bg-[#e5e5e5]
+                  border border-slate-200
+                  rounded-xl
+                  disabled:opacity-60
+                "
+                disabled={creating}
               >
                 Abbrechen
               </button>
+
               <button
-                type="button"
-                onClick={confirmDelete}
-                className="inline-flex items-center rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow hover:brightness-110 disabled:opacity-60"
-                disabled={deleting}
+                type="submit"
+                form="create-user-form"
+                className="
+                  flex-1
+                  h-12
+                  text-sm font-semibold
+                  rounded-xl
+                  bg-[#E3BB62]
+                  text-[#264555]
+                  hover:bg-[#d8ac55]
+                  shadow-[0_10px_30px_rgba(0,0,0,0.18)]
+                  transition
+                  hover:-translate-y-[1px]
+                  disabled:opacity-60
+                "
+                disabled={creating}
               >
-                {deleting ? "Lösche…" : "Ja, löschen"}
+                {creating ? "Erstelle…" : "Erstellen"}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ===== NEW: Edit User Modal ===== */}
+
+      {/* ===== Delete Confirm Modal ===== */}
+      {/* ===== Delete Confirm Modal (mit ConfirmModal) ===== */}
+      <ConfirmModal
+        open={openDelete && !!targetUser}
+        title="User löschen?"
+        description={
+          <>
+            Willst du den Benutzer{" "}
+            <span className="font-semibold">{targetUser?.name}</span>
+            {" "}(
+            <span className="font-mono text-[13px]">{targetUser?.email}</span>
+            ) wirklich löschen?
+          </>
+        }
+        hintTitle="Hinweis"
+        hintText={
+          <>
+            Diese Aktion kann{" "}
+            <span className="font-semibold text-red-700">
+              nicht rückgängig gemacht
+            </span>{" "}
+            werden.
+            {deleteError && (
+              <span className="mt-2 block text-red-700">
+                Fehler: {deleteError}
+              </span>
+            )}
+          </>
+        }
+        cancelLabel="Abbrechen"
+        confirmLabel={deleting ? "Lösche…" : "Ja, löschen"}
+        onCancel={cancelDelete}
+        onConfirm={() => {
+          if (!deleting) {
+            void confirmDelete();
+          }
+        }}
+        icon={<Trash2 className="text-red-500" />}
+      />
+
+
+      {/* ===== Edit User Modal (im gleichen Style wie ConfirmModal) ===== */}
       {openEdit && editUser && (
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-[1000] bg-black/40 flex items-center justify-center p-4"
+          className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/40 backdrop-blur-sm"
           onClick={(e) => { if (e.target === e.currentTarget) cancelEdit(); }}
         >
-          <div className="w-[min(520px,92vw)] rounded-xl bg-white shadow-2xl p-5 relative">
-            <h3 className="text-lg font-semibold mb-3">Edit User</h3>
+          <div
+            className="w-full max-w-xl px-4 sm:px-0"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Karten-Block mit Glow – analog ConfirmModal */}
+            <div className="relative overflow-hidden rounded-3xl bg-white shadow-2xl border border-slate-200/80">
+              {/* Deko-Glows */}
+              <div
+                className="pointer-events-none absolute -right-24 -top-24 h-52 w-52 rounded-full bg-gradient-to-br from-[#E3BB62]/40 via-amber-400/20 to-transparent opacity-60"
+                aria-hidden="true"
+              />
+              <div
+                className="pointer-events-none absolute -left-24 -bottom-24 h-52 w-52 rounded-full bg-gradient-to-tr from-sky-500/20 via-indigo-500/10 to-transparent opacity-60"
+                aria-hidden="true"
+              />
 
-            {updateError && (
-              <div className="mb-3 rounded-md border border-yellow-200 bg-yellow-50 px-3 py-2 text-sm text-yellow-800" role="alert">
-                {updateError}
-              </div>
-            )}
+              {/* Inhalt / Formular */}
+              <div className="relative px-6 pt-6 pb-5">
+                <h3 className="text-lg sm:text-xl font-semibold text-slate-900 mb-4">
+                  Edit User
+                </h3>
 
-            <form onSubmit={onEditSubmit} className="space-y-3">
-              <div>
-                <label htmlFor="e-name" className="block text-sm font-medium mb-1">Name</label>
-                <input
-                  id="e-name"
-                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-300"
-                  value={eName}
-                  onChange={(e) => setEName(e.target.value)}
-                  placeholder="Name ändern (optional)"
-                />
-              </div>
-              <div>
-                <label htmlFor="e-email" className="block text-sm font-medium mb-1">Email</label>
-                <input
-                  id="e-email"
-                  type="email"
-                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-300"
-                  value={eEmail}
-                  onChange={(e) => setEEmail(e.target.value)}
-                  placeholder="Email ändern (optional)"
-                />
-              </div>
-              <div>
-                <label htmlFor="e-pass" className="block text-sm font-medium mb-1">New Password (optional)</label>
-                <input
-                  id="e-pass"
-                  type="password"
-                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-300"
-                  value={ePassword}
-                  onChange={(e) => setEPassword(e.target.value)}
-                  placeholder="Leer lassen, um Passwort zu behalten"
-                />
-              </div>
-                <div>
-    <label htmlFor="e-role" className="block text-sm font-medium mb-1">
-      Rolle
-    </label>
-    <select
-      id="e-role"
-      className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-300"
-      value={eRoleId}
-      onChange={(e) => setERoleId(e.target.value)}
-      disabled={updating}
-    >
-      <option value="">-- Bitte wählen --</option>
-      {availableRoles.map((role) => (
-        <option key={role.id} value={role.id}>
-          {role.name}
-        </option>
-      ))}
-    </select>
-    {rolesLoadError && (
-      <p className="text-xs text-red-600 mt-1">{rolesLoadError}</p>
-    )}
-  </div>
+                {updateError && (
+                  <div
+                    className="mb-3 rounded-md border border-yellow-200 bg-yellow-50 px-3 py-2 text-sm text-yellow-800"
+                    role="alert"
+                  >
+                    {updateError}
+                  </div>
+                )}
 
-
-              <div className="flex justify-end gap-2 pt-1">
-                <button
-                  type="button"
-                  onClick={cancelEdit}
-                  className="inline-flex items-center rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
-                  disabled={updating}
+                <form
+                  id="edit-user-form"
+                  onSubmit={onEditSubmit}
+                  className="space-y-4"
                 >
-                  Abbrechen
-                </button>
-                <button
-                  type="submit"
-                  className="inline-flex items-center rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow hover:brightness-110 disabled:opacity-60"
-                  disabled={updating}
-                >
-                  {updating ? "Speichere…" : "Speichern"}
-                </button>
+                  <div>
+                    <label
+                      htmlFor="e-name"
+                      className="block text-sm font-medium text-slate-700 mb-1"
+                    >
+                      Name
+                    </label>
+                    <input
+                      id="e-name"
+                      className="
+                        w-full rounded-xl border px-3 py-2.5 text-sm
+                        bg-slate-50
+                        border-slate-200
+                        outline-none
+                        focus:bg-white
+                        focus:border-[#E3BB62]
+                        focus:ring-2 focus:ring-[rgba(227,187,98,0.45)]
+                        transition
+                      "
+                      value={eName}
+                      onChange={(e) => setEName(e.target.value)}
+                      placeholder="Name ändern (optional)"
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="e-email"
+                      className="block text-sm font-medium text-slate-700 mb-1"
+                    >
+                      Email
+                    </label>
+                    <input
+                      id="e-email"
+                      type="email"
+                      className="
+                        w-full rounded-xl border px-3 py-2.5 text-sm
+                        bg-slate-50
+                        border-slate-200
+                        outline-none
+                        focus:bg-white
+                        focus:border-[#E3BB62]
+                        focus:ring-2 focus:ring-[rgba(227,187,98,0.45)]
+                        transition
+                      "
+                      value={eEmail}
+                      onChange={(e) => setEEmail(e.target.value)}
+                      placeholder="Email ändern (optional)"
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="e-pass"
+                      className="block text-sm font-medium text-slate-700 mb-1"
+                    >
+                      New Password
+                    </label>
+                    <input
+                      id="e-pass"
+                      type="password"
+                      className="
+                        w-full rounded-xl border px-3 py-2.5 text-sm
+                        bg-slate-50
+                        border-slate-200
+                        outline-none
+                        focus:bg-white
+                        focus:border-[#E3BB62]
+                        focus:ring-2 focus:ring-[rgba(227,187,98,0.45)]
+                        transition
+                      "
+                      value={ePassword}
+                      onChange={(e) => setEPassword(e.target.value)}
+                      placeholder="Leer lassen, um Passwort zu behalten"
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="e-role"
+                      className="block text-sm font-medium text-slate-700 mb-1"
+                    >
+                      Rolle
+                    </label>
+
+                    {editUser.roles.length > 0 ? (
+                      // ===== Schritt 1: Aktuelle Rolle anzeigen + Entfernen-Button =====
+                      <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 space-y-2">
+                        <p className="text-xs text-slate-600">
+                          Aktuelle Rolle:
+                        </p>
+
+                        <div className="flex items-center justify-between gap-2">
+                          {/* Badge mit aktueller Rolle */}
+                          <span className="inline-flex items-center rounded-full bg-[#e5ebf0] px-3 py-1 text-xs font-semibold text-[#264555]">
+                            {editUser.roles[0].name}
+                          </span>
+
+                          {/* Button zum Entfernen der Rolle */}
+                          <button
+                            type="button"
+                            onClick={onRemoveRole}
+                            disabled={removingRole}
+                            className="
+            inline-flex items-center gap-1.5
+            rounded-full border px-3 py-1.5
+            text-xs font-semibold
+            bg-[#fff1f1]
+            border-red-200
+            text-red-700
+            hover:bg-[#ffe2e2]
+            disabled:opacity-60 disabled:cursor-not-allowed
+          "
+                          >
+                            <Trash2 size={12} />
+                            {removingRole ? "Entferne…" : "Rolle entfernen"}
+                          </button>
+                        </div>
+
+                        {removeRoleError && (
+                          <p className="mt-1 text-xs text-red-700">
+                            {removeRoleError}
+                          </p>
+                        )}
+
+                        <p className="mt-1 text-[11px] text-slate-500">
+                          Nachdem die Rolle entfernt wurde, kannst du unten eine neue Rolle auswählen.
+                        </p>
+                      </div>
+                    ) : (
+                      // ===== Schritt 2: Keine Rolle → Select anzeigen =====
+                      <>
+                        <select
+                          id="e-role"
+                          className="
+          w-full rounded-xl border px-3 py-2.5 text-sm
+          bg-slate-50
+          border-slate-200
+          outline-none
+          focus:bg-white
+          focus:border-[#E3BB62]
+          focus:ring-2 focus:ring-[rgba(227,187,98,0.45)]
+          transition
+        "
+                          value={eRoleId}
+                          onChange={(e) => setERoleId(e.target.value)}
+                          disabled={updating}
+                        >
+                          <option value="">-- Bitte wählen --</option>
+                          {availableRoles.map((role) => (
+                            <option key={role.id} value={role.id}>
+                              {role.name}
+                            </option>
+                          ))}
+                        </select>
+
+                        {rolesLoadError && (
+                          <p className="text-xs text-red-600 mt-1">
+                            {rolesLoadError}
+                          </p>
+                        )}
+                      </>
+                    )}
+                  </div>
+
+                </form>
               </div>
-            </form>
+            </div>
+
+            {/* kleiner Abstand wie beim ConfirmModal */}
+            <div className="h-3" />
+
+            {/* Button-Leiste – gleicher Style wie ConfirmModal */}
+            <div className="mt-1 flex gap-2">
+              <button
+                type="button"
+                onClick={cancelEdit}
+                disabled={updating}
+                className="
+                  flex-1
+                  h-12
+                  text-sm font-medium
+                  text-slate-800
+                  bg-[#f3f3f3]
+                  hover:bg-[#e5e5e5]
+                  border border-slate-200
+                  rounded-xl
+                  disabled:opacity-60
+                "
+              >
+                Abbrechen
+              </button>
+
+              <button
+                type="submit"
+                form="edit-user-form"
+                disabled={updating}
+                className="
+                  flex-1
+                  h-12
+                  text-sm font-semibold
+                  rounded-xl
+                  bg-[#E3BB62]
+                  text-[#264555]
+                  hover:bg-[#d8ac55]
+                  shadow-[0_10px_30px_rgba(0,0,0,0.18)]
+                  transition
+                  hover:-translate-y-[1px]
+                  disabled:opacity-60
+                "
+              >
+                {updating ? "Speichere…" : "Speichern"}
+              </button>
+            </div>
           </div>
         </div>
       )}
+
     </AdminLayout>
   );
 }

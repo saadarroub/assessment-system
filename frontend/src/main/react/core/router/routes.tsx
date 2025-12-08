@@ -74,14 +74,14 @@ export default function AppRoutes() {
           </ProtectedRoute>
         }
       />
-      <Route
-        path="/profile"
-        element={
-          <ProtectedRoute>
-            <EmployeeProfile />
-          </ProtectedRoute>
-        }
-      />
+     <Route
+    path="/admin/profile"
+    element={
+      <ProtectedRoute>
+        <EmployeeProfile />
+      </ProtectedRoute>
+    }
+  />
       <Route
         path="/app/results/:sessionId"
         element={

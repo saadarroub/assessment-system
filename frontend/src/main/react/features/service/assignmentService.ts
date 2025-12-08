@@ -82,3 +82,30 @@ export async function listAssignments(): Promise<AssignmentApi[]> {
   });
   return data;
 }
+export async function deleteAssignment(id: string): Promise<void> {
+  await apiClient.delete(
+    `/worker-catalog/${encodeURIComponent(id)}`,
+    { headers: { Accept: "application/json" } }
+  );
+}
+export type UpdateAssignmentExpiresDto = {
+  expiresAt: string;
+};
+
+export async function updateAssignmentExpires(
+  id: string,
+  payload: UpdateAssignmentExpiresDto
+): Promise<AssignmentApi> {
+  const { data } = await apiClient.patch<AssignmentApi>(
+    `/worker-catalog/${encodeURIComponent(id)}/expires`,
+    payload,
+    {
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+    }
+  );
+
+  return data;
+}
