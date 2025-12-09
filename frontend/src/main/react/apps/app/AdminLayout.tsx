@@ -151,51 +151,51 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
 
   const menuRef = useRef<HTMLDivElement | null>(null);
   const navigate = useNavigate();
-const [sessionUser, setSessionUser] = useState<{
-  id?: string;
-  username?: string;
-  name?: string;
-  email?: string;
-  roles?: string[];
-} | null>(null);
+  const [sessionUser, setSessionUser] = useState<{
+    id?: string;
+    username?: string;
+    name?: string;
+    email?: string;
+    roles?: string[];
+  } | null>(null);
 
-function readSessionUser(): any | null {
-  try {
-    const raw = window.sessionStorage.getItem("auth_session");
-    console.log("[AdminLayout] auth_session raw =", raw);
-    if (!raw) return null;
+  function readSessionUser(): any | null {
+    try {
+      const raw = window.sessionStorage.getItem("auth_session");
+      console.log("[AdminLayout] auth_session raw =", raw);
+      if (!raw) return null;
 
-    let parsed: any = JSON.parse(raw);
+      let parsed: any = JSON.parse(raw);
 
-    if (typeof parsed === "string") {
-      parsed = JSON.parse(parsed);
+      if (typeof parsed === "string") {
+        parsed = JSON.parse(parsed);
+      }
+
+      console.log("[AdminLayout] auth_session parsed =", parsed);
+
+      const user = parsed?.user ?? parsed;
+      if (!user || typeof user !== "object") return null;
+
+      return user;
+    } catch (err) {
+      console.error("[AdminLayout] Konnte auth_session nicht parsen:", err);
+      return null;
     }
-
-    console.log("[AdminLayout] auth_session parsed =", parsed);
-
-    const user = parsed?.user ?? parsed;
-    if (!user || typeof user !== "object") return null;
-
-    return user;
-  } catch (err) {
-    console.error("[AdminLayout] Konnte auth_session nicht parsen:", err);
-    return null;
   }
-}
 
-// ⬇⬇ DAS FEHLTE
-useEffect(() => {
-  const u = readSessionUser();
-  setSessionUser(u);
-}, []);
-// ⬆⬆
+  // ⬇⬇ DAS FEHLTE
+  useEffect(() => {
+    const u = readSessionUser();
+    setSessionUser(u);
+  }, []);
+  // ⬆⬆
 
-const displayName =
-  sessionUser?.username ||
-  sessionUser?.name ||
-  "admin";
+  const displayName =
+    sessionUser?.username ||
+    sessionUser?.name ||
+    "admin";
 
-const displayEmail = sessionUser?.email || "admin@example.com";
+  const displayEmail = sessionUser?.email || "admin@example.com";
 
 
 
@@ -286,7 +286,6 @@ const displayEmail = sessionUser?.email || "admin@example.com";
         {/* ===== Inhalt: alles relativ mit höherem z-Index ===== */}
         <div className="relative z-10 flex h-full flex-col">
           {/* Header */}
-          {/* Header */}
           <div
             className="relative flex items-center justify-between border-b px-3"
             style={{
@@ -308,15 +307,7 @@ const displayEmail = sessionUser?.email || "admin@example.com";
               )}
             >
               <div
-                className="
-        inline-flex items-center gap-3
-        rounded-2xl border
-        px-3 py-1.5
-        bg-white/8
-        border-white/25
-        backdrop-blur-[8px]
-        shadow-[0_10px_25px_rgba(0,0,0,0.35)]
-      "
+                className="inline-flex items-center gap-3 rounded-6xl border px-3 py-3 bg-white/8 border-white/25 backdrop-blur-[8px] shadow-[0_10px_25px_rgba(0,0,0,0.35)]"
               >
                 {/* Icon-Kreis (etwas kleiner, cleaner) */}
                 <div className="relative">
@@ -330,16 +321,16 @@ const displayEmail = sessionUser?.email || "admin@example.com";
 
                 <div className="flex flex-col leading-tight">
                   <span className="text-[10px] font-semibold tracking-[0.18em] uppercase text-white/80">
-                    Admin · Area
+                    SYSTEM · MANAGEMENT
                   </span>
                   <span className="text-[11px] text-white/90">
-                    Konfiguration &amp; Benutzerverwaltung
+                    Management & Administration
                   </span>
                 </div>
               </div>
             </div>
 
-            {/* Toggle – größer & besser sichtbar */}
+            {/* Toggle */}
             <button
               type="button"
               aria-label={collapsed ? "Sidebar erweitern" : "Sidebar einklappen"}
@@ -370,7 +361,6 @@ const displayEmail = sessionUser?.email || "admin@example.com";
               )}
             </button>
           </div>
-
 
           {/* Content */}
           <div className="flex-1 overflow-y-auto p-3 [scrollbar-width:none] [-ms-overflow-style:none] flex flex-col min-h-0">
@@ -655,73 +645,120 @@ const displayEmail = sessionUser?.email || "admin@example.com";
                 );
               })}
             </nav>
+          </div>
+          {/* Profil-Leiste / Footer */}
+          <div className="mt-auto px-3 pb-3 relative">
+            {!collapsed && (
+              <div
+                className="pt-2 border-t text-[0.8rem]"
+                style={{
+                  borderColor: `hsl(${TOKENS.sidebarBorder})`,
+                  color: `hsl(${TOKENS.sidebarMuted})`,
+                }}
+              />
+            )}
 
-            {/* Profil-Leiste / Footer */}
-            <div className="mt-auto space-y-3 relative">
-              {!collapsed && (
-                <div
-                  className="pt-2 border-t text-[0.8rem]"
-                  style={{
-                    borderColor: `hsl(${TOKENS.sidebarBorder})`,
-                    color: `hsl(${TOKENS.sidebarMuted})`,
-                  }}
-                />
-              )}
+            <div ref={menuRef} className="relative">
+              {collapsed ? (
+                // Nur Avatar, wenn Sidebar zu ist
+                <button
+                  type="button"
+                  onClick={() => setMenuOpen((v) => !v)}
+                  className="
+      relative
+      w-[48px] h-[48px]
+      rounded-[16px]
+      border border-white/30
+      bg-black/15
+      shadow-[0_8px_20px_rgba(0,0,0,0.55)]
+      flex items-center justify-center
+      hover:bg-white/10
+      transition
+    "
+                  aria-label="Profilmenü öffnen"
+                >
+                  <div className="relative">
+                    <img
+                      src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=80&h=80&fit=crop&crop=face"
+                      alt="Profil"
+                      className="h-9 w-9 rounded-full border border-white/40 shadow"
+                    />
+                    <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-400 border border-slate-900" />
+                  </div>
+                </button>
+              ) : (
+                // Neuer, kompletter Profil-Strip im offenen Zustand
+                <button
+                  type="button"
+                  onClick={() => setMenuOpen((v) => !v)}
+                  className="
+      group
+      relative flex w-full items-center gap-3
+      rounded-[22px]
+      border border-white/12
+      bg-gradient-to-r
+      from-[rgba(15,23,42,0.98)]      /* links: dunkles Navy */
+      via-[rgba(21,36,57,0.96)]       /* Mitte: etwas heller */
+      to-[rgba(76,134,191,0.9)]       /* rechts: deutlich heller, bläulich */
+      px-3.5 py-2.5
+      shadow-[0_16px_34px_rgba(0,0,0,0.75)]
+      hover:from-[rgba(18,30,46,1)]
+      hover:via-[rgba(29,52,82,0.98)]
+      hover:to-[rgba(110,171,215,0.98)]
+      hover:border-[#E3BB62]/80
+      transition
+    "
+                >
+                  {/* dünner innerer Glow-Rand */}
+                  <div className="pointer-events-none absolute inset-[1px] rounded-[20px] border border-white/10 opacity-70" />
 
-              <div ref={menuRef} className="relative">
-                {collapsed ? (
-                  // Nur Avatar, wenn Sidebar zu ist
-                  <button
-                    type="button"
-                    onClick={() => setMenuOpen((v) => !v)}
+                  {/* Avatar links */}
+                  <div className="relative shrink-0 z-10">
+                    <div className="absolute inset-[-4px] rounded-full border border-white/25 opacity-70" />
+                    <img
+                      src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=120&h=120&fit=crop&crop=face"
+                      alt="Profil"
+                      className="h-9 w-9 rounded-full border border-white/60 shadow"
+                    />
+                    <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-400 border border-slate-900" />
+                  </div>
+
+                  {/* Name + Mail */}
+                  <div className="min-w-0 flex-1 text-left z-10">
+                    <p className="text-sm font-semibold text-white truncate">
+                      {displayName}
+                    </p>
+                    <p className="text-xs text-slate-100/80 truncate">
+                      {displayEmail}
+                    </p>
+                  </div>
+
+                  {/* Settings-Icon rechts – bewusst heller gemacht */}
+                  <div
                     className="
-        relative
-        w-[48px] h-[48px]
-        rounded-[16px]
-        border border-white/30
-        bg-black/15
+        z-10
+        shrink-0 grid place-items-center
+        h-9 w-9 rounded-2xl
+        border border-white/40
+        bg-white/15
         shadow-[0_8px_20px_rgba(0,0,0,0.55)]
-        flex items-center justify-center
-        hover:bg-white/10
+        group-hover:border-[#E3BB62]/80
+        group-hover:bg-[#E3BB62]/30
         transition
       "
-                    aria-label="Profilmenü öffnen"
                   >
-                    <div className="relative">
-                      <img
-                        src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=80&h=80&fit=crop&crop=face"
-                        alt="Profil"
-                        className="h-9 w-9 rounded-full border border-white/40 shadow"
-                      />
-                      {/* kleiner Online-Indikator unten rechts */}
-                      <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-400 border border-slate-900" />
-                    </div>
-                  </button>
-                ) : (
-                  // Voller Strip im offenen Zustand
-                  <ProfileStrip
-                    collapsed={collapsed}
-                    name={displayName}
-                    email={displayEmail}
-                    avatarUrl="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=160&h=160&fit=crop&crop=face"
-                    onSettings={() => setMenuOpen((v) => !v)}
-                    tokens={{
-                      sidebarHSL: TOKENS.sidebarHSL,
-                      sidebarStrong: TOKENS.sidebarStrong,
-                      sidebarBorder: TOKENS.sidebarBorder,
-                      sidebarFg: TOKENS.sidebarFg,
-                      sidebarMuted: TOKENS.sidebarMuted,
-                    }}
-                  />
+                    <Settings className="w-4 h-4 text-white" />
+                  </div>
+                </button>
+              )}
 
-                )}
-                {menuOpen && !collapsed && (
+              {menuOpen && !collapsed && (
+                <div
+                  className="absolute bottom-[calc(100%+0.6rem)] left-0 right-0 z-[80]"
+                  role="menu"
+                >
                   <div
-                    className="absolute bottom-[calc(100%+0.6rem)] left-0 right-0 z-[80]"
-                    role="menu"
-                  >
-                    <div
-                      className="
+                    className="
         overflow-hidden rounded-2xl
         border border-black/5
         bg-white/95
@@ -730,47 +767,47 @@ const displayEmail = sessionUser?.email || "admin@example.com";
         dark:bg-slate-900/95 dark:border-slate-700
         text-sm
       "
-                    >
-                      {/* Header mit Avatar + leichtem Gold-Glow */}
-                      <div
-                        className="
+                  >
+                    {/* Header mit Avatar + leichtem Gold-Glow */}
+                    <div
+                      className="
           flex items-center gap-3 px-4 py-3
           bg-gradient-to-r
           from-[#F4E9D4] via-white to-white
           dark:from-slate-800 dark:via-slate-900
           border-b border-black/5 dark:border-slate-700
         "
-                      >
-                        <img
-                          src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=80&h=80&fit=crop&crop=face"
-                          alt="Profil"
-                          className="h-9 w-9 rounded-full border border-white/70 shadow-sm"
-                        />
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-semibold text-slate-900 dark:text-slate-50 truncate">
-                            {displayName}
-                          </p>
-                          <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
-                            {displayEmail}
-                          </p>
-                        </div>
-                        <span
-                          className="
+                    >
+                      <img
+                        src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=80&h=80&fit=crop&crop=face"
+                        alt="Profil"
+                        className="h-9 w-9 rounded-full border border-white/70 shadow-sm"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold text-slate-900 dark:text-slate-50 truncate">
+                          {displayName}
+                        </p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                          {displayEmail}
+                        </p>
+                      </div>
+                      <span
+                        className="
             inline-flex items-center rounded-full
             bg-black/5 text-[10px] font-semibold
             px-2 py-0.5 uppercase tracking-wide
             text-slate-600 dark:bg-slate-800/70 dark:text-slate-200
           "
-                        >
-                          Admin
-                        </span>
-                      </div>
+                      >
+                        Admin
+                      </span>
+                    </div>
 
-                      {/* Menü-Einträge */}
-                      <div className="px-2 py-2 space-y-1 bg-white/95 dark:bg-slate-900">
-                        <button
-                          type="button"
-                          className="
+                    {/* Menü-Einträge */}
+                    <div className="px-2 py-2 space-y-1 bg-white/95 dark:bg-slate-900">
+                      <button
+                        type="button"
+                        className="
             flex w-full items-center justify-between
             rounded-xl px-3 py-2
             text-[0.9rem]
@@ -779,16 +816,16 @@ const displayEmail = sessionUser?.email || "admin@example.com";
             dark:hover:bg-slate-800/80
             transition-colors
           "
-                          onClick={() => {
-                            setMenuOpen(false);
-                             navigate("/admin/profile");
-                          }}
-                        >
-                          <span>Profil</span>
-                        </button>
+                        onClick={() => {
+                          setMenuOpen(false);
+                          navigate("/admin/profile");
+                        }}
+                      >
+                        <span>Profil</span>
+                      </button>
 
-                        <div
-                          className="
+                      <div
+                        className="
             flex items-center justify-between
             rounded-xl px-3 py-2
             text-[0.9rem]
@@ -796,56 +833,55 @@ const displayEmail = sessionUser?.email || "admin@example.com";
             hover:bg-slate-50 dark:hover:bg-slate-800/80
             transition-colors
           "
+                      >
+                        <span>Dark Mode</span>
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={isDarkMode}
+                          onClick={() => setIsDarkMode((v) => !v)}
+                          className={cx(
+                            "relative inline-flex h-5 w-9 items-center rounded-full border transition-colors",
+                            isDarkMode
+                              ? "bg-slate-900 border-slate-600"
+                              : "bg-slate-200 border-slate-300"
+                          )}
                         >
-                          <span>Dark Mode</span>
-                          <button
-                            type="button"
-                            role="switch"
-                            aria-checked={isDarkMode}
-                            onClick={() => setIsDarkMode((v) => !v)}
+                          <span
                             className={cx(
-                              "relative inline-flex h-5 w-9 items-center rounded-full border transition-colors",
-                              isDarkMode
-                                ? "bg-slate-900 border-slate-600"
-                                : "bg-slate-200 border-slate-300"
+                              "inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform",
+                              isDarkMode ? "translate-x-4" : "translate-x-0"
                             )}
-                          >
-                            <span
-                              className={cx(
-                                "inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform",
-                                isDarkMode ? "translate-x-4" : "translate-x-0"
-                              )}
-                            />
-                          </button>
-                        </div>
+                          />
+                        </button>
                       </div>
+                    </div>
 
-                      {/* Logout-Zeile unten mit rotem Akzent */}
-                      {isAuthenticated && (
-                        <div className="border-t border-black/5 dark:border-slate-700 bg-white/95 dark:bg-slate-900">
-                          <button
-                            type="button"
-                            className="
+                    {/* Logout-Zeile unten mit rotem Akzent */}
+                    {isAuthenticated && (
+                      <div className="border-t border-black/5 dark:border-slate-700 bg-white/95 dark:bg-slate-900">
+                        <button
+                          type="button"
+                          className="
               flex w-full items-center px-4 py-2.5
               text-[0.9rem] font-semibold
               text-red-600 hover:text-red-700
               hover:bg-red-50/80 dark:hover:bg-red-900/25
               transition-colors
             "
-                            onClick={async () => {
-                              await handleLogout();
-                              setMenuOpen(false);
-                            }}
-                          >
-                            Abmelden
-                          </button>
-                        </div>
-                      )}
-                    </div>
+                          onClick={async () => {
+                            await handleLogout();
+                            setMenuOpen(false);
+                          }}
+                        >
+                          Abmelden
+                        </button>
+                      </div>
+                    )}
                   </div>
-                )}
+                </div>
+              )}
 
-              </div>
             </div>
           </div>
         </div>

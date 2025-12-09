@@ -1,6 +1,9 @@
 import React, { useEffect, useRef, useState } from "react";
+import { useToast } from "@/shared/contexts/ToastContext";
+import { createPortal } from "react-dom";
+
 import AdminLayout from "@/apps/app/AdminLayout";
-import { User, MapPin, Phone, Mail, Lock } from "lucide-react";
+import { User, MapPin, Phone, Mail, Lock, Trash2 } from "lucide-react";
 import {
   getUserProfile,
   updateUserProfile,
@@ -8,6 +11,8 @@ import {
   deleteAvatar,
   buildAvatarUrl,
   type UpdateProfileRequest,
+  changePassword,
+  type ChangePasswordRequest,
 } from "../service/profilePageService";
 
 
@@ -37,7 +42,11 @@ type CardProps = {
 };
 
 type PasswordSectionProps = {
-  onReset: () => void;
+  onReset: (
+    current: string,
+    next: string,
+    confirm: string
+  ) => Promise<void> | void;
 };
 
 /* ===== Card-Helper ===== */
@@ -102,19 +111,16 @@ const EyeIcon: React.FC = () => (
 
 /* ===== Passwort-Bereich ===== */
 
-const PasswordSection: React.FC<PasswordSectionProps> = ({ onReset }) => {
-  const [currentPassword, setCurrentPassword] = useState("••••••••••");
-  const [showPassword, setShowPassword] = useState(false);
+/* ===== Passwort-Bereich ===== */
 
+const PasswordSection: React.FC<PasswordSectionProps> = ({ onReset }) => {
   const [showResetModal, setShowResetModal] = useState(false);
   const [resetCurrent, setResetCurrent] = useState("");
   const [resetNew, setResetNew] = useState("");
   const [resetConfirm, setResetConfirm] = useState("");
   const [resetError, setResetError] = useState<string | null>(null);
-
-  const togglePasswordVisibility = () => {
-    setShowPassword((v) => !v);
-  };
+  const [submitting, setSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const openResetModal = () => {
     setResetCurrent("");
@@ -125,13 +131,18 @@ const PasswordSection: React.FC<PasswordSectionProps> = ({ onReset }) => {
   };
 
   const closeResetModal = () => {
+    if (submitting) return;
     setShowResetModal(false);
   };
 
-  const handleResetSubmit = (e: React.FormEvent) => {
+  const handleResetSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setResetError(null);
 
+    if (!resetCurrent || !resetNew || !resetConfirm) {
+      setResetError("Bitte fülle alle Felder aus.");
+      return;
+    }
     if (resetNew.length < 12) {
       setResetError("Das neue Passwort muss mindestens 12 Zeichen lang sein.");
       return;
@@ -141,198 +152,233 @@ const PasswordSection: React.FC<PasswordSectionProps> = ({ onReset }) => {
       return;
     }
 
-    // später API-Call
-    onReset();
-
-    setCurrentPassword("••••••••••");
-    setShowResetModal(false);
+    try {
+      setSubmitting(true);
+      await onReset(resetCurrent, resetNew, resetConfirm);
+      setShowResetModal(false);
+    } catch (err) {
+      // onReset kann im Fehlerfall selbst Toasts anzeigen;
+      // falls du willst, kannst du hier noch eine generische Meldung setzen
+      console.error("Fehler beim Zurücksetzen des Passworts", err);
+      setResetError("Das Passwort konnte nicht zurückgesetzt werden.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
     <>
-      <Card title="Passwort & Sicherheit" icon={<Lock size={20} />}>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          {/* Aktuelles Passwort mit Auge */}
-          <div className="md:col-span-2 flex flex-col gap-2">
-            <label className="text-xs font-semibold text-slate-600">
-              Aktuelles Passwort
-            </label>
-            <div className="relative">
-              <input
-                type={showPassword ? "text" : "password"}
-                className="
-                  h-11 w-full rounded-full border px-4 pr-10 text-sm
-                  shadow-sm outline-none transition
-                  bg-slate-50
-                  focus:bg-white
-                  focus:ring-2
-                "
-                style={{ borderColor: BRAND.sand, color: BRAND.navy }}
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-              />
-              <button
-                type="button"
-                onClick={togglePasswordVisibility}
-                className="absolute inset-y-0 right-3 flex items-center text-slate-400 hover:text-slate-700"
-              >
-                <EyeIcon />
-              </button>
-            </div>
-            <p className="mt-1 text-xs text-slate-500">
-              Über das Augensymbol kannst du dein aktuelles Passwort ein- oder
-              ausblenden.
+      <Card title="Passwort" icon={<Lock size={20} />}>
+        {/* Kein aktuelles Passwort mehr anzeigen! */}
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="text-xs text-slate-500 md:max-w-[70%] leading-relaxed">
+            <p>
+              Aus Sicherheitsgründen wird dein aktuelles Passwort hier nicht
+              angezeigt. Du kannst es über den Button rechts zurücksetzen.
+            </p>
+            <p className="mt-1">
+              Wähle ein starkes Passwort und verwende es nicht mehrfach.
             </p>
           </div>
 
-          <div className="md:col-span-2 mt-2 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <p className="text-xs text-slate-500 md:max-w-[70%] leading-relaxed">
-              Aus Sicherheitsgründen solltest du dein Passwort regelmäßig
-              ändern und nicht mehrfach verwenden.
-            </p>
-
-            <button
-              type="button"
-              onClick={openResetModal}
-              className="
-                inline-flex items-center gap-2
-                rounded-full px-4 py-2 text-xs font-semibold
-                shadow-[0_6px_18px_rgba(0,0,0,0.16)]
-                hover:-translate-y-[1px] transition
-              "
-              style={{
-                background: BRAND.gold,
-                color: BRAND.navy,
-                border: "1px solid rgba(255,255,255,0.9)",
-              }}
-            >
-              Passwort zurücksetzen
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={openResetModal}
+            className="
+              inline-flex items-center gap-2
+              rounded-full px-4 py-2 text-xs font-semibold
+              shadow-[0_6px_18px_rgba(0,0,0,0.16)]
+              hover:-translate-y-[1px] transition
+            "
+            style={{
+              background: BRAND.gold,
+              color: BRAND.navy,
+              border: "1px solid rgba(255,255,255,0.9)",
+            }}
+          >
+            Passwort zurücksetzen
+          </button>
         </div>
       </Card>
 
-      {showResetModal && (
-        <div
-          className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/40 backdrop-blur-sm"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) closeResetModal();
-          }}
-        >
-          <div
-            className="w-full max-w-md px-4 sm:px-0"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="relative overflow-hidden rounded-3xl bg-white shadow-2xl border border-slate-200/80">
+      {showResetModal &&
+        createPortal(
+          (
+            <div
+              role="dialog"
+              aria-modal="true"
+              className="fixed inset-0 z-[1200] flex items-center justify-center bg-black/40 backdrop-blur-sm"
+              onClick={(e) => {
+                if (e.target === e.currentTarget) closeResetModal();
+              }}
+            >
               <div
-                className="pointer-events-none absolute -right-24 -top-24 h-40 w-40 rounded-full bg-gradient-to-br from-[#E3BB62]/40 via-amber-400/20 to-transparent opacity-70"
-                aria-hidden="true"
-              />
-              <div
-                className="pointer-events-none absolute -left-24 -bottom-24 h-40 w-40 rounded-full bg-gradient-to-tr from-sky-500/15 via-indigo-500/10 to-transparent opacity-70"
-                aria-hidden="true"
-              />
+                className="w-full max-w-xl px-4 sm:px-0"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="relative overflow-hidden rounded-3xl bg-white shadow-2xl border border-slate-200/80">
+                  {/* Deko-Glows – 1:1 wie Company-Create/Edit */}
+                  <div
+                    className="pointer-events-none absolute -right-24 -top-24 h-52 w-52 rounded-full bg-gradient-to-br from-[#E3BB62]/40 via-amber-400/20 to-transparent opacity-60"
+                    aria-hidden="true"
+                  />
+                  <div
+                    className="pointer-events-none absolute -left-24 -bottom-24 h-52 w-52 rounded-full bg-gradient-to-tr from-sky-500/20 via-indigo-500/10 to-transparent opacity-60"
+                    aria-hidden="true"
+                  />
 
-              <div className="relative px-6 pt-6 pb-5">
-                <h3 className="text-lg font-semibold text-slate-900 mb-1">
-                  Passwort zurücksetzen
-                </h3>
-                <p className="text-xs text-slate-500 mb-3">
-                  Bitte gib dein aktuelles Passwort ein und wähle ein neues,
-                  sicheres Passwort.
-                </p>
-
-                {resetError && (
-                  <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-                    {resetError}
-                  </div>
-                )}
-
-                <form onSubmit={handleResetSubmit} className="space-y-3">
-                  <div className="flex flex-col gap-1">
-                    <label className="text-xs font-semibold text-slate-600">
-                      Aktuelles Passwort
-                    </label>
-                    <input
-                      type="password"
-                      className="h-10 rounded-xl border px-3 text-sm outline-none bg-slate-50 focus:bg-white focus:border-[#E3BB62] focus:ring-2 focus:ring-[rgba(227,187,98,0.45)]"
-                      value={resetCurrent}
-                      onChange={(e) => setResetCurrent(e.target.value)}
-                    />
-                  </div>
-
-                  <div className="flex flex-col gap-1">
-                    <label className="text-xs font-semibold text-slate-600">
-                      Neues Passwort
-                    </label>
-                    <input
-                      type="password"
-                      className="h-10 rounded-xl border px-3 text-sm outline-none bg-slate-50 focus:bg-white focus:border-[#E3BB62] focus:ring-2 focus:ring-[rgba(227,187,98,0.45)]"
-                      value={resetNew}
-                      onChange={(e) => setResetNew(e.target.value)}
-                    />
-                  </div>
-
-                  <div className="flex flex-col gap-1">
-                    <label className="text-xs font-semibold text-slate-600">
-                      Neues Passwort bestätigen
-                    </label>
-                    <input
-                      type="password"
-                      className="h-10 rounded-xl border px-3 text-sm outline-none bg-slate-50 focus:bg-white focus:border-[#E3BB62] focus:ring-2 focus:ring-[rgba(227,187,98,0.45)]"
-                      value={resetConfirm}
-                      onChange={(e) => setResetConfirm(e.target.value)}
-                    />
-                  </div>
-
-                  <div className="rounded-lg bg-slate-50 px-3 py-2 text-[11px] text-slate-500">
-                    <p className="font-semibold text-slate-600">
-                      Kriterien für ein sicheres Passwort:
+                  {/* Inhalt */}
+                  <div className="relative px-6 pt-6 pb-5">
+                    <h3 className="text-lg sm:text-xl font-semibold text-slate-900 mb-1">
+                      Passwort zurücksetzen
+                    </h3>
+                    <p className="text-xs text-slate-500 mb-3">
+                      Bitte gib dein aktuelles Passwort ein und wähle ein neues,
+                      sicheres Passwort.
                     </p>
-                    <ul className="mt-1 list-disc pl-4 space-y-0.5">
-                      <li>mindestens 12 Zeichen</li>
-                      <li>Groß- und Kleinbuchstaben</li>
-                      <li>Zahlen und Sonderzeichen</li>
-                      <li>kein bereits verwendetes Passwort</li>
-                    </ul>
-                  </div>
 
-                  <div className="mt-3 flex justify-end gap-2 pt-1">
-                    <button
-                      type="button"
-                      onClick={closeResetModal}
-                      className="
-                        h-9 px-3 rounded-xl border text-xs font-medium
-                        bg-[#f3f3f3] hover:bg-[#e5e5e5]
-                      "
-                      style={{ borderColor: "#e5e7eb", color: BRAND.navy }}
+                    {resetError && (
+                      <div
+                        className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+                        role="alert"
+                      >
+                        {resetError}
+                      </div>
+                    )}
+
+                    <form
+                      id="reset-password-form"
+                      onSubmit={handleResetSubmit}
+                      className="space-y-4"
                     >
-                      Abbrechen
-                    </button>
-                    <button
-                      type="submit"
-                      className="
-                        h-9 px-4 rounded-xl text-xs font-semibold
-                        shadow-[0_8px_20px_rgba(0,0,0,0.18)]
-                        hover:-translate-y-[1px] transition
-                      "
-                      style={{
-                        background: BRAND.gold,
-                        color: BRAND.navy,
-                      }}
-                    >
-                      Änderungen übernehmen
-                    </button>
+                      {/* Aktuelles Passwort */}
+                      <div className="flex flex-col gap-1">
+                        <label className="text-xs font-semibold text-slate-600">
+                          Aktuelles Passwort
+                        </label>
+                        <input
+                          type="password"
+                          className="
+                      w-full rounded-xl border px-3 py-2.5 text-sm
+                      bg-slate-50 border-slate-200 outline-none
+                      focus:bg-white focus:border-[#E3BB62]
+                      focus:ring-2 focus:ring-[rgba(227,187,98,0.45)]
+                      transition
+                    "
+                          value={resetCurrent}
+                          onChange={(e) => setResetCurrent(e.target.value)}
+                        />
+                      </div>
+
+                      {/* Neues Passwort */}
+                      <div className="flex flex-col gap-1">
+                        <label className="text-xs font-semibold text-slate-600">
+                          Neues Passwort
+                        </label>
+                        <input
+                          type={showPassword ? "text" : "password"}
+                          className="
+                      w-full rounded-xl border px-3 py-2.5 text-sm
+                      bg-slate-50 border-slate-200 outline-none
+                      focus:bg-white focus:border-[#E3BB62]
+                      focus:ring-2 focus:ring-[rgba(227,187,98,0.45)]
+                      transition
+                    "
+                          value={resetNew}
+                          onChange={(e) => setResetNew(e.target.value)}
+                        />
+                      </div>
+
+                      {/* Neues Passwort bestätigen */}
+                      <div className="flex flex-col gap-1">
+                        <label className="text-xs font-semibold text-slate-600">
+                          Neues Passwort bestätigen
+                        </label>
+                        <input
+                          type={showPassword ? "text" : "password"}
+                          className="
+                      w-full rounded-xl border px-3 py-2.5 text-sm
+                      bg-slate-50 border-slate-200 outline-none
+                      focus:bg-white focus:border-[#E3BB62]
+                      focus:ring-2 focus:ring-[rgba(227,187,98,0.45)]
+                      transition
+                    "
+                          value={resetConfirm}
+                          onChange={(e) => setResetConfirm(e.target.value)}
+                        />
+                        <button
+                          type="button"
+                          className="self-end mt-1 text-[11px] text-slate-400 hover:text-slate-600"
+                          onClick={() => setShowPassword((v) => !v)}
+                        >
+                          {showPassword
+                            ? "Passwörter verbergen"
+                            : "Passwörter anzeigen"}
+                        </button>
+                      </div>
+
+                      {/* Info-Box Kriterien */}
+                      <div className="rounded-lg bg-slate-50 px-3 py-2 text-[11px] text-slate-500">
+                        <p className="font-semibold text-slate-600">
+                          Kriterien für ein sicheres Passwort:
+                        </p>
+                        <ul className="mt-1 list-disc pl-4 space-y-0.5">
+                          <li>mindestens 12 Zeichen</li>
+                          <li>Groß- und Kleinbuchstaben</li>
+                          <li>Zahlen und Sonderzeichen</li>
+                          <li>kein bereits verwendetes Passwort</li>
+                        </ul>
+                      </div>
+                    </form>
                   </div>
-                </form>
+                </div>
+
+                {/* Footer-Buttons – wie bei Create/Edit Company */}
+                <div className="h-3" />
+                <div className="mt-1 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={closeResetModal}
+                    disabled={submitting}
+                    className="
+                flex-1 h-12 text-sm font-medium
+                text-slate-800 bg-[#f3f3f3]
+                hover:bg-[#e5e5e5]
+                border border-slate-200
+                rounded-xl disabled:opacity-60
+              "
+                  >
+                    Abbrechen
+                  </button>
+
+                  <button
+                    type="submit"
+                    form="reset-password-form"
+                    disabled={submitting}
+                    className="
+                flex-1 h-12 text-sm font-semibold
+                rounded-xl bg-[#E3BB62] text-[#264555]
+                hover:bg-[#d8ac55]
+                shadow-[0_10px_30px_rgba(0,0,0,0.18)]
+                transition hover:-translate-y-[1px]
+                disabled:opacity-60
+              "
+                  >
+                    {submitting ? "Wird gespeichert..." : "Änderungen übernehmen"}
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        </div>
-      )}
+          ),
+          document.body
+        )
+      }
+
+
     </>
   );
 };
+
 
 /* ===== Haupt-Komponente ===== */
 
@@ -366,6 +412,7 @@ function getAuthSession(): AuthSession | null {
 
 const EmployeeProfile: React.FC = () => {
 
+  const { showSuccess, showError } = useToast();
   const [loading, setLoading] = useState(true);
 
   const [form, setForm] = useState<ProfileFormData>({
@@ -400,12 +447,6 @@ const EmployeeProfile: React.FC = () => {
   const [avatarUploading, setAvatarUploading] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-
-  const [toast, setToast] = useState<{
-    visible: boolean;
-    title: string;
-    description: string;
-  }>({ visible: false, title: "", description: "" });
 
   useEffect(() => {
     const auth = getAuthSession();
@@ -469,8 +510,6 @@ const EmployeeProfile: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-
-
   const updateProfileUpdatedText = () => {
     const today = new Date().toLocaleDateString("de-DE", {
       year: "numeric",
@@ -489,20 +528,10 @@ const EmployeeProfile: React.FC = () => {
         markChanged();
       };
 
-  const showToastMessage = (title: string, description: string) => {
-    setToast({ visible: true, title, description });
-    setTimeout(() => {
-      setToast((prev) => ({ ...prev, visible: false }));
-    }, 3000);
-  };
-
   const saveChanges = async (): Promise<boolean> => {
     const auth = getAuthSession();
     if (!auth) {
-      showToastMessage(
-        "Fehler",
-        "Die Sitzung ist abgelaufen. Bitte melde dich erneut an."
-      );
+      showError("Die Sitzung ist abgelaufen. Bitte melde dich erneut an.");
       return false;
     }
 
@@ -538,16 +567,14 @@ const EmployeeProfile: React.FC = () => {
       setProfilePassword("");               // Passwort aus dem State löschen
       setPasswordError(null);
 
-      showToastMessage(
-        "Änderungen gespeichert",
+      showSuccess(
         "Ihr Profil wurde erfolgreich aktualisiert."
       );
 
       return true;
     } catch (err) {
       console.error("Fehler beim Aktualisieren des Profils", err);
-      showToastMessage(
-        "Fehler",
+      showError(
         "Die Profiländerungen konnten nicht gespeichert werden."
       );
       return false;
@@ -560,7 +587,7 @@ const EmployeeProfile: React.FC = () => {
   const resetChanges = () => {
     setForm(originalData);
     setHasChanges(false);
-    showToastMessage("Zurückgesetzt", "Alle Änderungen wurden verworfen.");
+    showError("Alle Änderungen wurden verworfen.");
   };
 
   const toggleEditingPersonal = () => {
@@ -596,88 +623,106 @@ const EmployeeProfile: React.FC = () => {
 
   const openUploadModal = () => setShowUploadModal(true);
   const closeUploadModal = () => setShowUploadModal(false);
-const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-  const file = e.target.files?.[0];
-  if (!file) return;
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-  const auth = getAuthSession();
-  if (!auth) {
-    showToastMessage(
-      "Fehler",
-      "Die Sitzung ist abgelaufen. Bitte melde dich erneut an."
-    );
-    return;
-  }
-
-  try {
-    // 1. zum Backend hochladen
-    const profileImagePath = await uploadAvatar(auth.user.id, file);
-    console.log("uploadAvatar → profileImagePath:", profileImagePath);
-
-    if (!profileImagePath) {
-      showToastMessage(
-        "Fehler",
-        "Das Profilfoto konnte nicht gespeichert werden."
-      );
+    const auth = getAuthSession();
+    if (!auth) {
+      showError("Die Sitzung ist abgelaufen. Bitte melde dich erneut an.");
       return;
     }
 
-    // 2. URL für das Bild bauen
-    const url = buildAvatarUrl(profileImagePath);
-    console.log("buildAvatarUrl →", url);
+    try {
+      // 1. zum Backend hochladen
+      const profileImagePath = await uploadAvatar(auth.user.id, file);
+      console.log("uploadAvatar → profileImagePath:", profileImagePath);
 
-    if (url) {
-      setAvatarImage(url);        // <--- WICHTIG
+      if (!profileImagePath) {
+        showError("Das Profilfoto konnte nicht gespeichert werden.");
+        return;
+      }
+
+      // 2. URL für das Bild bauen
+      const url = buildAvatarUrl(profileImagePath);
+      console.log("buildAvatarUrl →", url);
+
+      if (url) {
+        setAvatarImage(url);
+        closeUploadModal();
+      }
+
+      showSuccess(
+        "Ihr Profilfoto wurde erfolgreich aktualisiert."
+      );
+    } catch (err) {
+      console.error("Fehler beim Hochladen des Avatars", err);
+      showError(
+        "Beim Hochladen des Profilfotos ist ein Fehler aufgetreten."
+      );
+    }
+  };
+
+  const handleAvatarDelete = async () => {
+    const auth = getAuthSession();
+    if (!auth) {
+      showError("Die Sitzung ist abgelaufen. Bitte melde dich erneut an.");
+      return;
     }
 
-    showToastMessage(
-      "Foto hochgeladen",
-      "Ihr Profilfoto wurde erfolgreich aktualisiert."
-    );
-  } catch (err) {
-    console.error("Fehler beim Hochladen des Avatars", err);
-    showToastMessage(
-      "Fehler",
-      "Beim Hochladen des Profilfotos ist ein Fehler aufgetreten."
-    );
-  }
-};
+    try {
+      await deleteAvatar(auth.user.id);
+      setAvatarImage(null);
+      showSuccess("Ihr Profilfoto wurde entfernt.");
 
-const handleAvatarDelete = async () => {
+    } catch (err) {
+      console.error("Fehler beim Löschen des Avatars", err);
+      showError("Das Profilfoto konnte nicht gelöscht werden.");
+
+    }
+  };
+
+  const handlePasswordReset = async (
+  current: string,
+  next: string,
+  confirm: string
+) => {
   const auth = getAuthSession();
   if (!auth) {
-    showToastMessage(
-      "Fehler",
-      "Die Sitzung ist abgelaufen. Bitte melde dich erneut an."
-    );
-    return;
+    showError("Die Sitzung ist abgelaufen. Bitte melde dich erneut an.");
+    // Fehler werfen, damit das Modal die generische Fehlermeldung anzeigen kann
+    throw new Error("Session expired");
   }
 
   try {
-    await deleteAvatar(auth.user.id);
-    setAvatarImage(null);
-    showToastMessage(
-      "Foto entfernt",
-      "Ihr Profilfoto wurde entfernt."
-    );
-  } catch (err) {
-    console.error("Fehler beim Löschen des Avatars", err);
-    showToastMessage(
-      "Fehler",
-      "Das Profilfoto konnte nicht gelöscht werden."
-    );
+    const body: ChangePasswordRequest = {
+      currentPassword: current,
+      newPassword: next,
+      confirmPassword: confirm,
+    };
+
+    await changePassword(auth.user.id, body);
+
+    showSuccess("Ihr Passwort wurde erfolgreich geändert.");
+  } catch (err: any) {
+    console.error("Fehler beim Zurücksetzen des Passworts", err);
+
+    // Versuche eine sinnvolle Fehlermeldung vom Backend zu holen
+    const backendMsg =
+      err?.response?.data?.message ??
+      err?.response?.data?.error ??
+      err?.message;
+
+    if (backendMsg) {
+      showError(backendMsg);
+    } else {
+      showError("Das Passwort konnte nicht geändert werden.");
+    }
+
+    // wichtig: werfen, damit das Modal `resetError` setzen kann
+    throw err;
   }
 };
-
-
-
-
-  const handlePasswordResetToast = () => {
-    showToastMessage(
-      "Passwort zurücksetzen",
-      "Sobald diese Funktion angebunden ist, erhalten Sie einen Link zum Zurücksetzen Ihres Passworts."
-    );
-  };
 
   const initials =
     viewProfile.name
@@ -701,12 +746,6 @@ const handleAvatarDelete = async () => {
             "linear-gradient(to bottom, #182734 0, #264555 220px, #e3e6ec 220px, #f4f5f8 100%)",
         }}
       >
-        {toast.visible && (
-          <div className="fixed right-8 top-8 z-50 rounded-lg bg-white px-5 py-3 shadow-xl animate-[slideIn_0.3s_ease-out]">
-            <div className="font-semibold">{toast.title}</div>
-            <div className="text-sm text-slate-500">{toast.description}</div>
-          </div>
-        )}
 
         <div className="mx-auto max-w-6xl">
           {loading ? (
@@ -800,7 +839,8 @@ const handleAvatarDelete = async () => {
 
                   <div className="relative flex flex-1 items-center justify-center md:justify-end">
                     <div className="flex flex-col items-center gap-4 rounded-3xl bg-white/8 px-6 py-6 text-white shadow-[0_16px_40px_rgba(0,0,0,0.65)] border border-white/15 backdrop-blur-xl md:flex-row md:gap-6">
-                      <div className="relative shrink-0">
+                      <div className="relative shrink-0 flex flex-col items-center gap-2">
+                        {/* Avatar-Kreis */}
                         <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border-4 border-white/40 bg-white/10 text-3xl font-bold text-white">
                           {avatarImage ? (
                             <img
@@ -812,33 +852,33 @@ const handleAvatarDelete = async () => {
                             initials
                           )}
                         </div>
+
+                        {/* Overlay-Button: Kamera ODER Mülleimer */}
                         <button
                           type="button"
-                          onClick={openUploadModal}
+                          onClick={avatarImage ? handleAvatarDelete : openUploadModal}
                           className="absolute bottom-1 right-1 flex h-9 w-9 items-center justify-center rounded-full bg-white text-[#264555] shadow-md hover:bg-[#ebebec]"
+                          aria-label={avatarImage ? "Profilfoto entfernen" : "Profilfoto hochladen"}
                         >
-                          <svg
-                            width="18"
-                            height="18"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                          >
-                            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
-                            <circle cx="12" cy="13" r="4"></circle>
-                          </svg>
+                          {avatarImage ? (
+                            // 🔴 Mülleimer, wenn Bild vorhanden
+                            <Trash2 size={18} />
+                          ) : (
+                            // 📸 Kamera, wenn KEIN Bild vorhanden
+                            <svg
+                              width="18"
+                              height="18"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                            >
+                              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                              <circle cx="12" cy="13" r="4"></circle>
+                            </svg>
+                          )}
                         </button>
                       </div>
-                      {avatarImage && (
-  <button
-    type="button"
-    onClick={handleAvatarDelete}
-    className="mt-2 text-[11px] text-red-100 hover:text-red-200 underline decoration-red-300/70"
-  >
-    Foto entfernen
-  </button>
-)}
 
                       <div className="space-y-1 text-sm text-slate-100 text-center md:text-left">
                         <div className="text-base font-semibold text-white">
@@ -1009,10 +1049,8 @@ const handleAvatarDelete = async () => {
                   </div>
                 </Card>
 
-                {/* Passwort & Sicherheit (deine neue Section von oben bleibt 1:1) */}
-                <PasswordSection onReset={handlePasswordResetToast} />
-
-                {/* Footer-Buttons */}
+                {/* Passwort */}
+                <PasswordSection onReset={handlePasswordReset} />
               </div>
 
             </>

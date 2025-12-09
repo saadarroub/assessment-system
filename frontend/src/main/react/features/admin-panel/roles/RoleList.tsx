@@ -500,31 +500,31 @@ export default function RoleList() {
       <div className="relative min-h-screen">
         {/* 2. Unser neues Pattern */}
         <SoftSquaresBackground />
-      <PageHeader
-        title="Rollen Verwaltung"
-        subtitle="Verwalte Benutzerrollen und deren Berechtigungen"
-        icon={<Network size={40} />}
-        gradient="navy"
-        height="280px"
-        showPattern={true}
-      />
+        <PageHeader
+          title="Rollen Verwaltung"
+          subtitle="Verwalte Benutzerrollen und deren Berechtigungen"
+          icon={<Network size={40} />}
+          gradient="navy"
+          height="280px"
+          showPattern={true}
+        />
 
-      <main
-        className="min-h-[calc(100vh-64px)] mt-0 px-6 pb-8 pt-20"
-        style={{
-          background:
-            "radial-gradient(circle at 0 0, rgba(227,187,98,0.13) 0, transparent 40%)," +
-            "radial-gradient(circle at 100% 0, rgba(56,189,248,0.10) 0, transparent 42%)," +
-            "linear-gradient(to bottom, #f3f4f7 0, #e6e9ef 240px, #f4f5f8 100%)",
-        }}
-      >
+        <main
+          className="min-h-[calc(100vh-64px)] mt-0 px-6 pb-8 pt-20"
+          style={{
+            background:
+              "radial-gradient(circle at 0 0, rgba(227,187,98,0.13) 0, transparent 40%)," +
+              "radial-gradient(circle at 100% 0, rgba(56,189,248,0.10) 0, transparent 42%)," +
+              "linear-gradient(to bottom, #f3f4f7 0, #e6e9ef 240px, #f4f5f8 100%)",
+          }}
+        >
 
-        {/* ===== Top-Bar: Breadcrumb-Pill + Button (wie UsersPage) ===== */}
-        <div className="max-w-[1400px] xl:max-w-[1600px] mx-auto mb-3 flex items-center justify-between">
-          {/* Breadcrumb als Pill */}
-          <nav className="flex items-center">
-            <div
-              className="
+          {/* ===== Top-Bar: Breadcrumb-Pill + Button (wie UsersPage) ===== */}
+          <div className="max-w-[1400px] xl:max-w-[1600px] mx-auto mb-3 flex items-center justify-between">
+            {/* Breadcrumb als Pill */}
+            <nav className="flex items-center">
+              <div
+                className="
                 inline-flex items-center gap-2
                 rounded-full border
                 px-3 py-1.5
@@ -533,47 +533,47 @@ export default function RoleList() {
                 bg-white/80
                 backdrop-blur-[2px]
               "
-              style={{ borderColor: BRAND.sand }}
-            >
-              <span
-                className="inline-flex h-6 w-6 items-center justify-center rounded-full"
-                style={{
-                  background: "rgba(38,69,85,0.06)",
-                  color: BRAND.navy,
-                }}
+                style={{ borderColor: BRAND.sand }}
               >
-                <Shield size={14} />
-              </span>
+                <span
+                  className="inline-flex h-6 w-6 items-center justify-center rounded-full"
+                  style={{
+                    background: "rgba(38,69,85,0.06)",
+                    color: BRAND.navy,
+                  }}
+                >
+                  <Shield size={14} />
+                </span>
 
-              <Link
-                to="/admin/adminPanel"
-                className="hover:underline"
-                style={{ color: CSS.mutedFg }}
-              >
-                Admin Panel
-              </Link>
+                <Link
+                  to="/admin/adminPanel"
+                  className="hover:underline"
+                  style={{ color: CSS.mutedFg }}
+                >
+                  Admin Panel
+                </Link>
 
-              <span
-                className="text-[11px] opacity-60"
-                style={{ color: CSS.mutedFg }}
-              >
-                ›
-              </span>
+                <span
+                  className="text-[11px] opacity-60"
+                  style={{ color: CSS.mutedFg }}
+                >
+                  ›
+                </span>
 
-              <span
-                className="font-semibold"
-                style={{ color: "hsl(var(--foreground))" }}
-              >
-                Roles
-              </span>
-            </div>
-          </nav>
+                <span
+                  className="font-semibold"
+                  style={{ color: "hsl(var(--foreground))" }}
+                >
+                  Roles
+                </span>
+              </div>
+            </nav>
 
-          {/* Button wie bei Users */}
-          <button
-            type="button"
-            onClick={openCreateModal}
-            className="
+            {/* Button wie bei Users */}
+            <button
+              type="button"
+              onClick={openCreateModal}
+              className="
     inline-flex items-center gap-2
     rounded-full
     px-5 py-2.5
@@ -584,48 +584,48 @@ export default function RoleList() {
     hover:-translate-y-[1px]
     hover:brightness-105
   "
-            style={{
-              background: "hsl(40,60%,63%)",
-              color: "hsl(200,32%,22%)",
-              border: "1px solid rgba(255,255,255,0.9)",
-            }}
-            aria-label="Add Role"
-          >
-            <Plus size={16} />
-            Neue Rolle
-          </button>
+              style={{
+                background: "hsl(40,60%,63%)",
+                color: "hsl(200,32%,22%)",
+                border: "1px solid rgba(255,255,255,0.9)",
+              }}
+              aria-label="Add Role"
+            >
+              <Plus size={16} />
+              Neue Rolle
+            </button>
 
-        </div>
+          </div>
 
-        {/* ===== Suche + Count – im Users-Stil ===== */}
-        <div
-          className="
+          {/* ===== Suche + Count – im Users-Stil ===== */}
+          <div
+            className="
             max-w-[1400px] xl:max-w-[1600px] mx-auto mb-4
             rounded-[18px] border
             px-4 py-3 md:px-5 md:py-4
             shadow-[0_10px_30px_rgba(0,0,0,0.06)]
           "
-          style={{
-            background: "linear-gradient(to bottom, #ffffff, #f7f7f7)",
-            borderColor: BRAND.sand,
-          }}
-        >
-          <div className="flex flex-wrap items-center justify-between gap-3 md:gap-4">
-            {/* Suche */}
-            <div className="relative flex-1 min-w-[220px] max-w-[36rem]">
-              <span
-                className="absolute left-3 top-1/2 -translate-y-1/2"
-                style={{ color: BRAND.gray }}
-              >
-                <Search size={16} />
-              </span>
+            style={{
+              background: "linear-gradient(to bottom, #ffffff, #f7f7f7)",
+              borderColor: BRAND.sand,
+            }}
+          >
+            <div className="flex flex-wrap items-center justify-between gap-3 md:gap-4">
+              {/* Suche */}
+              <div className="relative flex-1 min-w-[220px] max-w-[36rem]">
+                <span
+                  className="absolute left-3 top-1/2 -translate-y-1/2"
+                  style={{ color: BRAND.gray }}
+                >
+                  <Search size={16} />
+                </span>
 
-              <input
-                type="text"
-                placeholder="Suche Rollen (Name oder Beschreibung)…"
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                className="
+                <input
+                  type="text"
+                  placeholder="Suche Rollen (Name oder Beschreibung)…"
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                  className="
                   w-full h-10 md:h-11
                   rounded-[999px]
                   border
@@ -635,58 +635,58 @@ export default function RoleList() {
                   transition
                   bg-white
                 "
-                style={{
-                  borderColor: BRAND.sand,
-                  color: CSS.fg,
-                  boxShadow: "0 1px 2px rgba(0,0,0,0.03)",
-                }}
-                onFocus={(e) => {
-                  e.currentTarget.style.boxShadow =
-                    "0 0 0 2px rgba(227,187,98,0.75)";
-                  e.currentTarget.style.borderColor = BRAND.gold;
-                }}
-                onBlur={(e) => {
-                  e.currentTarget.style.boxShadow =
-                    "0 1px 2px rgba(0,0,0,0.03)";
-                  e.currentTarget.style.borderColor = BRAND.sand;
-                }}
-              />
-            </div>
+                  style={{
+                    borderColor: BRAND.sand,
+                    color: CSS.fg,
+                    boxShadow: "0 1px 2px rgba(0,0,0,0.03)",
+                  }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.boxShadow =
+                      "0 0 0 2px rgba(227,187,98,0.75)";
+                    e.currentTarget.style.borderColor = BRAND.gold;
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.boxShadow =
+                      "0 1px 2px rgba(0,0,0,0.03)";
+                    e.currentTarget.style.borderColor = BRAND.sand;
+                  }}
+                />
+              </div>
 
-            {/* Count-Badge */}
-            <div className="flex items-center gap-3">
-              <div
-                className="
+              {/* Count-Badge */}
+              <div className="flex items-center gap-3">
+                <div
+                  className="
                   inline-flex items-center gap-2
                   rounded-full
                   px-3 md:px-4 py-1.5
                   text-xs md:text-sm font-medium
                 "
-                style={{
-                  background: BRAND.navy,
-                  color: "white",
-                }}
-              >
-                <span
-                  className="h-2 w-2 rounded-full"
-                  style={{ background: BRAND.gold }}
-                />
-                <span>
-                  Zeige{" "}
-                  <span className="font-semibold">
-                    {filtered.length}
-                  </span>{" "}
-                  Rollen
-                </span>
+                  style={{
+                    background: BRAND.navy,
+                    color: "white",
+                  }}
+                >
+                  <span
+                    className="h-2 w-2 rounded-full"
+                    style={{ background: BRAND.gold }}
+                  />
+                  <span>
+                    Zeige{" "}
+                    <span className="font-semibold">
+                      {filtered.length}
+                    </span>{" "}
+                    Rollen
+                  </span>
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
-        {/* ===== Tabelle im Card-Wrapper ===== */}
-        <WithPermissionCheck error={error} loading={loading} minHeight="auto">
-          <section
-            className="
+          {/* ===== Tabelle im Card-Wrapper ===== */}
+          <WithPermissionCheck error={error} loading={loading} minHeight="auto">
+            <section
+              className="
               max-w-[1400px] xl:max-w-[1600px]
               mx-auto
               rounded-[12px]
@@ -694,137 +694,174 @@ export default function RoleList() {
               shadow-[0_4px_6px_-1px_rgba(38,69,85,.08)]
               overflow-hidden
             "
-            style={{
-              borderColor: CSS.border,
-              background: BRAND.fog,
-            }}
-          >
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse">
-                <thead
-  className="text-left text-xs font-semibold uppercase tracking-[0.04em]"
-  style={{
-    background: "linear-gradient(to right, #ebebec, #ffffff)",
-    borderBottom: "2px solid #d2c9b9",
-    color: "#264555",
-  }}
->
-  <tr>
-    {[
-      { k: "name", label: "Rolle" },
-      { k: "description", label: "Beschreibung" },
-      { k: "permissionCount", label: "Berechtigungen" },
-      { k: "created", label: "Erstellt" },
-      { k: null, label: "Actions" },
-    ].map((col, idx) => {
-      const isCenter =
-        col.label === "Berechtigungen" || col.label === "Actions";
-
-      return (
-        <th
-          key={idx}
-          className={`
-            px-4 py-3 text-[0.85rem] font-semibold
-            ${isCenter ? "text-center w-[120px]" : "text-left"}
-          `}
-          style={{ color: CSS.fg }}
-        >
-          {col.k ? (
-            <button
-              type="button"
-              onClick={() => setSort(col.k as SortKey)}
-              className="inline-flex items-center gap-2 hover:brightness-110"
-              style={{ color: "inherit" }}
+              style={{
+                borderColor: CSS.border,
+                background: BRAND.fog,
+              }}
             >
-              <span>{col.label}</span>
-              <ArrowUpDown size={14} className="opacity-60" />
-            </button>
-          ) : (
-            <span>{col.label}</span>
-          )}
-        </th>
-      );
-    })}
-  </tr>
-</thead>
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse table-fixed">
 
-
-                <tbody>
-                  {loading ? (
+                  <thead
+                    className="text-left text-xs font-semibold uppercase tracking-[0.04em]"
+                    style={{
+                      background: "linear-gradient(to right, #ebebec, #ffffff)",
+                      borderBottom: "2px solid #d2c9b9",
+                      color: "#264555",
+                    }}
+                  >
                     <tr>
-                      <td
-                        colSpan={5}
-                        className="px-4 py-4 bg-white"
+                      {/* Rolle */}
+                      <th
+                        className="px-4 py-3 text-[0.85rem] font-semibold text-left"
+                        style={{ color: CSS.fg }}
                       >
-                        Lade Rollen…
-                      </td>
+                        <button
+                          type="button"
+                          onClick={() => setSort("name")}
+                          className="inline-flex items-center gap-2 hover:brightness-110"
+                          style={{ color: "inherit" }}
+                        >
+                          <span>Rolle</span>
+                          <ArrowUpDown size={14} className="opacity-60" />
+                        </button>
+                      </th>
+
+                      {/* Beschreibung */}
+                      <th
+                        className="px-4 py-3 text-[0.85rem] font-semibold text-left"
+                        style={{ color: CSS.fg }}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => setSort("description")}
+                          className="inline-flex items-center gap-2 hover:brightness-110"
+                          style={{ color: "inherit" }}
+                        >
+                          <span>Beschreibung</span>
+                          <ArrowUpDown size={14} className="opacity-60" />
+                        </button>
+                      </th>
+
+                      {/* Berechtigungen – feste Breite + zentriert */}
+                      {/* Berechtigungen – etwas breiter */}
+                      <th
+                        className="px-4 py-3 text-[0.85rem] font-semibold text-center w-[9rem]"
+                        style={{ color: CSS.fg }}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => setSort("permissionCount")}
+                          className="inline-flex items-center justify-center gap-2 hover:brightness-110 w-full"
+                          style={{ color: "inherit" }}
+                        >
+                          <span>Berechtigungen</span>
+                          <ArrowUpDown size={14} className="opacity-60" />
+                        </button>
+                      </th>
+
+                      {/* Erstellt – noch breiter */}
+                      <th
+                        className="px-4 py-3 text-[0.85rem] font-semibold text-center w-[10rem] whitespace-nowrap"
+                        style={{ color: CSS.fg }}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => setSort("created")}
+                          className="inline-flex items-center justify-center gap-2 hover:brightness-110 w-full"
+                          style={{ color: "inherit" }}
+                        >
+                          <span>Erstellt</span>
+                          <ArrowUpDown size={14} className="opacity-60" />
+                        </button>
+                      </th>
+
+                      {/* Actions – nach ganz rechts, etwas Luft */}
+                      <th
+                        className="px-6 py-3 text-[0.85rem] font-semibold text-right w-[9rem]"
+                        style={{ color: CSS.fg }}
+                      >
+                        <span>Actions</span>
+                      </th>
+
                     </tr>
-                  ) : filtered.length === 0 ? (
-                    <tr>
-                      <td
-                        colSpan={5}
-                        className="px-4 py-10 bg-white"
-                      >
-                        <div className="flex flex-col items-center justify-center gap-3 text-center">
-                          <div
-                            className="flex h-12 w-12 items-center justify-center rounded-full bg-[hsla(200,32%,22%,0.06)]"
-                            style={{ color: "hsla(200,32%,22%,0.65)" }}
-                          >
-                            <Search size={20} />
-                          </div>
-                          <div className="space-y-1">
-                            <p
-                              className="text-sm font-semibold"
-                              style={{ color: CSS.fg }}
+                  </thead>
+                  <tbody>
+                    {loading ? (
+                      <tr>
+                        <td
+                          colSpan={5}
+                          className="px-4 py-4 bg-white"
+                        >
+                          Lade Rollen…
+                        </td>
+                      </tr>
+                    ) : filtered.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={5}
+                          className="px-4 py-10 bg-white"
+                        >
+                          <div className="flex flex-col items-center justify-center gap-3 text-center">
+                            <div
+                              className="flex h-12 w-12 items-center justify-center rounded-full bg-[hsla(200,32%,22%,0.06)]"
+                              style={{ color: "hsla(200,32%,22%,0.65)" }}
                             >
-                              {q.trim()
-                                ? "Keine Treffer für deine Suche"
-                                : "Noch keine Rollen vorhanden"}
-                            </p>
-                            <p className="text-xs text-slate-500 max-w-md">
-                              {q.trim()
-                                ? "Bitte passe den Suchbegriff an oder setze den Filter zurück."
-                                : "Lege die erste Rolle an, um mit der Berechtigungsverwaltung zu starten."}
-                            </p>
-                          </div>
-                          <div className="mt-1 flex flex-wrap items-center justify-center gap-2">
-                            {q.trim() && (
-                              <button
-                                type="button"
-                                onClick={() => setQ("")}
-                                className="rounded-md border px-3 py-1.5 text-xs font-semibold hover:bg-slate-50"
-                                style={{
-                                  borderColor: CSS.border,
-                                  color: CSS.mutedFg,
-                                }}
+                              <Search size={20} />
+                            </div>
+                            <div className="space-y-1">
+                              <p
+                                className="text-sm font-semibold"
+                                style={{ color: CSS.fg }}
                               >
-                                Filter zurücksetzen
-                              </button>
-                            )}
-                            {!q.trim() && (
-                              <button
-                                type="button"
-                                onClick={openCreateModal}
-                                className="inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-semibold shadow hover:[filter:brightness(1.05)]"
-                                style={{
-                                  background: "hsl(40,60%,63%)",
-                                  color: "hsl(200,32%,22%)",
-                                  boxShadow: "0 1px 2px rgba(0,0,0,.05)",
-                                }}
-                              >
-                                <Plus size={14} />
-                                Rolle anlegen
-                              </button>
-                            )}
+                                {q.trim()
+                                  ? "Keine Treffer für deine Suche"
+                                  : "Noch keine Rollen vorhanden"}
+                              </p>
+                              <p className="text-xs text-slate-500 max-w-md">
+                                {q.trim()
+                                  ? "Bitte passe den Suchbegriff an oder setze den Filter zurück."
+                                  : "Lege die erste Rolle an, um mit der Berechtigungsverwaltung zu starten."}
+                              </p>
+                            </div>
+                            <div className="mt-1 flex flex-wrap items-center justify-center gap-2">
+                              {q.trim() && (
+                                <button
+                                  type="button"
+                                  onClick={() => setQ("")}
+                                  className="rounded-md border px-3 py-1.5 text-xs font-semibold hover:bg-slate-50"
+                                  style={{
+                                    borderColor: CSS.border,
+                                    color: CSS.mutedFg,
+                                  }}
+                                >
+                                  Filter zurücksetzen
+                                </button>
+                              )}
+                              {!q.trim() && (
+                                <button
+                                  type="button"
+                                  onClick={openCreateModal}
+                                  className="inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-semibold shadow hover:[filter:brightness(1.05)]"
+                                  style={{
+                                    background: "hsl(40,60%,63%)",
+                                    color: "hsl(200,32%,22%)",
+                                    boxShadow: "0 1px 2px rgba(0,0,0,.05)",
+                                  }}
+                                >
+                                  <Plus size={14} />
+                                  Rolle anlegen
+                                </button>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      </td>
-                    </tr>
-                  ) : (
-                    pageData.map((role) => (
-                      <tr
-                        key={role.id}
-                        className="
+                        </td>
+                      </tr>
+                    ) : (
+                      pageData.map((role) => (
+                        <tr
+                          key={role.id}
+                          className="
                           bg-white
                           transition
                           border-l-[4px] border-transparent
@@ -832,83 +869,84 @@ export default function RoleList() {
                           hover:bg-[#fff9ec]
                           hover:shadow-[0_4px_10px_rgba(0,0,0,0.04)]
                         "
-                      >
-                        {/* Rolle */}
-                        <td
-                          className="px-4 py-4 font-semibold"
-                          style={{
-                            borderBottom: `1px solid ${CSS.border}`,
-                          }}
                         >
-                          <div className="flex items-center gap-2">
-                            <Shield size={16} className="text-gray-400" />
-                            <span>{role.name}</span>
-                          </div>
-                        </td>
+                          {/* Rolle */}
+                          <td
+                            className="px-4 py-4 font-semibold"
+                            style={{
+                              borderBottom: `1px solid ${CSS.border}`,
+                            }}
+                          >
+                            <div className="flex items-center gap-2">
+                              <Shield size={16} className="text-gray-400" />
+                              <span>{role.name}</span>
+                            </div>
+                          </td>
 
-                        {/* Beschreibung */}
-                        <td
-                          className="px-4 py-4 text-[0.875rem]"
-                          style={{
-                            color: CSS.mutedFg,
-                            borderBottom: `1px solid ${CSS.border}`,
-                          }}
-                        >
-                          {role.description || "—"}
-                        </td>
+                          {/* Beschreibung */}
+                          <td
+                            className="px-4 py-4 text-[0.875rem]"
+                            style={{
+                              color: CSS.mutedFg,
+                              borderBottom: `1px solid ${CSS.border}`,
+                            }}
+                          >
+                            {role.description || "—"}
+                          </td>
 
-                        {/* Permissions Count */}
-                      <td
-  className="px-4 py-4 text-center w-[120px]"
-  style={{ borderBottom: `1px solid ${CSS.border}` }}
->
-  {countsLoading && permissionCounts[role.id] == null ? (
-    <span className="text-[0.875rem]" style={{ color: CSS.mutedFg }}>
-      …
-    </span>
-  ) : (
-    <span
-      className="
+                          {/* Permissions Count */}
+                          <td
+                            className="px-4 py-4 text-center w-[130px]"
+                            style={{ borderBottom: `1px solid ${CSS.border}` }}
+                          >
+                            {countsLoading && permissionCounts[role.id] == null ? (
+                              <span className="text-[0.875rem]" style={{ color: CSS.mutedFg }}>
+                                …
+                              </span>
+                            ) : (
+                              <span
+                                className="
         inline-flex items-center justify-center
         rounded-md px-3 py-1
         text-[12px] font-semibold
       "
-      style={{
-        background: CSS.muted,
-        color: CSS.mutedFg,
-      }}
-    >
-      {permissionCounts[role.id] ?? 0}
-    </span>
-  )}
-</td>
+                                style={{
+                                  background: CSS.muted,
+                                  color: CSS.mutedFg,
+                                }}
+                              >
+                                {permissionCounts[role.id] ?? 0}
+                              </span>
+                            )}
+                          </td>
 
-                        {/* Erstellt */}
-                        <td
-                          className="px-4 py-4 text-[0.875rem]"
-                          style={{
-                            color: CSS.mutedFg,
-                            borderBottom: `1px solid ${CSS.border}`,
-                          }}
-                        >
-                          {formatDate(role.created)}
-                        </td>
 
-                        {/* Actions */}
-                        <td
-                          className="px-4 py-4 text-center whitespace-nowrap"
-                          style={{
-                            borderBottom: `1px solid ${CSS.border}`,
-                          }}
-                        >
-                          <div className="inline-flex items-center justify-center gap-2">
-                            {/* Edit – gleicher Style wie bei Companies */}
-                            <button
-                              type="button"
-                              aria-label="Edit role"
-                              title="Bearbeiten"
-                              onClick={() => void openEditModal(role)}
-                              className="
+                          {/* Erstellt */}
+                          <td
+                            className="px-4 py-4 text-[0.875rem] text-center w-[130px] whitespace-nowrap"
+                            style={{
+                              color: CSS.mutedFg,
+                              borderBottom: `1px solid ${CSS.border}`,
+                            }}
+                          >
+                            {formatDate(role.created)}
+                          </td>
+
+                          {/* Actions */}
+                          <td
+                            className="px-4 py-4 text-center whitespace-nowrap"
+                            style={{
+                              borderBottom: `1px solid ${CSS.border}`,
+                            }}
+                          >
+                            <div className="inline-flex items-center justify-center gap-2">
+                              {/* Edit – gleicher Style wie bei Companies */}
+                              <button
+                                type="button"
+                                aria-label="Edit role"
+                                title="Bearbeiten"
+                                onClick={() => void openEditModal(role)}
+                                className="
         inline-flex items-center justify-center
         rounded-full
         px-2.5 py-1.5
@@ -917,22 +955,22 @@ export default function RoleList() {
         transition
         hover:bg-[#f5f0e4]
       "
-                              style={{
-                                borderColor: "#d2c9b9",
-                                color: "#264555",
-                                background: "#ffffff",
-                              }}
-                            >
-                              <Pencil size={13} />
-                            </button>
+                                style={{
+                                  borderColor: "#d2c9b9",
+                                  color: "#264555",
+                                  background: "#ffffff",
+                                }}
+                              >
+                                <Pencil size={13} />
+                              </button>
 
-                            {/* Delete – gleicher Style wie bei Companies */}
-                            <button
-                              type="button"
-                              aria-label="Delete role"
-                              title="Löschen"
-                              onClick={() => openDeleteModal(role)}
-                              className="
+                              {/* Delete – gleicher Style wie bei Companies */}
+                              <button
+                                type="button"
+                                aria-label="Delete role"
+                                title="Löschen"
+                                onClick={() => openDeleteModal(role)}
+                                className="
         inline-flex items-center justify-center
         rounded-full
         px-2.5 py-1.5
@@ -941,72 +979,72 @@ export default function RoleList() {
         transition
         hover:bg-[#fff1f1]
       "
-                              style={{
-                                borderColor: "rgba(248,113,113,0.8)",
-                                color: "rgb(185,28,28)",
-                                background: "#ffffff",
-                              }}
-                            >
-                              <Trash2 size={13} />
-                            </button>
-                          </div>
-                        </td>
+                                style={{
+                                  borderColor: "rgba(248,113,113,0.8)",
+                                  color: "rgb(185,28,28)",
+                                  background: "#ffffff",
+                                }}
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
+                          </td>
 
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </section>
-        </WithPermissionCheck>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </WithPermissionCheck>
 
-        {/* ===== Pagination im Users-Stil ===== */}
-        <div
-          className="
+          {/* ===== Pagination im Users-Stil ===== */}
+          <div
+            className="
             max-w-[1400px] xl:max-w-[1600px] mx-auto mt-4
             rounded-[18px] border
             px-4 py-3 md:px-5 md:py-3
             shadow-[0_10px_30px_rgba(0,0,0,0.06)]
           "
-          style={{
-            background: "linear-gradient(to bottom, #ffffff, #f7f7f7)",
-            borderColor: BRAND.sand,
-          }}
-        >
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            {/* Range Info */}
-            <div className="text-xs sm:text-sm" style={{ color: "#808080" }}>
-              Zeige{" "}
-              <span className="font-semibold" style={{ color: "#264555" }}>
-                {startIdx}
-              </span>
-              –
-              <span className="font-semibold" style={{ color: "#264555" }}>
-                {endIdx}
-              </span>{" "}
-              von{" "}
-              <span className="font-semibold" style={{ color: "#264555" }}>
-                {total}
-              </span>{" "}
-              Einträgen
-            </div>
-
-            {/* Rows per page + Page X of Y + Pfeile */}
-            <div className="flex flex-wrap items-center gap-3 sm:justify-end">
-              <div className="flex items-center gap-2">
-                <span
-                  className="text-xs sm:text-sm"
-                  style={{ color: "#808080" }}
-                >
-                  Anzahl der Zeilen pro Seite
+            style={{
+              background: "linear-gradient(to bottom, #ffffff, #f7f7f7)",
+              borderColor: BRAND.sand,
+            }}
+          >
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              {/* Range Info */}
+              <div className="text-xs sm:text-sm" style={{ color: "#808080" }}>
+                Zeige{" "}
+                <span className="font-semibold" style={{ color: "#264555" }}>
+                  {startIdx}
                 </span>
+                –
+                <span className="font-semibold" style={{ color: "#264555" }}>
+                  {endIdx}
+                </span>{" "}
+                von{" "}
+                <span className="font-semibold" style={{ color: "#264555" }}>
+                  {total}
+                </span>{" "}
+                Einträgen
+              </div>
 
-                <div className="relative">
-                  <select
-                    value={pageSize}
-                    onChange={(e) => setPageSize(Number(e.target.value))}
-                    className="
+              {/* Rows per page + Page X of Y + Pfeile */}
+              <div className="flex flex-wrap items-center gap-3 sm:justify-end">
+                <div className="flex items-center gap-2">
+                  <span
+                    className="text-xs sm:text-sm"
+                    style={{ color: "#808080" }}
+                  >
+                    Anzahl der Zeilen pro Seite
+                  </span>
+
+                  <div className="relative">
+                    <select
+                      value={pageSize}
+                      onChange={(e) => setPageSize(Number(e.target.value))}
+                      className="
                       h-9 min-w-[72px]
                       rounded-full
                       border
@@ -1018,87 +1056,87 @@ export default function RoleList() {
                       shadow-sm
                       focus:ring-2
                     "
-                    style={{
-                      borderColor: "#d2c9b9",
-                      color: "#264555",
-                    }}
-                  >
-                    {PAGE_SIZE_OPTIONS.map((n) => (
-                      <option key={n} value={n}>
-                        {n}
-                      </option>
-                    ))}
-                  </select>
-                  <span
-                    className="
+                      style={{
+                        borderColor: "#d2c9b9",
+                        color: "#264555",
+                      }}
+                    >
+                      {PAGE_SIZE_OPTIONS.map((n) => (
+                        <option key={n} value={n}>
+                          {n}
+                        </option>
+                      ))}
+                    </select>
+                    <span
+                      className="
                       pointer-events-none
                       absolute right-3 top-1/2 -translate-y-1/2
                       text-[10px]
                     "
-                    style={{ color: "#b0b0b0" }}
-                  >
-                    ▾
-                  </span>
+                      style={{ color: "#b0b0b0" }}
+                    >
+                      ▾
+                    </span>
+                  </div>
                 </div>
-              </div>
 
-              <span
-                className="
+                <span
+                  className="
                   inline-flex items-center
                   rounded-full
                   px-3 py-1.5
                   text-xs sm:text-sm font-semibold
                 "
-                style={{
-                  background: "#264555",
-                  color: "white",
-                }}
-              >
-                Seite {page} von {totalPages}
-              </span>
+                  style={{
+                    background: "#264555",
+                    color: "white",
+                  }}
+                >
+                  Seite {page} von {totalPages}
+                </span>
 
-              <div className="flex items-center gap-1">
-                {[
-                  { label: "«", onClick: () => setPage(1), disabled: page <= 1 || total === 0 },
-                  { label: "‹", onClick: () => setPage((p) => Math.max(1, p - 1)), disabled: page <= 1 || total === 0 },
-                  { label: "›", onClick: () => setPage((p) => Math.min(totalPages, p + 1)), disabled: page >= totalPages || total === 0 },
-                  { label: "»", onClick: () => setPage(totalPages), disabled: page >= totalPages || total === 0 },
-                ].map((btn, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={btn.onClick}
-                    disabled={btn.disabled}
-                    className="
+                <div className="flex items-center gap-1">
+                  {[
+                    { label: "«", onClick: () => setPage(1), disabled: page <= 1 || total === 0 },
+                    { label: "‹", onClick: () => setPage((p) => Math.max(1, p - 1)), disabled: page <= 1 || total === 0 },
+                    { label: "›", onClick: () => setPage((p) => Math.min(totalPages, p + 1)), disabled: page >= totalPages || total === 0 },
+                    { label: "»", onClick: () => setPage(totalPages), disabled: page >= totalPages || total === 0 },
+                  ].map((btn, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={btn.onClick}
+                      disabled={btn.disabled}
+                      className="
                       flex h-8 w-8 items-center justify-center
                       rounded-full border text-xs sm:text-sm font-medium
                       disabled:opacity-50 disabled:cursor-not-allowed
                       transition
                     "
-                    style={{
-                      borderColor: "#d2c9b9",
-                      color: "#264555",
-                      background: "#ffffff",
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!btn.disabled) {
-                        e.currentTarget.style.background = "#fff9ec";
-                        e.currentTarget.style.borderColor = "#E3BB62";
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = "#ffffff";
-                      e.currentTarget.style.borderColor = "#d2c9b9";
-                    }}
-                  >
-                    {btn.label}
-                  </button>
-                ))}
+                      style={{
+                        borderColor: "#d2c9b9",
+                        color: "#264555",
+                        background: "#ffffff",
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!btn.disabled) {
+                          e.currentTarget.style.background = "#fff9ec";
+                          e.currentTarget.style.borderColor = "#E3BB62";
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = "#ffffff";
+                        e.currentTarget.style.borderColor = "#d2c9b9";
+                      }}
+                    >
+                      {btn.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      </main>
+        </main>
       </div>
 
       {/* ========== Create Role Modal ========== */}

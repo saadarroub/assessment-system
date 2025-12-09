@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import AdminLayout from "@/apps/app/AdminLayout";
+import companyLogo from "@/assets/comapy.png";
 import {
   Search,
   ArrowUpDown,
@@ -288,7 +289,7 @@ export default function CompaniesList() {
   /* ============== Create ============== */
   async function onCreateCompany(e: React.FormEvent) {
     e.preventDefault();
-    
+
     // Validierung der Pflichtfelder
     if (!cName.trim()) {
       setCreateError("Bitte einen Firmennamen eingeben.");
@@ -310,7 +311,7 @@ export default function CompaniesList() {
       setCreateError("Bitte ein Land eingeben.");
       return;
     }
-    
+
     // Validierung für optionale Felder (Format)
     if (cWebsite.trim() && !cWebsite.trim().match(/^[a-zA-Z0-9][a-zA-Z0-9-_.]*\.[a-zA-Z]{2,}$/)) {
       setCreateError("Bitte eine gültige Website eingeben (z.B. example.com oder www.example.de).");
@@ -320,7 +321,7 @@ export default function CompaniesList() {
       setCreateError("Bitte eine gültige Telefonnummer eingeben (z.B. +49 123 456789).");
       return;
     }
-    
+
     setCreating(true);
     setCreateError(null);
     try {
@@ -720,8 +721,8 @@ export default function CompaniesList() {
                       <th
                         key={idx}
                         className={`px-4 py-3 text-[0.85rem] font-semibold ${col.label === "Actions"
-                            ? "text-center"
-                            : "text-left"
+                          ? "text-center"
+                          : "text-left"
                           }`}
                         style={{ color: CSS.fg }}
                       >
@@ -866,14 +867,16 @@ export default function CompaniesList() {
                           >
                             <div className="flex items-center gap-3">
                               <div
-                                className="grid h-8 w-8 place-items-center rounded-md"
+                                className="grid h-9 w-9 place-items-center rounded-md"
                                 style={{
-                                  color: CSS.primary,
-                                  background:
-                                    "hsl(var(--primary)/.10)",
+                                  background: "hsl(var(--primary)/.10)",
                                 }}
                               >
-                                <Building2 size={16} />
+                                <img
+                                  src={companyLogo}
+                                  alt="Company logo"
+                                  className="h-7 w-7 object-contain"
+                                />
                               </div>
                               <span
                                 className="font-semibold"
@@ -882,6 +885,7 @@ export default function CompaniesList() {
                                 {c.name}
                               </span>
                             </div>
+
                           </td>
 
                           {/* Workers */}

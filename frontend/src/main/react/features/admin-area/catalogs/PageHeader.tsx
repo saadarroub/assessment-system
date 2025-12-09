@@ -48,7 +48,7 @@ export default function PageHeader({
   return (
     <div
       className={`relative w-full bg-gradient-to-br ${gradients[gradient]}
-      shadow-[0_14px_40px_rgba(0,0,0,0.55)] border-b border-white/100 overflow-hidden`}
+     `}
       style={{ minHeight: height }}
     >
 

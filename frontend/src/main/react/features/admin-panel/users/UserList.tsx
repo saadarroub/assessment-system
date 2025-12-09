@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import AdminLayout from "@/apps/app/AdminLayout";
 import { Search, ArrowUpDown, Eye, Plus, Trash2, Pencil, Users } from "lucide-react";
 import ConfirmModal from "@/shared/components/ConfirmModal";
+import UserLogo from  "@/assets/blue-user-icon-transparent.png";
 import {
   getUsers,
   createUser,
@@ -744,7 +745,27 @@ export default function UsersPage() {
                       >
 
 
-                        <td className="px-4 py-4 font-semibold" style={{ borderBottom: `1px solid ${CSS.border}` }}>{u.name}</td>
+                      <td
+  className="px-4 py-4"
+  style={{ borderBottom: `1px solid ${CSS.border}` }}
+>
+  <div className="flex items-center gap-3">
+    {/* Avatar-Box */}
+    <div className="grid h-8 w-8 place-items-center rounded-full bg-slate-100">
+      <img
+        src={UserLogo}
+        alt="User avatar"
+        className="h-7 w-7 rounded-full object-cover"
+      />
+    </div>
+
+    {/* Name */}
+    <span className="font-semibold" style={{ color: CSS.fg }}>
+      {u.name}
+    </span>
+  </div>
+</td>
+           
                         <td className="px-4 py-4 text-[0.875rem]" style={{ color: CSS.mutedFg, borderBottom: `1px solid ${CSS.border}` }}>{u.email}</td>
                         <td className="px-4 py-4" style={{ borderBottom: `1px solid ${CSS.border}` }}>
                           <div className="flex flex-wrap gap-2">
