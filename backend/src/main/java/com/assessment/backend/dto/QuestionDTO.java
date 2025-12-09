@@ -25,6 +25,9 @@ public class QuestionDTO {
     @JsonProperty("scoringSchema")
     private Object scoringSchema;
     
+    @JsonProperty("isScorable")
+    private Boolean isScorable;
+    
     // Nested class für QuestionType Referenz
     public static class QuestionTypeRef {
         private UUID id;
@@ -94,5 +97,13 @@ public class QuestionDTO {
     
     public void setScoringSchema(Object scoringSchema) {
         this.scoringSchema = scoringSchema;
+    }
+    
+    public Boolean getIsScorable() {
+        return isScorable;
+    }
+    
+    public void setIsScorable(Boolean isScorable) {
+        this.isScorable = isScorable;
     }
 }

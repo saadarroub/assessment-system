@@ -40,6 +40,18 @@ public class PublicQueryUtil {
         );
         return required != null && required;
     }
+    
+    /**
+     * Prüft ob eine Frage bewertbar ist (is_scorable=true oder NULL)
+     * NULL wird als true behandelt (Standardverhalten)
+     */
+    public boolean isQuestionScorable(UUID questionId) {
+        Boolean scorable = jdbcTemplate.queryForObject(
+                "SELECT is_scorable FROM public.question WHERE id = ?",
+                Boolean.class, questionId
+        );
+        return scorable == null || scorable; // NULL = true (Standard)
+    }
 
     @Nullable
     public Map<String, Object> findNextQuestion(UUID sessionId, UUID themaId) {
@@ -304,6 +316,7 @@ public class PublicQueryUtil {
                   qt.input_type,
                   qt.name as question_type_name,
                   q.scoring_schema,
+                  q.is_scorable,
                   a.value as answer_value,
                   a.score,
                   a.answered_at,
@@ -326,6 +339,9 @@ public class PublicQueryUtil {
                     result.put("inputType", rs.getString("input_type"));
                     result.put("questionTypeName", rs.getString("question_type_name"));
                     result.put("scoringSchema", rs.getString("scoring_schema"));
+                    // NULL = true (Standardwert bewertbar)
+                    Boolean isScorable = rs.getObject("is_scorable", Boolean.class);
+                    result.put("isScorable", isScorable == null || isScorable);
                     result.put("answerValue", rs.getString("answer_value")); // JSONB String
                     result.put("score", rs.getBigDecimal("score"));
                     result.put("answeredAt", rs.getTimestamp("answered_at").toLocalDateTime());
@@ -337,7 +353,7 @@ public class PublicQueryUtil {
     }
     
     /**
-     * Berechnet max_possible_score NUR für required=true Fragen eines Themas
+     * Berechnet max_possible_score NUR für required=true UND isScorable=true Fragen eines Themas
      */
     public java.math.BigDecimal calculateMaxPossibleScoreForRequiredQuestions(UUID themaId) {
         return jdbcTemplate.query(
@@ -345,7 +361,8 @@ public class PublicQueryUtil {
                 SELECT 
                     q.id,
                     qt.input_type,
-                    q.scoring_schema
+                    q.scoring_schema,
+                    q.is_scorable
                 FROM public.question_node qn
                 JOIN public.question q ON q.id = qn.question_id
                 JOIN public.question_type qt ON qt.id = q.type_id
@@ -356,6 +373,12 @@ public class PublicQueryUtil {
                 rs -> {
                     java.math.BigDecimal total = java.math.BigDecimal.ZERO;
                     while (rs.next()) {
+                        // Prüfe ob Frage bewertbar ist (NULL = true, da Standardwert)
+                        Boolean isScorable = rs.getObject("is_scorable", Boolean.class);
+                        if (isScorable != null && !isScorable) {
+                            continue; // Nicht bewertbare Fragen überspringen
+                        }
+                        
                         String inputType = rs.getString("input_type");
                         String scoringSchemaJson = rs.getString("scoring_schema");
                         

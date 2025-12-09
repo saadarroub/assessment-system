@@ -454,6 +454,7 @@ public class ScoringController {
                     qt.input_type,
                     qn.order_index,
                     qn.is_required,
+                    q.is_scorable,
                     a.value::text as answer_value,
                     a.score,
                     a.answered_at,
@@ -504,14 +505,22 @@ public class ScoringController {
                     }
                 }
                 
-                // Max Score berechnen
+                // Status für Frontend bestimmen (ZUERST prüfen ob bewertbar)
+                Boolean isScorable = (Boolean) data.get("is_scorable");
+                boolean notScorable = (isScorable != null && !isScorable);
+                
+                // Max Score berechnen - wenn nicht bewertbar → 0
                 String scoringSchemaJson = (String) data.get("scoring_schema");
-                BigDecimal maxScore = calculateMaxScoreForQuestion(q.getInputType(), scoringSchemaJson);
+                BigDecimal maxScore;
+                if (notScorable) {
+                    maxScore = BigDecimal.ZERO; // Nicht bewertbar = kein MaxScore
+                } else {
+                    maxScore = calculateMaxScoreForQuestion(q.getInputType(), scoringSchemaJson);
+                }
                 q.setMaxScore(maxScore);
                 
-                // Status für Frontend bestimmen
-                if (answerValueJson == null || "null".equals(answerValueJson)) {
-                    q.setStatus("skipped");
+                if (answerValueJson == null || "null".equals(answerValueJson) || notScorable) {
+                    q.setStatus(notScorable ? "not_scorable" : "skipped");
                     skippedCount++;
                 } else if (MANUAL_REVIEW_TYPES.contains(q.getInputType())) {
                     q.setStatus("manual");
@@ -632,6 +641,7 @@ public class ScoringController {
                     qt.input_type,
                     qn.order_index,
                     qn.is_required,
+                    q.is_scorable,
                     a.value::text as answer_value,
                     a.score,
                     a.answered_at,
@@ -677,14 +687,22 @@ public class ScoringController {
                     }
                 }
                 
-                // Max Score berechnen
+                // Kategorisierung (ZUERST prüfen ob bewertbar)
+                Boolean isScorable = (Boolean) data.get("is_scorable");
+                boolean notScorable = (isScorable != null && !isScorable);
+                
+                // Max Score berechnen - wenn nicht bewertbar → 0
                 String scoringSchemaJson = (String) data.get("scoring_schema");
-                BigDecimal maxScore = calculateMaxScoreForQuestion(q.getInputType(), scoringSchemaJson);
+                BigDecimal maxScore;
+                if (notScorable) {
+                    maxScore = BigDecimal.ZERO; // Nicht bewertbar = kein MaxScore
+                } else {
+                    maxScore = calculateMaxScoreForQuestion(q.getInputType(), scoringSchemaJson);
+                }
                 q.setMaxScore(maxScore);
                 
-                // Kategorisierung
-                if (answerValueJson == null || "null".equals(answerValueJson)) {
-                    // Übersprungen: value ist null
+                if (notScorable || answerValueJson == null || "null".equals(answerValueJson)) {
+                    // Übersprungen: value ist null ODER nicht bewertbar
                     uebersprungen.add(q);
                 } else if (MANUAL_REVIEW_TYPES.contains(q.getInputType())) {
                     // Manuelle Bewertung erforderlich
