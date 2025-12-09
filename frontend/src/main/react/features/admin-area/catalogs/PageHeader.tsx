@@ -4,7 +4,7 @@ type PageHeaderProps = {
   title: string;
   subtitle?: string;
   icon?: React.ReactNode;
-  gradient?: "navy" | "sand" | "blue" | "custom";
+  gradient?: "navy" | "sand"  ;
   height?: string;
   center?: boolean;
   showPattern?: boolean;
@@ -25,8 +25,7 @@ export default function PageHeader({
   const gradients: Record<string, string> = {
     navy: "from-[#264555] via-[#38556b] to-[#2f3e4c]",
     sand: "from-[#d2c9b9] via-[#c9c0ad] to-[#b9b09f]",
-    blue: "from-[#4a6fa5] via-[#527bab] to-[#40638f]",
-    custom: "",
+
   };
 
   return (
@@ -41,7 +40,7 @@ export default function PageHeader({
      {showPattern && icon && (
   <>
     {/* Oben Links – sehr dünn, soft, dezent */}
-    <div className="absolute left-10 top-10 opacity-30">
+    <div className="absolute left-10 top-4 opacity-30">
       {React.cloneElement(icon as any, {
         size: 130,                        // groß aber dünn
         strokeWidth: 0.5,                 // ⭐ extrem dünne Linie
@@ -50,7 +49,7 @@ export default function PageHeader({
     </div>
 
     {/* Unten Rechts – gespiegelt */}
-    <div className="absolute right-10 bottom-10 opacity-20 rotate-180">
+    <div className="absolute right-10 bottom-5 opacity-20 rotate-180">
       {React.cloneElement(icon as any, {
         size: 100,
         strokeWidth: 0.5,
@@ -75,7 +74,7 @@ export default function PageHeader({
       {/* CONTENT */}
       {/* ========================================================= */}
       <div
-        className={`mt-3 flex flex-col gap-4 ${
+        className={`mt-0 flex flex-col gap-3 ${
           center ? "items-center text-center" : "items-start text-left"
         }`}
       >

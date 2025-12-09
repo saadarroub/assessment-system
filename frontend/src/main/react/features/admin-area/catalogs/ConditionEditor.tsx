@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useToast } from "@/shared/contexts/ToastContext";
+import PageHeader from "./PageHeader";
 // Icons
 import AdminLayout from "@/apps/app/AdminLayout";
 import "@/styles/admin.css";
@@ -20,9 +21,10 @@ import {
   ListOrdered,
   Edit3,
   GripVertical,
-  ChevronDown,
   ChevronRight,
   Search,
+  ChevronUp,
+  ChevronDown,
 } from "lucide-react";
 
 import {
@@ -1210,53 +1212,42 @@ export default function ConditionEditor() {
   return (
     <AdminLayout>
       {/* Header */}
-      <div className="relative bg-gradient-to-br from-[#d2c9b9] via-[#e8e2d7] to-[#ffffff] px-10 py-10 shadow-sm border-b border-gray-300/40">
-        {/* BACK BUTTON */}
-        <div
-          onClick={() => navigate("/admin")}
-          className="
-                  group w-fit flex items-center gap-3 cursor-pointer
-                  bg-white/60 backdrop-blur-xl 
-                  border border-gray-300/30 
-                  px-5 py-2.5 rounded-xl 
-                  shadow-[0_3px_10px_rgba(0,0,0,0.08)]
-                  transition-all duration-300
-                  hover:bg-white/80 hover:shadow-[0_6px_16px_rgba(0,0,0,0.12)]
-                  hover:-translate-y-0.5
-                "
-        >
-          <ArrowLeft
-            size={20}
-            className="text-[#264555] transition-all group-hover:-translate-x-1"
-          />
-          <span className="text-sm font-semibold text-[#264555]">
-            Zurück zur Übersicht
-          </span>
-        </div>
 
-        {/* TITLE BLOCK */}
-        <div className="mt-8 text-center">
-          <div className="flex justify-center items-center gap-4">
-            <div
-              className="
-          p-4 rounded-2xl shadow-md 
-          bg-gradient-to-br from-[#264555] to-[#3f5568]
-          text-white
-        "
-            >
-              <Layers size={28} />
-            </div>
+      {/* BACK BUTTON – oben links fixiert */}
+<div className="absolute left-10 top-10 z-20">
+  <button
+    onClick={() => navigate("/admin")}
+    className="
+      group flex items-center gap-2 
+      bg-white/70 backdrop-blur-xl 
+      border border-gray-300 
+      px-5 py-2.5 rounded-xl 
+      shadow-sm 
+      hover:bg-white/90 
+      transition-all
+    "
+  >
+    <ArrowLeft
+      size={20}
+      className="text-[#264555] transition-all group-hover:-translate-x-1"
+    />
+    <span className="text-sm font-semibold text-[#264555]">
+      Zurück zur Übersicht
+    </span>
+  </button>
+</div>
 
-            <h1 className="text-4xl md:text-5xl font-extrabold text-[#264555] tracking-tight">
-              {thema?.name || "Lade Thema..."}
-            </h1>
-          </div>
+    <PageHeader
+  title={thema?.name || "Lade Thema..."}
+  subtitle="Bearbeiten · Fragen verwalten · Struktur aufbauen"
+  icon={<Layers size={40} />}
+  gradient="navy"       // ⭐ Dein helles Sand-Design
+  height="250px"
+  center={true}
+  showPattern={true}
 
-          <p className="text-gray-700 mt-3 text-[15px]">
-            Bearbeiten · Fragen verwalten · Struktur aufbauen
-          </p>
-        </div>
-      </div>
+/>
+
       {/* BODY - Grauer Hintergrund wie AdminDashboard */}
       <div className="bg-[hsl(0_0%_92%)] min-h-[calc(100vh-64px)] pb-10">
         {/* Hauptfrage hinzufügen */}
@@ -1459,9 +1450,9 @@ export default function ConditionEditor() {
                         onClick={() => {
                           // Reihenfolge-Typ noch nicht verfügbar
                           if (type.value === "order") {
-      alert("Dieser Fragetyp ist noch nicht verfügbar.");
-      return;
-    }
+                            alert("Dieser Fragetyp ist noch nicht verfügbar.");
+                            return;
+                          }
                           setSelectedType(type);
                           if (errorType) setErrorType(null); // 🔥 Fehler zurücksetzen
                           setErrorOptions(null);
@@ -1559,100 +1550,124 @@ export default function ConditionEditor() {
                         />
 
                         {/* Score */}
-                     
                         {!isOrderType && (
-                          <input
-                            type="number"
-                            placeholder="Score"
-                            min={0}
-                            max={5}
-                            step={1}
-                            value={
-                              opt.score == null || Number.isNaN(opt.score)
-                                ? ""
-                                : opt.score
-                            }
-                            onInput={(e: React.FormEvent<HTMLInputElement>) => {
-                              // ❗ Browser-Standard verhindern (1 bei ArrowUp)
-                              // Wenn ein Pfeil gedrückt wird, ignorieren wir onInput komplett
-                              if (
-                                (e.nativeEvent as any).inputType?.includes(
-                                  "arrow"
-                                )
-                              ) {
-                                return;
-                              }
+                          <div className="relative w-24">
+                            <input
+                              type="text"
+                              placeholder="Score"
+                              className="w-full border rounded-md px-2 py-1 text-center pr-6"
+                              value={opt.score ?? ""}
+                              onChange={(e) => {
+                                const val = e.target.value;
 
-                              let val = e.currentTarget.value;
-
-                              // Wenn leer → nichts setzen
-                              if (val === "") {
-                                setOptions(
-                                  options.map((o, j) =>
-                                    j === i ? { ...o, score: null } : o
-                                  )
-                                );
-                                return;
-                              }
-
-                              // Tastatureingabe (0–5)
-                              if (/^[0-5]$/.test(val)) {
-                                setOptions(
-                                  options.map((o, j) =>
-                                    j === i ? { ...o, score: Number(val) } : o
-                                  )
-                                );
-                              }
-                            }}
-                            onKeyDown={(e) => {
-                              const allowed = [
-                                "0",
-                                "1",
-                                "2",
-                                "3",
-                                "4",
-                                "5",
-                                "Backspace",
-                                "Delete",
-                                "Tab",
-                                "ArrowLeft",
-                                "ArrowRight",
-                                "ArrowUp",
-                                "ArrowDown",
-                              ];
-
-                              if (!allowed.includes(e.key)) {
-                                e.preventDefault();
-                              }
-
-                              // ---- Pfeile steuern ----
-                              if (
-                                e.key === "ArrowUp" ||
-                                e.key === "ArrowDown"
-                              ) {
-                                e.preventDefault(); // ❗ verhindert Browser-Auto-„1“
-
-                                let current = opt.score;
-
-                                // Erstes Pfeil-Klicken bei leerem Feld
-                                if (current == null) {
-                                  current = e.key === "ArrowUp" ? 0 : 5; // ✅ GENAU DAS HIER
-                                } else {
-                                  if (e.key === "ArrowUp")
-                                    current = Math.min(5, current + 1);
-                                  if (e.key === "ArrowDown")
-                                    current = Math.max(0, current - 1);
+                                if (val === "") {
+                                  setOptions(
+                                    options.map((o, j) =>
+                                      j === i ? { ...o, score: null } : o
+                                    )
+                                  );
+                                  return;
                                 }
 
-                                setOptions(
-                                  options.map((o, j) =>
-                                    j === i ? { ...o, score: current } : o
-                                  )
-                                );
-                              }
-                            }}
-                            className="w-24 border rounded-md px-2 py-1 text-center"
-                          />
+                                // ⭐ 0–6 erlauben statt 0–5
+                                if (/^[0-6]$/.test(val)) {
+                                  setOptions(
+                                    options.map((o, j) =>
+                                      j === i ? { ...o, score: Number(val) } : o
+                                    )
+                                  );
+                                }
+                              }}
+                              onKeyDown={(e) => {
+                                if (
+                                  e.key === "ArrowUp" ||
+                                  e.key === "ArrowDown"
+                                ) {
+                                  e.preventDefault();
+
+                                  let current = opt.score;
+
+                                  // ⭐ Start bei leerem Feld
+                                  if (current == null)
+                                    current = e.key === "ArrowUp" ? 0 : 6;
+                                  else {
+                                    // ⭐ Pfeile gehen bis 6 statt 5
+                                    if (e.key === "ArrowUp")
+                                      current = Math.min(6, current + 1);
+                                    if (e.key === "ArrowDown")
+                                      current = Math.max(0, current - 1);
+                                  }
+
+                                  setOptions(
+                                    options.map((o, j) =>
+                                      j === i ? { ...o, score: current } : o
+                                    )
+                                  );
+                                }
+                              }}
+                            />
+
+                            {/* CUSTOM ARROW BUTTONS */}
+                            <div
+                              className="
+        absolute right-1 top-1/2 -translate-y-1/2 
+        flex flex-col 
+        bg-gray-100 border border-gray-300 
+        rounded-md overflow-hidden
+      "
+                              style={{ width: "24px", height: "32px" }}
+                            >
+                              <button
+                                type="button"
+                                className="flex-1 flex items-center justify-center hover:bg-gray-200"
+                                onClick={() => {
+                                  let current = opt.score;
+
+                                  // ⭐ Max = 6 statt 5
+                                  current =
+                                    current == null
+                                      ? 0
+                                      : Math.min(6, current + 1);
+
+                                  setOptions(
+                                    options.map((o, j) =>
+                                      j === i ? { ...o, score: current } : o
+                                    )
+                                  );
+                                }}
+                              >
+                                <ChevronUp
+                                  size={14}
+                                  className="text-gray-600"
+                                />
+                              </button>
+
+                              <button
+                                type="button"
+                                className="flex-1 flex items-center justify-center hover:bg-gray-200"
+                                onClick={() => {
+                                  let current = opt.score;
+
+                                  // ⭐ Wenn leer → start = 6
+                                  current =
+                                    current == null
+                                      ? 6
+                                      : Math.max(0, current - 1);
+
+                                  setOptions(
+                                    options.map((o, j) =>
+                                      j === i ? { ...o, score: current } : o
+                                    )
+                                  );
+                                }}
+                              >
+                                <ChevronDown
+                                  size={14}
+                                  className="text-gray-600"
+                                />
+                              </button>
+                            </div>
+                          </div>
                         )}
 
                         {/* Löschen */}
@@ -1660,7 +1675,7 @@ export default function ConditionEditor() {
                           onClick={() =>
                             setOptions(options.filter((_, j) => j !== i))
                           }
-                          className="text-gray-500 hover:text-red-500 transition-all"
+                          className="text-red-500 hover:text-red-400 transition-all"
                         >
                           <Trash2 size={18} />
                         </button>
