@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import AdminLayout from "@/apps/app/AdminLayout";
 import { Search, ArrowUpDown, Shield, Plus, Trash2, Pencil } from "lucide-react";
+import { SoftSquaresBackground } from "@/shared/components/SoftSquaresBackground";
 
 import {
   getRoles,
@@ -494,7 +495,11 @@ export default function RoleList() {
 
   return (
     <AdminLayout>
-      {/* HEADER / Hero wie Users */}
+      {/* HEADER  */}
+
+      <div className="relative min-h-screen">
+        {/* 2. Unser neues Pattern */}
+        <SoftSquaresBackground />
       <PageHeader
         title="Rollen Verwaltung"
         subtitle="Verwalte Benutzerrollen und deren Berechtigungen"
@@ -1094,6 +1099,7 @@ export default function RoleList() {
           </div>
         </div>
       </main>
+      </div>
 
       {/* ========== Create Role Modal ========== */}
       {openCreate && (

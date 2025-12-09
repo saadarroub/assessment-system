@@ -1238,31 +1238,10 @@ export default function CompanyDetails() {
                   </div>
                 )}
 
-<<<<<<< HEAD
                 <form
                   id="invite-worker-form"
                   onSubmit={onInviteSubmit}
                   className="space-y-4"
-=======
-              <div>
-                <label htmlFor="cw-ws" className="block text-sm font-medium mb-1">Workspace *</label>
-                <input
-                  id="cw-ws"
-                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-300"
-                  value={invWorkspace}
-                  onChange={(e) => setInvWorkspace(e.target.value)}
-                  placeholder="z. B. HQ-01"
-                  required
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-1">
-                <button
-                  type="button"
-                  onClick={cancelInvite}
-                  className="inline-flex items-center rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-                  disabled={creating}
->>>>>>> origin/release/v1.0.0
                 >
                   <div>
                     <label
@@ -1342,99 +1321,8 @@ export default function CompanyDetails() {
               </div>
             </div>
 
-<<<<<<< HEAD
             <div className="h-3" />
             <div className="mt-1 flex gap-2">
-=======
-      {/* ===== Edit Worker Modal ===== */}
-      {editing && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="fixed inset-0 z-[1000] bg-black/40 flex items-center justify-center p-4"
-          onClick={(e) => { if (e.target === e.currentTarget) cancelEdit(); }}
-        >
-          <div className="w-[min(560px,92vw)] rounded-xl bg-white shadow-2xl p-5 relative">
-            <h3 className="text-lg font-semibold mb-1">Edit Worker</h3>
-            {saveError && (<div className="admin-error mb-3" role="alert">{saveError}</div>)}
-
-            <form onSubmit={onSave} className="space-y-3">
-              <div>
-                <label className="block text-sm font-medium mb-1" htmlFor="w-name">Name *</label>
-                <input
-                  id="w-name"
-                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-300"
-                  value={formName}
-                  onChange={(e) => setFormName(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1" htmlFor="w-mail">Email *</label>
-                <input
-                  id="w-mail"
-                  type="email"
-                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-300"
-                  value={formEmail}
-                  onChange={(e) => setFormEmail(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1" htmlFor="w-ws">Workspace *</label>
-                <input
-                  id="w-ws"
-                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-300"
-                  value={formWs}
-                  onChange={(e) => setFormWs(e.target.value)}
-                  placeholder="z. B. Senior Consulting"
-                  required
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-1">
-                <button
-                  type="button"
-                  onClick={cancelEdit}
-                  className="inline-flex items-center rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-                  disabled={saving}
-                >
-                  Abbrechen
-                </button>
-                <button
-                  type="submit"
-                  className="inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-semibold shadow hover:[filter:brightness(1.05)] disabled:opacity-60"
-                  style={{ background: "hsl(40,60%,63%)", color: "hsl(200,32%,22%)" }}
-                  disabled={saving}
-                >
-                  {saving && <Loader2 size={16} className="animate-spin" />}
-                  Speichern
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ===== Delete Worker Modal ===== */}
-      {toDelete && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="fixed inset-0 z-[1000] bg-black/40 flex items-center justify-center p-4"
-          onClick={(e) => { if (e.target === e.currentTarget) cancelDelete(); }}
-        >
-          <div className="w-[min(520px,92vw)] rounded-xl bg-white shadow-2xl p-5 relative">
-            <h3 className="text-lg font-semibold mb-1 text-red-600">Worker löschen?</h3>
-            <p className="text-sm text-slate-700 mb-3">
-              Willst du <b>{toDelete.name || "Unbenannt"}</b> ({toDelete.email}) wirklich löschen?
-              Diese Aktion kann nicht rückgängig gemacht werden.
-            </p>
-            {deleteError && <div className="admin-error mb-3" role="alert">{deleteError}</div>}
-            <div className="flex justify-end gap-2">
->>>>>>> origin/release/v1.0.0
               <button
                 type="button"
                 onClick={cancelInvite}

@@ -64,7 +64,6 @@ type NavId =
   | "sessions"
   | "Audit-log";
 
-<<<<<<< HEAD
 const NAV_PRIMARY: Array<{
   id: NavId;
   label: string;
@@ -126,25 +125,6 @@ const NAV_Analyse: Array<{
       to: "/app/companylist",
     },
   ];
-=======
-const NAV_PRIMARY: Array<{ id: NavId; label: string; Icon: React.FC<any>; to: string }> = [
-  { id: "dashboard", label: "Dashboard", Icon: LayoutDashboard, to: "/admin/dashboard" },
-  { id: "Themen Verwalten", label: "Themen Verwalten", Icon: Settings, to: "/admin" },
-  { id: "catalog", label: "Kataloge", Icon: FileText, to: "/admin/katalogzuweisen" },
-];
-const NAV_Panel: Array<{ id: NavId; label: string; Icon: React.FC<any>; to: string }> = [
-  //{ id: "Admin-Panel", label: "Admin-Panel", Icon: BarChart3, to: "/admin/adminPanel" },
-  { id: "users", label: "Users", Icon: ShoppingCart, to: "/admin/adminPanel/users" },
-  { id: "companies", label: "Firmen", Icon: Building2, to: "/admin/adminPanel/companies" },
-  { id: "roles", label: "Rollen", Icon: Shield, to: "/admin/adminPanel/roles" },
-  { id: "Zuweisungen", label: "Zuweisungen", Icon: FileText, to: "/admin/adminPanel/zuweisungen" },
-  //{ id: "Audit-log", label: "Audit-log", Icon: BarChart3, to: "/admin/adminPanel/audit" },
-];
-const NAV_Analyse: Array<{ id: NavId; label: string; Icon: React.FC<any>; to: string }> = [
-  { id: "Ergebnis Analysieren", label: "Ergebnisse Analysieren", Icon: ShoppingCart, to: "/app/companylist" },
- 
-];
->>>>>>> origin/release/v1.0.0
 
 export default function AdminLayout({ children }: AdminLayoutProps) {
   const [collapsed, setCollapsed] = useState(false);

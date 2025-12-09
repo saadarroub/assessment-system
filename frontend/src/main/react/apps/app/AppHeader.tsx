@@ -1,50 +1,37 @@
-import { useEffect, useRef, useState } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
-import { useAuthCtx } from "@/core/auth/AuthContext";
-import { AuthService } from "@/core/auth/AuthService";
-import { logoutApi } from "@/features/auth/logoutService";
+import { useEffect, useState } from "react";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import logoCap from "@/assets/Logo_cap_consulting_RGB_Darkblue.svg";
-import "@/styles/worker.css";
 import { buildCatalogUrl, type CatalogLinkMeta } from "@/core/router/buildCatalogUrl";
-
-// Klassen-Helferhier methode wie bei NavLink
-const navCls = (active: boolean) =>
-  `nav-link${active ? " nav-link-active" : ""}`;
 
 export default function AppHeader() {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement | null>(null);
+  const [scrolled, setScrolled] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
 
-  const { isAuthenticated, logout } = useAuthCtx();
-
-  const linkCls = ({ isActive }: { isActive: boolean }) =>
-    `nav-link${isActive ? " nav-link-active" : ""}`;
-
+  // Scroll-Listener: Header komprimiert sich beim Runterscrollen
   useEffect(() => {
-    const onClick = (e: MouseEvent) => {
-      if (!menuRef.current?.contains(e.target as Node)) setMenuOpen(false);
+    const onScroll = () => {
+      setScrolled(window.scrollY > 20); // ab ~20px scrollen wird kleiner
     };
-    if (menuOpen) document.addEventListener("mousedown", onClick);
-    return () => document.removeEventListener("mousedown", onClick);
-  }, [menuOpen]);
+
+    onScroll(); // initial
+    window.addEventListener("scroll", onScroll);
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   function getActiveAssignment(): CatalogLinkMeta | null {
-   
-  try {
-    const raw = localStorage.getItem("activeAssignmentMeta");
-    return raw ? (JSON.parse(raw) as CatalogLinkMeta) : null;
-  } catch {
-    return null;
+    try {
+      const raw = localStorage.getItem("activeAssignmentMeta");
+      return raw ? (JSON.parse(raw) as CatalogLinkMeta) : null;
+    } catch {
+      return null;
+    }
   }
 
-  }
- 
   const handleThemenClick = () => {
     const meta = getActiveAssignment();
     if (!meta) {
-      // Fallback, falls nichts vorhanden ist:
       navigate("/app/help");
       return;
     }
@@ -52,174 +39,248 @@ export default function AppHeader() {
     navigate(url);
   };
 
-   const isThemenActive =
+  const isThemenActive =
     location.pathname.startsWith("/app/katalog-themen-public") ||
     location.pathname.startsWith("/app/dashboard") ||
     location.pathname.startsWith("/app/assessments");
 
-  /**
-   * Logout Handler - Refactored für neues Auth-System
-   * 
-   * Flow:
-   * 1. Cleanup: activeAssignmentMeta aus localStorage
-   * 2. Get Token from AuthService (single source of truth)
-   * 3. Backend-Logout-API-Call (löscht httpOnly Cookie)
-   * 4. AuthService.clearTokens() (löscht Token + User in Memory)
-   * 5. AuthContext.logout() (updated React State)
-   * 6. Navigate zu /login
-   */
-  const handleLogout = async () => {
-    // Cleanup: Assignment-Meta
-    localStorage.removeItem("activeAssignmentMeta");
-    
-    // Get Token from AuthService (nicht mehr aus localStorage!)
-    const token = AuthService.getAccessToken();
-    
-    // Backend-Logout (optional, kann fehlschlagen)
-    if (token) {
-      try {
-        await logoutApi(token);
-      } catch (error) {
-        console.warn('Backend logout failed, continuing with local logout', error);
-      }
-    }
-    
-    // Clear Tokens in AuthService (Memory + localStorage)
-    AuthService.clearTokens();
-    
-    // Update React Context
-    logout();
-    
-    // Close Menu & Navigate
-    setMenuOpen(false);
-    navigate("/login", { replace: true });
-  };
+  const baseNavLink =
+    "relative text-[15px] font-medium px-1 py-1 text-[#264555]/80 hover:text-[#264555] transition-colors";
+  const activeNavLink =
+    "text-[#264555] font-semibold after:absolute after:left-1/2 after:-bottom-1.5 " +
+    "after:h-[2px] after:w-8 after:-translate-x-1/2 after:rounded-full after:bg-[#264555]";
+  const linkCls = ({ isActive }: { isActive: boolean }) =>
+    `${baseNavLink} ${isActive ? activeNavLink : ""}`;
+  const themenCls = `${baseNavLink} ${isThemenActive ? activeNavLink : ""}`;
+
+  const headerBase =
+    "sticky top-0 z-40 border-b border-[#ebebec] bg-gradient-to-b from-white to-[#f7f7f5] transition-all duration-300";
+  const headerNotScrolledShadow = "shadow-[0_4px_12px_rgba(0,0,0,0.04)]";
+  const headerScrolledExtra =
+    "bg-white/95 backdrop-blur shadow-[0_6px_18px_rgba(0,0,0,0.08)]";
 
   return (
-    <header className="header">
-      <div className="header-container">
-        {/* Links: Logo */}
-        <div className="logo-section">
-          <img src={logoCap} alt="CAP consulting" className="brand-left-logo" />
-        </div>
+    <header
+      className={`${headerBase} ${
+        scrolled ? headerScrolledExtra : headerNotScrolledShadow
+      }`}
+    >
+      {/* dünne CAP-Gold-Linie oben */}
+      <div className="h-[2px] w-full bg-[#E3BB62]/80" />
 
-        {/* Mitte: Navigation */}
-        <nav className="navigation">
-          <NavLink to="/startseite" className={linkCls} end>
-            StartSeite
-          </NavLink>
-          
-          <button type="button" className={navCls(isThemenActive)} onClick={handleThemenClick}>
-            Themen
-          </button>
-
-          {isAuthenticated ? (
-            <NavLink to="/app/results/demo-session" className={linkCls}>
-              Ergebnisse
-            </NavLink>
-          ) : (
-            <NavLink
-              to="/login"
-              state={{ from: "/app/results/demo-session" }}
-              className={linkCls}
-            >
-              Ergebnisse
-            </NavLink>
-          )}
-
-          <NavLink to="/app/help" className={linkCls} end>
-            Hilfe
-          </NavLink>
-
-          <NavLink to="/app/contact" className="nav-button" end>
-            Kontakt
-          </NavLink>
-        </nav>
-
-        {/* Rechts: Titel + Profil */}
-        <div className="right-section">
-          {/* Avatar + Dropdown */}
-          <div className="profile-container" ref={menuRef}>
-            <div className="parallelogram-bg" />
-            <button
-              type="button"
-              className="profile-content"
-              aria-haspopup="menu"
-              aria-expanded={menuOpen}
-              onClick={() => setMenuOpen((v) => !v)}
-            >
-              <div className="profile-avatar">
-                <img
-                  className="avatar-img"
-                  src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=50&h=50&fit=crop&crop=face"
-                  alt="Profilmenü öffnen"
-                />
-              </div>
-              <svg width="12" height="6" viewBox="0 0 16 10" className="dropdown-icon" aria-hidden>
-                <path d="M2 2L8 8L14 2" stroke="#1E1E1E" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </button>
-
-            {menuOpen && (
-              <div className="profile-menu" role="menu">
-                <button
-                  className="profile-menu-item"
-                  role="menuitem"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    //navigate("/profile");
-                    alert("Profil ansehen - Funktion noch nicht implementiert.");
-                  }}
-                >
-                  Profil
-                </button>
-              </div>
-            )}
-          </div>
-          <div className="title-section">
-            <h1 className="main-title">Umfrage Platform</h1>
-            <p className="subtitle-main">Wählen Sie einen Katalog für Ihre Bewertung</p>
-          </div>
-        </div>
-
-        {/* Mobile Toggle */}
-        <button
-          className="mobile-menu-btn"
-          onClick={() => setMobileOpen((v) => !v)}
-          aria-label="Menü"
-          aria-expanded={mobileOpen}
-          aria-controls="mobileNav"
+      <div className="max-w-6xl mx-auto px-4 md:px-8">
+        {/* eine Reihe: Logo | Nav | Textblock */}
+        <div
+          className={`flex items-center justify-between gap-6 ${
+            scrolled ? "py-2 md:py-2.5" : "py-3 md:py-3.5"
+          } transition-all duration-300`}
         >
-          ☰
-        </button>
+          {/* LINKS: Logo */}
+          <div className="flex items-center flex-none">
+            <img
+              src={logoCap}
+              alt="CAP consulting"
+              className={`w-auto transition-all duration-300 ${
+                scrolled ? "h-8 md:h-9" : "h-9 md:h-10"
+              }`}
+            />
+          </div>
+
+          {/* MITTE: Navigation */}
+          <div className="hidden lg:flex flex-none">
+            <nav className="flex items-center gap-7">
+              <NavLink to="/startseite" className={linkCls} end>
+                Startseite
+              </NavLink>
+
+              <button
+                type="button"
+                className={themenCls}
+                onClick={handleThemenClick}
+              >
+                Themen
+              </button>
+
+              <NavLink to="/app/help" className={linkCls} end>
+                Hilfe
+              </NavLink>
+
+              <NavLink
+                to="/app/contact"
+                end
+                className="
+                  inline-flex items-center justify-center
+                  rounded-full bg-[#E3BB62]
+                  px-5 py-2
+                  text-[14px] font-semibold text-[#264555]
+                  shadow-[0_10px_24px_rgba(0,0,0,0.12)]
+                  transition-all duration-200
+                  hover:brightness-105 hover:-translate-y-[1px]
+                  active:translate-y-0 active:shadow-sm
+                "
+              >
+                Kontakt
+              </NavLink>
+            </nav>
+          </div>
+
+          {/* RECHTS: ICA³-Textblock – zentriert + animiert */}
+          <div className="hidden sm:flex flex-col items-center text-center leading-tight flex-none w-[320px]">
+            {/* Kopfzeile mit Linien links/rechts */}
+            <div className="mb-1 inline-flex items-center gap-3 text-[10px] tracking-[0.24em] uppercase text-[#808080]">
+              <span className="h-px w-8 rounded-full bg-[#d2c9b9]" />
+              <span>ICA³ – Survey Plattform</span>
+              <span className="h-px w-8 rounded-full bg-[#d2c9b9]" />
+            </div>
+
+            {/* Haupttitel mit Gradient-Underline + leichter Animation */}
+            <h1
+              className={`relative mt-[2px] font-semibold text-[#264555] transition-all duration-300 ${
+                scrolled ? "text-[17px]" : "text-[19px]"
+              }`}
+            >
+              <span className="relative z-10 px-1">Umfrage Plattform</span>
+              <span
+                className="
+                  pointer-events-none absolute -bottom-2 left-1/2 h-[3px] w-24 -translate-x-1/2
+                  rounded-full bg-gradient-to-r from-[#56768f] via-[#E3BB62] to-[#264555]
+                  animate-pulse
+                "
+              />
+            </h1>
+
+            {/* Untertitel */}
+            <p className="mt-2 text-[11px] text-[#808080] max-w-xs">
+              <span className="font-medium text-[#264555]">
+                Wählen Sie einen Katalog
+              </span>{" "}
+              und starten Sie Ihre{" "}
+              <span className="font-medium text-[#264555]">
+                ICA³-Bewertung
+              </span>
+              .
+            </p>
+          </div>
+
+          {/* Mobile-Burger für kleine Screens */}
+          <button
+            className="lg:hidden inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#ebebec] bg-white text-[#264555] shadow-sm hover:bg-[#f5f5f5] transition-colors"
+            onClick={() => setMobileOpen((v) => !v)}
+            aria-label="Navigation umschalten"
+            aria-expanded={mobileOpen}
+            aria-controls="mobileNav"
+          >
+            <div className="flex flex-col gap-[3px]">
+              <span
+                className={`h-[2px] w-5 rounded-full bg-[#264555] transition-transform ${
+                  mobileOpen ? "translate-y-[5px] rotate-45" : ""
+                }`}
+              />
+              <span
+                className={`h-[2px] w-4 rounded-full bg-[#264555] transition-opacity ${
+                  mobileOpen ? "opacity-0" : "opacity-100"
+                }`}
+              />
+              <span
+                className={`h-[2px] w-5 rounded-full bg-[#264555] transition-transform ${
+                  mobileOpen ? "-translate-y-[5px] -rotate-45" : ""
+                }`}
+              />
+            </div>
+          </button>
+        </div>
       </div>
 
-      {/* Mobile Dropdown */}
-      <div className={`mobile-nav ${mobileOpen ? "show" : ""}`} id="mobileNav">
-        <nav className="mobile-nav-content">
-          <NavLink to="/" className="mobile-nav-link" end>
-            StartSeite
+      {/* Mobile Navigation Panel */}
+      <div
+        id="mobileNav"
+        className={`lg:hidden border-t border-[#ebebec] bg-white shadow-sm transition-all duration-200 origin-top ${
+          mobileOpen ? "max-h-80 opacity-100" : "max-h-0 opacity-0 overflow-hidden"
+        }`}
+      >
+        <nav className="flex flex-col py-2 px-4 gap-1">
+          {/* Textblock im Mobile-Menü – gleiche Optik wie Desktop, nur linksbündig */}
+          <div className="mb-2 flex flex-col items-start text-left leading-tight">
+            <div className="mb-1 inline-flex items-center gap-3 text-[10px] tracking-[0.24em] uppercase text-[#808080]">
+              <span className="h-px w-8 rounded-full bg-[#d2c9b9]" />
+              <span>ICA³ – Survey Plattform</span>
+            </div>
+            <h2 className="relative mt-[2px] text-[16px] font-semibold text-[#264555]">
+              <span className="relative z-10 px-[2px]">Umfrage Plattform</span>
+              <span
+                className="
+                  pointer-events-none absolute -bottom-2 left-0 h-[3px] w-20
+                  rounded-full bg-gradient-to-r from-[#56768f] via-[#E3BB62] to-[#264555]
+                  animate-pulse
+                "
+              />
+            </h2>
+            <p className="mt-2 text-[11px] text-[#808080] max-w-sm">
+              <span className="font-medium text-[#264555]">
+                Wählen Sie einen Katalog
+              </span>{" "}
+              und starten Sie Ihre{" "}
+              <span className="font-medium text-[#264555]">
+                ICA³-Bewertung
+              </span>
+              .
+            </p>
+          </div>
+
+          <NavLink
+            to="/startseite"
+            end
+            className={({ isActive }) =>
+              `px-2 py-2 text-sm rounded-md ${
+                isActive
+                  ? "text-[#264555] font-semibold bg-[#ebebec]/60"
+                  : "text-[#264555]/80 hover:bg-[#ebebec]/40"
+              }`
+            }
+            onClick={() => setMobileOpen(false)}
+          >
+            Startseite
           </NavLink>
 
-          <button className="mobile-nav-button" onClick={handleThemenClick}>
-            Jetzt testen
+          <button
+            className="mt-1 rounded-md bg-[#264555] text-white text-sm font-semibold py-2 px-2 text-left hover:bg-[#1f3846]"
+            onClick={() => {
+              setMobileOpen(false);
+              handleThemenClick();
+            }}
+          >
+            Themen öffnen
           </button>
 
-          <NavLink to="/app/results/demo-session" className="mobile-nav-link">
-            Ergebnisse
-          </NavLink>
-          <NavLink to="/app/help" className="mobile-nav-link" end>
+          <NavLink
+            to="/app/help"
+            end
+            className={({ isActive }) =>
+              `mt-1 px-2 py-2 text-sm rounded-md ${
+                isActive
+                  ? "text-[#264555] font-semibold bg-[#ebebec]/60"
+                  : "text-[#264555]/80 hover:bg-[#ebebec]/40"
+              }`
+            }
+            onClick={() => setMobileOpen(false)}
+          >
             Hilfe
           </NavLink>
-          <NavLink to="/app/contact" className="mobile-nav-link" end>
+
+          <NavLink
+            to="/app/contact"
+            end
+            className={({ isActive }) =>
+              `mt-1 px-2 py-2 text-sm rounded-full ${
+                isActive
+                  ? "bg-[#E3BB62] text-[#264555] font-semibold shadow-md"
+                  : "bg-[#E3BB62]/90 text-[#264555] font-semibold hover:bg-[#E3BB62]"
+              }`
+            }
+            onClick={() => setMobileOpen(false)}
+          >
             Kontakt
           </NavLink>
-
-          {isAuthenticated && (
-            <button className="mobile-nav-link" onClick={handleLogout}>
-              Logout
-            </button>
-          )}
         </nav>
       </div>
     </header>

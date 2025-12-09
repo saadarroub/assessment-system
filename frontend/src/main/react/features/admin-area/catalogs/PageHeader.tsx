@@ -31,13 +31,26 @@ export default function PageHeader({
 
   const isCentered = center;
 
+  // Ausrichtung des äußeren Flex-Containers
+  const outerLayout = extra
+    ? // mit Extra-Buttons rechts
+    "lg:flex-row lg:items-center lg:justify-between"
+    : // ohne Extra -> alles schön zentriert
+    isCentered
+      ? "lg:flex-row lg:items-center lg:justify-center"
+      : "lg:flex-row lg:items-center lg:justify-start";
+
+  // Ausrichtung der Textspalte
+  const columnAlign = isCentered
+    ? "items-center text-center"
+    : "items-start text-left";
+
   return (
     <div
       className={`relative w-full bg-gradient-to-br ${gradients[gradient]}
       shadow-[0_14px_40px_rgba(0,0,0,0.55)] border-b border-white/100 overflow-hidden`}
       style={{ minHeight: height }}
     >
-      {/* ====================== 1) Hintergrund-Ebenen ====================== */}
 
       {/* weicher Gold-Glow links oben */}
       <div
@@ -114,17 +127,16 @@ export default function PageHeader({
         </>
       )}
 
-      {/* ====================== 2) CONTENT ====================== */}
-
-      <div className="relative z-10 mx-auto flex max-w-[1400px] xl:max-w-[1600px] flex-col gap-6 px-6 py-10 lg:flex-row lg:items-center lg:justify-between">
+      <div
+        className={`
+          relative z-10 mx-auto flex
+          max-w-[1400px] xl:max-w-[1600px]
+          flex-col gap-6 px-6 py-10
+          ${outerLayout}
+        `}
+      >
         {/* Linker Bereich: Icon + Titel + Subtitle + kleine Chips */}
-        <div
-          className={`flex flex-col gap-4 ${
-            isCentered
-              ? "items-center text-center lg:items-start lg:text-left"
-              : "items-start text-left"
-          }`}
-        >
+        <div className={`flex flex-col gap-4 ${columnAlign}`}>
           {/* Icon mit Orbit-Ring + kleinem Label */}
           {(icon || title) && (
             <div className="inline-flex items-center gap-3 rounded-3xl border border-white/25 bg-white/10 px-4 py-2 backdrop-blur-md shadow-[0_12px_30px_rgba(0,0,0,0.42)]">
@@ -150,10 +162,10 @@ export default function PageHeader({
               {/* kleines Label rechts vom Icon */}
               <div className="flex flex-col">
                 <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/70">
-                  Admin · Area
+                  SYSTEM · MANAGEMENT
                 </span>
                 <span className="text-[11px] text-white/80">
-                  Konfiguration & Benutzerverwaltung
+                  Management & Administration der Plattform
                 </span>
               </div>
             </div>
@@ -172,14 +184,36 @@ export default function PageHeader({
           </div>
 
           {/* kleine Info-Chips unter dem Titel */}
-          <div className="mt-1 flex flex-wrap gap-2">
-            <span className="inline-flex items-center rounded-full bg-black/20 px-3 py-1 text-[11px] font-medium text-white/85 border border-white/15 backdrop-blur-sm">
-              • Benutzer · Rollen · Rechte
-            </span>
-            <span className="inline-flex items-center rounded-full bg-black/14 px-3 py-1 text-[11px] font-medium text-white/80 border border-white/10 backdrop-blur-sm">
-              • CapConsulting · ICA³
-            </span>
+          <div className="mt-4 flex justify-center">
+            <div
+              className="
+      relative inline-flex items-center gap-2
+      rounded-full border border-white/30
+      bg-gradient-to-r from-white/10 via-white/5 to-transparent
+      px-5 py-1.5
+      text-[11px] font-medium tracking-wide
+      text-white/90
+      shadow-[0_10px_25px_rgba(0,0,0,0.55)]
+      backdrop-blur-md
+    "
+            >
+              {/* Goldener Status-Dot links */}
+              <span
+                className="
+        h-2.5 w-2.5 rounded-full bg-[#E3BB62]
+        shadow-[0_0_12px_rgba(227,187,98,0.9)]
+      "
+              />
+
+              <span className="whitespace-nowrap">
+                CapConsulting ·{" "}
+                <span className="font-semibold text-[#E3BB62]">
+                  ICA³
+                </span>
+              </span>
+            </div>
           </div>
+
         </div>
 
         {/* Rechter Bereich: z.B. Buttons (extra) */}
