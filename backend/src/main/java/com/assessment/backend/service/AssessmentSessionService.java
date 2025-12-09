@@ -40,8 +40,8 @@ public class AssessmentSessionService {
         s.setThemaId(themaId);
         s.setStatus("started");
         
-        // Max Possible Score berechnen
-        BigDecimal maxScore = publicQueryUtil.calculateMaxPossibleScore(themaId);
+        // Max Possible Score berechnen (nur required + scorable Fragen)
+        BigDecimal maxScore = publicQueryUtil.calculateMaxPossibleScoreForRequiredQuestions(themaId);
         s.setMaxPossibleScore(maxScore);
         
         try {
@@ -94,12 +94,24 @@ public class AssessmentSessionService {
 
     @Transactional
     public void recalculateTotals(UUID sessionId) {
+        // Nur bewertbare Fragen (is_scorable = true) summieren
         BigDecimal sum = jdbcTemplate.queryForObject(
-            "SELECT COALESCE(SUM(score),0) FROM public.answer WHERE session_id = ?",
+            """
+            SELECT COALESCE(SUM(a.score), 0) 
+            FROM public.answer a
+            JOIN public.question q ON q.id = a.question_id
+            WHERE a.session_id = ?
+              AND (q.is_scorable IS NULL OR q.is_scorable = true)
+            """,
             BigDecimal.class, sessionId
         );
         var s = repository.findById(sessionId).orElseThrow();
         s.setTotalScore(sum != null ? sum : BigDecimal.ZERO);
+        
+        // Max Possible Score auch neu berechnen (falls Fragen geändert wurden)
+        BigDecimal maxScore = publicQueryUtil.calculateMaxPossibleScoreForRequiredQuestions(s.getThemaId());
+        s.setMaxPossibleScore(maxScore);
+        
         repository.save(s);
     }
 }

@@ -685,17 +685,19 @@ public class PublicAccessController {
             summary.setTotalScore(session.getTotalScore());
             
             
-            // MaxPossibleScore = Alle required Fragen + beantwortete optionale Fragen
-            // 1. Basis: Alle required=true Fragen
+            // MaxPossibleScore = Alle required Fragen + beantwortete optionale Fragen (NUR wenn isScorable=true)
+            // 1. Basis: Alle required=true Fragen (isScorable wird in calculateMaxPossibleScoreForRequiredQuestions geprüft)
             BigDecimal maxPossibleScore = publicQueryUtil.calculateMaxPossibleScoreForRequiredQuestions(session.getThemaId());
             
-            // 2. Addiere MaxScore für beantwortete optionale Fragen (required=false)
+            // 2. Addiere MaxScore für beantwortete optionale Fragen (required=false) - NUR wenn isScorable=true
             for (Map<String, Object> data : answeredQuestionsData) {
                 Boolean isRequired = (Boolean) data.get("isRequired");
+                Boolean isScorable = (Boolean) data.get("isScorable");
                 String answerValueJson = (String) data.get("answerValue");
                 
-                // Nur optionale Fragen (required=false) die beantwortet wurden (value != null)
-                if (isRequired != null && !isRequired && answerValueJson != null && !"null".equals(answerValueJson)) {
+                // Nur optionale Fragen (required=false) die beantwortet wurden (value != null) UND bewertbar sind
+                boolean notScorable = (isScorable != null && !isScorable);
+                if (!notScorable && isRequired != null && !isRequired && answerValueJson != null && !"null".equals(answerValueJson)) {
                     String scoringSchemaJson = (String) data.get("scoringSchema");
                     BigDecimal maxScore = calculateMaxScoreForQuestion(
                         (String) data.get("inputType"), 
@@ -740,20 +742,30 @@ public class PublicAccessController {
                     q.setAnsweredValue(answerValueJson); // Fallback
                 }
                 
+                // Prüfe isScorable ZUERST
+                Boolean isScorable = (Boolean) data.get("isScorable");
+                boolean notScorable = (isScorable != null && !isScorable);
+                
                 // Berechne maxScore für diese Frage (aus scoring_schema)
+                // Wenn nicht bewertbar → maxScore = 0
                 String scoringSchemaJson = (String) data.get("scoringSchema");
-                BigDecimal maxScore = calculateMaxScoreForQuestion(
-                    normalizedInputType, 
-                    scoringSchemaJson
-                );
+                BigDecimal maxScore;
+                if (notScorable) {
+                    maxScore = BigDecimal.ZERO; // Nicht bewertbar = kein MaxScore
+                } else {
+                    maxScore = calculateMaxScoreForQuestion(
+                        normalizedInputType, 
+                        scoringSchemaJson
+                    );
+                }
                 q.setMaxScore(maxScore);
                 
                 // Setze Flags für Frontend
                 boolean isSkipped = (answerValueJson == null || "null".equals(answerValueJson));
-                boolean isManualReview = MANUAL_REVIEW_TYPES.contains(normalizedInputType);
-                boolean isAutoScored = !isSkipped && !isManualReview;
+                boolean isManualReview = MANUAL_REVIEW_TYPES.contains(normalizedInputType) && !notScorable;
+                boolean isAutoScored = !isSkipped && !isManualReview && !notScorable;
                 
-                q.setIsSkipped(isSkipped);
+                q.setIsSkipped(isSkipped || notScorable);  // Nicht-bewertbare als "skipped" markieren
                 q.setIsManualReview(isManualReview);
                 q.setIsAutoScored(isAutoScored);
                 
@@ -884,6 +896,9 @@ public class PublicAccessController {
             // Typ normalisieren (wie in AutoScoringService)
             String normalizedType = normalizeInputType(inputType);
             
+            // Prüfe ob Frage bewertbar ist (is_scorable)
+            boolean isScorable = publicQueryUtil.isQuestionScorable(questionUuid);
+            
             // Spezialfall: Skip (value ist null) - nur bei optionalen Fragen erlaubt
             if (value == null) {
                 // Prüfe ob Frage required ist
@@ -912,9 +927,11 @@ public class PublicAccessController {
                 return new ResponseEntity<>(response, HttpStatus.OK);
             }
             
-            // Manuelle Review-Typen: Score = 0.0 (später von Admin bewertet)
+            // Manuelle Review-Typen: Score = 0.0 (später von Admin bewertet), NULL wenn nicht bewertbar
             if (MANUAL_REVIEW_TYPES.contains(inputType)) {
-                var saved = answerService.upsert(session.getId(), questionUuid, value, BigDecimal.ZERO);
+                // Wenn nicht bewertbar → Score = NULL (wird ignoriert)
+                BigDecimal scoreToSave = isScorable ? BigDecimal.ZERO : null;
+                var saved = answerService.upsert(session.getId(), questionUuid, value, scoreToSave);
                 assessmentSessionService.recalculateTotals(session.getId());
 
                 long answered = answerService.countAnswered(session.getId());
@@ -927,7 +944,7 @@ public class PublicAccessController {
                 SaveAnswerResponseDTO response = new SaveAnswerResponseDTO(
                     true,
                     saved.getId(),
-                    BigDecimal.ZERO,
+                    scoreToSave,
                     answered
                 );
 
@@ -943,8 +960,8 @@ public class PublicAccessController {
                         HttpStatus.BAD_REQUEST
                     );
                 }
-                // Für Rating: value bleibt unverändert, score = der Integer-Wert
-                BigDecimal score = BigDecimal.valueOf(ratingValue);
+                // Für Rating: value bleibt unverändert, score = der Integer-Wert (NULL wenn nicht bewertbar)
+                BigDecimal score = isScorable ? BigDecimal.valueOf(ratingValue) : null;
                 var saved = answerService.upsert(session.getId(), questionUuid, value, score);
                 assessmentSessionService.recalculateTotals(session.getId());
 
@@ -965,8 +982,8 @@ public class PublicAccessController {
                 return new ResponseEntity<>(response, HttpStatus.OK);
             }
 
-            // Für alle anderen Typen: Auto-Scoring verwenden
-            BigDecimal score = autoScoringService.autoScore(questionUuid, value);
+            // Für alle anderen Typen: Auto-Scoring verwenden (NULL wenn nicht bewertbar)
+            BigDecimal score = isScorable ? autoScoringService.autoScore(questionUuid, value) : null;
 
             var saved = answerService.upsert(session.getId(), questionUuid, value, score);
 

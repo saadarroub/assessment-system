@@ -18,6 +18,7 @@ export type ApiQuestion = {
   min?: number; max?: number; step?: number;
   labels?: [string, string];
   isRequired?: boolean | string;
+  isScorable?: boolean;               // false = Frage wird nicht bewertet
   currentAnswer?: ApiCurrentAnswer;
 };
 export type ApiCurrentAnswer = {

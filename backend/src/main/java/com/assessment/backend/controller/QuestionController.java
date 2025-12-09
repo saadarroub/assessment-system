@@ -56,6 +56,9 @@ public class QuestionController {
                 question.setScoringSchema(objectMapper.writeValueAsString(dto.getScoringSchema()));
             }
             
+            // isScorable setzen (default: true)
+            question.setIsScorable(dto.getIsScorable() != null ? dto.getIsScorable() : true);
+            
             Question createdQuestion = questionService.createQuestion(question);
             
             // Response mit deserialisierten JSON-Objekten (HashMap erlaubt null-Werte)
@@ -65,6 +68,7 @@ public class QuestionController {
             response.put("questionType", createdQuestion.getQuestionType());
             response.put("options", parseJsonSafe(createdQuestion.getOptions()));
             response.put("scoringSchema", parseJsonSafe(createdQuestion.getScoringSchema()));
+            response.put("isScorable", createdQuestion.getIsScorable());
             response.put("createdAt", createdQuestion.getCreatedAt());
             response.put("updatedAt", createdQuestion.getUpdatedAt());
             
@@ -221,6 +225,11 @@ public class QuestionController {
                 question.setScoringSchema(objectMapper.writeValueAsString(dto.getScoringSchema()));
             }
             
+            // isScorable aktualisieren (wenn gesetzt)
+            if (dto.getIsScorable() != null) {
+                question.setIsScorable(dto.getIsScorable());
+            }
+            
             Question updatedQuestion = questionService.updateQuestionEntity(question);
             
             // Response mit deserialisierten JSON-Objekten
@@ -230,6 +239,7 @@ public class QuestionController {
             response.put("questionType", updatedQuestion.getQuestionType());
             response.put("options", parseJsonSafe(updatedQuestion.getOptions()));
             response.put("scoringSchema", parseJsonSafe(updatedQuestion.getScoringSchema()));
+            response.put("isScorable", updatedQuestion.getIsScorable());
             response.put("createdAt", updatedQuestion.getCreatedAt());
             response.put("updatedAt", updatedQuestion.getUpdatedAt());
             

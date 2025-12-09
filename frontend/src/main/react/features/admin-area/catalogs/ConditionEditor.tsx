@@ -115,6 +115,7 @@ export default function ConditionEditor() {
   const [draggingId, setDraggingId] = useState<string | null>(null);
 
   const [isRequired, setIsRequired] = useState(true); // Standard: true (Pflichtfrage)
+  const [isScorable, setIsScorable] = useState(true); // Standard: true (bewertbar)
 
   // 👁️ Preview-State für Fragen-Simulation
   const [previewQuestion, setPreviewQuestion] = useState<any | null>(null);
@@ -173,6 +174,7 @@ export default function ConditionEditor() {
             scoringSchema: parsedScoring,
 
             required: child.isRequired ?? true,
+            isScorable: child.question?.isScorable ?? true, // ✅ isScorable Feld aus Backend
             expanded: false,
             children: await fetchChildrenRecursive(child.id),
           };
@@ -197,9 +199,18 @@ export default function ConditionEditor() {
           ? editingQuestion.required
           : true;
       setIsRequired(requiredValue);
+      
+      // isScorable aus editingQuestion laden (default: true)
+      const scorableValue = 
+        editingQuestion.isScorable !== undefined && 
+        editingQuestion.isScorable !== null
+          ? editingQuestion.isScorable
+          : true;
+      setIsScorable(scorableValue);
     } else {
       // Beim Erstellen einer neuen Frage: Standard auf true setzen
       setIsRequired(true);
+      setIsScorable(true);
     }
   }, [editingQuestion]);
 
@@ -374,6 +385,7 @@ export default function ConditionEditor() {
                 scoringSchema: parsedScoring,
               }),
               required: root.isRequired ?? true, // ✅ isRequired Feld aus Backend
+              isScorable: root.question?.isScorable ?? true, // ✅ isScorable Feld aus Backend
               expanded: false,
               children: await fetchChildrenRecursive(root.id),
             };
@@ -393,6 +405,7 @@ export default function ConditionEditor() {
   const handleAddQuestion = () => {
     setParentQuestion(null);
     setIsRequired(true); // Standard: true beim Öffnen für neue Frage
+    setIsScorable(true); // Standard: true beim Öffnen für neue Frage
     setIsModalOpen(true);
   };
 
@@ -403,6 +416,7 @@ export default function ConditionEditor() {
     setParentQuestion(null);
     setEditingQuestion(null);
     setIsRequired(true); // Standard: true zurücksetzen
+    setIsScorable(true); // Standard: true zurücksetzen
 
     // ❗❗ FIX: Fehlerstatus komplett zurücksetzen
     setHasSubmitted(false);
@@ -560,6 +574,7 @@ export default function ConditionEditor() {
         hasOptions && !isOrderType
           ? Object.fromEntries(options.map((o) => [o.label, Number(o.score)]))
           : null,
+      isScorable: hasOptions ? true : isScorable, // Nur für Textfelder relevant
     };
 
     try {
@@ -581,6 +596,7 @@ export default function ConditionEditor() {
           options.map((o) => [o.label, o.score])
         ),
         required: isRequired, // ✅ isRequired Feld hinzufügen
+        isScorable: hasOptions ? true : isScorable, // ✅ isScorable Feld hinzufügen
         children: [],
         expanded: false,
       };
@@ -603,6 +619,7 @@ export default function ConditionEditor() {
       setOptions([]);
       setParentQuestion(null);
       setIsRequired(true); // Standard: true zurücksetzen
+      setIsScorable(true); // Standard: true zurücksetzen
 
       showSuccess("Frage erfolgreich hinzugefügt!");
     } catch (error) {
@@ -695,6 +712,7 @@ export default function ConditionEditor() {
           hasOptions && !isOrderType
             ? Object.fromEntries(options.map((o) => [o.label, Number(o.score)]))
             : null,
+        isScorable: hasOptions ? true : isScorable, // Nur für Textfelder relevant
       };
 
       await updateQuestion(editingQuestion.questionId, payload);
@@ -717,6 +735,7 @@ export default function ConditionEditor() {
                   ? Object.fromEntries(options.map((o) => [o.label, o.score]))
                   : {},
                 required: isRequired, // ✅ isRequired auch in UI aktualisieren
+                isScorable: hasOptions ? true : isScorable, // ✅ isScorable auch in UI aktualisieren
               }
             : {
                 ...q,
@@ -1017,24 +1036,30 @@ export default function ConditionEditor() {
                   </span>
                 )}
 
-                {/* MAX SCORING BADGE */}
-                <span className="inline-block text-xs text-[#0f5132] bg-[#d1e7dd] px-2 py-0.5 rounded-full">
-                  Max Score:{" "}
-                  {(() => {
-                    // 1. wenn Optionen existieren → SUMME der Scores
-                    if (q.options && q.options.length > 0) {
-                      const sum = q.options
-                        .map((o: any) => Number(o.score))
-                        .filter((n: number) => !isNaN(n))
-                        .reduce((a: number, b: number) => a + b, 0);
+                {/* MAX SCORING BADGE - oder "Nicht bewertet" wenn isScorable=false */}
+                {q.isScorable === false ? (
+                  <span className="inline-block text-xs text-[#6c757d] bg-[#e9ecef] px-2 py-0.5 rounded-full">
+                    Nicht bewertet
+                  </span>
+                ) : (
+                  <span className="inline-block text-xs text-[#0f5132] bg-[#d1e7dd] px-2 py-0.5 rounded-full">
+                    Max Score:{" "}
+                    {(() => {
+                      // 1. wenn Optionen existieren → SUMME der Scores
+                      if (q.options && q.options.length > 0) {
+                        const sum = q.options
+                          .map((o: any) => Number(o.score))
+                          .filter((n: number) => !isNaN(n))
+                          .reduce((a: number, b: number) => a + b, 0);
 
-                      return sum > 0 ? sum : 6; // falls keine gültigen Scores → 6
-                    }
+                        return sum > 0 ? sum : 6; // falls keine gültigen Scores → 6
+                      }
 
-                    // 2. andere Typen (manuelle) → Standard 6
-                    return 6;
-                  })()}
-                </span>
+                      // 2. andere Typen (manuelle) → Standard 6
+                      return 6;
+                    })()}
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -1058,6 +1083,7 @@ export default function ConditionEditor() {
               onClick={() => {
                 setParentQuestion(q);
                 setIsRequired(true);
+                setIsScorable(true);
                 setIsModalOpen(true);
               }}
               className="transition-all duration-200 hover:scale-125 hover:opacity-80"
@@ -1536,6 +1562,40 @@ export default function ConditionEditor() {
                     </button>
                   </div>
                 </div>
+
+                {/* 🔸 Bewertbar (nur für Textfelder ohne Optionen) */}
+                {selectedType && !selectedType.hasOptions && (
+                  <div className="mt-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Bewertung
+                    </label>
+
+                    <div className="flex items-center justify-between bg-gray-50 border border-gray-300 rounded-xl px-4 py-3">
+                      <div>
+                        <p className="text-sm text-black-500">
+                          {isScorable 
+                            ? "Frage wird bewertet (manuelle Bewertung)" 
+                            : "Frage wird nicht bewertet"}
+                        </p>
+                      </div>
+
+                      {/* TOGGLE SWITCH */}
+                      <button
+                        type="button"
+                        onClick={() => setIsScorable(!isScorable)}
+                        className={`w-12 h-7 flex items-center rounded-full transition-all ${
+                          isScorable ? "bg-[#d2c9b9]" : "bg-gray-300"
+                        }`}
+                      >
+                        <span
+                          className={`w-5 h-5 bg-white rounded-full shadow transform transition-all ${
+                            isScorable ? "translate-x-6" : "translate-x-1"
+                          }`}
+                        ></span>
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {/* 🔸 Antwortoptionen */}
                 {showOptions && (
