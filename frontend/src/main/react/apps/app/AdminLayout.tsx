@@ -3,15 +3,19 @@ import { NavLink, useNavigate } from "react-router-dom";
 import { useAuthCtx } from "@/core/auth/AuthContext";
 import { AuthService } from "@/core/auth/AuthService";
 import { logoutApi } from "@/features/auth/logoutService";
-import ProfileStrip from "@/apps/app/ProfileStrip";
+import {
+  getUserProfile,
+  buildAvatarUrl,
+  type ApiUser,
+} from "@/features/service/profilePageService"; // Pfad ggf. anpassen
 
 import {
   Settings,
   FileText,
   ShoppingCart,
   Building2,
-  ChevronRight,
   ChevronLeft,
+  ChevronRight,
   LayoutDashboard,
   Shield,
 } from "lucide-react";
@@ -84,7 +88,7 @@ const NAV_PRIMARY: Array<{
     },
     {
       id: "catalog",
-      label: "Katalogen",
+      label: "Kataloge",
       Icon: FileText,
       to: "/admin/katalogzuweisen",
     },
@@ -139,11 +143,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   // genaue Position/Ausrichtung des Toggle-Buttons im collapsed State
   // Toggle im collapsed-State etwas kleiner als die 48px-Kacheln,
   // damit er optisch gleich groß wirkt wie die Icons
-  const collapsedToggleSize = TOKENS.sizes.tile + 4; // 38 + 4 = 42
-
-  const collapsedLeft = (TOKENS.sizes.sidebarClosed - collapsedToggleSize) / 2;
-  const collapsedTop = (TOKENS.sizes.header - collapsedToggleSize) / 2;
-
+  const collapsedToggleSize = TOKENS.sizes.tile + 4; 
 
   const { isAuthenticated, logout } = useAuthCtx();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -158,7 +158,30 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     email?: string;
     roles?: string[];
   } | null>(null);
+  const [profile, setProfile] = useState<ApiUser | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
+  useEffect(() => {
+  const handler = (event: Event) => {
+    const custom = event as CustomEvent<{ avatarUrl: string | null }>;
+    const url = custom.detail?.avatarUrl ?? null;
+
+    setAvatarUrl(url);
+
+    // Profil-Objekt optional mitziehen (nur wenn du es brauchst)
+    setProfile(prev =>
+      prev
+        ? {
+            ...prev,
+            profileImagePath: url ? url.split("/").pop() ?? null : null,
+          }
+        : prev
+    );
+  };
+
+  window.addEventListener("profile:avatar-updated", handler);
+  return () => window.removeEventListener("profile:avatar-updated", handler);
+}, []);
   function readSessionUser(): any | null {
     try {
       const raw = window.sessionStorage.getItem("auth_session");
@@ -183,19 +206,45 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     }
   }
 
-  // ⬇⬇ DAS FEHLTE
+  // Profil + Avatar laden, sobald wir eine userId haben
+useEffect(() => {
+  if (!sessionUser?.id) return;
+
+  const userId: string = sessionUser.id;
+
+  (async () => {
+    try {
+      const p = await getUserProfile(userId);
+      setProfile(p);
+      setAvatarUrl(buildAvatarUrl(p.profileImagePath));
+    } catch (err) {
+      console.error("[AdminLayout] Konnte Profil nicht laden:", err);
+    }
+  })();
+}, [sessionUser?.id]);
+
+
+
   useEffect(() => {
     const u = readSessionUser();
     setSessionUser(u);
   }, []);
-  // ⬆⬆
 
   const displayName =
+    profile?.name ||
     sessionUser?.username ||
     sessionUser?.name ||
     "admin";
 
-  const displayEmail = sessionUser?.email || "admin@example.com";
+  const displayEmail =
+    profile?.email ||
+    sessionUser?.email ||
+    "admin@example.com";
+
+  // Für Initialen im Fallback:
+  const initials =
+    (displayName ?? "A").trim().charAt(0).toUpperCase();
+
 
 
 
@@ -245,7 +294,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       <aside
         aria-label="Admin Sidebar"
         className={cx(
-          "fixed inset-y-0 left-0 z-[60] flex flex-col overflow-hidden border-r shadow-[10px_0_40px_-18px_rgba(0,0,0,.55)] transition-[width,background-color,color] duration-300"
+          "fixed inset-y-0 left-0 z-[60] flex flex-col overflow-hidden border-r transition-[width,background-color,color] duration-300"
         )}
         style={{
           width: collapsed
@@ -253,7 +302,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
             : TOKENS.sizes.sidebarOpen,
           background: isDarkMode
             ? "radial-gradient(circle at top left, rgba(148,163,184,0.18), transparent 55%), linear-gradient(180deg, hsl(215 19% 14%), hsl(215 25% 10%))"
-            : "radial-gradient(circle at top left, rgba(227,187,98,0.20), transparent 55%), linear-gradient(180deg, hsl(210 28% 24%), hsl(210 26% 18%))",
+            : "radial-gradient(circle at top left, transparent 55%), linear-gradient(180deg, hsl(210 28% 24%), hsl(210 26% 18%))",
           color: isDarkMode ? "#e5e7eb" : `hsl(${TOKENS.sidebarFg})`,
         }}
       >
@@ -271,10 +320,6 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
               backgroundSize: "32px 32px",
             }}
           />
-          {/* kleiner Gold-Glow oben links */}
-          <div className="absolute -left-10 -top-10 h-32 w-32 rounded-full bg-[#E3BB62]/55 blur-3xl" />
-          {/* blauer Glow unten */}
-          <div className="absolute -right-16 bottom-[-40px] h-40 w-40 rounded-full bg-sky-500/40 blur-3xl" />
           {/* Sternchen */}
           <div className="absolute inset-0">
             <span className="absolute left-6 top-16 h-[3px] w-[3px] rounded-full bg-white/65" />
@@ -283,84 +328,107 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           </div>
         </div>
 
-        {/* ===== Inhalt: alles relativ mit höherem z-Index ===== */}
         <div className="relative z-10 flex h-full flex-col">
           {/* Header */}
-          <div
-            className="relative flex items-center justify-between border-b px-3"
-            style={{
-              height: TOKENS.sizes.header,
-              borderColor: `hsl(${TOKENS.sidebarBorder})`,
-              borderTopRightRadius: 14,
-              background:
-                "linear-gradient(90deg, rgba(15,23,42,0.10), rgba(15,23,42,0))",
-            }}
-          >
-            {/* Brand / Admin Area */}
-            <div
-              aria-hidden={collapsed}
-              className={cx(
-                "transition-[visibility,opacity,transform] duration-200",
-                collapsed
-                  ? "invisible opacity-0 -translate-x-2"
-                  : "visible opacity-100 translate-x-0"
-              )}
-            >
+          <div className="relative px-3 pt-3">
+            {collapsed ? (
+    <div className="flex items-center justify-center">
+      <button
+        type="button"
+        aria-label="Sidebar erweitern"
+        onClick={() => setCollapsed(false)}
+        className="
+          relative w-[48px] h-[48px]
+          rounded-[14px]
+          border border-transparent
+          flex items-center justify-center
+          transition
+          hover:bg-white/10
+          hover:border-white/25
+          hover:shadow-[0_8px_20px_rgba(0,0,0,0.45)]
+        "
+      >
+        <span
+          className="grid place-items-center rounded-[12px] border shadow-[0_10px_22px_rgba(0,0,0,0.5)]"
+          style={{
+            width: TOKENS.sizes.collapsedTile,
+            height: TOKENS.sizes.collapsedTile,
+            background: "rgba(15,23,42,0.75)",
+            borderColor: "rgba(148,163,184,0.6)",
+            color: `hsl(${TOKENS.sidebarMuted})`,
+          }}
+        >
+          <ChevronRight className="w-[18px] h-[18px]" />
+        </span>
+      </button>
+    </div>
+            ) : (
               <div
-                className="inline-flex items-center gap-3 rounded-6xl border px-3 py-3 bg-white/8 border-white/25 backdrop-blur-[8px] shadow-[0_10px_25px_rgba(0,0,0,0.35)]"
+                className="
+    flex items-center justify-between
+    rounded-[20px]
+    border border-transparent
+    px-4 py-3
+    text-left
+    transition
+    bg-[rgba(15,23,42,0.24)]
+    hover:bg-white/5
+    hover:border-white/15
+    hover:shadow-[0_8px_22px_rgba(0,0,0,0.35)]
+  "
+                style={{
+                  borderColor: "rgba(148,163,184,0.45)",
+                }}
               >
-                {/* Icon-Kreis (etwas kleiner, cleaner) */}
-                <div className="relative">
-                  <div className="absolute inset-[-5px] rounded-full border border-white/25 opacity-80" />
-                  <span className="absolute -top-0.5 right-0.5 h-[4px] w-[4px] rounded-full bg-[#E3BB62]" />
-                  <span className="absolute bottom-0 left-0 h-[3px] w-[3px] rounded-full bg-sky-300" />
-                  <div className="relative grid h-7 w-7 place-items-center rounded-full bg-white/15 border border-white/50 text-white shadow-[0_6px_16px_rgba(0,0,0,0.55)]">
-                    <Settings className="w-4 h-4" />
+
+                {/* Linke Seite: Icon + Texte */}
+                <div className="flex items-center gap-3">
+                  <div className="relative">
+                    <div className="absolute inset-[-6px] rounded-full border border-white/20 opacity-70" />
+                    <span className="absolute -top-1 right-0 h-[5px] w-[5px] rounded-full bg-[#E3BB62]" />
+                    <span className="absolute bottom-0 left-0 h-[4px] w-[4px] rounded-full bg-sky-300/90" />
+                    <div className="relative grid h-8 w-8 place-items-center rounded-full bg-white/10 border border-white/55 text-white shadow-[0_6px_16px_rgba(0,0,0,0.6)]">
+                      <Settings className="w-4 h-4" />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col leading-tight">
+                    <span className="text-[10px] font-semibold tracking-[0.18em] uppercase text-white/80">
+                      SYSTEM · MANAGEMENT
+                    </span>
+                    <span className="text-[11px] text-slate-100/95">
+                      Management &amp; Administration
+                    </span>
                   </div>
                 </div>
 
-                <div className="flex flex-col leading-tight">
-                  <span className="text-[10px] font-semibold tracking-[0.18em] uppercase text-white/80">
-                    SYSTEM · MANAGEMENT
-                  </span>
-                  <span className="text-[11px] text-white/90">
-                    Management & Administration
-                  </span>
-                </div>
+                {/* Pfeil-Button rechts – nur zum ZUKLAPPEN */}
+                <button
+                  type="button"
+                  aria-label="Sidebar einklappen"
+                  onClick={() => setCollapsed(true)}
+                  className="
+          ml-3 grid place-items-center
+          h-9 w-9 rounded-2xl
+          border
+          shadow-[0_8px_20px_rgba(0,0,0,0.6)]
+          bg-[rgba(15,23,42,0.8)]
+          hover:bg-[rgba(15,23,42,0.95)]
+          hover:border-white/60
+          transition
+        "
+                  style={{
+                    borderColor: "rgba(148,163,184,0.65)",
+                    color: "hsl(210 16% 90%)",
+                  }}
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
               </div>
-            </div>
-
-            {/* Toggle */}
-            <button
-              type="button"
-              aria-label={collapsed ? "Sidebar erweitern" : "Sidebar einklappen"}
-              onClick={() => setCollapsed((v) => !v)}
-              className={
-                collapsed
-                  ? "absolute z-20 grid place-items-center rounded-xl border bg-white/12 border-white/35 text-white shadow-[0_4px_12px_rgba(0,0,0,0.65)] focus:outline-none backdrop-blur-sm"
-                  : "grid place-items-center rounded-xl border shadow-[0_4px_12px_rgba(0,0,0,0.55)] focus:outline-none bg-white/14 border-white/30 text-white"
-              }
-              style={
-                collapsed
-                  ? {
-                    left: collapsedLeft,
-                    top: collapsedTop,
-                    width: collapsedToggleSize,
-                    height: collapsedToggleSize,
-                  }
-                  : {
-                    width: "2.5rem",   // vorher ~2.2rem → größer
-                    height: "2.5rem",
-                  }
-              }
-            >
-              {collapsed ? (
-                <ChevronRight className="w-5 h-5" />
-              ) : (
-                <ChevronLeft className="w-5 h-5" />
-              )}
-            </button>
+            )}
           </div>
+
+
 
           {/* Content */}
           <div className="flex-1 overflow-y-auto p-3 [scrollbar-width:none] [-ms-overflow-style:none] flex flex-col min-h-0">
@@ -660,11 +728,12 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
 
             <div ref={menuRef} className="relative">
               {collapsed ? (
+
                 // Nur Avatar, wenn Sidebar zu ist
-                <button
-                  type="button"
-                  onClick={() => setMenuOpen((v) => !v)}
-                  className="
+            <button
+    type="button"
+    onClick={() => setMenuOpen((v) => !v)}
+    className="
       relative
       w-[48px] h-[48px]
       rounded-[16px]
@@ -675,53 +744,74 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       hover:bg-white/10
       transition
     "
-                  aria-label="Profilmenü öffnen"
-                >
-                  <div className="relative">
-                    <img
-                      src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=80&h=80&fit=crop&crop=face"
-                      alt="Profil"
-                      className="h-9 w-9 rounded-full border border-white/40 shadow"
-                    />
-                    <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-400 border border-slate-900" />
-                  </div>
-                </button>
+    aria-label="Profilmenü öffnen"
+  >
+    <div className="relative">
+      {avatarUrl ? (
+        <img
+          src={avatarUrl}
+          alt={displayName}
+          className="h-9 w-9 rounded-full border border-white/40 shadow object-cover"
+        />
+      ) : (
+        <div
+          className="
+            h-9 w-9 rounded-full border border-white/40 shadow
+            bg-[rgba(15,23,42,0.8)]
+            flex items-center justify-center
+            text-sm font-semibold text-white
+          "
+        >
+          {initials}
+        </div>
+      )}
+      <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-400 border border-slate-900" />
+    </div>
+  </button>
               ) : (
-                // Neuer, kompletter Profil-Strip im offenen Zustand
                 <button
                   type="button"
                   onClick={() => setMenuOpen((v) => !v)}
                   className="
-      group
-      relative flex w-full items-center gap-3
-      rounded-[22px]
-      border border-white/12
-      bg-gradient-to-r
-      from-[rgba(15,23,42,0.98)]      /* links: dunkles Navy */
-      via-[rgba(21,36,57,0.96)]       /* Mitte: etwas heller */
-      to-[rgba(76,134,191,0.9)]       /* rechts: deutlich heller, bläulich */
-      px-3.5 py-2.5
-      shadow-[0_16px_34px_rgba(0,0,0,0.75)]
-      hover:from-[rgba(18,30,46,1)]
-      hover:via-[rgba(29,52,82,0.98)]
-      hover:to-[rgba(110,171,215,0.98)]
-      hover:border-[#E3BB62]/80
-      transition
-    "
+    group
+    relative flex w-full items-center gap-3
+    rounded-[20px]
+    border border-transparent
+    px-4 py-3
+    text-left
+    transition
+    bg-[rgba(15,23,42,0.24)]
+    hover:bg-white/5
+    hover:border-white/15
+    hover:shadow-[0_8px_22px_rgba(0,0,0,0.35)]
+  "
                 >
-                  {/* dünner innerer Glow-Rand */}
-                  <div className="pointer-events-none absolute inset-[1px] rounded-[20px] border border-white/10 opacity-70" />
+                  <div className="pointer-events-none absolute inset-[1px] rounded-[18px] border border-white/8 opacity-70" />
 
                   {/* Avatar links */}
                   <div className="relative shrink-0 z-10">
-                    <div className="absolute inset-[-4px] rounded-full border border-white/25 opacity-70" />
-                    <img
-                      src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=120&h=120&fit=crop&crop=face"
-                      alt="Profil"
-                      className="h-9 w-9 rounded-full border border-white/60 shadow"
-                    />
+                    {avatarUrl ? (
+                      <img
+                        src={avatarUrl}
+                        alt={displayName}
+                        className="h-9 w-9 rounded-full border border-white/50 shadow object-cover"
+                      />
+                    ) : (
+                      <div
+                        className="
+        h-9 w-9 rounded-full border border-white/50 shadow
+        bg-[rgba(15,23,42,0.8)]
+        flex items-center justify-center
+        text-sm font-semibold text-white
+      "
+                        aria-hidden="true"
+                      >
+                        {initials}
+                      </div>
+                    )}
                     <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-400 border border-slate-900" />
                   </div>
+
 
                   {/* Name + Mail */}
                   <div className="min-w-0 flex-1 text-left z-10">
@@ -733,23 +823,26 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                     </p>
                   </div>
 
-                  {/* Settings-Icon rechts – bewusst heller gemacht */}
+                  {/* Settings-Icon rechts – gleiche Farben wie Icon-Kacheln */}
                   <div
                     className="
-        z-10
-        shrink-0 grid place-items-center
-        h-9 w-9 rounded-2xl
-        border border-white/40
-        bg-white/15
-        shadow-[0_8px_20px_rgba(0,0,0,0.55)]
-        group-hover:border-[#E3BB62]/80
-        group-hover:bg-[#E3BB62]/30
-        transition
-      "
+      z-10
+      shrink-0 grid place-items-center
+      h-9 w-9 rounded-[14px]
+      border
+      shadow-[0_10px_22px_rgba(0,0,0,0.5)]
+      group-hover:border-white/60
+    "
+                    style={{
+                      background: "rgba(15,23,42,0.75)",           // wie Icon-Tiles
+                      borderColor: "rgba(148,163,184,0.6)",        // wie Icon-Tiles
+                      color: "hsl(210 16% 80%)",                   // sidebarMuted
+                    }}
                   >
-                    <Settings className="w-4 h-4 text-white" />
+                    <Settings className="w-4 h-4" />
                   </div>
                 </button>
+
               )}
 
               {menuOpen && !collapsed && (
@@ -778,11 +871,28 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           border-b border-black/5 dark:border-slate-700
         "
                     >
-                      <img
-                        src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=80&h=80&fit=crop&crop=face"
-                        alt="Profil"
-                        className="h-9 w-9 rounded-full border border-white/70 shadow-sm"
-                      />
+                     {/* Avatar im Menü-Header */}
+<div className="relative">
+  {avatarUrl ? (
+    <img
+      src={avatarUrl}
+      alt={displayName}
+      className="h-9 w-9 rounded-full border border-white/70 shadow-sm object-cover"
+    />
+  ) : (
+    <div
+      className="
+        h-9 w-9 rounded-full border border-white/70 shadow-sm
+        bg-[rgba(15,23,42,0.8)]
+        flex items-center justify-center
+        text-sm font-semibold text-white
+      "
+    >
+      {initials}
+    </div>
+  )}
+</div>
+
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-semibold text-slate-900 dark:text-slate-50 truncate">
                           {displayName}

@@ -64,7 +64,7 @@ const PANELS: Panel[] = [
 export default function AdminPanelPage() {
   return (
     <AdminLayout>
-      {/* ===== Hero Header wie bei CompaniesList / PageHeader ===== */}
+      {/* ===== Hero Header ===== */}
       <PageHeader
         title="Admin Panel"
         subtitle="Manage users, companies, roles and monitor system activities."
@@ -72,6 +72,8 @@ export default function AdminPanelPage() {
         gradient="navy"
         height="280px"
         showPattern={true}
+        center={false}
+
       />
 
       {/* ===== Main-Bereich: gleicher Stil wie bei CompaniesList ===== */}

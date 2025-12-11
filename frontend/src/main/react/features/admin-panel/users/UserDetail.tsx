@@ -105,6 +105,7 @@ export default function UserDetailsPage() {
         gradient="navy"
         height="280px"
         showPattern={true}
+        center={false}
       />
 
       {/* ===== Außenbereich unter dem Hero ===== */}

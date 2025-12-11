@@ -6,9 +6,10 @@ import {
   Copy,
   Check,
   Link as LinkIcon,
-  X,
+  FileDown,
   Network,
   Trash2,
+  KeyRound,
 } from "lucide-react";
 import AdminLayout from "@/apps/app/AdminLayout";
 import {
@@ -20,6 +21,8 @@ import {
 import PageHeader from "@/features/admin-area/catalogs/PageHeader";
 import { useToast } from "@/shared/contexts/ToastContext";
 import ConfirmModal from "@/shared/components/ConfirmModal";
+import { jsPDF } from "jspdf";
+import capConsultingTemplate from "@/assets/cap-template-a4.png"
 
 type SortKey =
   | "worker"
@@ -112,11 +115,285 @@ export default function Zuweisungen() {
   const [extending, setExtending] = useState(false);
   const [extendError, setExtendError] = useState<string | null>(null);
 
+
+  const [bgStandardImg, setBgStandardImg] = useState<HTMLImageElement | null>(null);
+
+  useEffect(() => {
+    const imgStd = new Image();
+    imgStd.src = capConsultingTemplate;
+    imgStd.onload = () => setBgStandardImg(imgStd);
+
+    // falls du ein zweites Template hast:
+    // const imgCmp = new Image();
+    // imgCmp.src = capTemplateCompact;
+    // imgCmp.onload = () => setBgCompactImg(imgCmp);
+  }, []);
+
   function buildUserInviteUrl(a: AssignmentApi) {
     const token = a.accessToken || "";
     const APP_ORIGIN = window.location.origin;
     return `${APP_ORIGIN}/invite/${token}`;
   }
+  //  Mail-Versand 
+  function handleSendInviteEmail(a: AssignmentApi) {
+
+    const email =
+      (a.worker as any)?.email ||
+      (a.worker as any)?.mail ||
+      a.worker?.id ||
+      "";
+
+    if (!email) {
+      showError("Für diesen Empfänger ist keine E-Mail-Adresse hinterlegt.");
+      return;
+    }
+
+    const inviteLink = buildUserInviteUrl(a);
+
+    const subject = encodeURIComponent(
+      `Einladung zum Assessment "${a.catalog?.title || "Katalog"}"`
+    );
+
+    let body = `Hallo ${a.worker?.name || ""},\n\n`;
+    body += "hier ist dein persönlicher Einlade-Link zum Assessment:\n\n";
+    body += `${inviteLink}\n\n`;
+
+    if (a.accessCode) {
+      body += `Access-Code: ${a.accessCode}\n\n`;
+    }
+
+    if (a.expiresAt) {
+      body += `Gültig bis: ${new Date(a.expiresAt).toLocaleString("de-DE")}\n\n`;
+    }
+
+    body += "Viele Grüße\nDein ICA³ Team";
+
+    const mailtoUrl = `mailto:${encodeURIComponent(
+      email
+    )}?subject=${subject}&body=${encodeURIComponent(body)}`;
+
+    // Standard-Mailprogramm öffnen
+    window.location.href = mailtoUrl;
+  }
+
+  function handleExportInvitePdf(a: AssignmentApi) {
+    // Sicherstellen, dass das Template-Bild geladen ist
+    try {
+      if (!bgStandardImg) {
+        showError("PDF-Template wird noch geladen. Bitte kurz warten.");
+        return;
+      }
+
+      // Neues A4-Dokument erstellen
+      const doc = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
+      });
+
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+
+      //  CAP-Template als Hintergrund zeichnen
+      doc.addImage(bgStandardImg, "PNG", 0, 0, pageWidth, pageHeight);
+      // etwas höher ansetzen, ungefähr da, wo im Template die gestrichelte Box ist
+      const footerY = pageHeight - 8; // bei Bedarf 1–2 mm rauf/runter anpassen
+
+      // Kleine Box
+      const footerBoxWidth = 70;  // schmaler als vorher
+      const footerBoxHeight = 6;
+      const rightMargin = 20;     // Abstand zur rechten Blattkante
+      const footerBoxX = pageWidth - rightMargin - footerBoxWidth;
+      const footerBoxTop = footerY - footerBoxHeight + 2;
+
+      // Innenbereich weiß füllen (alter Template-Text wird übermalt,
+      // grauer Balken links wird NICHT getroffen)
+      doc.setFillColor(255, 255, 255);
+      doc.rect(footerBoxX, footerBoxTop, footerBoxWidth, footerBoxHeight, "F");
+
+      // Text in die Box schreiben
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(120, 120, 120);
+
+      // ein bisschen Innenabstand
+      const paddingX = 4;
+
+      // links: "Einladung"
+      doc.text("Einladung", footerBoxX + paddingX, footerY);
+
+      // rechts: "Seite 1 von 1"
+      doc.text(
+        "Seite 1 von 1",
+        footerBoxX + footerBoxWidth - paddingX,
+        footerY,
+        { align: "right" }
+      );
+
+      // Daten aus der Zuweisung holen
+      const inviteLink = buildUserInviteUrl(a);
+
+      const workerName = a.worker?.name ?? "";
+      const workerEmail =
+        (a.worker as any)?.email || (a.worker as any)?.mail || ""; // HIER ggfs. anpassen!
+      const companyName = a.company?.name ?? "";
+      const catalogTitle = a.catalog?.title ?? "";
+      const accessCode = a.accessCode ?? "";
+      const expiresAtText = a.expiresAt
+        ? new Date(a.expiresAt).toLocaleString("de-DE")
+        : "";
+
+      //  Überschrift: "Einladung zum Assessment" zentriert oben
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(16);
+      // CAP-Navy: ungefähr RGB(38,69,85)
+      doc.setTextColor(38, 69, 85);
+      doc.text("Einladung zum Assessment", pageWidth / 2, 45, {
+        align: "center",
+      });
+
+      //  Untertitel: Katalog-Titel 
+      if (catalogTitle) {
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(12);
+        doc.text(`Assessment: ${catalogTitle}`, pageWidth / 2, 52, {
+          align: "center",
+        });
+      }
+
+      //  Haupttext im weißen Bereich
+      const contentLeft = 25; // etwas Abstand von der linken Linie
+      let y = 65;             // etwas unter dem Titel beginnen
+
+      // Empfänger-Daten (Name + Mail)
+      doc.setFontSize(11);
+      doc.setTextColor(0, 0, 0);
+
+      // Name (Label fett, Wert normal)
+      doc.setFont("helvetica", "bold");
+      doc.text("Empfänger:", contentLeft, y);
+      doc.setFont("helvetica", "normal");
+      doc.text(workerName || "-", contentLeft + 35, y);
+      y += 6;
+
+      // E-Mail
+      doc.setFont("helvetica", "bold");
+      doc.text("E-Mail:", contentLeft, y);
+      doc.setFont("helvetica", "normal");
+      doc.text(workerEmail || "-", contentLeft + 35, y);
+      y += 6;
+
+      // Firma
+      doc.setFont("helvetica", "bold");
+      doc.text("Firma:", contentLeft, y);
+      doc.setFont("helvetica", "normal");
+      doc.text(companyName || "-", contentLeft + 35, y);
+      y += 10;
+
+      // kurzer Einleitungstext
+      doc.setFont("helvetica", "normal");
+      const introLines = doc.splitTextToSize(
+        "Sie wurden eingeladen, an einem Digital Maturity Assessment teilzunehmen. Bitte nutzen Sie den folgenden Link, um das Assessment zu starten:",
+        pageWidth - contentLeft - 20
+      );
+      doc.text(introLines, contentLeft, y);
+      y += introLines.length * 6;
+
+      // Link optisch hervorheben
+      doc.setFont("helvetica", "bold");
+      // Gold: ungefähr RGB(227,187,98)
+      doc.setTextColor(227, 187, 98);
+      doc.setFontSize(10);
+
+      const maxTextWidth = pageWidth - contentLeft - 20;
+
+      // Link in mehrere Zeilen umbrechen (wie vorher)
+      const linkLines = doc.splitTextToSize(inviteLink, maxTextWidth);
+
+      // Startposition des Link-Blocks merken
+      const linkX = contentLeft;
+      const linkY = y;
+      const lineHeight = 6; // Abstand zwischen den Zeilen
+
+      // Text  zeichnen
+      doc.text(linkLines, linkX, linkY);
+
+      // Klickbare Fläche über den gesamten Block legen
+      let linkWidth = 0;
+      linkLines.forEach((line: any) => {
+        const w = doc.getTextWidth(line);
+        if (w > linkWidth) linkWidth = w;
+      });
+
+      const linkHeight = lineHeight * linkLines.length;
+
+      // link() erwartet die obere linke Ecke → darum etwas nach oben korrigieren
+      doc.link(linkX, linkY - lineHeight + 2, linkWidth, linkHeight, {
+        url: inviteLink,
+      });
+
+      // y nach dem Block weiterschieben
+      y += linkLines.length * lineHeight;
+
+      // Style wieder zurücksetzen
+      doc.setTextColor(0, 0, 0);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(11);
+
+      // wieder normale Textfarbe
+      doc.setTextColor(0, 0, 0);
+      doc.setFont("helvetica", "normal");
+
+      // Access-Code
+      if (accessCode) {
+        y += 2;
+        doc.setFont("helvetica", "bold");
+        doc.text("Access-Code:", contentLeft, y);
+        doc.setFont("helvetica", "normal");
+        doc.text(accessCode, contentLeft + 35, y);
+        y += 6;
+      }
+
+      // Gültigkeitsdatum
+      if (expiresAtText) {
+        doc.setFont("helvetica", "bold");
+        doc.text("Gültig bis:", contentLeft, y);
+        doc.setFont("helvetica", "normal");
+        doc.text(expiresAtText, contentLeft + 35, y);
+        y += 8;
+      }
+
+      // Abschluss-Text
+      const outroLines = doc.splitTextToSize(
+        "Öffnen Sie den Link in Ihrem Browser und folgen Sie den Anweisungen im System. Vielen Dank für Ihre Teilnahme.",
+        pageWidth - contentLeft - 20
+      );
+      doc.text(outroLines, contentLeft, y);
+      y += outroLines.length * 6 + 10;
+
+      // Signatur
+      doc.setFont("helvetica", "normal");
+      doc.text("Viele Grüße", contentLeft, y);
+      y += 6;
+
+      // ICA³ in CAP-Farbe fett
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(38, 69, 85); // CAP-Navy
+      doc.text("Ihr ICA³ Team", contentLeft, y);
+
+
+      //  Dateiname bauen und speichern
+      const safeName =
+        workerName?.trim().replace(/\s+/g, "_") || `assignment_${a.id ?? ""}`;
+      doc.save(`Einladung_${safeName}.pdf`);
+      showSuccess("Einladungs-PDF wurde erfolgreich erstellt.");
+    } catch {
+      showError("Beim Erstellen des Einladungs-PDF ist ein Fehler aufgetreten.");
+    }
+
+  }
+
+
 
   useEffect(() => {
     let alive = true;
@@ -308,6 +585,7 @@ export default function Zuweisungen() {
         gradient="navy"
         height="280px"
         showPattern={true}
+        center={false}
       />
 
       <main
@@ -947,7 +1225,7 @@ export default function Zuweisungen() {
         </div>
       </main>
 
-      {/* Invite Modal – bleibt wie bei dir */}
+      {/* Invite Modal  */}
       {inviteFor && (
         <div
           className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/40 backdrop-blur-sm px-4"
@@ -984,22 +1262,28 @@ export default function Zuweisungen() {
                       Teile diesen Link oder Access-Code mit der ausgewählten
                       Person.
                     </p>
+
                   </div>
 
                   <button
                     type="button"
-                    onClick={() => setInviteFor(null)}
+                    onClick={() => {
+                      if (inviteFor) handleExportInvitePdf(inviteFor);
+                    }}
                     className="
-                      inline-flex h-9 w-9 items-center justify-center
-                      rounded-full border bg-white/70
-                      hover:bg-slate-50
-                      transition
-                    "
-                    style={{ borderColor: CSS.border, color: CSS.mutedFg }}
-                    aria-label="Schließen"
+    inline-flex h-10 w-10 items-center justify-center
+    rounded-full
+    bg-[#E3BB62]/25
+    border border-[#E3BB62]
+    hover:bg-[#E3BB62]/40
+    transition
+    shadow-sm
+  "
+                    aria-label="PDF exportieren"
                   >
-                    <X size={16} />
+                    <FileDown size={18} className="text-[#264555]" />
                   </button>
+
                 </div>
 
                 {/* Empfänger + Katalog */}
@@ -1039,119 +1323,158 @@ export default function Zuweisungen() {
                     <div className="text-[13px] text-slate-500">
                       Gültig bis:{" "}
                       <span className="font-medium text-slate-700">
-                        {new Date(
-                          inviteFor.expiresAt
-                        ).toLocaleString("de-DE")}
+                        {new Date(inviteFor.expiresAt).toLocaleString("de-DE")}
                       </span>
                     </div>
                   )}
                 </div>
 
-                {/* Link-Feld */}
-                <div className="mb-4 space-y-1.5">
-                  <label className="block text-sm font-medium text-slate-700">
-                    Link
-                  </label>
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                    <input
-                      readOnly
-                      value={buildUserInviteUrl(inviteFor)}
-                      className="
-                        flex-1 rounded-xl border px-3 py-2.5 text-sm
-                        bg-slate-50 border-slate-200
-                        outline-none
-                        focus:bg-white
-                        focus:border-[#E3BB62]
-                        focus:ring-2 focus:ring-[rgba(227,187,98,0.45)]
-                        transition
-                      "
-                      style={{ color: CSS.fg }}
-                    />
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        try {
-                          await navigator.clipboard.writeText(
-                            buildUserInviteUrl(inviteFor)
-                          );
-                          setCopiedLink(true);
-                          setTimeout(() => setCopiedLink(false), 1200);
-                        } catch {
-                          /* ignore */
-                        }
-                      }}
-                      className="
-                        inline-flex items-center justify-center gap-1.5
-                        rounded-xl border px-3.5 py-2 text-xs sm:text-sm font-semibold
-                        bg-white/80
-                        hover:bg-[#fff9ec]
-                        transition
-                      "
-                      style={{ borderColor: BRAND.sand, color: BRAND.navy }}
-                    >
-                      {copiedLink ? <Check size={14} /> : <Copy size={14} />}
-                      <span>{copiedLink ? "Kopiert" : "Kopieren"}</span>
-                    </button>
-                  </div>
+                {/* Link + Access-Code – hübsche Karte */}
+                <div
+                  className="
+    mb-5
+    rounded-2xl border
+    px-4 py-4
+    bg-white/80
+    shadow-[0_10px_30px_rgba(0,0,0,0.06)]
+    space-y-3
+  "
+                  style={{ borderColor: BRAND.sand }}
+                >
+                  {/* Link zum Assessment */}
+                 {/* Link-Feld */}
+<div className="mb-4 space-y-1.5">
+  <label className="block text-sm font-medium text-slate-700">
+    Link
+  </label>
+  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+    <input
+      readOnly
+      value={buildUserInviteUrl(inviteFor)}
+      className="
+        flex-1 rounded-xl border px-3 py-2.5 text-sm
+        bg-slate-50 border-slate-200
+        outline-none
+        focus:bg-white
+        focus:border-[#E3BB62]
+        focus:ring-2 focus:ring-[rgba(227,187,98,0.45)]
+        transition
+      "
+      style={{ color: CSS.fg }}
+    />
+    <button
+      type="button"
+      onClick={async () => {
+        try {
+          await navigator.clipboard.writeText(
+            buildUserInviteUrl(inviteFor)
+          );
+          setCopiedLink(true);
+          setTimeout(() => setCopiedLink(false), 1200);
+        } catch {
+          /* ignore */
+        }
+      }}
+      className="
+        inline-flex items-center justify-center gap-1.5
+        rounded-xl border px-3.5 py-2 text-xs sm:text-sm font-semibold
+        bg-white/80
+        hover:bg-[#fff9ec]
+        transition
+      "
+      style={{ borderColor: BRAND.sand, color: BRAND.navy }}
+    >
+      {copiedLink ? <Check size={14} /> : <Copy size={14} />}
+      <span>{copiedLink ? "Kopiert" : "Kopieren"}</span>
+    </button>
+  </div>
+</div>
+
+{/* Access-Code (optional) */}
+{inviteFor.accessCode && (
+  <div className="space-y-1.5">
+    <label className="block text-sm font-medium text-slate-700">
+      Access-Code
+    </label>
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+      <input
+        readOnly
+        value={inviteFor.accessCode}
+        className="
+          flex-1 rounded-xl border px-3 py-2.5 text-sm
+          bg-slate-50 border-slate-200
+          outline-none
+          focus:bg-white
+          focus:border-[#E3BB62]
+          focus:ring-2 focus:ring-[rgba(227,187,98,0.45)]
+          transition
+        "
+        style={{ color: CSS.fg }}
+      />
+      <button
+        type="button"
+        onClick={async () => {
+          try {
+            await navigator.clipboard.writeText(
+              inviteFor.accessCode || ""
+            );
+            setCopiedCode(true);
+            setTimeout(() => setCopiedCode(false), 1200);
+          } catch {
+            /* ignore */
+          }
+        }}
+        className="
+          inline-flex items-center justify-center gap-1.5
+          rounded-xl border px-3.5 py-2 text-xs sm:text-sm font-semibold
+          bg-white/80
+          hover:bg-[#fff9ec]
+          transition
+        "
+        style={{ borderColor: BRAND.sand, color: BRAND.navy }}
+      >
+        {copiedCode ? <Check size={14} /> : <Copy size={14} />}
+        <span>{copiedCode ? "Kopiert" : "Kopieren"}</span>
+      </button>
+    </div>
+  </div>
+)}
+
+                  
                 </div>
 
-                {/* Access-Code (optional) */}
-                {inviteFor.accessCode && (
-                  <div className="space-y-1.5">
-                    <label className="block text-sm font-medium text-slate-700">
-                      Access-Code
-                    </label>
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                      <input
-                        readOnly
-                        value={inviteFor.accessCode}
-                        className="
-                          flex-1 rounded-xl border px-3 py-2.5 text-sm
-                          bg-slate-50 border-slate-200
-                          outline-none
-                          focus:bg-white
-                          focus:border-[#E3BB62]
-                          focus:ring-2 focus:ring-[rgba(227,187,98,0.45)]
-                          transition
-                        "
-                        style={{ color: CSS.fg }}
-                      />
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          try {
-                            await navigator.clipboard.writeText(
-                              inviteFor.accessCode || ""
-                            );
-                            setCopiedCode(true);
-                            setTimeout(() => setCopiedCode(false), 1200);
-                          } catch {
-                            /* ignore */
-                          }
-                        }}
-                        className="
-                          inline-flex items-center justify-center gap-1.5
-                          rounded-xl border px-3.5 py-2 text-xs sm:text-sm font-semibold
-                          bg-white/80
-                          hover:bg-[#fff9ec]
-                          transition
-                        "
-                        style={{ borderColor: BRAND.sand, color: BRAND.navy }}
-                      >
-                        {copiedCode ? <Check size={14} /> : <Copy size={14} />}
-                        <span>{copiedCode ? "Kopiert" : "Kopieren"}</span>
-                      </button>
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
             <div className="h-3" />
 
             <div className="mt-1 flex gap-2">
+              {/* Grau: Schließen */}
               <button
                 type="button"
                 onClick={() => setInviteFor(null)}
+                className="
+                  flex-1
+                  h-12
+                  text-sm font-medium
+                  rounded-xl
+                  bg-[#f3f3f3]
+                  text-slate-800
+                  border border-slate-200
+                  hover:bg-[#e5e5e5]
+                  transition
+                "
+              >
+                Schließen
+              </button>
+
+              {/* Gold: Per E-Mail schicken */}
+              <button
+                type="button"
+                onClick={() => {
+                  if (inviteFor) {
+                    handleSendInviteEmail(inviteFor);
+                  }
+                }}
                 className="
                   flex-1
                   h-12
@@ -1165,12 +1488,13 @@ export default function Zuweisungen() {
                   hover:-translate-y-[1px]
                 "
               >
-                Schließen
+                Per E-Mail schicken
               </button>
             </div>
           </div>
         </div>
       )}
+
 
       {/* Delete Confirm – jetzt mit ConfirmModal wie in UsersPage */}
       <ConfirmModal
@@ -1219,63 +1543,63 @@ export default function Zuweisungen() {
 
       {/* Verlängerung – im Edit-Layout-Stil */}
       {/* Verlängerung – im Edit-Layout-Stil */}
-{extendFor && (
-  <div
-    className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/40 backdrop-blur-sm px-4"
-    role="dialog"
-    aria-modal="true"
-    onClick={(e) => {
-      if (e.target === e.currentTarget) setExtendFor(null);
-    }}
-  >
-    <div
-      className="w-full max-w-md"
-      onClick={(e) => e.stopPropagation()}
-    >
-      {/* Karte */}
-      <div className="relative overflow-hidden rounded-3xl bg-white shadow-2xl border border-slate-200/80">
-        {/* Deko-Glow leicht gold/blau wie bei Edit User */}
+      {extendFor && (
         <div
-          className="pointer-events-none absolute -right-20 -top-20 h-40 w-40 rounded-full bg-gradient-to-br from-[#E3BB62]/35 via-amber-300/20 to-transparent opacity-70"
-          aria-hidden="true"
-        />
+          className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/40 backdrop-blur-sm px-4"
+          role="dialog"
+          aria-modal="true"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setExtendFor(null);
+          }}
+        >
+          <div
+            className="w-full max-w-md"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Karte */}
+            <div className="relative overflow-hidden rounded-3xl bg-white shadow-2xl border border-slate-200/80">
+              {/* Deko-Glow leicht gold/blau wie bei Edit User */}
+              <div
+                className="pointer-events-none absolute -right-20 -top-20 h-40 w-40 rounded-full bg-gradient-to-br from-[#E3BB62]/35 via-amber-300/20 to-transparent opacity-70"
+                aria-hidden="true"
+              />
 
-        <div className="relative px-6 pt-6 pb-5">
-          <h3 className="text-lg sm:text-xl font-semibold text-slate-900 mb-2">
-            Ablaufdatum anpassen
-          </h3>
+              <div className="relative px-6 pt-6 pb-5">
+                <h3 className="text-lg sm:text-xl font-semibold text-slate-900 mb-2">
+                  Ablaufdatum anpassen
+                </h3>
 
-          <p className="text-sm text-slate-600 mb-3">
-            Zuweisung für{" "}
-            <span className="font-semibold">
-              {extendFor.worker?.name || extendFor.worker?.id || "Worker"}
-            </span>{" "}
-            /{" "}
-            <span className="font-semibold">
-              {extendFor.catalog?.title || extendFor.catalog?.id || "Katalog"}
-            </span>{" "}
-            verlängern.
-          </p>
+                <p className="text-sm text-slate-600 mb-3">
+                  Zuweisung für{" "}
+                  <span className="font-semibold">
+                    {extendFor.worker?.name || extendFor.worker?.id || "Worker"}
+                  </span>{" "}
+                  /{" "}
+                  <span className="font-semibold">
+                    {extendFor.catalog?.title || extendFor.catalog?.id || "Katalog"}
+                  </span>{" "}
+                  verlängern.
+                </p>
 
-          {extendError && (
-            <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-              {extendError}
-            </div>
-          )}
+                {extendError && (
+                  <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                    {extendError}
+                  </div>
+                )}
 
-          <div className="mb-4">
-            <label
-              htmlFor="expires-at"
-              className="block text-sm font-medium text-slate-700 mb-1"
-            >
-              Neues Ablaufdatum
-            </label>
-            <input
-              id="expires-at"
-              type="datetime-local"
-              value={newExpiresAt}
-              onChange={(e) => setNewExpiresAt(e.target.value)}
-              className="
+                <div className="mb-4">
+                  <label
+                    htmlFor="expires-at"
+                    className="block text-sm font-medium text-slate-700 mb-1"
+                  >
+                    Neues Ablaufdatum
+                  </label>
+                  <input
+                    id="expires-at"
+                    type="datetime-local"
+                    value={newExpiresAt}
+                    onChange={(e) => setNewExpiresAt(e.target.value)}
+                    className="
                 w-full rounded-xl border px-3 py-2.5 text-sm
                 bg-slate-50 border-slate-200
                 outline-none
@@ -1284,24 +1608,24 @@ export default function Zuweisungen() {
                 focus:ring-2 focus:ring-[rgba(227,187,98,0.45)]
                 transition
               "
-            />
-            <p className="mt-1 text-[11px] text-slate-500">
-              Lokale Zeit, wird im passenden Format an die API gesendet.
-            </p>
-          </div>
-        </div>
-      </div>
+                  />
+                  <p className="mt-1 text-[11px] text-slate-500">
+                    Lokale Zeit, wird im passenden Format an die API gesendet.
+                  </p>
+                </div>
+              </div>
+            </div>
 
-      {/* kleiner Abstand  */}
-      <div className="h-3" />
+            {/* kleiner Abstand  */}
+            <div className="h-3" />
 
-      {/* Footer mit zwei Button */}
-      <div className="mt-1 flex gap-2">
-        <button
-          type="button"
-          onClick={() => setExtendFor(null)}
-          disabled={extending}
-          className="
+            {/* Footer mit zwei Button */}
+            <div className="mt-1 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setExtendFor(null)}
+                disabled={extending}
+                className="
             flex-1
             h-12
             text-sm font-medium
@@ -1312,15 +1636,15 @@ export default function Zuweisungen() {
             rounded-xl
             disabled:opacity-60
           "
-        >
-          Abbrechen
-        </button>
+              >
+                Abbrechen
+              </button>
 
-        <button
-          type="button"
-          onClick={() => confirmExtend()}
-          disabled={extending}
-          className="
+              <button
+                type="button"
+                onClick={() => confirmExtend()}
+                disabled={extending}
+                className="
             flex-1
             h-12
             text-sm font-semibold
@@ -1333,13 +1657,13 @@ export default function Zuweisungen() {
             hover:-translate-y-[1px]
             disabled:opacity-60
           "
-        >
-          {extending ? "Speichere…" : "Speichern"}
-        </button>
-      </div>
-    </div>
-  </div>
-)}
+              >
+                {extending ? "Speichere…" : "Speichern"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </AdminLayout>
   );

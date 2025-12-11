@@ -242,6 +242,7 @@ export function DashboardPage() {
         gradient="navy"
         height="280px"
         showPattern={true}
+        center={false}
       />
 
       {/* ===== Hintergrund unterhalb des Headers ===== */}

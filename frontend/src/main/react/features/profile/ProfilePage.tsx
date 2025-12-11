@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useToast } from "@/shared/contexts/ToastContext";
 import { createPortal } from "react-dom";
+import { logoutApi } from "@/features/auth/logoutService";
 
 import AdminLayout from "@/apps/app/AdminLayout";
 import { User, MapPin, Phone, Mail, Lock, Trash2 } from "lucide-react";
@@ -634,7 +635,7 @@ const EmployeeProfile: React.FC = () => {
     }
 
     try {
-      // 1. zum Backend hochladen
+      //  zum Backend hochladen
       const profileImagePath = await uploadAvatar(auth.user.id, file);
       console.log("uploadAvatar → profileImagePath:", profileImagePath);
 
@@ -643,12 +644,17 @@ const EmployeeProfile: React.FC = () => {
         return;
       }
 
-      // 2. URL für das Bild bauen
+      //  URL für das Bild bauen
       const url = buildAvatarUrl(profileImagePath);
       console.log("buildAvatarUrl →", url);
 
       if (url) {
         setAvatarImage(url);
+         window.dispatchEvent(
+        new CustomEvent("profile:avatar-updated", {
+          detail: { avatarUrl: url },
+        })
+      );
         closeUploadModal();
       }
 
@@ -673,6 +679,11 @@ const EmployeeProfile: React.FC = () => {
     try {
       await deleteAvatar(auth.user.id);
       setAvatarImage(null);
+       window.dispatchEvent(
+      new CustomEvent("profile:avatar-updated", {
+        detail: { avatarUrl: null },
+      })
+    );
       showSuccess("Ihr Profilfoto wurde entfernt.");
 
     } catch (err) {
@@ -682,7 +693,7 @@ const EmployeeProfile: React.FC = () => {
     }
   };
 
-  const handlePasswordReset = async (
+const handlePasswordReset = async (
   current: string,
   next: string,
   confirm: string
@@ -690,7 +701,6 @@ const EmployeeProfile: React.FC = () => {
   const auth = getAuthSession();
   if (!auth) {
     showError("Die Sitzung ist abgelaufen. Bitte melde dich erneut an.");
-    // Fehler werfen, damit das Modal die generische Fehlermeldung anzeigen kann
     throw new Error("Session expired");
   }
 
@@ -701,13 +711,23 @@ const EmployeeProfile: React.FC = () => {
       confirmPassword: confirm,
     };
 
+    // Passwort im Backend ändern
     await changePassword(auth.user.id, body);
 
     showSuccess("Ihr Passwort wurde erfolgreich geändert.");
+
+    // Backend-Logout (Refresh-Token-Cookie + Session auf Server)
+    //    accessToken kommt aus deiner AuthSession
+    await logoutApi(auth.accessToken);
+
+    //  Lokale Session löschen
+    sessionStorage.removeItem("auth_session");
+
+    // zur Login-Seite schicken
+    window.location.href = "/login";
   } catch (err: any) {
     console.error("Fehler beim Zurücksetzen des Passworts", err);
 
-    // Versuche eine sinnvolle Fehlermeldung vom Backend zu holen
     const backendMsg =
       err?.response?.data?.message ??
       err?.response?.data?.error ??
@@ -719,10 +739,11 @@ const EmployeeProfile: React.FC = () => {
       showError("Das Passwort konnte nicht geändert werden.");
     }
 
-    // wichtig: werfen, damit das Modal `resetError` setzen kann
+    // weiterwerfen, damit dein Modal die Fehlermeldung anzeigen kann
     throw err;
   }
 };
+
 
   const initials =
     viewProfile.name

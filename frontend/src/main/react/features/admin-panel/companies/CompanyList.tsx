@@ -503,11 +503,12 @@ export default function CompaniesList() {
         title="Firmen Administration"
         subtitle="Verwalte Firmenkonten, Mitarbeiter und zugehörige Kataloge"
         icon={<Network size={40} />}
-        gradient="navy"
+        gradient="navy" 
         height="280px"
         showPattern={true}
+        center={false}
       />
-
+ 
       {/* ===== Außenbereich unter dem Hero ===== */}
       <main
         className="min-h-[calc(100vh-64px)] mt-0 px-6 pb-8 pt-20"

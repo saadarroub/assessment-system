@@ -220,6 +220,7 @@ export default function CompanyDetails() {
           gradient="navy"
           height="280px"
           showPattern={true}
+          center={false}
         />
       </AdminLayout>
     );
@@ -235,6 +236,7 @@ export default function CompanyDetails() {
           gradient="navy"
           height="280px"
           showPattern={true}
+          center={false}
         />
       </AdminLayout>
     );
@@ -399,6 +401,7 @@ export default function CompanyDetails() {
         gradient="navy"
         height="280px"
         showPattern={true}
+        center={false}
       />
 
       {/* ===== Außenbereich unter dem Hero ===== */}

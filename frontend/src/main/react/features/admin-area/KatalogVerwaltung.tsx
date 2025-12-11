@@ -180,6 +180,7 @@ export default function KatalogVerwaltung({ }: Props) {
               gradient="navy"
               height="280px"
               showPattern={true}
+              center={false}
       
             />
             <div className="bg-[hsl(0_0%_92%)] min-h-[calc(100vh-64px)] mt-2 px-6 py-6">

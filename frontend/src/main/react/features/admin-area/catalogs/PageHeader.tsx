@@ -11,6 +11,36 @@ type PageHeaderProps = {
   extra?: React.ReactNode;
 };
 
+// Kleines Hilfs-Element für das CapConsulting-ICA³-Badge
+function BrandChip() {
+  return (
+    <div
+      className="
+        relative inline-flex items-center gap-2
+        rounded-full border border-white/30
+        bg-gradient-to-r from-white/10 via-white/5 to-transparent
+        px-5 py-1.5
+        text-[11px] font-medium tracking-wide
+        text-white/90
+        shadow-[0_10px_25px_rgba(0,0,0,0.55)]
+        backdrop-blur-md
+      "
+    >
+      {/* Goldener Status-Dot links */}
+      <span
+        className="
+          h-2.5 w-2.5 rounded-full bg-[#E3BB62]
+          shadow-[0_0_12px_rgba(227,187,98,0.9)]
+        "
+      />
+      <span className="whitespace-nowrap">
+        CapConsulting ·{" "}
+        <span className="font-semibold text-[#E3BB62]">ICA³</span>
+      </span>
+    </div>
+  );
+}
+
 export default function PageHeader({
   title,
   subtitle,
@@ -21,7 +51,6 @@ export default function PageHeader({
   showPattern = true,
   extra,
 }: PageHeaderProps) {
-  // Satte Gradients
   const gradients: Record<string, string> = {
     navy: "from-[#0c1821] via-[#203645] to-[#0b141b]",
     sand: "from-[#d2c9b9] via-[#c4b9a0] to-[#aa9880]",
@@ -31,37 +60,21 @@ export default function PageHeader({
 
   const isCentered = center;
 
-  // Ausrichtung des äußeren Flex-Containers
   const outerLayout = extra
-    ? // mit Extra-Buttons rechts
-    "lg:flex-row lg:items-center lg:justify-between"
-    : // ohne Extra -> alles schön zentriert
-    isCentered
+    ? "lg:flex-row lg:items-center lg:justify-between"
+    : isCentered
       ? "lg:flex-row lg:items-center lg:justify-center"
       : "lg:flex-row lg:items-center lg:justify-start";
 
-  // Ausrichtung der Textspalte
   const columnAlign = isCentered
     ? "items-center text-center"
     : "items-start text-left";
 
   return (
     <div
-      className={`relative w-full bg-gradient-to-br ${gradients[gradient]}
-     `}
+      className={`relative w-full bg-gradient-to-br ${gradients[gradient]}`}
       style={{ minHeight: height }}
     >
-
-      {/* weicher Gold-Glow links oben */}
-      <div
-        className="
-          pointer-events-none absolute -left-24 -top-28
-          h-60 w-60 rounded-full
-          bg-[#E3BB62]/55 blur-3xl
-          animate-pulse
-        "
-        aria-hidden="true"
-      />
 
       {/* blauer Glow rechts unten */}
       <div
@@ -73,7 +86,7 @@ export default function PageHeader({
         aria-hidden="true"
       />
 
-      {/* dezentes diagonales Liniensystem */}
+      {/* diagonales Liniensystem */}
       <div
         className="
           pointer-events-none absolute inset-[-40px] opacity-20
@@ -127,6 +140,11 @@ export default function PageHeader({
         </>
       )}
 
+      {/* Brand-Badge oben rechts */}
+      <div className="absolute right-6 top-6 z-20">
+        <BrandChip />
+      </div>
+
       <div
         className={`
           relative z-10 mx-auto flex
@@ -135,21 +153,17 @@ export default function PageHeader({
           ${outerLayout}
         `}
       >
-        {/* Linker Bereich: Icon + Titel + Subtitle + kleine Chips */}
+        {/* Linker Bereich: Icon + Titel + Subtitle */}
         <div className={`flex flex-col gap-4 ${columnAlign}`}>
-          {/* Icon mit Orbit-Ring + kleinem Label */}
+          {/* Icon + kleines Label (System · Management etc.) */}
           {(icon || title) && (
             <div className="inline-flex items-center gap-3 rounded-3xl border border-white/25 bg-white/10 px-4 py-2 backdrop-blur-md shadow-[0_12px_30px_rgba(0,0,0,0.42)]">
-              {/* Orbit um das Icon */}
               {icon && (
                 <div className="relative">
-                  {/* äußerer Orbit */}
                   <div className="absolute inset-[-8px] rounded-full border border-white/25 opacity-60" />
-                  {/* zwei kleine Dots auf dem Orbit */}
                   <span className="absolute -top-1 right-2 h-[5px] w-[5px] rounded-full bg-[#E3BB62]" />
                   <span className="absolute bottom-0 -left-1 h-[4px] w-[4px] rounded-full bg-sky-300" />
 
-                  {/* Icon-Container */}
                   <div className="relative flex h-10 w-10 items-center justify-center rounded-full bg-white/15 border border-white/40 text-white shadow-[0_8px_20px_rgba(0,0,0,0.45)]">
                     {React.cloneElement(icon as any, {
                       size: 22,
@@ -159,7 +173,6 @@ export default function PageHeader({
                 </div>
               )}
 
-              {/* kleines Label rechts vom Icon */}
               <div className="flex flex-col">
                 <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/70">
                   SYSTEM · MANAGEMENT
@@ -182,38 +195,6 @@ export default function PageHeader({
               </p>
             )}
           </div>
-
-          {/* kleine Info-Chips unter dem Titel */}
-          <div className="mt-4 flex justify-center">
-            <div
-              className="
-      relative inline-flex items-center gap-2
-      rounded-full border border-white/30
-      bg-gradient-to-r from-white/10 via-white/5 to-transparent
-      px-5 py-1.5
-      text-[11px] font-medium tracking-wide
-      text-white/90
-      shadow-[0_10px_25px_rgba(0,0,0,0.55)]
-      backdrop-blur-md
-    "
-            >
-              {/* Goldener Status-Dot links */}
-              <span
-                className="
-        h-2.5 w-2.5 rounded-full bg-[#E3BB62]
-        shadow-[0_0_12px_rgba(227,187,98,0.9)]
-      "
-              />
-
-              <span className="whitespace-nowrap">
-                CapConsulting ·{" "}
-                <span className="font-semibold text-[#E3BB62]">
-                  ICA³
-                </span>
-              </span>
-            </div>
-          </div>
-
         </div>
 
         {/* Rechter Bereich: z.B. Buttons (extra) */}

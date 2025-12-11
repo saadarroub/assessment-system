@@ -329,6 +329,7 @@ export default function AdminDashboard() {
         height="280px"
         showPattern={true}
 
+        center={false}
       />
 
 

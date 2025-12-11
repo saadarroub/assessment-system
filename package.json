@@ -7,7 +7,7 @@
     "canvas-confetti": "^1.9.4",
     "dnd-kit-sortable-tree": "^0.1.73",
     "html2canvas": "^1.4.1",
-    "jspdf": "^3.0.3",
+    "jspdf": "^3.0.4",
     "lucide-react": "^0.545.0",
     "react-dnd": "^16.0.1",
     "react-dnd-html5-backend": "^16.0.1",
