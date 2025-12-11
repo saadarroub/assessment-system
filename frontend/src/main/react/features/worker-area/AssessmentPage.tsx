@@ -1547,8 +1547,16 @@ function OrderItem({ id, label }: { id: string; label: string }) {
       ref={setNodeRef}
       style={style}
       className="
-        flex items-center gap-4 p-4 rounded-xl border shadow-sm
-        bg-gradient-to-br from-[#ece9df] to-[#f5f3eb]
+         flex items-center gap-4 p-4
+        rounded-xl border
+        bg-white
+        shadow-[0_8px_22px_rgba(15,23,42,0.08)]
+        border-[#e5e7eb]
+        transition-all duration-150 ease-out
+        hover:border-[#E3BB62]
+        hover:bg-[#FFFAEB]
+        hover:-translate-y-[1px]
+        hover:shadow-[0_14px_30px_rgba(15,23,42,0.16)]
       "
     >
       {/* DRAG HANDLE */}
