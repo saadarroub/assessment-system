@@ -1,15 +1,16 @@
 import AdminLayout from "@/apps/app/AdminLayout";
 import { useMemo, useState, useEffect, useRef } from "react";
-import { Building2, Settings, Pencil, Wrench, Plus, X ,ListChecks  } from "lucide-react";
+import { Building2, Settings, Pencil, Wrench, Plus, X, ListChecks } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
-import myLogo from "@/assets/Zero-6-icons-05.webp";
 
 import { getTopicCountForCatalog, fetchThemenByCatalog, type ThemaDto } from "../service/themaCatalogService";
 import { getCompanies, getWorkersByCompany, type WorkerApi } from "../service/companyService";
 import { getCatalogs, createCatalog, type CatalogApi, updateCatalog, deleteCatalog } from "../service/catalogService";
 import { assignWorkerCatalogBulk } from "../service/assignmentService";
+import { Network } from "lucide-react";
+import PageHeader from "@/features/admin-area/catalogs/PageHeader";
 
 
 /* ----------------------------- Types & Models ----------------------------- */
@@ -77,6 +78,9 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
 
   // Edit/Lösch-Modus (Icon-Toggle, kein Text)
   const [editMode, setEditMode] = useState(false);
+
+  // Katalog-Suche
+  const [catalogSearch, setCatalogSearch] = useState("");
 
   // Empfänger-Dropdown
   const [openRecipients, setOpenRecipients] = useState(false);
@@ -220,6 +224,16 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
       r.name.toLowerCase().includes(q) || (r.email ?? "").toLowerCase().includes(q)
     );
   }, [recipientSearch, recipients]);
+
+  // Gefilterte Kataloge basierend auf Suchbegriff
+  const filteredCatalogs = useMemo(() => {
+    const q = catalogSearch.trim().toLowerCase();
+    if (!q) return catalogs;
+    return catalogs.filter(k => 
+      k.name.toLowerCase().includes(q) || 
+      (k.subtitle && k.subtitle.toLowerCase().includes(q))
+    );
+  }, [catalogSearch, catalogs]);
 
   const allFilteredSelected =
     filteredRecipients.length > 0 &&
@@ -458,37 +472,17 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
 `}
       </style>
 
-      <header
-        className="relative bg-[hsl(60_9%_97.8%)] border-b border-[hsl(214.3_31.8%_91.4%)] px-8 py-4" //bg-[hsl(0_0%_92%)] min-h-[calc(100vh-64px)] mt-2 px-6 py-6 zum testen
-      >
-        <div className="pointer-events-none absolute left-0 right-0 top-[calc(64px-1px)] h-0 [box-shadow:0_10px_16px_-14px_rgba(15,23,42,.18)]" />
-        <div className="grid grid-cols-3 items-center gap-2 lg:grid-cols-1 lg:justify-items-center lg:text-center">
-          <div className="justify-self-start hidden lg:flex items-center lg:justify-self-center" />
-          <div className="justify-self-center">
-            <div className="[&>h1]:text-[clamp(28px,6vw,56px)] [&>h1]:font-extrabold [&>h1]:tracking-[-0.02em] [&>h1]:m-0 [&>h1]:mb-4 [&>h1]:leading-[1.05]
-             [&>h1]:text-[#264555] [&>p]:mt-0 [&>p]:text-[#334155] [&>p]:opacity-90 [&>p]:text-[clamp(14px,1.6vw,18px)]">
-              <div className="flex items-center justify-center gap-4">
-                <img
-                  src={myLogo}
-                  alt="Dein Logo"
-                  className="h-[200px] w-[200px] object-contain shrink-0"
-                  width={200}
-                  height={200}
-                />
-                <div className="text-center">
-                  <h1 className="text-[clamp(28px,6vw,56px)] font-extrabold tracking-[-0.02em] mb-2 leading-[1.05] text-[#264555]">
-                    Kataloge zuweisen
-                  </h1>
-                  <p className="mt-0 text-[#334155]/90 text-[clamp(14px,1.6vw,18px)]">
-                    Hier Kataloge an Kunden zuweisen
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="justify-self-end inline-flex lg:justify-self-center" />
-        </div>
-      </header>
+      {/* HEADER */}
+            <PageHeader
+      
+              title="Kataloge zuweisen"
+              subtitle="Weisen Sie Kataloge an Mitarbeitende zu und verwalten Sie deren Zugriffe"
+              icon={<Network size={40} />}
+              gradient="navy"
+              height="280px"
+              showPattern={true}
+      
+            />
 
       <div className="bg-[hsl(0_0%_92%)] min-h-[calc(100vh-64px)] mt-2 px-6 py-6">
 
@@ -672,56 +666,56 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
                 </div>
 
                 {/* Themen im ausgewählten Katalog */}
-{selectedCatalogId && (
-  <div className="mt-6 space-y-3 rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3 shadow-sm">
-    <div className="flex items-center gap-3">
-      <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-white shadow-sm">
-        <ListChecks className="h-4 w-4 text-slate-600" />
-      </span>
+                {selectedCatalogId && (
+                  <div className="mt-6 space-y-3 rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3 shadow-sm">
+                    <div className="flex items-center gap-3">
+                      <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-white shadow-sm">
+                        <ListChecks className="h-4 w-4 text-slate-600" />
+                      </span>
 
-      <div className="min-w-0">
-        <p className="text-sm font-medium text-slate-800">
-          Themen im ausgewählten Katalog
-        </p>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-slate-800">
+                          Themen im ausgewählten Katalog
+                        </p>
 
-        {loadingTopics && (
-          <p className="text-xs text-slate-500">Themen werden geladen…</p>
-        )}
+                        {loadingTopics && (
+                          <p className="text-xs text-slate-500">Themen werden geladen…</p>
+                        )}
 
-        {!loadingTopics && topicsError && (
-          <p className="text-xs text-red-600">{topicsError}</p>
-        )}
+                        {!loadingTopics && topicsError && (
+                          <p className="text-xs text-red-600">{topicsError}</p>
+                        )}
 
-        {!loadingTopics && !topicsError && selectedCatalogTopics && (
-          <p className="text-xs text-slate-600">
-            {selectedCatalogTopics.length === 1
-              ? "1 Thema"
-              : `${selectedCatalogTopics.length} Themen`}
-          </p>
-        )}
-      </div>
-    </div>
+                        {!loadingTopics && !topicsError && selectedCatalogTopics && (
+                          <p className="text-xs text-slate-600">
+                            {selectedCatalogTopics.length === 1
+                              ? "1 Thema"
+                              : `${selectedCatalogTopics.length} Themen`}
+                          </p>
+                        )}
+                      </div>
+                    </div>
 
-    {/* Liste der Themen */}
-    {!loadingTopics && !topicsError && selectedCatalogTopics && selectedCatalogTopics.length > 0 && (
-      <ul className="max-h-36 space-y-1 overflow-y-auto rounded-lg bg-white px-3 py-2 text-xs text-slate-700">
-        {selectedCatalogTopics.map((t) => (
-          <li key={t.id} className="flex items-start gap-2">
-            <span className="mt-[5px] h-1.5 w-1.5 rounded-full bg-emerald-500" />
-            <span className="leading-relaxed">{t.name}</span>
-          </li>
-        ))}
-      </ul>
-    )}
+                    {/* Liste der Themen */}
+                    {!loadingTopics && !topicsError && selectedCatalogTopics && selectedCatalogTopics.length > 0 && (
+                      <ul className="max-h-36 space-y-1 overflow-y-auto rounded-lg bg-white px-3 py-2 text-xs text-slate-700">
+                        {selectedCatalogTopics.map((t) => (
+                          <li key={t.id} className="flex items-start gap-2">
+                            <span className="mt-[5px] h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                            <span className="leading-relaxed">{t.name}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
 
-    {/* Fallback, falls keine Themen vorhanden */}
-    {!loadingTopics && !topicsError && selectedCatalogTopics && selectedCatalogTopics.length === 0 && (
-      <p className="text-xs text-slate-500">
-        Für diesen Katalog sind noch keine Themen zugeordnet.
-      </p>
-    )}
-  </div>
-)}
+                    {/* Fallback, falls keine Themen vorhanden */}
+                    {!loadingTopics && !topicsError && selectedCatalogTopics && selectedCatalogTopics.length === 0 && (
+                      <p className="text-xs text-slate-500">
+                        Für diesen Katalog sind noch keine Themen zugeordnet.
+                      </p>
+                    )}
+                  </div>
+                )}
 
 
               </div>
@@ -763,26 +757,65 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
                 </div>
               </div>
 
-              <p className="mb-4 flex items-center justify-between text-sm text-[#56768f]">
-                <span className="truncate">
-                  {loadingCatalogs ? "Kataloge werden geladen…" : "Wählen Sie die Kataloge aus, die Sie zuweisen möchten"}
+              {/* Such-Feld für Kataloge */}
+              <div className="mb-4">
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Kataloge durchsuchen..."
+                    value={catalogSearch}
+                    onChange={(e) => setCatalogSearch(e.target.value)}
+                    className="h-10 w-full rounded-lg border border-slate-300 pl-10 pr-3 text-sm placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/10"
+                  />
+                  <svg
+                    className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                    />
+                  </svg>
+                </div>
+              </div>
+
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <span className="text-sm text-[#56768f] truncate">
+                  {loadingCatalogs ? "Kataloge werden geladen…" : 
+                   catalogSearch ? `${filteredCatalogs.length} ${filteredCatalogs.length === 1 ? 'Ergebnis' : 'Ergebnisse'} gefunden` :
+                   "Wählen Sie die Kataloge aus, die Sie zuweisen möchten"}
                 </span>
 
-                <button
-                  type="button"
-                  onClick={openCreateDialog}
-                  className="ml-3 shrink-0 inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 bg-white hover:bg-slate-50"
-                  title="Neuen Katalog anlegen"
-                  aria-label="Neuen Katalog anlegen"
-                >
-                  <Plus size={16} />
-                </button>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700">
+                    <span className="font-semibold text-slate-900">{catalogs.length}</span>
+                    <span>{catalogs.length === 1 ? "Katalog" : "Kataloge"}</span>
+                  </span>
 
-              </p>
+                  <button
+                    type="button"
+                    onClick={openCreateDialog}
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 bg-white hover:bg-slate-50"
+                    title="Neuen Katalog anlegen"
+                    aria-label="Neuen Katalog anlegen"
+                  >
+                    <Plus size={16} />
+                  </button>
+                </div>
+              </div>
 
               {/* Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 ">
-                {catalogs.map((k) => {
+                {filteredCatalogs.length === 0 && catalogSearch ? (
+                  <div className="col-span-full text-center py-12">
+                    <p className="text-sm text-slate-500">Keine Kataloge gefunden für "{catalogSearch}"</p>
+                  </div>
+                ) : (
+                  filteredCatalogs.map((k) => {
                   const Icon = k.icon ?? Building2;
                   const selected = selectedCatalogId === k.id;//selectedCatalogIds.has(k.id)
                   const metaLabel = (k.topicCount ?? 0) === 1
@@ -885,7 +918,8 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
                       </div>
                     </div>
                   );
-                })}
+                })
+                )}
               </div>
 
               {/* Footer-Zeile */}

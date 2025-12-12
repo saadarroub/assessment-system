@@ -64,7 +64,7 @@ type NavId =
 const NAV_PRIMARY: Array<{ id: NavId; label: string; Icon: React.FC<any>; to: string }> = [
   { id: "dashboard", label: "Dashboard", Icon: LayoutDashboard, to: "/admin/dashboard" },
   { id: "Themen Verwalten", label: "Themen Verwalten", Icon: Settings, to: "/admin" },
-  { id: "catalog", label: "Katalogen", Icon: FileText, to: "/admin/katalogzuweisen" },
+  { id: "catalog", label: "Kataloge", Icon: FileText, to: "/admin/katalogzuweisen" },
 ];
 const NAV_Panel: Array<{ id: NavId; label: string; Icon: React.FC<any>; to: string }> = [
   //{ id: "Admin-Panel", label: "Admin-Panel", Icon: BarChart3, to: "/admin/adminPanel" },
@@ -100,7 +100,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   // zeigt kompaktes Icon, wenn genug gescrollt
   const [badgeMini, setBadgeMini] = useState(false);
 
-  // optional: Mini-Icon-Tooltip
+  //S Mini-Icon-Tooltip
   const [hoverMini, setHoverMini] = useState(false);
 
   useEffect(() => {
@@ -155,9 +155,8 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           background: `hsl(${TOKENS.sidebarHSL})`,
           color: `hsl(${TOKENS.sidebarFg})`,
           //borderColor: `hsl(${TOKENS.sidebarBorder})`,
-          border: "4px solid #a5a5a57f",
-          borderTopRightRadius: collapsed ? TOKENS.sizes.tileRadius : 14,
-          borderBottomRightRadius: 14,
+          //borderTopRightRadius: collapsed ? TOKENS.sizes.tileRadius : 14,
+          //borderBottomRightRadius: 14,
         }}
       >
         {/* Header */}

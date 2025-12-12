@@ -1,17 +1,24 @@
 package com.assessment.backend.controller;
 
+import com.assessment.backend.dto.ChangePasswordDTO;
+import com.assessment.backend.dto.UpdateUserProfileDTO;
 import com.assessment.backend.dto.UserSummaryDTO;
 import com.assessment.backend.entity.User;
 import com.assessment.backend.entity.UserRole;
+import com.assessment.backend.service.FileStorageService;
 import com.assessment.backend.service.UserService;
 import com.assessment.backend.service.RolePermissionService;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -26,6 +33,9 @@ public class UserController {
 
     @Autowired
     private RolePermissionService rolePermissionService;
+
+    @Autowired
+    private FileStorageService fileStorageService;
 
     @PreAuthorize("hasAuthority('users.view')")
     @GetMapping
@@ -85,5 +95,109 @@ public class UserController {
     @GetMapping("/{userId}/roles")
     public ResponseEntity<List<UserRole>> getUserRoles(@PathVariable UUID userId) {
         return ResponseEntity.ok(userService.getUserRoles(userId));
+    }
+
+    /**
+     * Upload or update avatar image for a user.
+     * 
+     * @param id the user ID
+     * @param file the avatar image file (JPEG/PNG, max 2MB)
+     * @return the updated user summary with new avatar path
+     */
+    @PreAuthorize("hasAuthority('users.edit') or @userSecurityService.isCurrentUser(#id)")
+    @PostMapping("/{id}/avatar")
+    public ResponseEntity<?> uploadAvatar(@PathVariable UUID id, @RequestParam("file") MultipartFile file) {
+        return userService.getUserById(id)
+            .map(user -> {
+                try {
+                    // Delete old avatar if not default
+                    String oldAvatar = user.getProfileImagePath();
+                    if (oldAvatar != null && !oldAvatar.equals("default-avatar.jpg")) {
+                        fileStorageService.deleteAvatar(oldAvatar);
+                    }
+
+                    // Store new avatar
+                    String newFilename = fileStorageService.storeAvatar(file, id);
+                    
+                    // Update user
+                    user.setProfileImagePath(newFilename);
+                    User updatedUser = userService.updateUserAvatar(id, newFilename);
+                    
+                    return ResponseEntity.ok(UserSummaryDTO.fromEntity(updatedUser, rolePermissionService));
+                } catch (IllegalArgumentException e) {
+                    return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+                } catch (IOException e) {
+                    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .body(Map.of("error", "Fehler beim Hochladen des Avatars"));
+                }
+            })
+            .orElse(ResponseEntity.notFound().build());
+    }
+
+    /**
+     * Delete avatar and reset to default for a user.
+     * 
+     * @param id the user ID
+     * @return the updated user summary with default avatar
+     */
+    @PreAuthorize("hasAuthority('users.edit') or @userSecurityService.isCurrentUser(#id)")
+    @DeleteMapping("/{id}/avatar")
+    public ResponseEntity<UserSummaryDTO> deleteAvatar(@PathVariable UUID id) {
+        return userService.getUserById(id)
+            .map(user -> {
+                // Delete old avatar if not default
+                String oldAvatar = user.getProfileImagePath();
+                if (oldAvatar != null && !oldAvatar.equals("default-avatar.jpg")) {
+                    fileStorageService.deleteAvatar(oldAvatar);
+                }
+
+                // Reset to default
+                User updatedUser = userService.updateUserAvatar(id, "default-avatar.jpg");
+                return ResponseEntity.ok(UserSummaryDTO.fromEntity(updatedUser, rolePermissionService));
+            })
+            .orElse(ResponseEntity.notFound().build());
+    }
+
+    /**
+     * Update user profile information (name, email, phone, address).
+     * Requires current password for verification.
+     * 
+     * @param id the user ID
+     * @param profileDTO the profile update data including current password
+     * @return the updated user summary
+     */
+    @PreAuthorize("hasAuthority('users.edit') or @userSecurityService.isCurrentUser(#id)")
+    @PutMapping("/{id}/profile")
+    public ResponseEntity<?> updateProfile(@PathVariable UUID id, @Valid @RequestBody UpdateUserProfileDTO profileDTO) {
+        try {
+            User updatedUser = userService.updateUserProfile(id, profileDTO);
+            return ResponseEntity.ok(UserSummaryDTO.fromEntity(updatedUser, rolePermissionService));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Change user password.
+     * Requires current password for verification.
+     * 
+     * @param id the user ID
+     * @param passwordDTO the password change data
+     * @return success message or error
+     */
+    @PreAuthorize("hasAuthority('users.edit') or @userSecurityService.isCurrentUser(#id)")
+    @PutMapping("/{id}/password")
+    public ResponseEntity<?> changePassword(@PathVariable UUID id, @Valid @RequestBody ChangePasswordDTO passwordDTO) {
+        // Validate passwords match
+        if (!passwordDTO.passwordsMatch()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Das neue Passwort und die Bestätigung stimmen nicht überein"));
+        }
+
+        try {
+            userService.changePassword(id, passwordDTO);
+            return ResponseEntity.ok(Map.of("message", "Password changed successfully"));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
     }
 }

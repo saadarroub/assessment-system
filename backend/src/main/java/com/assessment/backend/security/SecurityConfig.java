@@ -77,6 +77,9 @@ public class SecurityConfig {
                 // Static resources & root path (für Frontend in Docker)
                 .requestMatchers("/", "/index.html", "/assets/**", "/static/**", "/*.js", "/*.css", "/*.ico", "/*.png", "/*.jpg", "/*.svg").permitAll()
                 
+                // Avatar files - öffentlich (UUID im Dateinamen bietet Schutz)
+                .requestMatchers(HttpMethod.GET, "/api/files/avatars/**").permitAll()
+                
                 // Explicitly protect all other API endpoints
                 .requestMatchers("/api/**").authenticated()
                 .requestMatchers("/actuator/**").authenticated()

@@ -27,6 +27,8 @@ import {
   Phone,
   Globe,
 } from "lucide-react";
+import { Network } from "lucide-react";
+import PageHeader from "@/features/admin-area/catalogs/PageHeader";
 /* ---------- API & UI Types ---------- */
 type CompanyDetailsT = {
   id: string;
@@ -265,13 +267,17 @@ export default function CompanyDetails() {
       setCreateErr("Bitte Name und Email ausfüllen.");
       return;
     }
+    if (!invWorkspace.trim()) {
+      setCreateErr("Bitte Workspace ausfüllen.");
+      return;
+    }
     setCreating(true);
     setCreateErr(null);
     try {
       const created = await createWorker({
         name: invName.trim(),
         email: invEmail.trim(),
-        workSpaceRef: invWorkspace.trim() || undefined,
+        workSpaceRef: invWorkspace.trim(),
         companyId: id,
       });
       setWorkers(prev => [created, ...prev]);
@@ -295,6 +301,16 @@ export default function CompanyDetails() {
   async function onSave(e: React.FormEvent) {
     e.preventDefault();
     if (!editing || !company) return;
+    
+    if (!formName.trim() || !formEmail.trim()) {
+      setSaveError("Bitte Name und Email ausfüllen.");
+      return;
+    }
+    if (!formWs.trim()) {
+      setSaveError("Bitte Workspace ausfüllen.");
+      return;
+    }
+    
     setSaving(true);
     setSaveError(null);
 
@@ -305,7 +321,7 @@ export default function CompanyDetails() {
       const updated = await updateWorker(editing.id, {
         name: formName.trim(),
         email: formEmail.trim(),
-        workSpaceRef: (formWs ?? "").trim(),
+        workSpaceRef: formWs.trim(),
         companyId: company.id,
       });
       setWorkers(prev => prev.map(x => (x.id === updated.id ? updated : x)));
@@ -341,34 +357,17 @@ export default function CompanyDetails() {
   return (
     <AdminLayout>
       {/* === Hero === */}
-      <header className="relative bg-[hsl(60_9%_97.8%)] border-b border-[hsl(214.3_31.8%_91.4%)] px-8 py-4">
-        <div className="pointer-events-none absolute left-0 right-0 top-[calc(64px-1px)] h-0 [box-shadow:0_10px_16px_-14px_rgba(15,23,42,.18)]" />
-        <div className="grid grid-cols-3 items-center gap-2 lg:grid-cols-1 lg:justify-items-center lg:text-center">
-          <div className="justify-self-start hidden lg:flex items-center lg:justify-self-center" />
-          <div className="justify-self-center">
-            <div className="[&>h1]:text-[clamp(28px,6vw,56px)] [&>h1]:font-extrabold [&>h1]:tracking-[-0.02em] [&>h1]:m-0 [&>h1]:mb-4 [&>h1]:leading-[1.05] [&>h1]:text-[#264555] [&>p]:mt-0 [&>p]:text-[#334155] [&>p]:opacity-90 [&>p]:text-[clamp(14px,1.6vw,18px)]">
-              <div className="flex items-center justify-center gap-4">
-                <img
-                  src={myLogo}
-                  alt="Dein Logo"
-                  className="h-[200px] w-[200px] object-contain shrink-0"
-                  width={200}
-                  height={200}
-                />
-                <div className="text-center">
-                  <h1 className="text-[clamp(28px,6vw,56px)] font-extrabold tracking-[-0.02em] mb-2 leading-[1.05] text-[#264555]">
-                    Firmen Details
-                  </h1>
-                  <p className="mt-0 text-[#334155]/90 text-[clamp(14px,1.6vw,18px)]">
-                    {company.name}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="justify-self-end inline-flex lg:justify-self-center" />
-        </div>
-      </header>
+      {/* HEADER */}
+            <PageHeader
+      
+              title="Firmen Details"
+              subtitle= {company.name}
+              icon={<Network size={40} />}
+              gradient="navy"
+              height="280px"
+              showPattern={true}
+      
+            />
 
       {/* === Main === */}
       <main className="admin-main company-details compact bg-[hsl(0_0%_92%)] min-h-[calc(100vh-64px)] mt-2 px-6 py-6">
@@ -926,13 +925,14 @@ export default function CompanyDetails() {
               </div>
 
               <div>
-                <label htmlFor="cw-ws" className="block text-sm font-medium mb-1">Workspace (optional)</label>
+                <label htmlFor="cw-ws" className="block text-sm font-medium mb-1">Workspace *</label>
                 <input
                   id="cw-ws"
                   className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-300"
                   value={invWorkspace}
                   onChange={(e) => setInvWorkspace(e.target.value)}
                   placeholder="z. B. HQ-01"
+                  required
                 />
               </div>
 
@@ -997,13 +997,14 @@ export default function CompanyDetails() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1" htmlFor="w-ws">Workspace</label>
+                <label className="block text-sm font-medium mb-1" htmlFor="w-ws">Workspace *</label>
                 <input
                   id="w-ws"
                   className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-300"
                   value={formWs}
                   onChange={(e) => setFormWs(e.target.value)}
                   placeholder="z. B. Senior Consulting"
+                  required
                 />
               </div>
 

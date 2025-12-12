@@ -52,22 +52,40 @@ export async function getWorkersByCompany(companyId: string) {
   if (resp.status === 204) return [];
   return resp.data;
 } 
-// NEW: Create company
-export type CreateCompanyDto = { name: string; description?: string };
+// Create company
+export type CreateCompanyDto = {
+  name: string;
+  description?: string | null;
+  street?: string | null;
+  postalCode?: string | null;
+  city?: string | null;
+  country?: string | null;
+  website?: string | null;
+  phone?: string | null;
+};
 export async function createCompany(payload: CreateCompanyDto) {
   const { data } = await apiClient.post("/companies", payload, {
     headers: { "Content-Type": "application/json", Accept: "application/json" },
   });
   return data;
 }
-// NEW: Delete company
+// Delete company
 export async function deleteCompany(id: string): Promise<void> {
   await apiClient.delete(`/companies/${encodeURIComponent(id)}`, {
     headers: { Accept: "application/json" },
   });
 }
 // --- Update company (PUT /companies/{id}) ---
-export type UpdateCompanyDto = { name: string; description?: string };
+export type UpdateCompanyDto = {
+  name: string;
+  description?: string | null;
+  street?: string | null;
+  postalCode?: string | null;
+  city?: string | null;
+  country?: string | null;
+  website?: string | null;
+  phone?: string | null;
+};
 
 export async function updateCompany(id: string, payload: UpdateCompanyDto) {
   const resp = await apiClient.put(`/companies/${encodeURIComponent(id)}`, payload, {

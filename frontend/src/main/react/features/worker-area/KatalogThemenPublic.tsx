@@ -9,7 +9,6 @@ import CountdownTimer from "@/features/worker-area/CountdownTimer";
 import GreetingBanner from "@/features/worker-area/begruessung";
 import patternUrl from "@/assets/footer-pattern.svg";
 import type { CatalogLinkMeta } from "@/core/router/buildCatalogUrl";
-
 /* ========= Session-Meta aus InviteGate ========= */
 const SESSION_KEY = "publicAssessmentSession";
 
@@ -57,6 +56,7 @@ type TopicCardModel = {
   effectiveProgress: number;
   topicId: string;
   topicName: string;
+  statusFromApi?: string | null;
 };
 
 type AssessEntry = {
@@ -64,46 +64,42 @@ type AssessEntry = {
   progress?: number;
   currentQuestion?: number;
   sessionId?: string; // <- wichtig fürs Live-Update
+  completedAt?: string;
+  status?: string;
 };
-
-function CompletedRibbon() {
-  return (
-    <div className="pointer-events-none absolute right-[-28px] top-[-10px] rotate-[-24deg] z-0">
-      <div
-        className="
-          px-14 py-2
-          rounded-full
-          border border-white/40
-          bg-white/12
-          shadow-[0_18px_45px_rgba(15,23,42,0.55)]
-          backdrop-blur-sm
-        "
-      >
-        <span
-          className="
-            text-[10px]
-            font-semibold
-            tracking-[0.35em]
-            uppercase
-            text-white/85
-            whitespace-nowrap
-          "
-        >
-          Abgeschlossen
-        </span>
-      </div>
-    </div>
-  );
-}
-
 
 /* ================== Card ================== */
 function CatalogCard({ data, onStart }: { data: TopicCardModel; onStart: () => void }) {
   const p = Math.max(0, Math.min(100, Math.round(data.effectiveProgress)));
-  const running = p > 0 && p < 100;
-  const completed = p >= 100;
+  const status = (data.statusFromApi || "").toLowerCase();
 
-  const btnLabel = running ? "Umfrage fortsetzen →" : "Umfrage starten →";
+  const isApiCompleted = status === "completed";
+  const isFullyAnswered = p >= 100;
+  const hasProgress = p > 0;
+
+  // Fall 2 – wirklich fertig
+  const completed = isFullyAnswered && isApiCompleted;
+
+  // Fall 1 – „Pseudo fertig“ (100 %, aber kein completed)
+  const pseudoCompleted = isFullyAnswered && !isApiCompleted;
+
+  // "running" = alles mit Fortschritt, das nicht wirklich completed ist
+  const running = hasProgress && !completed;
+
+  // Button-Label je nach Zustand
+  let btnLabel: string | null = null;
+
+  if (pseudoCompleted) {
+    // Fall 1 – Pseudo fertig: 100 %, aber kein completed → Button "Zusammenfassung ..."
+    btnLabel = "Zusammenfassung Ihres Assessments →";
+  } else if (running) {
+    // normal laufend
+    btnLabel = "Umfrage fortsetzen →";
+  } else if (!hasProgress) {
+    // noch gar nicht angefangen
+    btnLabel = "Umfrage starten →";
+  }
+
 
   const [animate, setAnimate] = useState(false);
   useEffect(() => {
@@ -123,8 +119,8 @@ function CatalogCard({ data, onStart }: { data: TopicCardModel; onStart: () => v
     completed
       ? "border border-[#d7c69a]"                     // Goldlichter Rand
       : running
-      ? "border border-[#E3BB62]/80"                  // leicht goldener Rand
-      : "border border-[hsla(215,20%,88%,0.9)]",      // neutrales Hellgrau
+        ? "border border-[#E3BB62]/80"                  // leicht goldener Rand
+        : "border border-[hsla(215,20%,88%,0.9)]",      // neutrales Hellgrau
   ].join(" ");
 
   // Header immer in der gleichen Blau-Familie (wie dein mittleres Beispiel)
@@ -133,8 +129,8 @@ function CatalogCard({ data, onStart }: { data: TopicCardModel; onStart: () => v
     completed
       ? "bg-[linear-gradient(135deg,#48566f_0%,#264555_100%)]" // etwas grauer/ruhiger
       : running
-      ? "bg-[linear-gradient(135deg,#3f6aa5_0%,#264555_100%)]" // mittleres Blau (wie Mitte)
-      : "bg-[linear-gradient(135deg,#345c8c_0%,#264555_100%)]", // leicht heller für „neu“
+        ? "bg-[linear-gradient(135deg,#3f6aa5_0%,#264555_100%)]" // mittleres Blau (wie Mitte)
+        : "bg-[linear-gradient(135deg,#345c8c_0%,#264555_100%)]", // leicht heller für „neu“
   ].join(" ");
 
   return (
@@ -247,18 +243,28 @@ function CatalogCard({ data, onStart }: { data: TopicCardModel; onStart: () => v
         </ul>
 
         {/* Button nur, wenn noch nicht abgeschlossen */}
-        {!completed && (
+        {btnLabel && !completed && (
           <button
             onClick={onStart}
             className="
-              w-full py-3 rounded-lg text-white font-semibold transition-all mt-auto shadow-sm
-              bg-[linear-gradient(135deg,#315c8c_0%,#264555_100%)]
-              hover:brightness-105 hover:-translate-y-0.5 hover:shadow-lg active:translate-y-0
-            "
+      w-full py-3 rounded-lg text-white font-semibold transition-all mt-auto shadow-sm
+      bg-[linear-gradient(135deg,#315c8c_0%,#264555_100%)]
+      hover:brightness-105 hover:-translate-y-0.5 hover:shadow-lg active:translate-y-0
+    "
           >
             {btnLabel}
           </button>
         )}
+
+        {/* Fall 2 – wirklich fertig: p=100 & status=completed → kein Button mehr */}
+        {completed && (
+          <div className="mt-auto pt-2 text-sm text-slate-500">
+            {/* Hier kannst du optional einen kleinen Hinweis lassen oder ganz leer lassen */}
+            {/* z.B.: <span>Dieses Assessment wurde abgeschlossen.</span> */}
+          </div>
+        )}
+
+
       </div>
     </div>
   );
@@ -317,6 +323,7 @@ export default function KatalogThemenPublic() {
   /* --- Session-Meta aus InviteGate lesen --- */
   const [sessionMeta, setSessionMeta] = useState<PublicAssessmentSession | null>(null);
 
+
   useEffect(() => {
     try {
       const raw = sessionStorage.getItem(SESSION_KEY);
@@ -343,7 +350,7 @@ export default function KatalogThemenPublic() {
 
   //const sp = new URLSearchParams(location.search);
   const [expiresAt, setExpiresAt] = useState<string | null>(null);
-{/*
+  {/*
   const daysLeft = useMemo(() => {
     if (!expiresAt) return null;
 
@@ -455,21 +462,30 @@ export default function KatalogThemenPublic() {
   const topicCards: TopicCardModel[] = useMemo(() => {
     const list = Array.isArray(themen) ? themen : [];
     const assignmentId = assignmentIdEffective || "unknown";
-
     return list.map((t) => {
       const dashKey = `assignment:${assignmentId}:topic:${t.id}`;
       const entry = assessments[dashKey] ?? {};
       let effectiveProgress = typeof entry.progress === "number" ? entry.progress : 0;
+      const statusFromApi = (entry as AssessEntry).status || null;
 
       if (token && entry.sessionId) {
         getState(token, entry.sessionId)
           .then((state) => {
             const newProgress = calcProgressPct(state);
-            if (newProgress !== effectiveProgress) {
-              const next = { ...assessments, [dashKey]: { ...entry, progress: newProgress } };
-              localStorage.setItem("assessments", JSON.stringify(next));
-              setTick((t) => t + 1);
-            }
+            const newStatus = state.status ?? (entry as AssessEntry).status;
+            // nur speichern, wenn sich etwas geändert hat
+         if (newProgress !== effectiveProgress || newStatus !== (entry as AssessEntry).status) {
+           const next: Record<string, AssessEntry> = {
+             ...assessments,
+             [dashKey]: {
+               ...(entry as AssessEntry),
+               progress: newProgress,
+               status: newStatus,
+             },
+           };
+           localStorage.setItem("assessments", JSON.stringify(next));
+           setTick((t) => t + 1);
+         }
           })
           .catch(() => { });
       }
@@ -486,15 +502,28 @@ export default function KatalogThemenPublic() {
         effectiveProgress,
         topicId: t.id,
         topicName: t.name || "",
+        statusFromApi,
       };
     });
   }, [themen, assessments, token, assignmentIdEffective]);
 
-
   /* --- Tabs --- */
-  const available = topicCards.filter((c) => !(c.effectiveProgress > 0 && c.effectiveProgress < 100) && c.effectiveProgress < 100);
-  const planned = topicCards.filter((c) => c.effectiveProgress > 0 && c.effectiveProgress < 100);
-  const done = topicCards.filter((c) => c.effectiveProgress >= 100);
+
+  const available = topicCards.filter((c) => c.effectiveProgress === 0);
+
+const isCompletedCard = (c: TopicCardModel) =>
+  c.effectiveProgress >= 100 &&
+  (c.statusFromApi || "").toLowerCase() === "completed";
+
+const planned = topicCards.filter((c) => {
+  if (c.effectiveProgress === 0) return false;
+  if (isCompletedCard(c)) return false; // completed → nicht mehr laufend
+  return true;
+});
+
+const done = topicCards.filter(isCompletedCard);
+
+
 
   /* --- Start/Fortsetzen: bestehenden sessionId-Wert NICHT überschreiben --- */
   const handleStart = (card: TopicCardModel) => {
@@ -580,8 +609,6 @@ export default function KatalogThemenPublic() {
       ))}
     </div>
   );
-
-
   return (
 
     <div className="

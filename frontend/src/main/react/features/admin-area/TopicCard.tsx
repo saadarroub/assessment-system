@@ -12,9 +12,12 @@ function isColorLight(hex: string) {
 }
 
 // 🎨 3-Color Concept basierend auf #56768f
-const PRIMARY = "#303335ff"; // original brand-steel
-const SECONDARY = "#3f5a6eff"; // lighter
-const ACCENT = "#486c88de"; // darker
+
+const PRIMARY = "#433b3bff";     // Grau – Basis
+const SECONDARY = "#797272ff";   // etwas heller
+const ACCENT = "#8e8e8eff";
+
+
 
 const GRADIENT = `linear-gradient(145deg, ${PRIMARY}, ${SECONDARY}, ${ACCENT})`;
 
@@ -120,7 +123,7 @@ React.useEffect(() => {
           <div
             className="
               w-12 h-12 rounded-xl flex items-center justify-center
-              bg-[#3f5568] border border-white/20 shadow-sm
+            bg-[#9b9696ff] border border-white/20 shadow-sm
             "
           >
             <FileText size={23} className={textColorSoft} />
@@ -154,7 +157,7 @@ React.useEffect(() => {
 
             <div
               className={`
-      w-4 h-4 bg-[#3f5a6eff] rounded-full shadow-md transform transition-transform duration-300
+      w-4 h-4 bg-[#808080] rounded-full shadow-md transform transition-transform duration-300
       ${t.status === "active" ? "translate-x-9" : "translate-x-px"}
     `}
             ></div>
@@ -223,7 +226,7 @@ React.useEffect(() => {
         <div
           className="
             inline-flex items-center gap-2 px-3 py-2 rounded-lg
-            bg-[#486c88de] shadow-sm w-fit
+            bg-[#9b9696ff] shadow-sm w-fit
           "
         >
           <span className={`text-sm ${textColorSoft}`}>Anzahl der Fragen:</span>
@@ -238,7 +241,7 @@ React.useEffect(() => {
           <button
             onClick={() => onDelete(t)}
             className="
-              w-10 h-10 rounded-xl bg-[#486c88de]
+              w-10 h-10 rounded-xl bg-[#9b9696ff]
               flex items-center justify-center shadow-sm border border-white/20
               hover:bg-red-500/20 transition-all
             "
@@ -248,7 +251,7 @@ React.useEffect(() => {
           <button
             onClick={() => onDuplicate(t)}
             className="
-                          w-10 h-10 rounded-xl bg-[#486c88de]
+                          w-10 h-10 rounded-xl bg-[#9b9696ff]
                           flex items-center justify-center shadow-sm border border-white/20
                           hover:bg-blue-500/20 transition-all
                         "
@@ -259,7 +262,7 @@ React.useEffect(() => {
           <button
             onClick={() => onEdit(t)}
             className="
-              w-20 h-10 rounded-xl bg-[#486c88de]
+              w-20 h-10 rounded-xl bg-[#9b9696ff]
               flex items-center justify-center shadow-sm border border-white/20
               hover:bg-green-500/20 transition-all
             "

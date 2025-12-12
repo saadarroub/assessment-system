@@ -18,6 +18,7 @@ export type ApiQuestion = {
   min?: number; max?: number; step?: number;
   labels?: [string, string];
   isRequired?: boolean | string;
+  isScorable?: boolean;               // false = Frage wird nicht bewertet
   currentAnswer?: ApiCurrentAnswer;
 };
 export type ApiCurrentAnswer = {
@@ -420,8 +421,8 @@ export function normalizeApiQuestion(q: ApiQuestion): UiQuestion {
       id: q.questionId,
       text: q.text,
       type: "slider",
-      min: q.min ?? 1,
-      max: q.max ?? 5,
+      min: q.min ?? 0,
+      max: q.max ?? 6,
       labels: q.labels,
        isRequired:required,
     };

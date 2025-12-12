@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import AdminLayout from "@/apps/app/AdminLayout";
-import myLogo from "@/assets/Zero-6-icons-05.webp";
 import { Search, ArrowUpDown, Eye, Plus, Trash2, Pencil } from "lucide-react";
 import {
   getUsers,
@@ -16,7 +15,8 @@ import {
 import { getRoles, type RoleApi } from "@/features/service/roleService";
 import { WithPermissionCheck } from "@/shared/components/WithPermissionCheck";
 import { useToast } from "@/shared/contexts/ToastContext";
-
+import { Network } from "lucide-react";
+import PageHeader from "@/features/admin-area/catalogs/PageHeader";
 // ---- Types ----
 export type UserRow = {
   id: string;
@@ -91,6 +91,8 @@ export default function UsersPage() {
   const [ePassword, setEPassword] = useState("");
   const [updating, setUpdating] = useState(false);
   const [updateError, setUpdateError] = useState<string | null>(null);
+  const [eRoleId, setERoleId] = useState<string>("");   // neu
+
 
   // Users
   useEffect(() => {
@@ -278,6 +280,7 @@ export default function UsersPage() {
     setEName(u.name);
     setEEmail(u.email);
     setEPassword("");
+      setERoleId(u.roles[0] ?? "");
     setUpdateError(null);
     setOpenEdit(true);
   };
@@ -289,6 +292,7 @@ export default function UsersPage() {
     setEName("");
     setEEmail("");
     setEPassword("");
+    setERoleId(""); 
     setUpdateError(null);
   };
 
@@ -297,11 +301,14 @@ export default function UsersPage() {
     if (!editUser) return;
 
     // Für PUT immer volle Felder nehmen (Eingabe oder bestehende Werte)
-    const full: { name: string; email: string; password?: string } = {
+    const full: { name: string; email: string; password?: string; roleId?: string } = {
       name: eName.trim() || editUser.name,
       email: eEmail.trim() || editUser.email,
       ...(ePassword.trim() ? { password: ePassword.trim() } : {}),
     };
+    if (eRoleId) {
+  full.roleId = eRoleId;
+}
 
     try {
       setUpdating(true);
@@ -313,7 +320,7 @@ export default function UsersPage() {
       setItems(prev =>
         prev.map(row =>
           row.id === editUser.id
-            ? { ...row, name: updated.name ?? full.name, email: updated.email ?? full.email }
+            ? { ...row, name: updated.name ?? full.name, email: updated.email ?? full.email, roles: eRoleId ? [eRoleId] : row.roles, }
             : row
         )
       );
@@ -351,37 +358,17 @@ export default function UsersPage() {
   return (
     <AdminLayout>
       {/* ===== Hero ===== */}
-      <header
-        className="relative bg-[hsl(60_9%_97.8%)] border-b border-[hsl(214.3_31.8%_91.4%)] px-8 py-4" //bg-[hsl(0_0%_92%)] min-h-[calc(100vh-64px)] mt-2 px-6 py-6 zum testen
-      >
-        <div className="pointer-events-none absolute left-0 right-0 top-[calc(64px-1px)] h-0 [box-shadow:0_10px_16px_-14px_rgba(15,23,42,.18)]" />
-        <div className="grid grid-cols-3 items-center gap-2 lg:grid-cols-1 lg:justify-items-center lg:text-center">
-          <div className="justify-self-start hidden lg:flex items-center lg:justify-self-center" />
-          <div className="justify-self-center">
-            <div className="[&>h1]:text-[clamp(28px,6vw,56px)] [&>h1]:font-extrabold [&>h1]:tracking-[-0.02em] [&>h1]:m-0 [&>h1]:mb-4 [&>h1]:leading-[1.05]
-             [&>h1]:text-[#264555] [&>p]:mt-0 [&>p]:text-[#334155] [&>p]:opacity-90 [&>p]:text-[clamp(14px,1.6vw,18px)]">
-              <div className="flex items-center justify-center gap-4">
-                <img
-                  src={myLogo}
-                  alt="Dein Logo"
-                  className="h-[200px] w-[200px] object-contain shrink-0"
-                  width={200}
-                  height={200}
-                />
-                <div className="text-center">
-                  <h1 className="text-[clamp(28px,6vw,56px)] font-extrabold tracking-[-0.02em] mb-2 leading-[1.05] text-[#264555]">
-                    Benutzer Administration
-                  </h1>
-                  <p className="mt-0 text-[#334155]/90 text-[clamp(14px,1.6vw,18px)]">
-                    Benutzerkonten von CapConsulting , Rollen und Berechtigungen verwalten
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="justify-self-end inline-flex lg:justify-self-center" />
-        </div>
-      </header>
+      {/* HEADER */}
+            <PageHeader
+      
+              title=" Benutzer Administration"
+              subtitle=" Verwalte Benutzerkonten, Rollen und Berechtigungen in CapConsulting"
+              icon={<Network size={40} />}
+              gradient="navy"
+              height="280px"
+              showPattern={true}
+      
+            />
 
       {/* ===== Außenbereich unter dem Hero ===== */}
       <main className="bg-[hsl(0_0%_92%)] min-h-[calc(100vh-64px)] mt-2 px-6 py-6" style={{ background: CSS.adminBg }}>
@@ -794,6 +781,29 @@ export default function UsersPage() {
                   placeholder="Leer lassen, um Passwort zu behalten"
                 />
               </div>
+                <div>
+    <label htmlFor="e-role" className="block text-sm font-medium mb-1">
+      Rolle
+    </label>
+    <select
+      id="e-role"
+      className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-300"
+      value={eRoleId}
+      onChange={(e) => setERoleId(e.target.value)}
+      disabled={updating}
+    >
+      <option value="">-- Bitte wählen --</option>
+      {availableRoles.map((role) => (
+        <option key={role.id} value={role.id}>
+          {role.name}
+        </option>
+      ))}
+    </select>
+    {rolesLoadError && (
+      <p className="text-xs text-red-600 mt-1">{rolesLoadError}</p>
+    )}
+  </div>
+
 
               <div className="flex justify-end gap-2 pt-1">
                 <button

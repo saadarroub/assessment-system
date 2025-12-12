@@ -32,6 +32,9 @@ public class Question {
     @Column(name = "scoring_schema", columnDefinition = "jsonb")
     private String scoringSchema;  // ⬅️ String statt Map
 
+    @Column(name = "is_scorable", nullable = false, columnDefinition = "boolean default true")
+    private Boolean isScorable = true;  // Default: bewertbar
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -104,5 +107,13 @@ public class Question {
 
     public void setUpdatedAt(LocalDateTime updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public Boolean getIsScorable() {
+        return isScorable;
+    }
+
+    public void setIsScorable(Boolean isScorable) {
+        this.isScorable = isScorable;
     }
 }

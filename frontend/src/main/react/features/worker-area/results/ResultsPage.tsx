@@ -10,7 +10,7 @@ import AdminLayout from "@/apps/app/AdminLayout";
 import { ArrowLeft, CheckSquare, FileText, Mail, Save, AlertTriangle } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import autoTable from 'jspdf-autotable'; 
 
 
 interface Question {
@@ -18,14 +18,14 @@ interface Question {
   type: 'choice' | 'text' | 'date';
   question: string;
   answer: string;
-  score: number | null;
+  score: number | null; 
   category: string;
 }
 
 export default function ResultsPage() {
   const { sessionId } = useParams();
   const navigate = useNavigate();
-
+  
 
   const radarChartRef = useRef<HTMLDivElement>(null);
 
@@ -39,7 +39,7 @@ export default function ResultsPage() {
     { id: 5, type: 'text', category: 'Physische Sicherheit', question: 'Wie werden Besucher protokolliert?', answer: 'Es liegt eine Liste am Empfang.', score: null },
   ]);
 
-  const [adminNote, setAdminNote] = useState('');
+  const [adminNote, setAdminNote] = useState(''); 
   const [isSaved, setIsSaved] = useState(false);
 
   const handleScoreChange = (id: number, val: string) => {
@@ -66,12 +66,12 @@ export default function ResultsPage() {
     try {
       const doc = new jsPDF();
       const pageWidth = doc.internal.pageSize.getWidth();
-
+      
       // -- Header --
       doc.setFontSize(18);
       doc.setTextColor(41, 128, 185); // Blue
       doc.text("Sicherheitsanalyse Report", 14, 20);
-
+      
       doc.setFontSize(10);
       doc.setTextColor(100);
       doc.text(`Session ID: ${sessionId}`, 14, 28);
@@ -82,18 +82,18 @@ export default function ResultsPage() {
 
       if (radarChartRef.current) {
         try {
-          const canvas = await html2canvas(radarChartRef.current, {
+          const canvas = await html2canvas(radarChartRef.current, { 
             scale: 2,
-            backgroundColor: '#ffffff'
+            backgroundColor: '#ffffff' 
           });
           const imgData = canvas.toDataURL('image/png');
-          doc.addImage(imgData, 'PNG', 15, yPos, 80, 60);
-
+          doc.addImage(imgData, 'PNG', 15, yPos, 80, 60); 
+          
           doc.setFontSize(10);
           doc.setTextColor(150);
           doc.text("Ergebnis Visualisierung", 15, yPos - 2);
-
-          yPos += 70;
+          
+          yPos += 70; 
         } catch (chartError) {
           console.error("Chart capture failed:", chartError);
         }
@@ -105,7 +105,7 @@ export default function ResultsPage() {
         doc.setTextColor(0);
         doc.text("Zusammenfassung & Maßnahmen:", 14, yPos);
         yPos += 7;
-
+        
         doc.setFontSize(10);
         doc.setFont("helvetica", "italic");
         const splitNote = doc.splitTextToSize(adminNote, pageWidth - 28);
@@ -124,8 +124,8 @@ export default function ResultsPage() {
         ]),
         styles: { fontSize: 8, cellPadding: 3 },
         headStyles: { fillColor: [41, 128, 185] },
-        columnStyles: {
-          0: { cellWidth: 25 },
+        columnStyles: { 
+          0: { cellWidth: 25 }, 
           1: { cellWidth: 60 },
           2: { cellWidth: 60 },
           3: { cellWidth: 20, halign: 'center' }
@@ -135,7 +135,7 @@ export default function ResultsPage() {
 
 
       doc.save(`Report_${sessionId}.pdf`);
-
+      
     } catch (error) {
       console.error("PDF generation failed:", error);
       alert("PDF Error");
@@ -169,9 +169,9 @@ export default function ResultsPage() {
         </div>
 
         <div className="max-w-7xl mx-auto px-6 py-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
-
+          
           <div className="lg:col-span-2 space-y-6">
-
+            
             <div className="bg-white rounded-lg shadow border border-yellow-200 overflow-hidden">
               <div className="bg-yellow-50 px-6 py-4 border-b border-yellow-200 flex justify-between items-center">
                 <h2 className="font-bold text-yellow-800 flex items-center gap-2">
@@ -187,7 +187,7 @@ export default function ResultsPage() {
                     <div className="flex justify-between mb-2">
                       <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">{q.category}</span>
                       {q.score !== null ? (
-                        <span className="text-xs font-bold text-green-600 flex items-center gap-1"><CheckSquare size={12} /> Bewertet</span>
+                        <span className="text-xs font-bold text-green-600 flex items-center gap-1"><CheckSquare size={12}/> Bewertet</span>
                       ) : (
                         <span className="text-xs font-bold text-red-500">Nicht bewertet</span>
                       )}
@@ -198,8 +198,8 @@ export default function ResultsPage() {
                     </div>
                     <div className="flex items-center gap-3">
                       <label className="text-sm font-medium text-gray-700">Score vergeben (0-100):</label>
-                      <input
-                        type="number"
+                      <input 
+                        type="number" 
                         className="w-24 border border-gray-300 rounded p-1 text-center font-bold text-blue-600 focus:ring-2 focus:ring-blue-500 outline-none"
                         value={q.score === null ? '' : q.score}
                         placeholder="-"
@@ -213,9 +213,9 @@ export default function ResultsPage() {
 
             <div className="bg-white rounded-lg shadow p-6">
               <h2 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
-                <FileText size={20} className="text-blue-500" /> Report Notizen & Maßnahmen
+                <FileText size={20} className="text-blue-500"/> Report Notizen & Maßnahmen
               </h2>
-              <textarea
+              <textarea 
                 className="w-full border border-gray-300 rounded-lg p-4 focus:ring-2 focus:ring-blue-500 outline-none h-32"
                 placeholder="Schreiben Sie hier eine Zusammenfassung oder empfohlene Maßnahmen für den PDF-Bericht..."
                 value={adminNote}
@@ -226,31 +226,31 @@ export default function ResultsPage() {
 
 
             <div className="bg-white rounded-lg shadow p-6 opacity-70 hover:opacity-100 transition-opacity">
-              <h2 className="font-bold text-gray-600 mb-4">Bereits bewertet (Automatisch)</h2>
-              <table className="w-full text-sm text-left">
-                <thead className="text-gray-500 border-b">
-                  <tr>
-                    <th className="pb-2">Frage</th>
-                    <th className="pb-2">Antwort</th>
-                    <th className="pb-2 text-right">Score</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {questions.filter(q => q.type === 'choice').map(q => (
-                    <tr key={q.id}>
-                      <td className="py-2 pr-2">{q.question}</td>
-                      <td className="py-2 font-medium">{q.answer}</td>
-                      <td className="py-2 text-right font-bold text-blue-600">{q.score}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+               <h2 className="font-bold text-gray-600 mb-4">Bereits bewertet (Automatisch)</h2>
+               <table className="w-full text-sm text-left">
+                 <thead className="text-gray-500 border-b">
+                   <tr>
+                     <th className="pb-2">Frage</th>
+                     <th className="pb-2">Antwort</th>
+                     <th className="pb-2 text-right">Score</th>
+                   </tr>
+                 </thead>
+                 <tbody className="divide-y">
+                   {questions.filter(q => q.type === 'choice').map(q => (
+                     <tr key={q.id}>
+                       <td className="py-2 pr-2">{q.question}</td>
+                       <td className="py-2 font-medium">{q.answer}</td>
+                       <td className="py-2 text-right font-bold text-blue-600">{q.score}</td>
+                     </tr>
+                   ))}
+                 </tbody>
+               </table>
             </div>
           </div>
 
 
           <div className="space-y-6">
-
+            
             <div className="bg-white rounded-lg shadow p-6 text-center">
               <p className="text-gray-500 mb-1">Aktueller Gesamtscore</p>
               <div className="text-5xl font-bold text-blue-600 mb-2">{overallScore}</div>
@@ -261,16 +261,16 @@ export default function ResultsPage() {
 
             <div className="bg-white rounded-lg shadow p-6">
               <h3 className="font-bold text-gray-700 mb-4 text-center">Visualisierung</h3>
-
+              
               <div ref={radarChartRef} className="bg-white p-2 flex justify-center">
-                <ResponsiveContainer width="100%" height={250}>
-                  <RadarChart cx="50%" cy="50%" outerRadius="80%" data={chartData}>
-                    <PolarGrid />
-                    <PolarAngleAxis dataKey="subject" tick={{ fontSize: 10 }} />
-                    <PolarRadiusAxis angle={30} domain={[0, 100]} />
-                    <Radar name="Score" dataKey="score" stroke="#2563EB" fill="#3B82F6" fillOpacity={0.5} />
-                  </RadarChart>
-                </ResponsiveContainer>
+                 <ResponsiveContainer width="100%" height={250}>
+                    <RadarChart cx="50%" cy="50%" outerRadius="80%" data={chartData}>
+                      <PolarGrid />
+                      <PolarAngleAxis dataKey="subject" tick={{fontSize: 10}} />
+                      <PolarRadiusAxis angle={30} domain={[0, 100]} />
+                      <Radar name="Score" dataKey="score" stroke="#2563EB" fill="#3B82F6" fillOpacity={0.5} />
+                    </RadarChart>
+                 </ResponsiveContainer>
               </div>
               <p className="text-xs text-center text-gray-400 mt-2">Dieses Diagramm wird in das PDF übernommen.</p>
             </div>

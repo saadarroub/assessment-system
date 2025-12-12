@@ -81,8 +81,8 @@ public class AutoScoringService {
             return null; // Keine gültige Zahl
         }
         
-        // Validierung: Muss Integer zwischen 0 und 5 sein
-        if (value < 0 || value > 5) {
+        // Validierung: Muss Integer zwischen 0 und 6 sein
+        if (value < 0 || value > 6) {
             return null; // Außerhalb des gültigen Bereichs
         }
         

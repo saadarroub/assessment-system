@@ -497,7 +497,7 @@ export default function CatalogList() {
                           type="number"
                           placeholder="Score"
                           min={0}
-                          max={5}
+                          max={6}
                           step={1}
                           value={
                             opt.score == null || Number.isNaN(opt.score)
@@ -527,8 +527,8 @@ export default function CatalogList() {
                               return;
                             }
 
-                            // Tastatureingabe (0–5)
-                            if (/^[0-5]$/.test(val)) {
+                            // Tastatureingabe (0–6)
+                            if (/^[0-6]$/.test(val)) {
                               setOptions(
                                 options.map((o, j) =>
                                   j === i ? { ...o, score: Number(val) } : o
@@ -544,6 +544,7 @@ export default function CatalogList() {
                               "3",
                               "4",
                               "5",
+                              "6",
                               "Backspace",
                               "Delete",
                               "Tab",
@@ -565,10 +566,10 @@ export default function CatalogList() {
 
                               // Erstes Pfeil-Klicken bei leerem Feld
                               if (current == null) {
-                                current = e.key === "ArrowUp" ? 0 : 5; // ✅ GENAU DAS HIER
+                                current = e.key === "ArrowUp" ? 0 : 6; // ✅ GENAU DAS HIER
                               } else {
                                 if (e.key === "ArrowUp")
-                                  current = Math.min(5, current + 1);
+                                  current = Math.min(6, current + 1);
                                 if (e.key === "ArrowDown")
                                   current = Math.max(0, current - 1);
                               }

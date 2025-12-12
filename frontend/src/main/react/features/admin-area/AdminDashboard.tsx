@@ -17,7 +17,7 @@ import {
   ListOrdered,
   Users,
   Clock,
-  ChevronRight,Network    
+  ChevronRight, Network
 } from "lucide-react";
 
 // API
@@ -379,9 +379,8 @@ export default function AdminDashboard() {
                 >
                   {/* Default Icon */}
                   <div
-                    className={`${
-                      s.key !== "questions" ? "group-hover:hidden" : ""
-                    }`}
+                    className={`${s.key !== "questions" ? "group-hover:hidden" : ""
+                      }`}
                   >
                     {STAT_ICONS[i]}
                   </div>
@@ -397,9 +396,8 @@ export default function AdminDashboard() {
 
                 {/* LABEL */}
                 <p
-                  className={`text-sm font-medium ${
-                    s.key === "questions" ? "text-black" : "text-white"
-                  }`}
+                  className={`text-sm font-medium ${s.key === "questions" ? "text-black" : "text-white"
+                    }`}
                 >
                   {s.label}
                 </p>
@@ -506,11 +504,11 @@ export default function AdminDashboard() {
                         "relative",
                         isHighlight
                           ? [
-                             
-                              "ring-4 ring-green-400 ring-offset-4",
-                             
-                              "[animation:glowRing_.9s_ease-in-out_infinite]",
-                            ].join(" ")
+
+                            "ring-4 ring-green-400 ring-offset-4",
+
+                            "[animation:glowRing_.9s_ease-in-out_infinite]",
+                          ].join(" ")
                           : "",
                         "transition-transform duration-300 ease-out rounded-xl",
                       ].join(" ")}
@@ -599,10 +597,10 @@ export default function AdminDashboard() {
                       prev.map((t) =>
                         t.id === updated.id
                           ? {
-                              ...t,
-                              title: updated.name,
-                              subtitle: updated.description,
-                            }
+                            ...t,
+                            title: updated.name,
+                            subtitle: updated.description,
+                          }
                           : t
                       )
                     );
