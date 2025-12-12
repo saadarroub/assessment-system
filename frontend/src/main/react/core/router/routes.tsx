@@ -36,8 +36,7 @@ import CatalogList from '@/features/admin-area/catalogs/CatalogList';
 import ReifegradPage from '@/features/admin-area/topics/reifegradmodelle/Reifegradmodelle';
 import EmployeeProfile from '@/features/profile/ProfilePage';
 
-
-
+import Ica3LandingPage from '@/apps/landing/Ica3LandingPage';
 
 export default function AppRoutes() {
   return (
@@ -74,14 +73,14 @@ export default function AppRoutes() {
           </ProtectedRoute>
         }
       />
-      <Route
-        path="/profile"
-        element={
-          <ProtectedRoute>
-            <EmployeeProfile />
-          </ProtectedRoute>
-        }
-      />
+     <Route
+    path="/admin/profile"
+    element={
+      <ProtectedRoute>
+        <EmployeeProfile />
+      </ProtectedRoute>
+    }
+  />
       <Route
         path="/app/results/:sessionId"
         element={
@@ -286,7 +285,7 @@ export default function AppRoutes() {
         path="/tests"
         element={
           <ProtectedRoute>
-            <Ica3LandingSingle />
+            <Ica3LandingPage />
           </ProtectedRoute>
         }
       />

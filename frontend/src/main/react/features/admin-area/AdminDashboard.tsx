@@ -322,16 +322,17 @@ export default function AdminDashboard() {
       </style>
 
       {/* HEADER */}
-     <PageHeader
-      
-  title="Fragenkatalog Administration"
-  subtitle="Verwalten Sie Ihre Themen und erstellen Sie finale Kataloge"
-  icon={<Network  size={40} />}
-  gradient="navy"
-  height="250px"
-  showPattern={true}
- 
-/>
+      <PageHeader
+
+        title="Fragenkatalog Administration"
+        subtitle="Verwalten Sie Ihre Themen und erstellen Sie finale Kataloge"
+        icon={<Network size={40} />}
+        gradient="navy"
+        height="280px"
+        showPattern={true}
+
+        center={false}
+      />
 
 
       {/* BODY */}     

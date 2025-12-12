@@ -1,53 +1,120 @@
 import { useEffect, useState } from "react";
 import AdminLayout from "./AdminLayout";
-import "@/styles/admin.css";
-import { 
-  getDashboardStats, 
-  getRecentAssignments, 
-  getRecentSessions, 
+import {
+  getDashboardStats,
+  getRecentAssignments,
+  getRecentSessions,
   getStatusDistribution,
-  getTopCompanies
+  getTopCompanies,
 } from "@/features/service/dashboardService";
 import type {
   DashboardStats,
   AssignmentSummary,
   SessionSummary,
   StatusDistribution,
-  CompanyActivity
+  CompanyActivity,
 } from "@/features/service/dashboardService";
 import { StatusDistributionChart } from "@/shared/components/StatusDistributionChart";
 import { TopCompaniesChart } from "@/shared/components/TopCompaniesChart";
-import { 
-  Building2, 
-  Folder, 
-  BookOpen, 
-  ClipboardList, 
-  CheckCircle2, 
+import {
+  Building2,
+  Folder,
+  BookOpen,
+  ClipboardList,
+  CheckCircle2,
   Activity,
   Users,
   TrendingUp,
   Clock,
-  Award
+  Award,
 } from "lucide-react";
 import { formatDistanceToNow } from "@/shared/utils/dateUtils";
 import { Network } from "lucide-react";
 import PageHeader from "@/features/admin-area/catalogs/PageHeader";
 
+/* ===== Farb-Tokens (wie auf anderen Admin-Seiten) ===== */
+const CSS = {
+  border: "hsl(var(--border,30 15% 85%))",
+  fg: "hsl(var(--foreground,205 35% 24%))",
+  mutedFg: "hsl(var(--muted-foreground,0 0% 50%))",
+};
+
+const BRAND = {
+  navy: "#264555",
+  gray: "#808080",
+  sand: "#d2c9b9",
+  fog: "#ebebec",
+  gold: "#E3BB62", // Banana
+};
+
 type StatCardProps = {
   label: string;
   value: number;
-  icon: React.ReactNode; 
+  icon: React.ReactNode;
+  accent?: "gold" | "blue";
 };
 
-function StatCard({ label, value, icon }: StatCardProps) {
+function StatCard({ label, value, icon, accent = "gold" }: StatCardProps) {
+  const accentBg =
+    accent === "gold"
+      ? "linear-gradient(135deg, rgba(227,187,98,0.16), rgba(227,187,98,0.05))"
+      : "linear-gradient(135deg, rgba(56,189,248,0.18), rgba(56,189,248,0.05))";
+
+  const accentDot =
+    accent === "gold" ? BRAND.gold : "rgb(56 189 248 / 1)";
+
   return (
-    <div className="stat-card">
-      <div className="stat-content">
-        <div>
-          <div className="stat-label">{label}</div>
-          <div className="stat-value">{value.toLocaleString("de-DE")}</div>
+    <div
+      className="
+        group
+        relative overflow-hidden
+        rounded-2xl border
+        px-4 py-4
+        shadow-[0_8px_22px_rgba(0,0,0,0.06)]
+        transition
+        hover:-translate-y-[2px]
+        hover:shadow-[0_16px_38px_rgba(0,0,0,0.10)]
+      "
+      style={{
+        borderColor: CSS.border,
+        background:
+          "radial-gradient(circle at 0 0, rgba(255,255,255,0.7) 0, transparent 55%)," +
+          "radial-gradient(circle at 120% 0, rgba(0,0,0,0.03) 0, transparent 55%)," +
+          "#ffffff",
+      }}
+    >
+      {/* Glow oben rechts */}
+      <div
+        className="pointer-events-none absolute -right-6 -top-8 h-24 w-24 rounded-full opacity-70 blur-sm transition group-hover:opacity-100"
+        style={{ background: accentBg }}
+      />
+
+      <div className="relative flex items-center justify-between gap-3">
+        <div className="space-y-1">
+          <div className="inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.08em]">
+            <span
+              className="h-1.5 w-1.5 rounded-full"
+              style={{ background: accentDot }}
+            />
+            <span style={{ color: CSS.mutedFg }}>{label}</span>
+          </div>
+          <div
+            className="text-3xl font-extrabold leading-none"
+            style={{ color: BRAND.navy }}
+          >
+            {value.toLocaleString("de-DE")}
+          </div>
         </div>
-        <div style={{ color: '#64748B', opacity: 0.7 }}>
+
+        <div
+          className="
+            flex h-12 w-12 items-center justify-center
+            rounded-2xl border
+            bg-white/90
+            shadow-[0_6px_18px_rgba(0,0,0,0.06)]
+          "
+          style={{ borderColor: BRAND.sand, color: "#64748B" }}
+        >
           {icon}
         </div>
       </div>
@@ -57,13 +124,20 @@ function StatCard({ label, value, icon }: StatCardProps) {
 
 function SkeletonCard() {
   return (
-    <div className="stat-card">
-      <div className="stat-content">
+    <div
+      className="
+        rounded-2xl border
+        px-4 py-4
+        shadow-[0_8px_22px_rgba(0,0,0,0.05)]
+      "
+      style={{ borderColor: CSS.border, background: "#ffffff" }}
+    >
+      <div className="flex items-center justify-between gap-3">
         <div>
-          <div className="h-4 w-24 bg-gray-300 rounded animate-pulse mb-2" />
-          <div className="h-8 w-16 bg-gray-300 rounded animate-pulse" />
+          <div className="mb-2 h-4 w-24 animate-pulse rounded bg-slate-200" />
+          <div className="h-8 w-16 animate-pulse rounded bg-slate-200" />
         </div>
-        <div className="h-12 w-12 bg-gray-300 rounded-full animate-pulse" />
+        <div className="h-12 w-12 animate-pulse rounded-2xl bg-slate-200" />
       </div>
     </div>
   );
@@ -71,10 +145,14 @@ function SkeletonCard() {
 
 export function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [recentAssignments, setRecentAssignments] = useState<AssignmentSummary[]>([]);
+  const [recentAssignments, setRecentAssignments] = useState<
+    AssignmentSummary[]
+  >([]);
   const [recentSessions, setRecentSessions] = useState<SessionSummary[]>([]);
-  const [statusDistribution, setStatusDistribution] = useState<StatusDistribution | null>(null);
-  const [topCompanies, setTopCompanies] = useState<CompanyActivity[]>([]);
+  const [statusDistribution, setStatusDistribution] =
+    useState<StatusDistribution | null>(null);
+  const [topCompanies, setTopCompanies] =
+    useState<CompanyActivity[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -84,7 +162,13 @@ export function DashboardPage() {
         setLoading(true);
         setError(null);
 
-        const [statsData, assignmentsData, sessionsData, distributionData, companiesData] = await Promise.all([
+        const [
+          statsData,
+          assignmentsData,
+          sessionsData,
+          distributionData,
+          companiesData,
+        ] = await Promise.all([
           getDashboardStats(),
           getRecentAssignments(10),
           getRecentSessions(10),
@@ -111,18 +195,35 @@ export function DashboardPage() {
   if (error) {
     return (
       <AdminLayout>
-        <div className="dashboard-content">
-          <div style={{
-            background: '#fee2e2',
-            border: '1px solid #fca5a5',
-            color: '#991b1b',
-            padding: '1.5rem',
-            borderRadius: '12px',
-            boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)'
-          }}>
-            <h3 style={{ fontWeight: 600, marginBottom: '0.5rem' }}>❌ Fehler</h3>
-            <p>{error}</p>
-            <button onClick={() => window.location.reload()} className="btn btn-primary">
+        <div className="px-6 py-8">
+          <div
+            className="
+              mx-auto max-w-[800px]
+              rounded-2xl border
+              px-6 py-5
+              shadow-lg
+            "
+            style={{
+              background: "#fee2e2",
+              borderColor: "#fca5a5",
+              color: "#991b1b",
+            }}
+          >
+            <h3 className="mb-2 text-lg font-semibold">❌ Fehler</h3>
+            <p className="mb-4 text-sm">{error}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="
+                inline-flex items-center justify-center
+                rounded-full px-4 py-2
+                text-sm font-semibold
+              "
+              style={{
+                background: BRAND.gold,
+                color: BRAND.navy,
+                boxShadow: "0 8px 20px rgba(0,0,0,0.18)",
+              }}
+            >
               Neu laden
             </button>
           </div>
@@ -133,139 +234,295 @@ export function DashboardPage() {
 
   return (
     <AdminLayout>
-       {/* Header */}
-            <PageHeader
-      
-              title="Dashboard"
-              subtitle="Übersicht über das Assessment-System"
-              icon={<Network size={40} />}
-              gradient="navy"
-              height="280px"
-              showPattern={true}
-      
-            />
+      {/* ===== Hero Header (PageHeader wie bei anderen Seiten) ===== */}
+      <PageHeader
+        title="Dashboard"
+        subtitle="Übersicht über das Assessment-System"
+        icon={<Network size={40} />}
+        gradient="navy"
+        height="280px"
+        showPattern={true}
+        center={false}
+      />
 
-      <div style={{ 
-        background: 'hsl(0 0% 92%)', 
-        minHeight: 'calc(100vh - 64px)',
-        marginTop: '0.5rem',
-        padding: '1.5rem'
-      }}>
-        <div style={{
-          maxWidth: '1400px',
-          margin: '0 auto',
-          background: '#f5f6f7',
-          borderRadius: '12px',
-          border: '1px solid hsl(30 15% 85%)',
-          boxShadow: '0 1px 0 rgba(0,0,0,.02), 0 12px 30px -20px rgba(38,69,85,.25)',
-          padding: '1.5rem',
-          color: 'hsl(205 35% 24%)'
-        }}>
-          
-          {/* System Overview */}
-          <div className="stats-panel">
-            <h2 style={{ margin: '0 0 1rem 0', fontSize: '1.5rem', fontWeight: 700, color: '#264555' }}>
-              System-Übersicht
-            </h2>
-            <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(4, minmax(200px, 1fr))' }}>
+      {/* ===== Hintergrund unterhalb des Headers ===== */}
+      <main
+        className="mt-0 min-h-[calc(100vh-64px)] px-6 pb-10 pt-20"
+        style={{
+          background:
+            "radial-gradient(circle at 0 0, rgba(227,187,98,0.13) 0, transparent 40%)," +
+            "radial-gradient(circle at 100% 0, rgba(56,189,248,0.10) 0, transparent 42%)," +
+            "linear-gradient(to bottom, #f3f4f7 0, #e6e9ef 240px, #f4f5f8 100%)",
+        }}
+      >
+        <div
+          className="
+            mx-auto
+            max-w-[1400px] xl:max-w-[1600px]
+            rounded-[16px]
+            border
+            p-6 md:p-7
+            shadow-[0_1px_0_rgba(0,0,0,.02),_0_18px_40px_-24px_rgba(38,69,85,.35)]
+          "
+          style={{ borderColor: CSS.border, background: BRAND.fog }}
+        >
+          {/* ===== Top-Row: KPIs ===== */}
+          <section className="mb-6">
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <h2 className="m-0 text-xl font-semibold" style={{ color: BRAND.navy }}>
+                System-Übersicht
+              </h2>
+              <span
+                className="
+                  inline-flex items-center gap-2 rounded-full
+                  px-3 py-1.5 text-xs font-medium
+                "
+                style={{
+                  background: BRAND.navy,
+                  color: "white",
+                }}
+              >
+                <Activity size={12} />
+                Live-Status
+              </span>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               {loading ? (
-                <>{[1,2,3,4].map(i => <SkeletonCard key={i} />)}</>
+                <>
+                  {[1, 2, 3, 4].map((i) => (
+                    <SkeletonCard key={i} />
+                  ))}
+                </>
               ) : stats ? (
                 <>
-                  <StatCard label="Firmen" value={stats.totalCompanies} icon={<Building2 size={40} />} />
-                  <StatCard label="Kataloge" value={stats.totalCatalogs} icon={<Folder size={40} />} />
-                  <StatCard label="Themen" value={stats.totalThemes} icon={<BookOpen size={40} />} />
-                  <StatCard label="Mitarbeiter" value={stats.totalWorkers} icon={<Users size={40} />} />
+                  <StatCard
+                    label="Firmen"
+                    value={stats.totalCompanies}
+                    icon={<Building2 size={26} />}
+                    accent="gold"
+                  />
+                  <StatCard
+                    label="Kataloge"
+                    value={stats.totalCatalogs}
+                    icon={<Folder size={26} />}
+                    accent="blue"
+                  />
+                  <StatCard
+                    label="Themen"
+                    value={stats.totalThemes}
+                    icon={<BookOpen size={26} />}
+                    accent="gold"
+                  />
+                  <StatCard
+                    label="Mitarbeiter"
+                    value={stats.totalWorkers}
+                    icon={<Users size={26} />}
+                    accent="blue"
+                  />
                 </>
               ) : null}
             </div>
-          </div>
+          </section>
 
-          {/* Activity */}
-          <div className="stats-panel" style={{ marginTop: '1.5rem' }}>
-            <h2 style={{ margin: '0 0 1rem 0', fontSize: '1.5rem', fontWeight: 700, color: '#264555' }}>
-              Aktivitäten
-            </h2>
-            <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(4, minmax(200px, 1fr))' }}>
+          {/* ===== Aktivitäten-Row ===== */}
+          <section className="mb-8">
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <h2 className="m-0 text-xl font-semibold" style={{ color: BRAND.navy }}>
+                Aktivitäten
+              </h2>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               {loading ? (
-                <>{[1,2,3,4].map(i => <SkeletonCard key={i} />)}</>
+                <>
+                  {[1, 2, 3, 4].map((i) => (
+                    <SkeletonCard key={i} />
+                  ))}
+                </>
               ) : stats ? (
                 <>
-                  <StatCard label="Zuweisungen" value={stats.totalAssignments} icon={<ClipboardList size={40} />} />
-                  <StatCard label="Aktive" value={stats.activeAssignments} icon={<Activity size={40} />} />
-                  <StatCard label="Abgeschlossen" value={stats.completedAssignments} icon={<CheckCircle2 size={40} />} />
-                  <StatCard label="Sessions" value={stats.completedSessions} icon={<TrendingUp size={40} />} />
+                  <StatCard
+                    label="Zuweisungen gesamt"
+                    value={stats.totalAssignments}
+                    icon={<ClipboardList size={26} />}
+                    accent="gold"
+                  />
+                  <StatCard
+                    label="Aktive Zuweisungen"
+                    value={stats.activeAssignments}
+                    icon={<Activity size={26} />}
+                    accent="blue"
+                  />
+                  <StatCard
+                    label="Abgeschlossen"
+                    value={stats.completedAssignments}
+                    icon={<CheckCircle2 size={26} />}
+                    accent="gold"
+                  />
+                  <StatCard
+                    label="Abgeschlossene Sessions"
+                    value={stats.completedSessions}
+                    icon={<TrendingUp size={26} />}
+                    accent="blue"
+                  />
                 </>
               ) : null}
             </div>
-          </div>
+          </section>
 
-          {/* Charts */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1.5rem', marginTop: '2rem' }}>
+          {/* ===== Charts ===== */}
+          <section className="mb-8 grid gap-5 lg:grid-cols-2">
             {loading ? (
-              <>{[1,2].map(i => (
-                <div key={i} style={{ background: '#fff', borderRadius: '12px', border: '1px solid hsl(var(--border))', padding: '1.5rem' }}>
-                  <div className="h-6 w-48 bg-gray-200 rounded animate-pulse mb-4" />
-                  <div className="h-64 bg-gray-100 rounded animate-pulse" />
-                </div>
-              ))}</>
+              <>
+                {[1, 2].map((i) => (
+                  <div
+                    key={i}
+                    className="
+                      rounded-2xl border
+                      p-5
+                      shadow-[0_10px_26px_rgba(0,0,0,0.06)]
+                    "
+                    style={{ borderColor: CSS.border, background: "#ffffff" }}
+                  >
+                    <div className="mb-4 h-5 w-48 animate-pulse rounded bg-slate-200" />
+                    <div className="h-64 animate-pulse rounded-xl bg-slate-100" />
+                  </div>
+                ))}
+              </>
             ) : (
               <>
                 {statusDistribution && (
-                  <StatusDistributionChart
-                    data={statusDistribution.sessionsByStatus}
-                    title="Session-Status"
-                    description="Verteilung der Assessment-Sessions nach Status"
-                  />
+                  <div
+                    className="
+                      rounded-2xl border
+                      p-5
+                      shadow-[0_10px_26px_rgba(0,0,0,0.06)]
+                      bg-white
+                    "
+                    style={{ borderColor: CSS.border }}
+                  >
+                    <StatusDistributionChart
+                      data={statusDistribution.sessionsByStatus}
+                      title="Session-Status"
+                      description="Verteilung der Assessment-Sessions nach Status"
+                    />
+                  </div>
                 )}
+
                 {topCompanies.length > 0 && (
-                  <TopCompaniesChart
-                    data={topCompanies}
-                    title="Top 5 Firmen"
-                    description="Firmen mit den meisten Zuweisungen"
-                  />
+                  <div
+                    className="
+                      rounded-2xl border
+                      p-5
+                      shadow-[0_10px_26px_rgba(0,0,0,0.06)]
+                      bg-white
+                    "
+                    style={{ borderColor: CSS.border }}
+                  >
+                    <TopCompaniesChart
+                      data={topCompanies}
+                      title="Top 5 Firmen"
+                      description="Firmen mit den meisten Zuweisungen"
+                    />
+                  </div>
                 )}
               </>
             )}
-          </div>
+          </section>
 
-          {/* Recent Activity */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1.5rem', marginTop: '2rem' }}>
-            {/* Assignments */}
-            <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid hsl(var(--border))', padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-              <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.25rem', fontWeight: 600, color: '#264555' }}>
+          {/* ===== Recent Activity ===== */}
+          <section className="grid gap-5 lg:grid-cols-2">
+            {/* Letzte Zuweisungen */}
+            <div
+              className="
+                rounded-2xl border
+                p-5
+                shadow-[0_10px_26px_rgba(0,0,0,0.06)]
+                bg-white
+              "
+              style={{ borderColor: CSS.border }}
+            >
+              <h3
+                className="mb-1 text-lg font-semibold"
+                style={{ color: BRAND.navy }}
+              >
                 Letzte Zuweisungen
               </h3>
-              <p style={{ margin: '0 0 1.5rem 0', fontSize: '0.875rem', color: '#6b7280' }}>
-                Kürzlich zugewiesene Kataloge
+              <p
+                className="mb-4 text-xs md:text-sm"
+                style={{ color: CSS.mutedFg }}
+              >
+                Kürzlich zugewiesene Kataloge im System.
               </p>
+
               {loading ? (
-                <div>{[1,2,3].map(i => <div key={i} className="h-24 bg-gray-100 rounded animate-pulse mb-3" />)}</div>
+                <div className="space-y-3">
+                  {[1, 2, 3].map((i) => (
+                    <div
+                      key={i}
+                      className="h-20 rounded-xl bg-slate-100 animate-pulse"
+                    />
+                  ))}
+                </div>
               ) : recentAssignments.length === 0 ? (
-                <div style={{ padding: '2rem', textAlign: 'center', color: '#9ca3af' }}>Keine Daten</div>
+                <div className="py-8 text-center text-sm text-slate-400">
+                  Keine Daten vorhanden.
+                </div>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <div className="flex flex-col gap-3">
                   {recentAssignments.slice(0, 5).map((a) => (
-                    <div key={a.id} style={{ padding: '1rem', borderRadius: '8px', border: '1px solid #e5e7eb', background: '#fafafa' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                        <Users size={14} style={{ color: '#6b7280' }} />
-                        <span style={{ fontWeight: 600, fontSize: '0.875rem' }}>{a.workerName}</span>
-                        <span style={{
-                          marginLeft: 'auto', padding: '0.125rem 0.5rem', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 500,
-                          background: a.status === 'completed' ? '#d1fae5' : a.status === 'in_progress' ? '#dbeafe' : '#e5e7eb',
-                          color: a.status === 'completed' ? '#065f46' : a.status === 'in_progress' ? '#1e40af' : '#374151'
-                        }}>
-                          {a.status === 'completed' ? 'Abgeschlossen' : a.status === 'in_progress' ? 'In Bearbeitung' : 'Zugewiesen'}
+                    <div
+                      key={a.id}
+                      className="
+                        rounded-xl border px-3 py-3
+                        bg-slate-50
+                      "
+                      style={{ borderColor: "#e5e7eb" }}
+                    >
+                      <div className="mb-1 flex items-center gap-2 text-sm">
+                        <Users size={14} className="text-slate-500" />
+                        <span className="font-semibold text-slate-800">
+                          {a.workerName}
+                        </span>
+                        <span className="ml-auto">
+                          <span
+                            className="rounded-full px-2 py-[2px] text-[11px] font-semibold"
+                            style={{
+                              background:
+                                a.status === "completed"
+                                  ? "#d1fae5"
+                                  : a.status === "in_progress"
+                                  ? "#dbeafe"
+                                  : "#e5e7eb",
+                              color:
+                                a.status === "completed"
+                                  ? "#065f46"
+                                  : a.status === "in_progress"
+                                  ? "#1e40af"
+                                  : "#374151",
+                            }}
+                          >
+                            {a.status === "completed"
+                              ? "Abgeschlossen"
+                              : a.status === "in_progress"
+                              ? "In Bearbeitung"
+                              : "Zugewiesen"}
+                          </span>
                         </span>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8125rem', color: '#6b7280' }}>
-                        <Folder size={12} /><span>{a.catalogTitle}</span>
+
+                      <div className="flex items-center gap-2 text-[12px] text-slate-600">
+                        <Folder size={12} />
+                        <span>{a.catalogTitle}</span>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8125rem', color: '#6b7280', marginTop: '0.25rem' }}>
-                        <Building2 size={12} /><span>{a.companyName}</span>
+                      <div className="mt-[2px] flex items-center gap-2 text-[12px] text-slate-600">
+                        <Building2 size={12} />
+                        <span>{a.companyName}</span>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.75rem', color: '#9ca3af', marginTop: '0.5rem' }}>
-                        <Clock size={11} /><span>{formatDistanceToNow(a.assignedAt)}</span>
+                      <div className="mt-2 flex items-center gap-2 text-[11px] text-slate-400">
+                        <Clock size={11} />
+                        <span>{formatDistanceToNow(a.assignedAt)}</span>
                       </div>
                     </div>
                   ))}
@@ -273,49 +530,107 @@ export function DashboardPage() {
               )}
             </div>
 
-            {/* Sessions */}
-            <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid hsl(var(--border))', padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-              <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.25rem', fontWeight: 600, color: '#264555' }}>
+            {/* Abgeschlossene Sessions */}
+            <div
+              className="
+                rounded-2xl border
+                p-5
+                shadow-[0_10px_26px_rgba(0,0,0,0.06)]
+                bg-white
+              "
+              style={{ borderColor: CSS.border }}
+            >
+              <h3
+                className="mb-1 text-lg font-semibold"
+                style={{ color: BRAND.navy }}
+              >
                 Abgeschlossene Sessions
               </h3>
-              <p style={{ margin: '0 0 1.5rem 0', fontSize: '0.875rem', color: '#6b7280' }}>
-                Kürzlich abgeschlossene Assessments
+              <p
+                className="mb-4 text-xs md:text-sm"
+                style={{ color: CSS.mutedFg }}
+              >
+                Kürzlich abgeschlossene Assessments der Mitarbeiter.
               </p>
+
               {loading ? (
-                <div>{[1,2,3].map(i => <div key={i} className="h-24 bg-gray-100 rounded animate-pulse mb-3" />)}</div>
+                <div className="space-y-3">
+                  {[1, 2, 3].map((i) => (
+                    <div
+                      key={i}
+                      className="h-20 rounded-xl bg-slate-100 animate-pulse"
+                    />
+                  ))}
+                </div>
               ) : recentSessions.length === 0 ? (
-                <div style={{ padding: '2rem', textAlign: 'center', color: '#9ca3af' }}>Keine Daten</div>
+                <div className="py-8 text-center text-sm text-slate-400">
+                  Keine Daten vorhanden.
+                </div>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <div className="flex flex-col gap-3">
                   {recentSessions.slice(0, 5).map((s) => {
-                    const pct = s.maxPossibleScore > 0 ? (s.totalScore / s.maxPossibleScore) * 100 : 0;
+                    const pct =
+                      s.maxPossibleScore > 0
+                        ? (s.totalScore / s.maxPossibleScore) * 100
+                        : 0;
                     return (
-                      <div key={s.id} style={{ padding: '1rem', borderRadius: '8px', border: '1px solid #e5e7eb', background: '#fafafa' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                          <Users size={14} style={{ color: '#6b7280' }} />
-                          <span style={{ fontWeight: 600, fontSize: '0.875rem' }}>{s.workerName}</span>
+                      <div
+                        key={s.id}
+                        className="
+                          rounded-xl border px-3 py-3
+                          bg-slate-50
+                        "
+                        style={{ borderColor: "#e5e7eb" }}
+                      >
+                        <div className="mb-1 flex items-center gap-2 text-sm">
+                          <Users size={14} className="text-slate-500" />
+                          <span className="font-semibold text-slate-800">
+                            {s.workerName}
+                          </span>
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8125rem', color: '#6b7280' }}>
-                          <BookOpen size={12} /><span>{s.themeName}</span>
+                        <div className="flex items-center gap-2 text-[12px] text-slate-600">
+                          <BookOpen size={12} />
+                          <span>{s.themeName}</span>
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8125rem', color: '#6b7280', marginTop: '0.25rem' }}>
-                          <Building2 size={12} /><span>{s.companyName}</span>
+                        <div className="mt-[2px] flex items-center gap-2 text-[12px] text-slate-600">
+                          <Building2 size={12} />
+                          <span>{s.companyName}</span>
                         </div>
-                        <div style={{ marginTop: '0.75rem' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.75rem', color: '#6b7280' }}>
-                              <Award size={12} style={{ color: '#f59e0b' }} />
-                              <span>{s.totalScore} / {s.maxPossibleScore} Punkte</span>
+
+                        {/* Score-Bar */}
+                        <div className="mt-3">
+                          <div className="mb-1 flex items-center justify-between text-[11px] text-slate-600">
+                            <div className="flex items-center gap-1">
+                              <Award
+                                size={12}
+                                className="text-amber-500"
+                              />
+                              <span>
+                                {s.totalScore} / {s.maxPossibleScore} Punkte
+                              </span>
                             </div>
-                            <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#374151' }}>{pct.toFixed(0)}%</span>
+                            <span className="font-semibold text-slate-700">
+                              {pct.toFixed(0)}%
+                            </span>
                           </div>
-                          <div style={{ height: '6px', background: '#e5e7eb', borderRadius: '9999px', overflow: 'hidden' }}>
-                            <div style={{ height: '100%', background: 'linear-gradient(90deg, #fbbf24, #f59e0b)', width: `${Math.min(pct, 100)}%`, transition: 'width 0.5s' }} />
+                          <div className="h-1.5 overflow-hidden rounded-full bg-slate-200">
+                            <div
+                              className="h-full rounded-full transition-[width] duration-500"
+                              style={{
+                                width: `${Math.min(pct, 100)}%`,
+                                background:
+                                  "linear-gradient(90deg,#fbbf24,#f59e0b)",
+                              }}
+                            />
                           </div>
                         </div>
+
                         {s.completedAt && (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.75rem', color: '#9ca3af', marginTop: '0.5rem' }}>
-                            <Clock size={11} /><span>{formatDistanceToNow(s.completedAt)}</span>
+                          <div className="mt-2 flex items-center gap-2 text-[11px] text-slate-400">
+                            <Clock size={11} />
+                            <span>
+                              {formatDistanceToNow(s.completedAt)}
+                            </span>
                           </div>
                         )}
                       </div>
@@ -324,10 +639,9 @@ export function DashboardPage() {
                 </div>
               )}
             </div>
-          </div>
-
+          </section>
         </div>
-      </div>
+      </main>
     </AdminLayout>
   );
 }

@@ -2,6 +2,8 @@ import { useMemo, useState, useEffect } from "react";
 import { Home, BarChart3, Target, PieChart, AlertTriangle } from "lucide-react";
 import type { ApiSummaryResponse, UiQuestion } from "@/features/service/publicAssessmentService";
 import confetti from "canvas-confetti";
+import ConfirmModal from "@/shared/components/ConfirmModal";
+
 
 export type AssessmentResultsProps = {
   topicName?: string;
@@ -423,11 +425,11 @@ export default function AssessmentResults(props: AssessmentResultsProps) {
                           <td className="py-3 px-4 align-top">
                             <span
                               className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium ${q.isRequired
-                                  ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
-                                  : "bg-amber-50 text-amber-700 border border-amber-100"
+                                ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
+                                : "bg-amber-50 text-amber-700 border border-amber-100"
                                 }`}
                             >
-                              {q.isRequired? "Ja" : "Nein"}
+                              {q.isRequired ? "Ja" : "Nein"}
                             </span>
                           </td>
 
@@ -796,108 +798,35 @@ export default function AssessmentResults(props: AssessmentResultsProps) {
         </div>
       )}
 
-      {showConfirmModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="w-full max-w-xl px-4 sm:px-0">
-            {/* Oberer Content-Block */}
-            <div className="relative overflow-hidden rounded-3xl bg-white shadow-2xl border border-slate-200/80">
-              {/* Dekorativer Glow rechts oben */}
-              <div
-                className="pointer-events-none absolute -right-24 -top-24 h-52 w-52 rounded-full bg-gradient-to-br from-[#E3BB62]/40 via-amber-400/20 to-transparent opacity-60"
-                aria-hidden="true"
-              />
-              {/* Dekorativer Glow links unten */}
-              <div
-                className="pointer-events-none absolute -left-24 -bottom-24 h-52 w-52 rounded-full bg-gradient-to-tr from-sky-500/20 via-indigo-500/10 to-transparent opacity-60"
-                aria-hidden="true"
-              />
+      <ConfirmModal
+        open={showConfirmModal}
+        title="Assessment endgültig abschließen?"
+        description={
+          <>
+            Bitte bestätigen Sie, dass Sie dieses Assessment endgültig
+            abschließen möchten.
+          </>
+        }
+        hintTitle="Hinweis"
+        hintText={
+          <>
+            Nach dem endgültigen Abschluss können die gegebenen Antworten{" "}
+            <span className="font-semibold text-sky-700">
+              nicht mehr geändert
+            </span>{" "}
+            werden.
+          </>
+        }
+        cancelLabel="Abbrechen"
+        confirmLabel="Ja, endgültig abschließen"
+        onCancel={() => setShowConfirmModal(false)}
+        onConfirm={() => {
+          setShowConfirmModal(false);
+          onComplete?.();
+        }}
+      />
 
-              {/* Inhalt */}
-              <div className="relative px-6 pt-6 pb-5">
-                <div className="flex items-start gap-4">
-                  {/* Icon-Badge */}
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-100 to-amber-50 border border-amber-200 shadow-sm">
-                    <AlertTriangle></AlertTriangle>
-                  </div>
 
-                  <div className="flex-1">
-                    {/* Titel + Badge */}
-                    <div className="flex flex-wrap items-center gap-2 mb-1">
-                      <h2 className="text-lg sm:text-xl font-semibold text-slate-900">
-                        Assessment endgültig abschließen?
-                      </h2>
-                    </div>
-
-                    {/* Haupt-Text */}
-                    <p className="text-sm text-slate-600 leading-relaxed">
-                      Bitte bestätigen Sie, dass Sie dieses Assessment endgültig
-                      abschließen möchten.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Hinweis-Box */}
-                <div className="mt-4 rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
-                  <p className="text-xs font-semibold tracking-wide text-slate-500 uppercase mb-1">
-                    Hinweis
-                  </p>
-                  <p className="text-sm text-slate-600">
-                    Nach dem endgültigen Abschluss können die gegebenen Antworten
-                    <span className="font-semibold"> nicht mehr geändert</span> werden.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Abstand zwischen Card und Buttons */}
-            <div className="h-3" />
-
-            {/* Untere Button-Leiste – wie gehabt, aber mit etwas Abstand und Shadow */}
-            <div className="mt-1 flex gap-2">
-              {/* Abbrechen */}
-              <button
-                type="button"
-                onClick={() => setShowConfirmModal(false)}
-                className="
-            flex-1
-            h-12
-            text-sm font-medium
-            text-slate-800
-            bg-[#f3f3f3]
-            hover:bg-[#e5e5e5]
-            border border-slate-200
-            rounded-xl
-          "
-              >
-                Abbrechen
-              </button>
-
-              {/* Ja, endgültig abschließen */}
-              <button
-                type="button"
-                onClick={() => {
-                  setShowConfirmModal(false);
-                  onComplete?.();
-                }}
-                className="
-            flex-1
-            h-12
-            text-sm font-semibold
-            rounded-xl
-            bg-[#E3BB62]
-            text-[#264555]
-            hover:bg-[#d8ac55]
-            shadow-[0_10px_30px_rgba(0,0,0,0.18)]
-            transition
-            hover:-translate-y-[1px]
-          "
-              >
-                Ja, endgültig abschließen
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
