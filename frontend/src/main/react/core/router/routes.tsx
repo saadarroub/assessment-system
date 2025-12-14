@@ -36,11 +36,8 @@ import CatalogList from '@/features/admin-area/catalogs/CatalogList';
 import ReifegradPage from '@/features/admin-area/topics/reifegradmodelle/Reifegradmodelle';
 import EmployeeProfile from '@/features/profile/ProfilePage';
 
-<<<<<<< HEAD
 import Ica3LandingPage from '@/apps/landing/Ica3LandingPage';
-=======
 import EmployeeCatalogsPage from '@/features/worker-area/results/EmployeeCatalogsPage'; 
->>>>>>> 33dd4906 (update Employee Catalogs)
 
 export default function AppRoutes() {
   return (
