@@ -195,21 +195,21 @@ export default function AssessmentResults(props: AssessmentResultsProps) {
   const countNotRequired = summary?.answeredQuestions?.filter(q => !q.isRequired).length ?? 0;
 
   function parseIsoDateNoTz(raw: string): Date | undefined {
-  if (!raw) return undefined;
-  // erwartet "YYYY-MM-DD"
-  const y = Number(raw.slice(0, 4));
-  const m = Number(raw.slice(5, 7));
-  const d = Number(raw.slice(8, 10));
-  if (!y || !m || !d) return undefined;
-  return new Date(y, m - 1, d);
-}
+    if (!raw) return undefined;
+    // erwartet "YYYY-MM-DD"
+    const y = Number(raw.slice(0, 4));
+    const m = Number(raw.slice(5, 7));
+    const d = Number(raw.slice(8, 10));
+    if (!y || !m || !d) return undefined;
+    return new Date(y, m - 1, d);
+  }
 
-function toIsoDateNoTz(date: Date): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
-}
+  function toIsoDateNoTz(date: Date): string {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, "0");
+    const d = String(date.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }
 
 
   return (
@@ -222,24 +222,8 @@ function toIsoDateNoTz(date: Date): string {
       text-slate-900
     "
     >
-      <div className="pointer-events-none absolute inset-0">
-        {/* Dunkler Blob oben links */}
-        <div
-          className="
-        absolute -top-32 -left-20 h-64 w-64
-        rounded-full blur-3xl
-        bg-[hsla(215,60%,25%,0.22)]
-      "
-        />
-        {/* Goldener Blob rechts */}
-        <div
-          className="
-        absolute top-1/3 -right-28 h-72 w-72
-        rounded-full blur-3xl
-        bg-[hsla(45,70%,60%,0.25)]
-      "
-        />
-      </div>
+     
+
 
       <style>{`
       @keyframes stamp-appear {
@@ -258,7 +242,49 @@ function toIsoDateNoTz(date: Date): string {
         0%   { transform: translateY(0); }
         100% { transform: translateY(-12px); }
       }
-    `}</style>
+        @keyframes floaty {
+    0%   { transform: translate3d(0,0,0) rotate(0deg); opacity: 0.10; }
+    50%  { transform: translate3d(0,-18px,0) rotate(4deg); opacity: 0.14; }
+    100% { transform: translate3d(0,0,0) rotate(0deg); opacity: 0.10; }
+  }
+
+  @keyframes drift {
+    0%   { transform: translate3d(0,0,0) rotate(0deg); }
+    50%  { transform: translate3d(16px, -10px,0) rotate(-3deg); }
+    100% { transform: translate3d(0,0,0) rotate(0deg); }
+  }
+
+    .hex-bg{
+    /* etwas dunkler, damit man es auf hellen Gradients sieht */
+    background-image:
+      conic-gradient(from 60deg, rgba(38,69,85,0.16) 0 60deg, transparent 0 360deg),
+      conic-gradient(from 60deg, rgba(38,69,85,0.10) 0 60deg, transparent 0 360deg);
+
+    /* größere Hexagons wie im Beispiel */
+    background-size: 520px 450px;
+    background-position: 0 0, 260px 225px;
+
+    /* minimal, nicht “matschig” */
+    filter: blur(0.2px);
+  }
+`}</style>
+
+{/* Deko nur im Content-Bereich, NICHT hinter dem Footer */}
+<div className="pointer-events-none absolute inset-0">
+  {/* Hexagon Pattern (CSS-only) */}
+  <div className="absolute inset-0 opacity-[0.14] hex-bg" />
+
+  {/* leichte “Wash” oben */}
+  <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.75)_0%,rgba(255,255,255,0)_55%)]" />
+
+  {/* Dunklerer blauer Glow unten links */}
+  <div className="absolute bottom-10 left-[-6rem] h-[22rem] w-[22rem] rounded-full blur-[90px] bg-[hsla(215,80%,15%,0.10)]" />
+
+  {/* Pünktchen */}
+  <div className="absolute left-[18%] top-[30%] h-2 w-2 rounded-full bg-[#E3BB62] opacity-80" />
+  <div className="absolute left-[26%] top-[42%] h-1.5 w-1.5 rounded-full bg-[#d2c9b9] opacity-75" />
+  <div className="absolute right-[22%] top-[36%] h-1.5 w-1.5 rounded-full bg-[#E3BB62] opacity-70" />
+</div>
       {/*  Ballons – nur zeigen, solange showCelebration true ist */}
       {showCelebration && (
         <div className="pointer-events-none fixed inset-0 z-30 flex justify-center mt-20">
@@ -704,31 +730,31 @@ function toIsoDateNoTz(date: Date): string {
                 )}
 
                 {editQuestion.type === "number" && (
-  <SimpleNumberField
-    value={typeof editValue === "number" || editValue === "" ? editValue : (editValue ? Number(editValue) : "")}
-    min={(editQuestion as any).min}
-    max={(editQuestion as any).max}
-    step={(editQuestion as any).step ?? 1}
-    placeholder="z.B. 1980"
-    onChange={(v) => setEditValue(v)}
-  />
-)}
+                  <SimpleNumberField
+                    value={typeof editValue === "number" || editValue === "" ? editValue : (editValue ? Number(editValue) : "")}
+                    min={(editQuestion as any).min}
+                    max={(editQuestion as any).max}
+                    step={(editQuestion as any).step ?? 1}
+                    placeholder="z.B. 1980"
+                    onChange={(v) => setEditValue(v)}
+                  />
+                )}
 
 
-  {editQuestion.type === "date" && (() => {
-  const raw = typeof editValue === "string" ? editValue : "";
-  const dateValue = parseIsoDateNoTz(raw);
+                {editQuestion.type === "date" && (() => {
+                  const raw = typeof editValue === "string" ? editValue : "";
+                  const dateValue = parseIsoDateNoTz(raw);
 
-  return (
-    <FancyDatePicker
-      minYear={1850}
-      maxYear={new Date().getFullYear()}
-      value={dateValue}
-      onChange={(d) => setEditValue(d ? toIsoDateNoTz(d) : "")}
-      placeholder="TT.MM.JJJJ"
-    />
-  );
-})()}
+                  return (
+                    <FancyDatePicker
+                      minYear={1850}
+                      maxYear={new Date().getFullYear()}
+                      value={dateValue}
+                      onChange={(d) => setEditValue(d ? toIsoDateNoTz(d) : "")}
+                      placeholder="TT.MM.JJJJ"
+                    />
+                  );
+                })()}
 
 
 

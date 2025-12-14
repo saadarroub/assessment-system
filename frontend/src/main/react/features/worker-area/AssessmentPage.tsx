@@ -1000,8 +1000,42 @@ export default function AssessmentPage() {
 
   /* -------- Render -------- */
   return (
+
     <div className=" relative min-h-screen overflow-hidden
       bg-[radial-gradient(circle_at_top,_#f9fafb_0%,_#e5e7eb_40%,_#f9fafb_100%)]">
+        <style>{`
+  .hex-bg{
+    /* etwas dunkler, damit man es auf hellen Gradients sieht */
+    background-image:
+      conic-gradient(from 60deg, rgba(38,69,85,0.16) 0 60deg, transparent 0 360deg),
+      conic-gradient(from 60deg, rgba(38,69,85,0.10) 0 60deg, transparent 0 360deg);
+
+    /* größere Hexagons wie im Beispiel */
+    background-size: 520px 450px;
+    background-position: 0 0, 260px 225px;
+
+    /* minimal, nicht “matschig” */
+    filter: blur(0.2px);
+  }
+`}</style>
+
+{/* Deko nur im Content-Bereich, NICHT hinter dem Footer */}
+<div className="pointer-events-none absolute inset-x-0 top-0 bottom-64">
+  {/* Hexagon Pattern (CSS-only) */}
+  <div className="absolute inset-0 opacity-[0.14] hex-bg" />
+
+  {/* leichte “Wash” oben */}
+  <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.75)_0%,rgba(255,255,255,0)_55%)]" />
+
+  {/* Dunklerer blauer Glow unten links */}
+  <div className="absolute bottom-10 left-[-6rem] h-[22rem] w-[22rem] rounded-full blur-[90px] bg-[hsla(215,80%,15%,0.10)]" />
+
+  {/* Pünktchen */}
+  <div className="absolute left-[18%] top-[30%] h-2 w-2 rounded-full bg-[#E3BB62] opacity-80" />
+  <div className="absolute left-[26%] top-[42%] h-1.5 w-1.5 rounded-full bg-[#d2c9b9] opacity-75" />
+  <div className="absolute right-[22%] top-[36%] h-1.5 w-1.5 rounded-full bg-[#E3BB62] opacity-70" />
+</div>
+
 
       {/* Deko-Layer im Hintergrund */}
       <div className="pointer-events-none absolute inset-0 ">

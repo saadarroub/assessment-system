@@ -733,7 +733,7 @@ export default function KatalogThemenPublic() {
         {/*Hexagon Pattern (CSS-only) */}
         <div className="absolute inset-0 opacity-[0.14] hex-bg" />
 
-        {/* leichte “Wash” oben (wie im Beispiel) */}
+        {/* leichte “Wash” oben */}
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.75)_0%,rgba(255,255,255,0)_55%)]" />
 
 
@@ -777,7 +777,6 @@ export default function KatalogThemenPublic() {
         <div className="absolute inset-0 rounded-full border border-[#E3BB62] opacity-90" />
 
         {/* innerer Kreis */}
-        {/* innerer Kreis + Remaining Time aus expiresAt */}
         <div
           className="
     absolute inset-3 rounded-full
@@ -791,7 +790,7 @@ export default function KatalogThemenPublic() {
         >
           {remaining ? (
             bubbleActive ? (
-              /* 🔥 HOVER: HH:MM:SS */
+              /* HOVER: HH:MM:SS */
               <div className="flex flex-col items-center">
                 <div className="text-[26px] font-bold tabular-nums leading-none">
                   {String(remaining.h).padStart(2, "0")}:
