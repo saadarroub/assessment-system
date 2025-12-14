@@ -124,3 +124,15 @@ export async function revokePermissions(
     data: { roleId, permissionIds },
   });
 }
+export interface RolePermissionResponseDTO {
+  permissionId: string;
+  permissionName: string;
+  permissionDescription?: string;
+  grantedAt?: string;
+}
+
+export async function getPermissionsForRole(roleId: string): Promise<RolePermissionResponseDTO[]> {
+  const res = await apiClient.get(`/role-permissions/roles/${roleId}/permissions`);
+  return res.data;
+}
+

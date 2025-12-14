@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import FancyDatePicker from "@/shared/components/FancyDatePicker";
+import NumberField from "@/shared/components/NumberField";
+
+
 import {
   startSession,
   getNextQuestion,
@@ -226,7 +230,7 @@ export default function AssessmentPage() {
     query.get("themaId") ||
     query.get("topicId") ||
     ""
-  ).trim(); // erforderlich
+  ).trim();
 
   // Einheitliche Rücknavigation zur Themenliste (mit ALLEN Parametern)
   function goBackToTopics() {
@@ -413,7 +417,7 @@ export default function AssessmentPage() {
       // ==== Session existiert schon -> fortsetzen / Summary laden ====
       if (existingSid) {
         setSessionId(existingSid);
-        // 🔹 Fall 1: wir waren zuletzt in der Result-Ansicht
+        //  wir waren zuletzt in der Result-Ansicht
         if (storedView === "results") {
           try {
             const s = await getSummary(token, existingSid);
@@ -563,18 +567,25 @@ export default function AssessmentPage() {
     setAnswers(prev => {
       const id = String(qid);
       const next: any = { ...prev };
-      if (mode === "checkbox" || mode === "order") {
+
+      if (mode === "checkbox") {
         const arr = Array.isArray(prev[id]) ? [...prev[id]] : [];
         const i = arr.indexOf(val);
         if (i > -1) arr.splice(i, 1);
         else arr.push(val);
         next[id] = arr;
+      } else if (mode === "order") {
+        // Bei Order bekommen wir IMMER ein Array der Reihenfolge
+        // -> direkt übernehmen, KEINE Historie mehr bauen
+        next[id] = Array.isArray(val) ? val.map(String) : [];
       } else {
         next[id] = val;
       }
+
       return next;
     });
   };
+
 
   /*  Navigation  */
   const prev = async () => {
@@ -987,7 +998,6 @@ export default function AssessmentPage() {
     }
   }
 
-
   /* -------- Render -------- */
   return (
     <div className=" relative min-h-screen overflow-hidden
@@ -1174,7 +1184,6 @@ export default function AssessmentPage() {
         />
 
         {/* zusätzliche Shapes NUR für große Screens  */}
-        {/* Extra-Blob oben rechts – nur ab lg */}
         <div
           className="
           hidden lg:block
@@ -1185,8 +1194,6 @@ export default function AssessmentPage() {
         />
 
         {/* zusätzliche Shapes NUR für große Screens  */}
-
-        {/* Extra-Blob oben rechts – nur ab lg */}
         <div
           className="
           hidden lg:block
@@ -1458,31 +1465,39 @@ export default function AssessmentPage() {
                 )}
 
                 {q.type === "number" && (
-                  <input
-                    type="number"
-                    className="w-full p-4 border-2 border-gray-200 rounded-lg text-[15px] outline-none focus:border-blue-500"
-                    min={(q as any).min}
-                    max={(q as any).max}
-                    step={(q as any).step ?? 1}
-                    placeholder={(q as any).placeholder || ""}
-                    value={answers[q.id] ?? ""}
-                    onChange={(e) => {
-                      const raw = e.target.value;
-                      setAnswer(q.id, raw === "" ? "" : Number(raw), "number");
-                    }}
-                  />
+                  <NumberField
+  value={answers[q.id] ?? ""}
+  min={(q as any).min}
+  max={(q as any).max}
+  step={(q as any).step ?? 1}
+  placeholder="z.B. 1980"
+  onChange={(v) => setAnswer(q.id, v, "number")}
+/>
+
                 )}
 
-                {q.type === "date" && (
-                  <input
-                    type="date"
-                    className="w-full p-4 border-2 border-gray-200 rounded-lg text-[15px] outline-none focus:border-blue-500"
-                    min={(q as any).min}
-                    max={(q as any).max}
-                    value={answers[q.id] ?? ""}
-                    onChange={(e) => setAnswer(q.id, e.target.value, "date")}
-                  />
-                )}
+                {q.type === "date" && (() => {
+                  const raw = answers[q.id] ?? ""; // "YYYY-MM-DD"
+
+                  // sicherer Parse (kein Zeitzonen-Shift)
+                  const dateValue = raw
+                    ? new Date(Number(raw.slice(0, 4)), Number(raw.slice(5, 7)) - 1, Number(raw.slice(8, 10)))
+                    : undefined;
+
+                  return (
+                    <FancyDatePicker
+                      minYear={1850}
+                      maxYear={new Date().getFullYear()}
+                      value={dateValue}
+                      onChange={(d) => {
+                        const iso = d ? d.toISOString().slice(0, 10) : "";
+                        setAnswer(q.id, iso, "date");
+                      }}
+                    />
+                  );
+                })()}
+
+
 
                 {q.type === "order" && (
                   <OrderQuestion
@@ -1547,15 +1562,23 @@ function OrderItem({ id, label }: { id: string; label: string }) {
       ref={setNodeRef}
       style={style}
       className="
-        flex items-center gap-4 p-4 rounded-xl border shadow-sm
-        bg-gradient-to-br from-[#ece9df] to-[#f5f3eb]
+     flex items-center gap-4 p-4
+        rounded-xl border
+        bg-white
+        shadow-[0_8px_22px_rgba(15,23,42,0.08)]
+        border-[#e5e7eb]
+        transition-all duration-150 ease-out
+        hover:border-[#E3BB62]
+        hover:bg-[#FFFAEB]
+        hover:-translate-y-[1px]
+        hover:shadow-[0_14px_30px_rgba(15,23,42,0.16)]
       "
     >
       {/* DRAG HANDLE */}
       <div
         {...attributes}
         {...listeners}
-        className="cursor-grab active:cursor-grabbing text-gray-400"
+        className="cursor-grab active:cursor-grabbing text-[#9ca3af]"
       >
         <GripVertical size={22} />
       </div>

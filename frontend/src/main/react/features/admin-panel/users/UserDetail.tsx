@@ -4,6 +4,7 @@ import AdminLayout from "@/apps/app/AdminLayout";
 import { getUser, type UserApi } from "@/features/service/userService";
 import { Network, Users } from "lucide-react";
 import PageHeader from "@/features/admin-area/catalogs/PageHeader";
+import { Pencil } from "lucide-react"
 
 const CSS = {
   adminBg: "hsl(var(--admin-bg,0 0% 92%))",
@@ -110,8 +111,13 @@ export default function UserDetailsPage() {
 
       {/* ===== Außenbereich unter dem Hero ===== */}
       <main
-        className="bg-[hsl(0_0%_92%)] min-h-[calc(100vh-64px)] mt-2 px-6 py-6"
-        style={{ background: CSS.adminBg }}
+        className="min-h-[calc(100vh-64px)] mt-0 px-6 pb-8 pt-20"
+        style={{
+          background:
+            "radial-gradient(circle at 0 0, rgba(227,187,98,0.13) 0, transparent 40%)," +
+            "radial-gradient(circle at 100% 0, rgba(56,189,248,0.10) 0, transparent 42%)," +
+            "linear-gradient(to bottom, #f3f4f7 0, #e6e9ef 240px, #f4f5f8 100%)",
+        }}
       >
         <div className="max-w-[1400px] xl:max-w-[1600px] mx-auto space-y-4">
           {/* Top-Bar: Breadcrumb-Pill + Back-Button */}
@@ -205,32 +211,46 @@ export default function UserDetailsPage() {
             <div className="space-y-5">
               {/* User Information Card */}
               <section
-                className="
-                  rounded-[18px] border
-                  shadow-[0_10px_30px_rgba(0,0,0,0.06)]
-                  px-5 py-5
-                  bg-gradient-to-br from-white to-[#f7f7f7]
-                "
+                className="rounded-[18px] border bg-white overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.06)]"
                 style={{ borderColor: BRAND.sand }}
               >
-                <div className="flex items-center justify-between mb-4 gap-3">
-                  <div>
-                    <h2 className="text-lg sm:text-xl font-semibold text-slate-900">
-                      User Information
-                    </h2>
-                    <p className="text-xs text-slate-500">
-                      Stammdaten und Rollen des ausgewählten Benutzers.
-                    </p>
+                {/* Header full width (Meta-Style) */}
+                <div
+                  className="flex items-center justify-between gap-3 px-5 py-4"
+                  style={{
+                    background:
+                      "linear-gradient(135deg, rgba(38,69,85,0.06) 0%, rgba(227,187,98,0.10) 100%)",
+                    borderBottom: `1px solid ${BRAND.sand}`,
+                  }}
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="h-9 w-9 rounded-xl flex items-center justify-center"
+                      style={{ background: "rgba(38,69,85,0.10)", color: BRAND.navy }}
+                      aria-hidden
+                    >
+                      <Users size={18} />
+                    </div>
+
+                    <div>
+                      <h2 className="text-[15px] font-semibold leading-tight text-slate-900">
+                        User Information
+                      </h2>
+                      <p className="text-[12px] text-slate-500 m-0">
+                        Stammdaten und Rollen des ausgewählten Benutzers.
+                      </p>
+                    </div>
                   </div>
 
-                  {/* kleines Avatar-Badge */}
+                  {/* Avatar rechts bleibt */}
                   <div
-                    className="flex h-12 w-12 items-center justify-center rounded-2xl text-lg font-semibold"
+                    className="flex h-10 w-10 items-center justify-center rounded-2xl text-sm font-semibold"
                     style={{
-                      background:
-                        "radial-gradient(circle at 0 0,#E3BB62,rgba(238, 168, 18, 0.15))",
+                      background: "rgba(227,187,98,0.35)",
                       color: BRAND.navy,
+                      border: `1px solid ${BRAND.sand}`,
                     }}
+                    title={user?.name ?? "User"}
                   >
                     {(user?.name || "U").charAt(0).toUpperCase()}
                   </div>
@@ -246,7 +266,7 @@ export default function UserDetailsPage() {
                 )}
 
                 {/* Name + Email + Rollen */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 px-5 py-5">
                   <div className="space-y-4">
                     {/* Name */}
                     <div className="flex items-start gap-3">
@@ -324,29 +344,41 @@ export default function UserDetailsPage() {
 
               {/* Permissions Card (statt „Noch nicht implementiert“) */}
               <section
-                className="
-                  rounded-[18px] border
-                  shadow-[0_10px_30px_rgba(0,0,0,0.06)]
-                  px-5 py-5
-                  bg-white
-                "
+                className="rounded-[18px] border bg-white overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.06)]"
                 style={{ borderColor: BRAND.sand }}
               >
-                <div className="flex items-center justify-between mb-3 gap-3">
-                  <div>
-                    <h3 className="text-[17px] font-semibold tracking-tight">
-                      Permissions
-                    </h3>
-                    <p className="text-xs text-slate-500">
-                      Aggregiert aus allen Rollen dieses Benutzers.
-                    </p>
+                <div
+                  className="flex items-center justify-between gap-3 px-5 py-4"
+                  style={{
+                    background:
+                      "linear-gradient(135deg, rgba(38,69,85,0.06) 0%, rgba(227,187,98,0.10) 100%)",
+                    borderBottom: `1px solid ${BRAND.sand}`,
+                  }}
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="h-9 w-9 rounded-xl flex items-center justify-center"
+                      style={{ background: "rgba(38,69,85,0.10)", color: BRAND.navy }}
+                      aria-hidden
+                    >
+                      <Network size={18} />
+                    </div>
+
+                    <div>
+                      <h3 className="text-[15px] font-semibold leading-tight text-slate-900">
+                        Permissions
+                      </h3>
+                      <p className="text-[12px] text-slate-500 m-0">
+                        Aggregiert aus allen Rollen dieses Benutzers.
+                      </p>
+                    </div>
                   </div>
                 </div>
 
                 {loading ? (
                   <p className="text-sm text-slate-500">Lade…</p>
                 ) : permissionChips.length ? (
-                  <div className="flex flex-wrap gap-2">
+                  <div className="mt-5 mb-5 flex flex-wrap gap-2 px-5 py-">
                     {permissionChips.map((p) => {
                       // einfache Farbzuordnung nach Prefix
                       const prefix = p.label.split(".")[0];
@@ -399,10 +431,10 @@ export default function UserDetailsPage() {
                 style={{ borderColor: BRAND.sand }}
               >
                 <h3 className="text-[15px] font-semibold mb-2">
-                 Noch nicht implementiert
+                  Noch nicht implementiert
                 </h3>
                 <p className="text-sm text-slate-500">
-                  Noch nicht implementiert 
+                  Noch nicht implementiert
                 </p>
               </section>
             </div>
@@ -410,38 +442,42 @@ export default function UserDetailsPage() {
             {/* Rechte Spalte – kompakte Meta/Actions Card */}
             <aside className="space-y-5">
               <section
-                className="
-                  rounded-[18px] border
-                  shadow-[0_10px_26px_rgba(0,0,0,0.05)]
-                  px-5 py-5
-                  bg-white
-                "
+                className="rounded-[18px] border bg-white overflow-hidden shadow-[0_10px_26px_rgba(0,0,0,0.05)]"
                 style={{ borderColor: BRAND.sand }}
               >
-                <h3 className="text-[16px] font-semibold tracking-tight mb-3">
-                  Actions
-                </h3>
-                <div className="grid gap-2 text-sm">
-                  <button
-                    type="button"
-                    disabled
-                    className="
-                      inline-flex items-center justify-between
-                      rounded-xl border px-3 py-2
-                      text-xs font-medium
-                      bg-slate-50
-                      text-slate-400
-                      cursor-not-allowed
-                    "
-                    style={{ borderColor: "#e5e7eb" }}
-                  >
-                    <span>User deaktivieren</span>
-                    <span className="text-[10px] uppercase tracking-wide">
-                      bald
-                    </span>
-                  </button>
+                <div
+                  className="flex items-center justify-between gap-3 px-5 py-4"
+                  style={{
+                    background:
+                      "linear-gradient(135deg, rgba(38,69,85,0.06) 0%, rgba(227,187,98,0.10) 100%)",
+                    borderBottom: `1px solid ${BRAND.sand}`,
+                  }}
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="h-9 w-9 rounded-xl flex items-center justify-center"
+                      style={{ background: "rgba(38,69,85,0.10)", color: BRAND.navy }}
+                      aria-hidden
+                    >
+                      <Pencil size={18} />
+                    </div>
+
+                    <div>
+                      <h3 className="text-[15px] font-semibold leading-tight text-slate-900">
+                        Actions
+                      </h3>
+                      <p className="text-[12px] text-slate-500 m-0">
+                        Aktionen für diesen Benutzer.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="px-5 py-5">
+
                 </div>
               </section>
+
             </aside>
           </div>
         </div>

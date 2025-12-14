@@ -3,6 +3,8 @@ import { Home, BarChart3, Target, PieChart, AlertTriangle } from "lucide-react";
 import type { ApiSummaryResponse, UiQuestion } from "@/features/service/publicAssessmentService";
 import confetti from "canvas-confetti";
 import ConfirmModal from "@/shared/components/ConfirmModal";
+import FancyDatePicker from "@/shared/components/FancyDatePicker";
+import SimpleNumberField from "@/shared/components/NumberField";
 
 
 export type AssessmentResultsProps = {
@@ -191,6 +193,24 @@ export default function AssessmentResults(props: AssessmentResultsProps) {
 
   const countRequired = summary?.answeredQuestions?.filter(q => q.isRequired).length ?? 0;
   const countNotRequired = summary?.answeredQuestions?.filter(q => !q.isRequired).length ?? 0;
+
+  function parseIsoDateNoTz(raw: string): Date | undefined {
+  if (!raw) return undefined;
+  // erwartet "YYYY-MM-DD"
+  const y = Number(raw.slice(0, 4));
+  const m = Number(raw.slice(5, 7));
+  const d = Number(raw.slice(8, 10));
+  if (!y || !m || !d) return undefined;
+  return new Date(y, m - 1, d);
+}
+
+function toIsoDateNoTz(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
 
   return (
     <div
@@ -389,11 +409,37 @@ export default function AssessmentResults(props: AssessmentResultsProps) {
                   </thead>
                   <tbody>
                     {rows.map((q, idx) => {
-                      const answeredValue = Array.isArray(q.answeredValue)
-                        ? q.answeredValue.join(", ")
-                        : (q.answeredValue === "" || q.answeredValue == null)
-                          ? "übersprungen"
-                          : String(q.answeredValue);
+                      const raw: unknown = q.answeredValue;
+
+                      let answeredValue: string;
+
+                      if (q.isSkipped || raw === "" || raw == null) {
+                        answeredValue = "übersprungen";
+                      } else if (q.inputType === "ordering" || q.questionTypeName === "Ordering") {
+                        if (Array.isArray(raw)) {
+                          const first = raw[0];
+
+                          // Historie: string[][]
+                          if (Array.isArray(first)) {
+                            const last = raw[raw.length - 1];
+                            answeredValue = Array.isArray(last)
+                              ? (last as unknown[]).map(String).join(", ")
+                              : "übersprungen";
+                          }
+                          // normal: string[]
+                          else {
+                            answeredValue = (raw as unknown[]).map(String).join(", ");
+                          }
+                        } else {
+                          answeredValue = String(raw);
+                        }
+                      } else if (Array.isArray(raw)) {
+                        answeredValue = (raw as unknown[]).map(String).join(", ");
+                      } else {
+                        answeredValue = String(raw);
+                      }
+
+
 
                       return (
                         <tr
@@ -658,74 +704,53 @@ export default function AssessmentResults(props: AssessmentResultsProps) {
                 )}
 
                 {editQuestion.type === "number" && (
-                  <input
-                    type="number"
-                    className="w-full p-4 border-2 border-gray-200 rounded-lg text-[15px] outline-none focus:border-blue-500"
-                    min={(editQuestion as any).min}
-                    max={(editQuestion as any).max}
-                    step={(editQuestion as any).step ?? 1}
-                    value={editValue ?? ""}
-                    onChange={(e) => {
-                      const raw = e.target.value;
-                      setEditValue(raw === "" ? "" : Number(raw));
-                    }}
-                  />
-                )}
+  <SimpleNumberField
+    value={typeof editValue === "number" || editValue === "" ? editValue : (editValue ? Number(editValue) : "")}
+    min={(editQuestion as any).min}
+    max={(editQuestion as any).max}
+    step={(editQuestion as any).step ?? 1}
+    placeholder="z.B. 1980"
+    onChange={(v) => setEditValue(v)}
+  />
+)}
 
-                {editQuestion.type === "date" && (
-                  <input
-                    type="date"
-                    className="w-full p-4 border-2 border-gray-200 rounded-lg text-[15px] outline-none focus:border-blue-500"
-                    value={editValue ?? ""}
-                    onChange={(e) => setEditValue(e.target.value)}
-                  />
-                )}
+
+  {editQuestion.type === "date" && (() => {
+  const raw = typeof editValue === "string" ? editValue : "";
+  const dateValue = parseIsoDateNoTz(raw);
+
+  return (
+    <FancyDatePicker
+      minYear={1850}
+      maxYear={new Date().getFullYear()}
+      value={dateValue}
+      onChange={(d) => setEditValue(d ? toIsoDateNoTz(d) : "")}
+      placeholder="TT.MM.JJJJ"
+    />
+  );
+})()}
+
+
 
                 {editQuestion.type === "order" && (() => {
-                  const base = (editQuestion as any).options || [];
-                  const current: string[] = Array.isArray(editValue)
-                    ? editValue
-                    : base;
+                  const baseRaw = (editQuestion as any).options;
 
-                  const move = (idx: number, dir: -1 | 1) => {
-                    const ni = idx + dir;
-                    if (ni < 0 || ni >= current.length) return;
-                    const arr = [...current];
-                    [arr[idx], arr[ni]] = [arr[ni], arr[idx]];
-                    setEditValue(arr);
-                  };
+                  const options: string[] =
+                    typeof baseRaw === "string"
+                      ? (() => { try { return JSON.parse(baseRaw); } catch { return []; } })()
+                      : Array.isArray(baseRaw)
+                        ? baseRaw
+                        : [];
 
                   return (
-                    <ul className="space-y-2">
-                      {current.map((opt, i) => (
-                        <li
-                          key={opt}
-                          className="flex items-center justify-between p-3 border-2 border-gray-200 rounded-lg bg-white"
-                        >
-                          <span className="text-[15px] text-[#333]">
-                            {i + 1}. {opt}
-                          </span>
-                          <div className="flex gap-2">
-                            <button
-                              className="px-3 py-1.5 rounded-lg border border-gray-300 bg-white hover:bg-gray-50"
-                              onClick={() => move(i, -1)}
-                              disabled={i === 0}
-                            >
-                              ↑
-                            </button>
-                            <button
-                              className="px-3 py-1.5 rounded-lg border border-gray-300 bg-white hover:bg-gray-50"
-                              onClick={() => move(i, +1)}
-                              disabled={i === current.length - 1}
-                            >
-                              ↓
-                            </button>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
+                    <OrderQuestionModal
+                      options={options}
+                      value={editValue ?? (editQuestion as any).answeredValue}
+                      onChange={(val) => setEditValue(val)}
+                    />
                   );
                 })()}
+
 
                 {editError && (
                   <p className="mt-3 text-xs text-red-600">{editError}</p>
@@ -766,7 +791,12 @@ export default function AssessmentResults(props: AssessmentResultsProps) {
                   try {
                     setSavingEdit(true);
                     setEditError(null);
-                    await onChangeAnswer(String(editQuestion.id), editValue);
+                    const payload =
+                      editQuestion.type === "order"
+                        ? normalizeOrderValue(editValue)
+                        : editValue;
+
+                    await onChangeAnswer(String(editQuestion.id), payload);
                     setEditQuestion(null);
                   } catch (e) {
                     console.error(e);
@@ -830,3 +860,136 @@ export default function AssessmentResults(props: AssessmentResultsProps) {
     </div>
   );
 }
+import {
+  DndContext,
+  closestCorners,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { GripVertical } from "lucide-react";
+
+/** ✅ nimmt IMMER die “letzte Antwort”
+ * - string[]        => direkt
+ * - string[][]      => nimmt letztes Array
+ * - sonst/leer      => []
+ */
+export function normalizeOrderValue(raw: unknown): string[] {
+  if (!Array.isArray(raw) || raw.length === 0) return [];
+
+  const first = raw[0];
+
+  // Historie: string[][]
+  if (Array.isArray(first)) {
+    const last = raw[raw.length - 1];
+    return Array.isArray(last) ? (last as unknown[]).map(String) : [];
+  }
+
+  // normal: string[]
+  return (raw as unknown[]).map(String);
+}
+
+function arrayMove<T>(arr: T[], from: number, to: number) {
+  const copy = [...arr];
+  const [item] = copy.splice(from, 1);
+  copy.splice(to, 0, item);
+  return copy;
+}
+
+/** ✅ 1:1 Feeling wie AssessmentPage: Handle links */
+function OrderItem({ id, label }: { id: string; label: string }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id });
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={[
+        "flex items-center gap-4 p-4",
+        "rounded-xl border bg-white",
+        "shadow-[0_8px_22px_rgba(15,23,42,0.08)]",
+        "border-[#e5e7eb]",
+        "transition-all duration-150 ease-out",
+        isDragging ? "opacity-70" : "hover:border-[#E3BB62] hover:bg-[#FFFAEB] hover:-translate-y-[1px] hover:shadow-[0_14px_30px_rgba(15,23,42,0.16)]",
+      ].join(" ")}
+    >
+      {/* DRAG HANDLE LINKS */}
+      <div
+        {...attributes}
+        {...listeners}
+        className="cursor-grab active:cursor-grabbing text-[#9ca3af] shrink-0"
+        aria-label="Ziehen"
+      >
+        <GripVertical size={22} />
+      </div>
+
+      {/* LABEL */}
+      <span className="text-gray-800 text-sm font-medium">{label}</span>
+    </div>
+  );
+}
+
+export function OrderQuestionModal({
+  options,
+  value,
+  onChange,
+}: {
+  options: string[];
+  value: unknown; // kann string[] oder string[][]
+  onChange: (val: string[]) => void;
+}) {
+  const initial = useMemo(() => {
+    const normalized = normalizeOrderValue(value);
+    return normalized.length ? normalized : options;
+  }, [value, options]);
+
+  const [items, setItems] = useState<string[]>(initial);
+
+  // wenn Modal geöffnet wird / value sich ändert -> syncen
+  useEffect(() => {
+    const next = normalizeOrderValue(value);
+    setItems(next.length ? next : options);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(value), JSON.stringify(options)]);
+
+  // nach oben melden
+  useEffect(() => {
+    onChange(items);
+  }, [items, onChange]);
+
+  const onDragEnd = ({ active, over }: DragEndEvent) => {
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = items.indexOf(String(active.id));
+    const newIndex = items.indexOf(String(over.id));
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    setItems(arrayMove(items, oldIndex, newIndex));
+  };
+
+  return (
+    <DndContext collisionDetection={closestCorners} onDragEnd={onDragEnd}>
+      <SortableContext items={items} strategy={verticalListSortingStrategy}>
+        <div className="space-y-3 mt-4">
+          {items.map((opt) => (
+            <OrderItem key={opt} id={opt} label={opt} />
+          ))}
+        </div>
+      </SortableContext>
+    </DndContext>
+  );
+}
+
+
+
+

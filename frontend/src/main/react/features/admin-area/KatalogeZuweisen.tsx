@@ -229,8 +229,8 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
   const filteredCatalogs = useMemo(() => {
     const q = catalogSearch.trim().toLowerCase();
     if (!q) return catalogs;
-    return catalogs.filter(k => 
-      k.name.toLowerCase().includes(q) || 
+    return catalogs.filter(k =>
+      k.name.toLowerCase().includes(q) ||
       (k.subtitle && k.subtitle.toLowerCase().includes(q))
     );
   }, [catalogSearch, catalogs]);
@@ -368,7 +368,17 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
 
     try {
       const res = await assignWorkerCatalogBulk(payload);
+
       alert(`Zuweisung erfolgreich: ${res.success}/${res.total}`);
+      sessionStorage.setItem(
+        "flash_assignments",
+        JSON.stringify({
+          workerIds: recipientIds,
+          catalogId,
+          after: Date.now() - 4000, // kleiner Puffer, falls Backend-Zeit minimal abweicht
+          ttlMs: 60_000,            // optional: max. 60s gültig
+        })
+      );
       navigate("/admin/adminPanel/zuweisungen", { replace: true });
     } catch (e: any) {
       alert(`Zuweisung fehlgeschlagen: ${e?.message ?? e}`);
@@ -473,16 +483,16 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
       </style>
 
       {/* HEADER */}
-            <PageHeader
-      
-              title="Kataloge zuweisen"
-              subtitle="Weisen Sie Kataloge an Mitarbeitende zu und verwalten Sie deren Zugriffe"
-              icon={<Network size={40} />}
-              gradient="navy"
-              height="280px"
-              showPattern={true}
-      center={false}
-            />
+      <PageHeader
+
+        title="Kataloge zuweisen"
+        subtitle="Weisen Sie Kataloge an Mitarbeitende zu und verwalten Sie deren Zugriffe"
+        icon={<Network size={40} />}
+        gradient="navy"
+        height="280px"
+        showPattern={true}
+        center={false}
+      />
 
       <div className="bg-[hsl(0_0%_92%)] min-h-[calc(100vh-64px)] mt-2 px-6 py-6">
 
@@ -785,9 +795,9 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
 
               <div className="mb-4 flex items-center justify-between gap-3">
                 <span className="text-sm text-[#56768f] truncate">
-                  {loadingCatalogs ? "Kataloge werden geladen…" : 
-                   catalogSearch ? `${filteredCatalogs.length} ${filteredCatalogs.length === 1 ? 'Ergebnis' : 'Ergebnisse'} gefunden` :
-                   "Wählen Sie die Kataloge aus, die Sie zuweisen möchten"}
+                  {loadingCatalogs ? "Kataloge werden geladen…" :
+                    catalogSearch ? `${filteredCatalogs.length} ${filteredCatalogs.length === 1 ? 'Ergebnis' : 'Ergebnisse'} gefunden` :
+                      "Wählen Sie die Kataloge aus, die Sie zuweisen möchten"}
                 </span>
 
                 <div className="flex items-center gap-2 shrink-0">
@@ -816,109 +826,109 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
                   </div>
                 ) : (
                   filteredCatalogs.map((k) => {
-                  const Icon = k.icon ?? Building2;
-                  const selected = selectedCatalogId === k.id;//selectedCatalogIds.has(k.id)
-                  const metaLabel = (k.topicCount ?? 0) === 1
-                    ? "1 Thema"
-                    : `${k.topicCount ?? 0} Themen`;       //"– Themen";
+                    const Icon = k.icon ?? Building2;
+                    const selected = selectedCatalogId === k.id;//selectedCatalogIds.has(k.id)
+                    const metaLabel = (k.topicCount ?? 0) === 1
+                      ? "1 Thema"
+                      : `${k.topicCount ?? 0} Themen`;       //"– Themen";
 
-                  // Card-Klick: normal -> Auswahl; im editMode -> Delete-Dialog
-                  const onCardClick = () => {
-                    if (!editMode) selectOrToggleCatalog(k.id);
-                  };
-                  const isHighlight = highlightIds.has(k.id);
-                  const isBadge = badgeIds.has(k.id);
-                  return (
-                    <div
-                      key={k.id}
-                      className={[
-                        // Basisklassen
-                        "relative w-full text-left rounded-xl border p-4 min-h-[132px] cursor-pointer",
-                        // sanfte Animation
-                        "transition-transform transition-colors duration-300 ease-out",
-                        // bestehende Zustände
-                        editMode
-                          ? "border-[#E3BB62] bg-[#fff8e1]/60 hover:bg-[#fff3c4]/60"
-                          : selected
-                            ? "border-[#E3BB62] bg-[#ebebec]"
-                            : "border-[#ebebec] hover:border-[#56768f]/50 hover:bg-[#ebebec]/50",
-                        //  kurzer grüner Glow + leichtes Pop
-                        isHighlight
-                          ? [
-                            "scale-[1.02]",                         // leichtes Pop
-                            "ring-2 ring-green-500 ring-offset-2",  // grüner Ring
-                            "[animation:blinkBg_.9s_ease-in-out_infinite]",   // BG blinkt grün↔weiß
-                            "[box-shadow:0_0_0_0_rgba(34,197,94,0.35)]",       // Start-Glow
-                            "[animation:glowRing_1.2s_ease-in-out_infinite]"   // Ring pulsiert
-                          ].join(" ")
-                          : ""
-                      ].join(" ")}
-                      onClick={onCardClick}
-                    >
-                      {/* rechter Indikator: Auswahl-Kreis ODER X im editMode */}
-                      {editMode ? (
-                        <button
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); openDeleteDialog(k); }}
-                          className="absolute right-3 top-3 inline-flex h-6 w-6 items-center justify-center
+                    // Card-Klick: normal -> Auswahl; im editMode -> Delete-Dialog
+                    const onCardClick = () => {
+                      if (!editMode) selectOrToggleCatalog(k.id);
+                    };
+                    const isHighlight = highlightIds.has(k.id);
+                    const isBadge = badgeIds.has(k.id);
+                    return (
+                      <div
+                        key={k.id}
+                        className={[
+                          // Basisklassen
+                          "relative w-full text-left rounded-xl border p-4 min-h-[132px] cursor-pointer",
+                          // sanfte Animation
+                          "transition-transform transition-colors duration-300 ease-out",
+                          // bestehende Zustände
+                          editMode
+                            ? "border-[#E3BB62] bg-[#fff8e1]/60 hover:bg-[#fff3c4]/60"
+                            : selected
+                              ? "border-[#E3BB62] bg-[#ebebec]"
+                              : "border-[#ebebec] hover:border-[#56768f]/50 hover:bg-[#ebebec]/50",
+                          //  kurzer grüner Glow + leichtes Pop
+                          isHighlight
+                            ? [
+                              "scale-[1.02]",                         // leichtes Pop
+                              "ring-2 ring-green-500 ring-offset-2",  // grüner Ring
+                              "[animation:blinkBg_.9s_ease-in-out_infinite]",   // BG blinkt grün↔weiß
+                              "[box-shadow:0_0_0_0_rgba(34,197,94,0.35)]",       // Start-Glow
+                              "[animation:glowRing_1.2s_ease-in-out_infinite]"   // Ring pulsiert
+                            ].join(" ")
+                            : ""
+                        ].join(" ")}
+                        onClick={onCardClick}
+                      >
+                        {/* rechter Indikator: Auswahl-Kreis ODER X im editMode */}
+                        {editMode ? (
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); openDeleteDialog(k); }}
+                            className="absolute right-3 top-3 inline-flex h-6 w-6 items-center justify-center
                rounded-full border-2 border-[#E11D48] text-[#E11D48] bg-white
                hover:bg-red-50"
-                          title="Katalog löschen"
-                          aria-label="Katalog löschen"
-                        >
-                          <X size={12} />
-                        </button>
-                      ) : (
-                        <span className="absolute right-3 top-3 inline-flex h-5 w-5 items-center justify-center rounded-full border-2 border-[#56768f]">
-                          {selected && <span className="h-3.5 w-3.5 rounded-full bg-[#E3BB62]" />}
-                        </span>
-                      )}
+                            title="Katalog löschen"
+                            aria-label="Katalog löschen"
+                          >
+                            <X size={12} />
+                          </button>
+                        ) : (
+                          <span className="absolute right-3 top-3 inline-flex h-5 w-5 items-center justify-center rounded-full border-2 border-[#56768f]">
+                            {selected && <span className="h-3.5 w-3.5 rounded-full bg-[#E3BB62]" />}
+                          </span>
+                        )}
 
-                      {isBadge && (
-                        <span className="absolute -left-1 -top-1 rounded-md bg-amber-500 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white shadow">
-                          Neu
-                        </span>
-                      )}
+                        {isBadge && (
+                          <span className="absolute -left-1 -top-1 rounded-md bg-amber-500 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white shadow">
+                            Neu
+                          </span>
+                        )}
 
-                      <div className="flex items-start gap-3 pr-6">
-                        <span
-                          className="grid h-10 w-10 place-items-center rounded-xl text-white shrink-0"
-                          style={{ backgroundColor: k.color ?? DEFAULT_COLOR }}
-                        >
-                          <Icon size={18} />
-                        </span>
+                        <div className="flex items-start gap-3 pr-6">
+                          <span
+                            className="grid h-10 w-10 place-items-center rounded-xl text-white shrink-0"
+                            style={{ backgroundColor: k.color ?? DEFAULT_COLOR }}
+                          >
+                            <Icon size={18} />
+                          </span>
 
-                        <div className="min-w-0 flex-1">
-                          <div className="text-[14px] font-semibold text-[#264555] leading-5 line-clamp-2">
-                            {k.name}
-                          </div>
-
-                          {k.subtitle && (
-                            <div className="mt-1 mb-2 text-xs text-slate-600 leading-5 line-clamp-2 min-h-[2.5rem]">
-                              {k.subtitle ?? "\u00A0"}
+                          <div className="min-w-0 flex-1">
+                            <div className="text-[14px] font-semibold text-[#264555] leading-5 line-clamp-2">
+                              {k.name}
                             </div>
-                          )}
 
-                          <div className="mt-2 flex items-center justify-between">
-                            <span className="text-xs text-slate-500">{metaLabel}</span>
+                            {k.subtitle && (
+                              <div className="mt-1 mb-2 text-xs text-slate-600 leading-5 line-clamp-2 min-h-[2.5rem]">
+                                {k.subtitle ?? "\u00A0"}
+                              </div>
+                            )}
 
-                            {/* ✎ Icon-only: öffnet Edit-Modal */}
-                            {editMode && (
-                              <button
-                                type="button"
-                                onClick={(e) => { e.stopPropagation(); openEditDialog(k); }}
-                                className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-700 hover:bg-slate-50" //{${editMode ? "" : "hidden"}`} in css
-                                title="Katalog bearbeiten"
-                                aria-label="Katalog bearbeiten"
-                              >
-                                <Pencil size={14} />
-                              </button>)}
+                            <div className="mt-2 flex items-center justify-between">
+                              <span className="text-xs text-slate-500">{metaLabel}</span>
+
+                              {/* ✎ Icon-only: öffnet Edit-Modal */}
+                              {editMode && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => { e.stopPropagation(); openEditDialog(k); }}
+                                  className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-700 hover:bg-slate-50" //{${editMode ? "" : "hidden"}`} in css
+                                  title="Katalog bearbeiten"
+                                  aria-label="Katalog bearbeiten"
+                                >
+                                  <Pencil size={14} />
+                                </button>)}
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })
+                    );
+                  })
                 )}
               </div>
 
