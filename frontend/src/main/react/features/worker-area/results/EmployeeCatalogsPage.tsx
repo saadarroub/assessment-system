@@ -5,13 +5,13 @@ import autoTable from 'jspdf-autotable';
 import AdminLayout from "@/apps/app/AdminLayout";
 import { ArrowLeft, FileText, ChevronRight, BarChart2, Search } from 'lucide-react';
 
-// --- 데이터 타입 정의 (피드백 구조 반영) ---
+
 interface Topic {
   id: string;
   name: string;
   score: number;
   status: 'completed' | 'pending';
-  sessionId: string; // 이걸로 기존 ResultPage로 연결
+  sessionId: string; 
 }
 
 interface Catalog {
@@ -19,7 +19,7 @@ interface Catalog {
   name: string;
   date: string;
   overallScore: number;
-  topics: Topic[]; // 카탈로그 안에 여러 주제가 있음
+  topics: Topic[];
 }
 
 interface EmployeeData {
@@ -35,11 +35,11 @@ export default function EmployeeCatalogsPage() {
   const [employee, setEmployee] = useState<EmployeeData | null>(null);
   const [loading, setLoading] = useState(true);
   
-  // 어떤 카탈로그가 펼쳐져 있는지 (Accordion)
+
   const [expandedCatalogId, setExpandedCatalogId] = useState<string | null>(null);
 
   useEffect(() => {
-    // API 호출 시늉 (Mock Data)
+
     setTimeout(() => {
       setEmployee({
         id: workerId || 'w1',
@@ -73,11 +73,11 @@ export default function EmployeeCatalogsPage() {
     }, 500);
   }, [workerId]);
 
-  // --- PDF 생성 로직 (요구사항: 카탈로그 단위 Export) ---
+
   const handleExportCatalog = (catalog: Catalog) => {
     const doc = new jsPDF();
     
-    // [Page 1] 표지: 카탈로그 요약
+
     doc.setFontSize(22);
     doc.setTextColor(41, 128, 185); // Blue
     doc.text(`Report: ${catalog.name}`, 14, 20);
@@ -89,7 +89,7 @@ export default function EmployeeCatalogsPage() {
     doc.text(`Erstelldatum: ${catalog.date}`, 14, 49);
     doc.text(`Gesamt-Score: ${catalog.overallScore}%`, 14, 56);
     
-    // 전체 요약 테이블
+
     autoTable(doc, {
       startY: 70,
       head: [['Thema', 'Status', 'Score']],
@@ -97,24 +97,24 @@ export default function EmployeeCatalogsPage() {
       headStyles: { fillColor: [41, 128, 185] },
     });
 
-    // [Page 2+] 각 주제별 상세 페이지 (Requirement: Pro Thema eine Seite)
+
     catalog.topics.forEach((topic, index) => {
       doc.addPage(); // 새 페이지 추가
       
-      // 주제 제목
+
       doc.setFontSize(18);
       doc.setTextColor(0);
       doc.text(`Thema ${index + 1}: ${topic.name}`, 14, 20);
       
-      // 차트 시각화 (간단한 Bar Chart 그리기 using Rect)
+
       doc.setFontSize(12);
       doc.text(`Score Visualisierung (${topic.score}%)`, 14, 40);
       
-      // Bar Background
+
       doc.setFillColor(230, 230, 230);
       doc.rect(14, 45, 180, 20, 'F');
       
-      // Bar Value
+
       if (topic.score >= 80) doc.setFillColor(46, 204, 113); // Green
       else if (topic.score >= 60) doc.setFillColor(241, 196, 15); // Yellow
       else doc.setFillColor(231, 76, 60); // Red
@@ -122,7 +122,7 @@ export default function EmployeeCatalogsPage() {
       const width = (180 * topic.score) / 100;
       doc.rect(14, 45, width, 20, 'F');
       
-      // 텍스트 설명 및 조치사항 (Mockup Text)
+
       doc.setFontSize(14);
       doc.setTextColor(50);
       doc.text("Analyse & Maßnahmen", 14, 80);
@@ -214,7 +214,7 @@ export default function EmployeeCatalogsPage() {
                              {topic.score}%
                            </span>
                            
-                           {/* Analyze Button (기존 ResultsPage로 이동) */}
+
                            <button
                              onClick={() => navigate(`/app/results/${topic.sessionId}`)}
                              className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center gap-1"
