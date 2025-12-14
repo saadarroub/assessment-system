@@ -39,4 +39,12 @@ public interface AssessmentSessionRepository extends JpaRepository<AssessmentSes
     
     // Count completed sessions for a worker at a company
     Long countByWorkerIdAndCompanyIdAndStatus(UUID workerId, UUID companyId, String status);
+    
+    // Count sessions for a worker with specific thema IDs (for catalog completion check)
+    @Query("SELECT COUNT(s) FROM AssessmentSession s WHERE s.workerId = :workerId AND s.themaId IN :themaIds")
+    Long countByWorkerIdAndThemaIdIn(UUID workerId, Collection<UUID> themaIds);
+    
+    // Count completed sessions for a worker with specific thema IDs
+    @Query("SELECT COUNT(s) FROM AssessmentSession s WHERE s.workerId = :workerId AND s.themaId IN :themaIds AND s.status = :status")
+    Long countByWorkerIdAndThemaIdInAndStatus(UUID workerId, Collection<UUID> themaIds, String status);
 }

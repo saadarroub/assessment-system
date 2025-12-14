@@ -1,4 +1,3 @@
-// src/main/react/features/admin-panel/companies/CompanyDetails.tsx
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import AdminLayout from "@/apps/app/AdminLayout";
@@ -12,10 +11,10 @@ import {
   getAssignmentsByCompany,
   type AssignmentApi,
   type CompanyApi,
+  changeCompanyStatus,
 } from "@/features/service/companyService";
 import {
   Pencil,
-  Loader2,
   Trash2,
   UserPlus,
   Globe2,
@@ -24,7 +23,7 @@ import {
   Phone,
   Globe,
   Network,
-  Building2,
+  Building2, Users, Folder
 } from "lucide-react";
 import PageHeader from "@/features/admin-area/catalogs/PageHeader";
 import ConfirmModal from "@/shared/components/ConfirmModal";
@@ -130,6 +129,20 @@ export default function CompanyDetails() {
   const [assignLoading, setAssignLoading] = useState(false);
   const [assignError, setAssignError] = useState<string | null>(null);
 
+  const [confirmStatusOpen, setConfirmStatusOpen] = useState(false);
+  const [pendingStatus, setPendingStatus] = useState<"active" | "inactive" | null>(null);
+  const [changingStatus, setChangingStatus] = useState(false);
+  const [statusError, setStatusError] = useState<string | null>(null);
+  function onStatusClick() {
+    if (!company) return;
+    const next: "active" | "inactive" = company.status === "active" ? "inactive" : "active";
+    setPendingStatus(next);
+    setStatusError(null);
+    setConfirmStatusOpen(true);
+  }
+
+
+
   const fmt = (iso?: string | null) =>
     iso ? new Date(iso).toLocaleDateString("de-DE") : "—";
 
@@ -209,6 +222,59 @@ export default function CompanyDetails() {
     };
   }, [id]);
 
+  function StatusToggle({
+    value,
+    disabled,
+    onToggle,
+  }: {
+    value: "active" | "inactive";
+    disabled?: boolean;
+    onToggle: () => void;
+  }) {
+    const isActive = value === "active";
+
+    return (
+      <button
+        type="button"
+        onClick={onToggle}
+        disabled={disabled}
+        className={[
+          "inline-flex items-center gap-2 rounded-full px-3 py-1.5",
+          "transition-all select-none",
+          disabled ? "opacity-60 cursor-not-allowed" : "hover:brightness-[1.03]",
+        ].join(" ")}
+        style={{
+          background: isActive ? "rgba(34,197,94,0.18)" : "rgba(148,163,184,0.22)",
+          color: isActive ? "#16a34a" : "#64748b",
+        }}
+        title={isActive ? "Firma ist aktiv" : "Firma ist inaktiv"}
+      >
+        <span className="text-[12px] font-semibold">
+          {isActive ? "aktiv" : "inaktiv"}
+        </span>
+
+        <span
+          className="relative h-5 w-9 rounded-full border"
+          style={{
+            background: isActive ? "#22c55e" : "#94a3b8",
+            borderColor: "rgba(0,0,0,0.10)",
+          }}
+          aria-hidden
+        >
+          <span
+            className={[
+              "absolute top-1/2 -translate-y-1/2 h-4 w-4 rounded-full bg-white",
+              "transition-all shadow",
+            ].join(" ")}
+            style={{ left: isActive ? "calc(100% - 18px)" : "2px" }}
+          />
+        </span>
+      </button>
+    );
+  }
+
+
+
   /* ---------- Loading/Errors ---------- */
   if (loading) {
     return (
@@ -255,14 +321,6 @@ export default function CompanyDetails() {
     for (const a of assignments) if (a?.catalog?.id) ids.add(a.catalog.id);
     return ids.size;
   })();
-
-  const statusLabel =
-    (company.status ?? "active") === "active" ? "Active" : "Inactive";
-
-  const statusClass =
-    (company.status ?? "active") === "active"
-      ? "bg-[rgb(220_252_231)] text-[rgb(22_101_52)]"
-      : "bg-[rgb(254_226_226)] text-[rgb(153_27_27)]";
 
   /* ---------- Invite ---------- */
   function openInviteModal() {
@@ -321,7 +379,7 @@ export default function CompanyDetails() {
   async function onSave(e: React.FormEvent) {
     e.preventDefault();
     if (!editing || !company) return;
-    
+
     if (!formName.trim() || !formEmail.trim()) {
       setSaveError("Bitte Name und Email ausfüllen.");
       return;
@@ -330,7 +388,7 @@ export default function CompanyDetails() {
       setSaveError("Bitte Workspace ausfüllen.");
       return;
     }
-    
+
     setSaving(true);
     setSaveError(null);
 
@@ -406,14 +464,14 @@ export default function CompanyDetails() {
 
       {/* ===== Außenbereich unter dem Hero ===== */}
       <main
-  className="min-h-[calc(100vh-64px)] mt-0 px-6 pb-8 pt-20"
-  style={{
-    background:
-      "radial-gradient(circle at 0 0, rgba(227,187,98,0.13) 0, transparent 40%)," +
-      "radial-gradient(circle at 100% 0, rgba(56,189,248,0.10) 0, transparent 42%)," +
-      "linear-gradient(to bottom, #f3f4f7 0, #e6e9ef 240px, #f4f5f8 100%)",
-  }}
->
+        className="min-h-[calc(100vh-64px)] mt-0 px-6 pb-8 pt-20"
+        style={{
+          background:
+            "radial-gradient(circle at 0 0, rgba(227,187,98,0.13) 0, transparent 40%)," +
+            "radial-gradient(circle at 100% 0, rgba(56,189,248,0.10) 0, transparent 42%)," +
+            "linear-gradient(to bottom, #f3f4f7 0, #e6e9ef 240px, #f4f5f8 100%)",
+        }}
+      >
 
         <div className="max-w-[1400px] xl:max-w-[1600px] mx-auto space-y-4">
           {/* ==== Top-Bar: Breadcrumb-Pill + Zur Liste ==== */}
@@ -505,39 +563,53 @@ export default function CompanyDetails() {
             <div className="space-y-5">
               {/* Company Information Card */}
               <section
-                className="
-                  rounded-[18px] border
-                  shadow-[0_10px_30px_rgba(0,0,0,0.06)]
-                  px-5 py-5
-                  bg-gradient-to-br from-white to-[#f7f7f7]
-                "
+                className="rounded-[18px] border bg-white overflow-hidden shadow-[0_10px_26px_rgba(0,0,0,0.05)]"
                 style={{ borderColor: BRAND.sand }}
               >
-                <div className="flex items-center justify-between mb-4 gap-3">
-                  <div>
-                    <h2 className="text-lg sm:text-xl font-semibold text-slate-900">
-                      Firmen-Informationen
-                    </h2>
-                    <p className="text-xs text-slate-500">
-                      Stammdaten, Beschreibung und Standort der Firma.
-                    </p>
+                {/* HEADER: full width */}
+                <div
+                  className="flex items-center justify-between gap-3 px-5 py-4"
+                  style={{
+                    background:
+                      "linear-gradient(135deg, rgba(38,69,85,0.06) 0%, rgba(227,187,98,0.10) 100%)",
+                    borderBottom: `1px solid ${BRAND.sand}`,
+                  }}
+                >
+                  {/* links */}
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="h-9 w-9 rounded-xl flex items-center justify-center"
+                      style={{ background: "rgba(38,69,85,0.10)", color: BRAND.navy }}
+                      aria-hidden
+                    >
+                      <Building2 size={18} />
+                    </div>
+
+                    <div>
+                      <h2 className="text-[15px] font-semibold leading-tight text-slate-900">
+                        Firmen-Informationen
+                      </h2>
+                      <p className="text-[12px] text-slate-500 m-0">
+                        Stammdaten, Beschreibung und Standort der Firma.
+                      </p>
+                    </div>
                   </div>
 
-                  {/* kleines Avatar-Badge mit Initialen */}
+                  {/* rechts (Badge) */}
                   <div
-                    className="flex h-12 w-12 items-center justify-center rounded-2xl text-lg font-semibold"
+                    className="flex h-10 w-10 items-center justify-center rounded-2xl text-sm font-semibold"
                     style={{
-                      background:
-                        "radial-gradient(circle at 0 0,#E3BB62,rgba(238,168,18,0.15))",
+                      background: "rgba(227,187,98,0.35)",
                       color: BRAND.navy,
+                      border: `1px solid ${BRAND.sand}`,
                     }}
                   >
-                    {company.name.charAt(0).toUpperCase()}
+                    {(company?.name?.charAt(0) ?? "?").toUpperCase()}
                   </div>
                 </div>
 
                 {/* Name + Beschreibung + Land/Ort + Created */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 px-5 py-4">
                   <div className="space-y-4">
                     {/* Name + ID */}
                     <div className="flex items-start gap-3">
@@ -605,9 +677,9 @@ export default function CompanyDetails() {
                           Adresse
                         </p>
                         {company.street ||
-                        company.postalCode ||
-                        company.city ||
-                        company.country ? (
+                          company.postalCode ||
+                          company.city ||
+                          company.country ? (
                           <div className="m-0 text-[14px] text-slate-700 space-y-0.5">
                             {company.street && <div>{company.street}</div>}
                             {(company.postalCode || company.city) && (
@@ -629,191 +701,213 @@ export default function CompanyDetails() {
               </section>
 
               {/* Kontakt Card */}
+
               <section
-                className="
-                  rounded-[18px] border
-                  shadow-[0_10px_26px_rgba(0,0,0,0.05)]
-                  px-5 py-5
-                  bg-white
-                "
+                className="rounded-[18px] border bg-white overflow-hidden shadow-[0_10px_26px_rgba(0,0,0,0.05)]"
                 style={{ borderColor: BRAND.sand }}
               >
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-[16px] font-semibold tracking-tight">
-                    Kontakt
-                  </h3>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                  <div className="space-y-1">
-                    <p className="m-0 text-[13px] text-[#264555]/70 font-semibold">
-                      Telefon
-                    </p>
-                    <p className="m-0 text-[14px] text-slate-700">
-                      {company.phone || "Keine Telefonnummer hinterlegt."}
-                    </p>
+                {/* HEADER: full width */}
+                <div
+                  className="flex items-center justify-between gap-3 px-5 py-4"
+                  style={{
+                    background:
+                      "linear-gradient(135deg, rgba(38,69,85,0.06) 0%, rgba(227,187,98,0.10) 100%)",
+                    borderBottom: `1px solid ${BRAND.sand}`,
+                  }}
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="h-9 w-9 rounded-xl flex items-center justify-center"
+                      style={{ background: "rgba(38,69,85,0.10)", color: BRAND.navy }}
+                      aria-hidden
+                    >
+                      <Phone size={18} />
+                    </div>
+
+                    <div>
+                      <h3 className="text-[15px] font-semibold leading-tight text-slate-900">
+                        Kontakt
+                      </h3>
+                      <p className="text-[12px] text-slate-500 m-0">
+                        Telefon & Website der Firma.
+                      </p>
+                    </div>
                   </div>
-                  <div className="space-y-1">
-                    <p className="m-0 text-[13px] text-[#264555]/70 font-semibold">
-                      Website
-                    </p>
-                    <p className="m-0 text-[14px] text-slate-700">
-                      {company.website ? (
-                        <a
-                          href={company.website}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1 underline underline-offset-2 hover:opacity-80"
-                        >
-                          <Globe className="h-3 w-3" />
-                          {company.website}
-                        </a>
-                      ) : (
-                        "Keine Website hinterlegt."
-                      )}
-                    </p>
+                </div>
+
+                {/* BODY: hier erst Padding */}
+                <div className="px-5 py-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div className="space-y-1">
+                      <p className="m-0 text-[13px] text-[#264555]/70 font-semibold">
+                        Telefon
+                      </p>
+                      <p className="m-0 text-[14px] text-slate-700">
+                        {company.phone || "Keine Telefonnummer hinterlegt."}
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="m-0 text-[13px] text-[#264555]/70 font-semibold">
+                        Website
+                      </p>
+                      <p className="m-0 text-[14px] text-slate-700">
+                        {company.website ? (
+                          <a
+                            href={company.website}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1 underline underline-offset-2 hover:opacity-80"
+                          >
+                            <Globe className="h-3 w-3" />
+                            {company.website}
+                          </a>
+                        ) : (
+                          "Keine Website hinterlegt."
+                        )}
+                      </p>
+                    </div>
                   </div>
                 </div>
               </section>
 
-              {/* Tabs: Workers / Catalogs – Tabellen im Users-Style */}
+
+
+
+
               <section
-                className="
-                  rounded-[18px] border
-                  shadow-[0_10px_26px_rgba(0,0,0,0.05)]
-                  px-5 pt-4 pb-5
-                  bg-white
-                "
+                className="rounded-[18px] border bg-white overflow-hidden shadow-[0_10px_26px_rgba(0,0,0,0.05)]"
                 style={{ borderColor: BRAND.sand }}
               >
-                {/* Tab-Leiste */}
+                {/* Tabs Header (full width wie Meta-Header) */}
                 <div
-                  className="border-b border-[hsl(var(--border))] mb-4"
+                  className="flex items-center justify-between gap-3 px-5 py-4"
+                  style={{
+                    background:
+                      "linear-gradient(135deg, rgba(38,69,85,0.06) 0%, rgba(227,187,98,0.10) 100%)",
+                    borderBottom: `1px solid ${BRAND.sand}`,
+                  }}
                   role="tablist"
                   aria-label="Company Tabs"
                 >
-                  <div className="flex gap-2">
+                  <div className="flex items-center gap-2">
                     <button
                       type="button"
+                      role="tab"
                       aria-selected={tab === "users"}
                       onClick={() => setTab("users")}
-                      className={
-                        "flex items-center gap-2 px-4 py-2 rounded-full font-semibold transition border-0 " +
-                        (tab === "users"
-                          ? "shadow hover:[filter:brightness(1.05)]"
-                          : "text-[hsl(var(--muted-foreground))] hover:bg-[hsla(40,60%,63%,0.12)] hover:text-[hsl(var(--foreground))]")
-                      }
-                      style={
-                        tab === "users"
-                          ? {
-                              background: "hsl(40,60%,63%)",
-                              color: "hsl(200,32%,22%)",
-                              boxShadow: "0 1px 2px rgba(0,0,0,.05)",
-                            }
-                          : {}
-                      }
+                      className={[
+                        "inline-flex items-center gap-2 rounded-full px-4 py-2 text-[13px] font-semibold",
+                        "transition-all border",
+                        tab === "users" ? "shadow-sm" : "hover:bg-white/60",
+                      ].join(" ")}
+                      style={{
+                        borderColor: BRAND.sand,
+                        background: tab === "users" ? "rgba(227,187,98,0.35)" : "rgba(255,255,255,0.35)",
+                        color: BRAND.navy,
+                      }}
                     >
-                      <span aria-hidden>👥</span> Workers ({usersCount})
+                      <Users className="h-4 w-4" />
+                      Workers <span className="opacity-80">({usersCount})</span>
                     </button>
 
                     <button
                       type="button"
+                      role="tab"
                       aria-selected={tab === "catalogs"}
                       onClick={() => setTab("catalogs")}
-                      className={
-                        "flex items-center gap-2 px-4 py-2 rounded-full font-semibold transition border-0 " +
-                        (tab === "catalogs"
-                          ? "shadow hover:[filter:brightness(1.05)]"
-                          : "text-[hsl(var(--muted-foreground))] hover:bg-[hsla(40,60%,63%,0.12)] hover:text-[hsl(var(--foreground))]")
-                      }
-                      style={
-                        tab === "catalogs"
-                          ? {
-                              background: "hsl(40,60%,63%)",
-                              color: "hsl(200,32%,22%)",
-                              boxShadow: "0 1px 2px rgba(0,0,0,.05)",
-                            }
-                          : {}
-                      }
+                      className={[
+                        "inline-flex items-center gap-2 rounded-full px-4 py-2 text-[13px] font-semibold",
+                        "transition-all border",
+                        tab === "catalogs" ? "shadow-sm" : "hover:bg-white/60",
+                      ].join(" ")}
+                      style={{
+                        borderColor: BRAND.sand,
+                        background: tab === "catalogs" ? "rgba(227,187,98,0.35)" : "rgba(255,255,255,0.35)",
+                        color: BRAND.navy,
+                      }}
                     >
-                      <span aria-hidden>📂</span> Catalogs ({totalAssignmentsCount})
+                      <Folder className="h-4 w-4" />
+                      Catalogs <span className="opacity-80">({totalAssignmentsCount})</span>
                     </button>
                   </div>
                 </div>
 
-                {/* Workers TAB */}
-                {tab === "users" && (
-                  <div>
-                    {workersLoading ? (
-                      <div className="text-center py-12 text-[hsl(var(--muted-foreground))]">
-                        <div
-                          className="text-[56px] leading-none mb-3 opacity-80"
-                          aria-hidden
-                        >
-                          ⏳
-                        </div>
-                        <p className="text-[1.125rem] text-[hsl(var(--foreground))] m-0">
-                          Lade Worker…
-                        </p>
-                      </div>
-                    ) : workersError ? (
-                      <div
-                        className="admin-error"
-                        role="alert"
-                        style={{ margin: "0.75rem 0" }}
-                      >
-                        {workersError}
-                      </div>
-                    ) : workers.length === 0 ? (
-                      <div className="text-center py-12 text-[hsl(var(--muted-foreground))]">
-                        <div
-                          className="text-[56px] leading-none mb-3 opacity-80"
-                          aria-hidden
-                        >
-                          👥
-                        </div>
-                        <p className="text-[1.125rem] text-[hsl(var(--foreground))] mb-1">
-                          Keine Worker vorhanden.
-                        </p>
-                        <p className="text-[.95rem] m-0">
-                          Füge über „Worker hinzufügen“ neue Worker hinzu.
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="overflow-x-auto">
-                        <table className="w-full border-collapse bg-white">
-                          <thead
-                            className="text-left text-xs font-semibold uppercase tracking-[0.04em]"
-                            style={{
-                              background:
-                                "linear-gradient(to right, #ebebec, #ffffff)",
-                              borderBottom: "2px solid #d2c9b9",
-                              color: "#264555",
-                            }}
+                {/* Body Padding */}
+                <div className="px-5 py-4">
+                  {/* Workers TAB */}
+                  {tab === "users" && (
+                    <div>
+                      {workersLoading ? (
+                        <div className="text-center py-12 text-[hsl(var(--muted-foreground))]">
+                          <div
+                            className="text-[56px] leading-none mb-3 opacity-80"
+                            aria-hidden
                           >
-                            <tr>
-                              <th className="px-4 py-3 text-[0.85rem] font-semibold text-left">
-                                Name
-                              </th>
-                              <th className="px-4 py-3 text-[0.85rem] font-semibold text-left">
-                                Email
-                              </th>
-                              <th className="px-4 py-3 text-[0.85rem] font-semibold text-left">
-                                Workspace
-                              </th>
-                              <th className="px-4 py-3 text-[0.85rem] font-semibold text-left">
-                                Created
-                              </th>
-                              <th className="px-4 py-3 text-[0.85rem] font-semibold text-left">
-                                Actions
-                              </th>
-                            </tr>
-                          </thead>
+                            ⏳
+                          </div>
+                          <p className="text-[1.125rem] text-[hsl(var(--foreground))] m-0">
+                            Lade Worker…
+                          </p>
+                        </div>
+                      ) : workersError ? (
+                        <div
+                          className="admin-error"
+                          role="alert"
+                          style={{ margin: "0.75rem 0" }}
+                        >
+                          {workersError}
+                        </div>
+                      ) : workers.length === 0 ? (
+                        <div className="text-center py-12 text-[hsl(var(--muted-foreground))]">
+                          <div
+                            className="text-[56px] leading-none mb-3 opacity-80"
+                            aria-hidden
+                          >
+                            👥
+                          </div>
+                          <p className="text-[1.125rem] text-[hsl(var(--foreground))] mb-1">
+                            Keine Worker vorhanden.
+                          </p>
+                          <p className="text-[.95rem] m-0">
+                            Füge über „Worker hinzufügen“ neue Worker hinzu.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="overflow-x-auto">
+                          <table className="w-full border-collapse bg-white">
+                            <thead
+                              className="text-left text-xs font-semibold uppercase tracking-[0.04em]"
+                              style={{
+                                background:
+                                  "linear-gradient(to right, #ebebec, #ffffff)",
+                                borderBottom: "2px solid #d2c9b9",
+                                color: "#264555",
+                              }}
+                            >
+                              <tr>
+                                <th className="px-4 py-3 text-[0.85rem] font-semibold text-left">
+                                  Name
+                                </th>
+                                <th className="px-4 py-3 text-[0.85rem] font-semibold text-left">
+                                  Email
+                                </th>
+                                <th className="px-4 py-3 text-[0.85rem] font-semibold text-left">
+                                  Workspace
+                                </th>
+                                <th className="px-4 py-3 text-[0.85rem] font-semibold text-left">
+                                  Created
+                                </th>
+                                <th className="px-4 py-3 text-[0.85rem] font-semibold text-left">
+                                  Actions
+                                </th>
+                              </tr>
+                            </thead>
 
-                          <tbody>
-                            {workers.map((w) => (
-                              <tr
-                                key={w.id}
-                                className="
+                            <tbody>
+                              {workers.map((w) => (
+                                <tr
+                                  key={w.id}
+                                  className="
                                   bg-white
                                   transition
                                   border-l-[4px] border-transparent
@@ -821,171 +915,171 @@ export default function CompanyDetails() {
                                   hover:bg-[#fff9ec]
                                   hover:shadow-[0_4px_10px_rgba(0,0,0,0.04)]
                                 "
-                              >
-                                <td
-                                  className="px-4 py-4 text-sm font-semibold"
-                                  style={{
-                                    borderBottom: `1px solid ${CSS.border}`,
-                                  }}
                                 >
-                                  {w.name || "—"}
-                                </td>
-                                <td
-                                  className="px-4 py-4 text-sm"
-                                  style={{
-                                    color: CSS.mutedFg,
-                                    borderBottom: `1px solid ${CSS.border}`,
-                                  }}
-                                >
-                                  {w.email || "—"}
-                                </td>
-                                <td
-                                  className="px-4 py-4 text-sm"
-                                  style={{
-                                    color: CSS.mutedFg,
-                                    borderBottom: `1px solid ${CSS.border}`,
-                                  }}
-                                >
-                                  {w.workSpaceRef || "—"}
-                                </td>
-                                <td
-                                  className="px-4 py-4 text-sm"
-                                  style={{
-                                    color: CSS.mutedFg,
-                                    borderBottom: `1px solid ${CSS.border}`,
-                                  }}
-                                >
-                                  {w.createdAt
-                                    ? new Date(
+                                  <td
+                                    className="px-4 py-4 text-sm font-semibold"
+                                    style={{
+                                      borderBottom: `1px solid ${CSS.border}`,
+                                    }}
+                                  >
+                                    {w.name || "—"}
+                                  </td>
+                                  <td
+                                    className="px-4 py-4 text-sm"
+                                    style={{
+                                      color: CSS.mutedFg,
+                                      borderBottom: `1px solid ${CSS.border}`,
+                                    }}
+                                  >
+                                    {w.email || "—"}
+                                  </td>
+                                  <td
+                                    className="px-4 py-4 text-sm"
+                                    style={{
+                                      color: CSS.mutedFg,
+                                      borderBottom: `1px solid ${CSS.border}`,
+                                    }}
+                                  >
+                                    {w.workSpaceRef || "—"}
+                                  </td>
+                                  <td
+                                    className="px-4 py-4 text-sm"
+                                    style={{
+                                      color: CSS.mutedFg,
+                                      borderBottom: `1px solid ${CSS.border}`,
+                                    }}
+                                  >
+                                    {w.createdAt
+                                      ? new Date(
                                         w.createdAt,
                                       ).toLocaleDateString("de-DE")
-                                    : "—"}
-                                </td>
-                                <td
-                                  className="px-4 py-4 text-sm"
-                                  style={{
-                                    borderBottom: `1px solid ${CSS.border}`,
-                                  }}
-                                >
-                                  <div className="flex items-center gap-2">
-                                    <button
-                                      type="button"
-                                      onClick={() => openEdit(w)}
-                                      className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-sm font-semibold hover:bg-slate-50"
-                                      style={{
-                                        borderColor: CSS.border,
-                                        color: CSS.fg,
-                                      }}
-                                      title="Bearbeiten"
-                                    >
-                                      <Pencil size={14} />
-                                      Edit
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => askDelete(w)}
-                                      className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-sm font-semibold text-red-600 hover:bg-red-50"
-                                      style={{
-                                        borderColor: "rgb(254 202 202)",
-                                      }}
-                                      title="Löschen"
-                                    >
-                                      <Trash2 size={14} />
-                                      Delete
-                                    </button>
-                                  </div>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </div>
-                )}
+                                      : "—"}
+                                  </td>
+                                  <td
+                                    className="px-4 py-4 text-sm"
+                                    style={{
+                                      borderBottom: `1px solid ${CSS.border}`,
+                                    }}
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <button
+                                        type="button"
+                                        onClick={() => openEdit(w)}
+                                        className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-sm font-semibold hover:bg-slate-50"
+                                        style={{
+                                          borderColor: CSS.border,
+                                          color: CSS.fg,
+                                        }}
+                                        title="Bearbeiten"
+                                      >
+                                        <Pencil size={14} />
+                                        Edit
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => askDelete(w)}
+                                        className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-sm font-semibold text-red-600 hover:bg-red-50"
+                                        style={{
+                                          borderColor: "rgb(254 202 202)",
+                                        }}
+                                        title="Löschen"
+                                      >
+                                        <Trash2 size={14} />
+                                        Delete
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
-                {/* Catalogs TAB */}
-                {tab === "catalogs" && (
-                  <div>
-                    {assignLoading ? (
-                      <div className="text-center py-12 text-[hsl(var(--muted-foreground))]">
-                        <div
-                          className="text-[56px] leading-none mb-3 opacity-80"
-                          aria-hidden
-                        >
-                          📁
-                        </div>
-                        <p className="text-[1.125rem] text-[hsl(var(--foreground))] m-0">
-                          Lade Zuweisungen…
-                        </p>
-                      </div>
-                    ) : assignError ? (
-                      <div
-                        className="admin-error"
-                        role="alert"
-                        style={{ margin: "0.75rem 0" }}
-                      >
-                        {assignError}
-                      </div>
-                    ) : assignments.length === 0 ? (
-                      <div className="text-center py-12 text-[hsl(var(--muted-foreground))]">
-                        <div
-                          className="text-[56px] leading-none mb-3 opacity-80"
-                          aria-hidden
-                        >
-                          📁
-                        </div>
-                        <p className="text-[1.125rem] text-[hsl(var(--foreground))] mb-1">
-                          Keine Katalog-Zuweisungen vorhanden.
-                        </p>
-                        <p className="text-[.95rem] m-0">
-                          Lege über „Assign Catalog“ neue Zuweisungen an.
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="overflow-x-auto">
-                        <table className="w-full border-collapse bg-white">
-                          <thead
-                            className="text-left text-xs font-semibold uppercase tracking-[0.04em]"
-                            style={{
-                              background:
-                                "linear-gradient(to right, #ebebec, #ffffff)",
-                              borderBottom: "2px solid #d2c9b9",
-                              color: "#264555",
-                            }}
+                  {/* Catalogs TAB */}
+                  {tab === "catalogs" && (
+                    <div>
+                      {assignLoading ? (
+                        <div className="text-center py-12 text-[hsl(var(--muted-foreground))]">
+                          <div
+                            className="text-[56px] leading-none mb-3 opacity-80"
+                            aria-hidden
                           >
-                            <tr>
-                              <th className="px-4 py-3 text-[0.85rem] font-semibold text-left">
-                                Worker
-                              </th>
-                              <th className="px-4 py-3 text-[0.85rem] font-semibold text-left">
-                                Email
-                              </th>
-                              <th className="px-4 py-3 text-[0.85rem] font-semibold text-left">
-                                Workspace
-                              </th>
-                              <th className="px-4 py-3 text-[0.85rem] font-semibold text-left">
-                                Catalog
-                              </th>
-                              <th className="px-4 py-3 text-[0.85rem] font-semibold text-left">
-                                Status
-                              </th>
-                              <th className="px-4 py-3 text-[0.85rem] font-semibold text-left">
-                                Assigned
-                              </th>
-                              <th className="px-4 py-3 text-[0.85rem] font-semibold text-left">
-                                Expires
-                              </th>
-                              <th className="px-4 py-3 text-[0.85rem] font-semibold text-left">
-                                Completed
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {assignments.map((a) => (
-                              <tr
-                                key={a.id}
-                                className="
+                            📁
+                          </div>
+                          <p className="text-[1.125rem] text-[hsl(var(--foreground))] m-0">
+                            Lade Zuweisungen…
+                          </p>
+                        </div>
+                      ) : assignError ? (
+                        <div
+                          className="admin-error"
+                          role="alert"
+                          style={{ margin: "0.75rem 0" }}
+                        >
+                          {assignError}
+                        </div>
+                      ) : assignments.length === 0 ? (
+                        <div className="text-center py-12 text-[hsl(var(--muted-foreground))]">
+                          <div
+                            className="text-[56px] leading-none mb-3 opacity-80"
+                            aria-hidden
+                          >
+                            📁
+                          </div>
+                          <p className="text-[1.125rem] text-[hsl(var(--foreground))] mb-1">
+                            Keine Katalog-Zuweisungen vorhanden.
+                          </p>
+                          <p className="text-[.95rem] m-0">
+                            Lege über „Assign Catalog“ neue Zuweisungen an.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="overflow-x-auto">
+                          <table className="w-full border-collapse bg-white">
+                            <thead
+                              className="text-left text-xs font-semibold uppercase tracking-[0.04em]"
+                              style={{
+                                background:
+                                  "linear-gradient(to right, #ebebec, #ffffff)",
+                                borderBottom: "2px solid #d2c9b9",
+                                color: "#264555",
+                              }}
+                            >
+                              <tr>
+                                <th className="px-4 py-3 text-[0.85rem] font-semibold text-left">
+                                  Worker
+                                </th>
+                                <th className="px-4 py-3 text-[0.85rem] font-semibold text-left">
+                                  Email
+                                </th>
+                                <th className="px-4 py-3 text-[0.85rem] font-semibold text-left">
+                                  Workspace
+                                </th>
+                                <th className="px-4 py-3 text-[0.85rem] font-semibold text-left">
+                                  Catalog
+                                </th>
+                                <th className="px-4 py-3 text-[0.85rem] font-semibold text-left">
+                                  Status
+                                </th>
+                                <th className="px-4 py-3 text-[0.85rem] font-semibold text-left">
+                                  Assigned
+                                </th>
+                                <th className="px-4 py-3 text-[0.85rem] font-semibold text-left">
+                                  Expires
+                                </th>
+                                <th className="px-4 py-3 text-[0.85rem] font-semibold text-left">
+                                  Completed
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {assignments.map((a) => (
+                                <tr
+                                  key={a.id}
+                                  className="
                                   bg-white
                                   transition
                                   border-l-[4px] border-transparent
@@ -993,91 +1087,93 @@ export default function CompanyDetails() {
                                   hover:bg-[#fff9ec]
                                   hover:shadow-[0_4px_10px_rgba(0,0,0,0.04)]
                                 "
-                              >
-                                <td
-                                  className="px-4 py-4 text-sm font-semibold"
-                                  style={{
-                                    borderBottom: `1px solid ${CSS.border}`,
-                                  }}
                                 >
-                                  {a.worker?.name ?? "—"}
-                                </td>
-                                <td
-                                  className="px-4 py-4 text-sm"
-                                  style={{
-                                    color: CSS.mutedFg,
-                                    borderBottom: `1px solid ${CSS.border}`,
-                                  }}
-                                >
-                                  {a.worker?.email ?? "—"}
-                                </td>
-                                <td
-                                  className="px-4 py-4 text-sm"
-                                  style={{
-                                    color: CSS.mutedFg,
-                                    borderBottom: `1px solid ${CSS.border}`,
-                                  }}
-                                >
-                                  {a.worker?.workSpaceRef ?? "—"}
-                                </td>
-                                <td
-                                  className="px-4 py-4 text-sm"
-                                  style={{
-                                    borderBottom: `1px solid ${CSS.border}`,
-                                  }}
-                                >
-                                  {a.catalog?.title ?? "—"}
-                                </td>
-                                <td
-                                  className="px-4 py-4 text-sm"
-                                  style={{
-                                    borderBottom: `1px solid ${CSS.border}`,
-                                  }}
-                                >
-                                  <span
-                                    className={`inline-flex items-center rounded-full px-2.5 py-1 text-[12px] font-semibold ${statusBadge(
-                                      a.status,
-                                    )}`}
+                                  <td
+                                    className="px-4 py-4 text-sm font-semibold"
+                                    style={{
+                                      borderBottom: `1px solid ${CSS.border}`,
+                                    }}
                                   >
-                                    {a.status}
-                                  </span>
-                                </td>
-                                <td
-                                  className="px-4 py-4 text-sm"
-                                  style={{
-                                    color: CSS.mutedFg,
-                                    borderBottom: `1px solid ${CSS.border}`,
-                                  }}
-                                >
-                                  {fmt(a.assignedAt)}
-                                </td>
-                                <td
-                                  className="px-4 py-4 text-sm"
-                                  style={{
-                                    color: CSS.mutedFg,
-                                    borderBottom: `1px solid ${CSS.border}`,
-                                  }}
-                                >
-                                  {fmt(a.expiresAt)}
-                                </td>
-                                <td
-                                  className="px-4 py-4 text-sm"
-                                  style={{
-                                    color: CSS.mutedFg,
-                                    borderBottom: `1px solid ${CSS.border}`,
-                                  }}
-                                >
-                                  {fmt(a.completedAt)}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </div>
-                )}
+                                    {a.worker?.name ?? "—"}
+                                  </td>
+                                  <td
+                                    className="px-4 py-4 text-sm"
+                                    style={{
+                                      color: CSS.mutedFg,
+                                      borderBottom: `1px solid ${CSS.border}`,
+                                    }}
+                                  >
+                                    {a.worker?.email ?? "—"}
+                                  </td>
+                                  <td
+                                    className="px-4 py-4 text-sm"
+                                    style={{
+                                      color: CSS.mutedFg,
+                                      borderBottom: `1px solid ${CSS.border}`,
+                                    }}
+                                  >
+                                    {a.worker?.workSpaceRef ?? "—"}
+                                  </td>
+                                  <td
+                                    className="px-4 py-4 text-sm"
+                                    style={{
+                                      borderBottom: `1px solid ${CSS.border}`,
+                                    }}
+                                  >
+                                    {a.catalog?.title ?? "—"}
+                                  </td>
+                                  <td
+                                    className="px-4 py-4 text-sm"
+                                    style={{
+                                      borderBottom: `1px solid ${CSS.border}`,
+                                    }}
+                                  >
+                                    <span
+                                      className={`inline-flex items-center rounded-full px-2.5 py-1 text-[12px] font-semibold ${statusBadge(
+                                        a.status,
+                                      )}`}
+                                    >
+                                      {a.status}
+                                    </span>
+                                  </td>
+                                  <td
+                                    className="px-4 py-4 text-sm"
+                                    style={{
+                                      color: CSS.mutedFg,
+                                      borderBottom: `1px solid ${CSS.border}`,
+                                    }}
+                                  >
+                                    {fmt(a.assignedAt)}
+                                  </td>
+                                  <td
+                                    className="px-4 py-4 text-sm"
+                                    style={{
+                                      color: CSS.mutedFg,
+                                      borderBottom: `1px solid ${CSS.border}`,
+                                    }}
+                                  >
+                                    {fmt(a.expiresAt)}
+                                  </td>
+                                  <td
+                                    className="px-4 py-4 text-sm"
+                                    style={{
+                                      color: CSS.mutedFg,
+                                      borderBottom: `1px solid ${CSS.border}`,
+                                    }}
+                                  >
+                                    {fmt(a.completedAt)}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </section>
+
             </div>
 
             {/* Rechte Spalte: Meta + Actions (wie UserDetails Sidebar) */}
@@ -1085,85 +1181,114 @@ export default function CompanyDetails() {
               {/* Meta / Stats */}
               <section
                 className="
-                  rounded-[18px] border
-                  shadow-[0_10px_26px_rgba(0,0,0,0.05)]
-                  px-5 py-5
-                  bg-white
-                "
+    rounded-[18px] border bg-white
+    shadow-[0_10px_26px_rgba(0,0,0,0.05)]
+    overflow-hidden
+  "
                 style={{ borderColor: BRAND.sand }}
               >
-                <h3 className="text-[16px] font-semibold tracking-tight mb-3">
-                  Firmen-Metadaten
-                </h3>
-                <div className="flex flex-col gap-2 text-[0.95rem]">
-                  <div className="flex items-baseline justify-between">
-                    <span
-                      className="text-[0.92rem] tracking-[.1px]"
-                      style={{ color: CSS.mutedFg }}
+                {/* Header */}
+                <div
+                  className="flex items-center justify-between gap-3 px-5 py-4"
+                  style={{
+                    background:
+                      "linear-gradient(135deg, rgba(38,69,85,0.06) 0%, rgba(227,187,98,0.10) 100%)",
+                    borderBottom: `1px solid ${BRAND.sand}`,
+                  }}
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="h-9 w-9 rounded-xl flex items-center justify-center"
+                      style={{
+                        background: "rgba(38,69,85,0.10)",
+                        color: BRAND.navy,
+                      }}
+                      aria-hidden
                     >
-                      Company ID:
-                    </span>
-                    <span className="text-[1.05rem] leading-[1.1] font-bold text-[#264555]">
-                      {company.id}
-                    </span>
+                      <Building2 size={18} />
+                    </div>
+
+                    <div>
+                      <h3 className="text-[15px] font-semibold leading-tight text-slate-900">
+                        Firmen-Metadaten
+                      </h3>
+                      <p className="text-[12px] text-slate-500 m-0">
+                        Systeminfos & Kennzahlen
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex items-baseline justify-between">
-                    <span
-                      className="text-[0.92rem] tracking-[.1px]"
-                      style={{ color: CSS.mutedFg }}
-                    >
-                      Status:
-                    </span>
-                    <span className="text-[1.05rem] leading-[1.1] font-bold text-[#264555]">
-                      {statusLabel}
-                    </span>
-                  </div>
-                  <div className="flex items-baseline justify-between">
-                    <span
-                      className="text-[0.92rem] tracking-[.1px]"
-                      style={{ color: CSS.mutedFg }}
-                    >
-                      Created:
-                    </span>
-                    <span className="text-[1.05rem] leading-[1.1] font-bold text-[#264555]">
-                      {formatDate(company.created)}
-                    </span>
-                  </div>
-                  <div className="flex items-baseline justify-between">
-                    <span
-                      className="text-[0.92rem] tracking-[.1px]"
-                      style={{ color: CSS.mutedFg }}
-                    >
-                      Updated:
-                    </span>
-                    <span className="text-[1.05rem] leading-[1.1] font-bold text-[#264555]">
-                      {formatDate(company.updated)}
-                    </span>
-                  </div>
-                  <div className="flex items-baseline justify-between">
-                    <span
-                      className="text-[0.92rem] tracking-[.1px]"
-                      style={{ color: CSS.mutedFg }}
-                    >
-                      Workers:
-                    </span>
-                    <span className="text-[1.05rem] leading-[1.1] font-bold text-[#264555]">
-                      {usersCount}
-                    </span>
-                  </div>
-                  <div className="flex items-baseline justify-between">
-                    <span
-                      className="text-[0.92rem] tracking-[.1px]"
-                      style={{ color: CSS.mutedFg }}
-                    >
-                      Catalogs:
-                    </span>
-                    <span className="text-[1.05rem] leading-[1.1] font-bold text-[#264555]">
-                      {catalogsCount}
-                    </span>
-                  </div>
+
+                  {/* Status Pill */}
+                  <StatusToggle
+                    value={company.status}
+                    onToggle={onStatusClick}
+                    disabled={changingStatus}
+                  />
+
+
+                </div>
+
+                {/* Rows */}
+                <div className="px-5 py-4">
+                  <dl className="divide-y" style={{ borderColor: BRAND.sand }}>
+                    {/* Company ID */}
+                    <div className="py-3 flex items-start justify-between gap-4">
+                      <dt className="text-[13px] font-medium" style={{ color: CSS.mutedFg }}>
+                        Company ID
+                      </dt>
+                      <dd className="min-w-0 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <code
+                            className="text-[12.5px] font-semibold truncate max-w-[260px]"
+                            style={{ color: BRAND.navy }}
+                            title={company.id}
+                          >
+                            {company.id}
+                          </code>
+                        </div>
+                      </dd>
+                    </div>
+
+                    <div className="py-3 flex items-center justify-between">
+                      <dt className="text-[13px] font-medium" style={{ color: CSS.mutedFg }}>
+                        Created
+                      </dt>
+                      <dd className="text-[13px] font-semibold" style={{ color: BRAND.navy }}>
+                        {formatDate(company.created)}
+                      </dd>
+                    </div>
+
+                    <div className="py-3 flex items-center justify-between">
+                      <dt className="text-[13px] font-medium" style={{ color: CSS.mutedFg }}>
+                        Updated
+                      </dt>
+                      <dd className="text-[13px] font-semibold" style={{ color: BRAND.navy }}>
+                        {formatDate(company.updated)}
+                      </dd>
+                    </div>
+
+                    {/* Counts */}
+                    <div className="py-3 flex items-center justify-between">
+                      <dt className="text-[13px] font-medium" style={{ color: CSS.mutedFg }}>
+                        Workers
+                      </dt>
+                      <dd className="text-[13px] font-semibold" style={{ color: BRAND.navy }}>
+                        {usersCount}
+                      </dd>
+                    </div>
+
+                    <div className="py-3 flex items-center justify-between">
+                      <dt className="text-[13px] font-medium" style={{ color: CSS.mutedFg }}>
+                        Catalogs
+                      </dt>
+                      <dd className="text-[13px] font-semibold" style={{ color: BRAND.navy }}>
+                        {catalogsCount}
+                      </dd>
+                    </div>
+                  </dl>
                 </div>
               </section>
+
 
               {/* Actions */}
               <section
@@ -1557,6 +1682,60 @@ export default function CompanyDetails() {
         }}
         icon={<Trash2 className="text-red-500" />}
       />
+
+      <ConfirmModal
+        open={confirmStatusOpen}
+        title={pendingStatus === "inactive" ? "Firma deaktivieren?" : "Firma aktivieren?"}
+        description={
+          pendingStatus === "inactive"
+            ? `Bist du sicher, dass du "${company.name}" deaktivieren willst?`
+            : `Bist du sicher, dass du "${company.name}" aktivieren willst?`
+        }
+        hintTitle="Hinweis"
+        hintText={
+          pendingStatus === "inactive"
+            ? "Beim Deaktivieren können Einladungslinks ggf. ungültig werden und neue Einladungen funktionieren möglicherweise nicht mehr."
+            : "Nach dem Aktivieren können Einladungen wieder normal genutzt werden."
+        }
+        cancelLabel="Abbrechen"
+        confirmLabel={
+          changingStatus
+            ? "Ändere…"
+            : pendingStatus === "inactive"
+              ? "Ja, deaktivieren"
+              : "Ja, aktivieren"
+        }
+        onCancel={() => {
+          if (changingStatus) return;
+          setConfirmStatusOpen(false);
+          setPendingStatus(null);
+          setStatusError(null);
+        }}
+        onConfirm={async () => {
+          if (!id || !pendingStatus || changingStatus) return;
+
+          // ✅ optimistic update
+          const snapshot = company;
+          setCompany({ ...company, status: pendingStatus });
+
+          setChangingStatus(true);
+          setStatusError(null);
+
+          try {
+            const updated = await changeCompanyStatus(id);
+            setCompany(mapApiToDetails(updated)); // Backend response übernimmt Wahrheit
+            setConfirmStatusOpen(false);
+            setPendingStatus(null);
+          } catch (e: any) {
+            setCompany(snapshot); // rollback
+            setStatusError(e?.message ?? String(e));
+          } finally {
+            setChangingStatus(false);
+          }
+        }}
+      />
+
+
     </AdminLayout>
   );
 }

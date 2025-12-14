@@ -41,6 +41,9 @@ public class WorkerCatalogService {
     @Autowired
     private com.assessment.backend.repository.AssessmentSessionRepository assessmentSessionRepository;
 
+    @Autowired
+    private com.assessment.backend.repository.ThemaCatalogRepository themaCatalogRepository;
+
     private static final int MAX_CODE_GENERATION_ATTEMPTS = 10;
 
     // ===== ASSIGNMENT CREATION WITH CODE/TOKEN GENERATION =====
@@ -266,7 +269,7 @@ public class WorkerCatalogService {
     }
 
     /**
-     * Prüft ob alle Sessions einer Zuweisung abgeschlossen sind und setzt den Assignment-Status auf "completed"
+     * Prüft ob alle Themen des zugewiesenen Katalogs abgeschlossen sind
      * Wird nach jedem Session-Complete aufgerufen
      */
     @Transactional
@@ -276,21 +279,31 @@ public class WorkerCatalogService {
             return; // Bereits completed oder nicht gefunden
         }
 
-        UUID companyId = assignment.getCompany().getId();
         UUID workerId = assignment.getWorker().getId();
+        UUID catalogId = assignment.getCatalog().getId();
 
-        // Alle Sessions dieses Workers bei dieser Company zählen
-        Long totalSessions = assessmentSessionRepository.countByWorkerIdAndCompanyId(workerId, companyId);
+        // Alle Thema-IDs des zugewiesenen Katalogs holen
+        List<UUID> themaIds = themaCatalogRepository.findThemasByCatalogId(catalogId)
+            .stream()
+            .map(thema -> thema.getId())
+            .collect(Collectors.toList());
+
+        if (themaIds.isEmpty()) {
+            return; // Katalog hat keine Themen
+        }
+
+        // Alle Sessions für diese spezifischen Themen zählen
+        Long totalSessions = assessmentSessionRepository.countByWorkerIdAndThemaIdIn(workerId, themaIds);
         if (totalSessions == 0) {
             return; // Keine Sessions vorhanden
         }
 
-        // Completed Sessions zählen
+        // Completed Sessions für diese Themen zählen
         Long completedSessions = assessmentSessionRepository
-            .countByWorkerIdAndCompanyIdAndStatus(workerId, companyId, "completed");
+            .countByWorkerIdAndThemaIdInAndStatus(workerId, themaIds, "completed");
 
-        // Wenn alle Sessions completed sind, Assignment auf completed setzen
-        if (completedSessions.equals(totalSessions)) {
+        // Wenn alle Sessions für ALLE Themen des Katalogs completed sind, Assignment auf completed setzen
+        if (completedSessions.equals(totalSessions) && completedSessions >= themaIds.size()) {
             assignment.setStatus("completed");
             assignment.setCompletedAt(LocalDateTime.now());
             repository.save(assignment);

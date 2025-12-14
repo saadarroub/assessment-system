@@ -35,6 +35,12 @@ export async function getCompanies(): Promise<CompanyApi[]> {
   });
   return data ?? [];
 }
+export async function getActiveCompanies(): Promise<CompanyApi[]> {
+  const { data } = await apiClient.get<CompanyApi[]>("/companies/status/active", {
+    headers: { Accept: "application/json" },
+  });
+  return data ?? [];
+}
 
 export async function getCompany(id: string): Promise<CompanyApi> {
   const { data } = await apiClient.get<CompanyApi>(
@@ -167,4 +173,26 @@ export async function getAssignmentsByCompany(companyId: string): Promise<Assign
   );
   if (resp.status === 204) return [];
   return resp.data ?? [];
+}
+// Toggle Status (active <-> inactive)
+export async function changeCompanyStatus(id: string): Promise<CompanyApi> {
+  const { data } = await apiClient.patch<CompanyApi>(
+    `/companies/status/change/${encodeURIComponent(id)}`,
+    null,
+    { headers: { Accept: "application/json" } }
+  );
+  return data;
+}
+export async function getCompaniesActive(): Promise<CompanyApi[]> {
+  const { data } = await apiClient.get<CompanyApi[]>("/companies/status/active", {
+    headers: { Accept: "application/json" },
+  });
+  return data ?? [];
+}
+
+export async function getCompaniesInactive(): Promise<CompanyApi[]> {
+  const { data } = await apiClient.get<CompanyApi[]>("/companies/status/inactive", {
+    headers: { Accept: "application/json" },
+  });
+  return data ?? [];
 }

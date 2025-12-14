@@ -3,13 +3,16 @@ import { Home, BarChart3, Target, PieChart, AlertTriangle } from "lucide-react";
 import type { ApiSummaryResponse, UiQuestion } from "@/features/service/publicAssessmentService";
 import confetti from "canvas-confetti";
 import ConfirmModal from "@/shared/components/ConfirmModal";
+import FancyDatePicker from "@/shared/components/FancyDatePicker";
+import SimpleNumberField from "@/shared/components/NumberField";
+
 
 
 export type AssessmentResultsProps = {
   topicName?: string;
   onRestart?: () => void;
   onBackToTopics?: () => void;
-  onComplete?: () => void;   // Klick auf "Abschließen"
+  onComplete?: () => Promise<void> | void;
   // onChangeAnswer?: (questionId: string, newValue: string) => Promise<void> | void; 
   //  für Bearbeiten
   questionsById?: Record<string, UiQuestion>;
@@ -45,7 +48,11 @@ export default function AssessmentResults(props: AssessmentResultsProps) {
   const [editError, setEditError] = useState<string | null>(null);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
 
-  // oben hast du schon: const [editQuestion, ...] = useState(...);
+  const [openAnswers, setOpenAnswers] = useState<Record<string, boolean>>({});
+
+  function toggleAnswer(id: string) {
+    setOpenAnswers((prev) => ({ ...prev, [id]: !prev[id] }));
+  }
 
   const [showCelebration, setShowCelebration] = useState(true);
 
@@ -192,6 +199,24 @@ export default function AssessmentResults(props: AssessmentResultsProps) {
   const countRequired = summary?.answeredQuestions?.filter(q => q.isRequired).length ?? 0;
   const countNotRequired = summary?.answeredQuestions?.filter(q => !q.isRequired).length ?? 0;
 
+  function parseIsoDateNoTz(raw: string): Date | undefined {
+    if (!raw) return undefined;
+    // erwartet "YYYY-MM-DD"
+    const y = Number(raw.slice(0, 4));
+    const m = Number(raw.slice(5, 7));
+    const d = Number(raw.slice(8, 10));
+    if (!y || !m || !d) return undefined;
+    return new Date(y, m - 1, d);
+  }
+
+  function toIsoDateNoTz(date: Date): string {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, "0");
+    const d = String(date.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }
+
+
   return (
     <div
       className="
@@ -202,24 +227,8 @@ export default function AssessmentResults(props: AssessmentResultsProps) {
       text-slate-900
     "
     >
-      <div className="pointer-events-none absolute inset-0">
-        {/* Dunkler Blob oben links */}
-        <div
-          className="
-        absolute -top-32 -left-20 h-64 w-64
-        rounded-full blur-3xl
-        bg-[hsla(215,60%,25%,0.22)]
-      "
-        />
-        {/* Goldener Blob rechts */}
-        <div
-          className="
-        absolute top-1/3 -right-28 h-72 w-72
-        rounded-full blur-3xl
-        bg-[hsla(45,70%,60%,0.25)]
-      "
-        />
-      </div>
+
+
 
       <style>{`
       @keyframes stamp-appear {
@@ -238,7 +247,49 @@ export default function AssessmentResults(props: AssessmentResultsProps) {
         0%   { transform: translateY(0); }
         100% { transform: translateY(-12px); }
       }
-    `}</style>
+        @keyframes floaty {
+    0%   { transform: translate3d(0,0,0) rotate(0deg); opacity: 0.10; }
+    50%  { transform: translate3d(0,-18px,0) rotate(4deg); opacity: 0.14; }
+    100% { transform: translate3d(0,0,0) rotate(0deg); opacity: 0.10; }
+  }
+
+  @keyframes drift {
+    0%   { transform: translate3d(0,0,0) rotate(0deg); }
+    50%  { transform: translate3d(16px, -10px,0) rotate(-3deg); }
+    100% { transform: translate3d(0,0,0) rotate(0deg); }
+  }
+
+    .hex-bg{
+    /* etwas dunkler, damit man es auf hellen Gradients sieht */
+    background-image:
+      conic-gradient(from 60deg, rgba(38,69,85,0.16) 0 60deg, transparent 0 360deg),
+      conic-gradient(from 60deg, rgba(38,69,85,0.10) 0 60deg, transparent 0 360deg);
+
+    /* größere Hexagons wie im Beispiel */
+    background-size: 520px 450px;
+    background-position: 0 0, 260px 225px;
+
+    /* minimal, nicht “matschig” */
+    filter: blur(0.2px);
+  }
+`}</style>
+
+      {/* Deko nur im Content-Bereich, NICHT hinter dem Footer */}
+      <div className="pointer-events-none absolute inset-0">
+        {/* Hexagon Pattern (CSS-only) */}
+        <div className="absolute inset-0 opacity-[0.14] hex-bg" />
+
+        {/* leichte “Wash” oben */}
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.75)_0%,rgba(255,255,255,0)_55%)]" />
+
+        {/* Dunklerer blauer Glow unten links */}
+        <div className="absolute bottom-10 left-[-6rem] h-[22rem] w-[22rem] rounded-full blur-[90px] bg-[hsla(215,80%,15%,0.10)]" />
+
+        {/* Pünktchen */}
+        <div className="absolute left-[18%] top-[30%] h-2 w-2 rounded-full bg-[#E3BB62] opacity-80" />
+        <div className="absolute left-[26%] top-[42%] h-1.5 w-1.5 rounded-full bg-[#d2c9b9] opacity-75" />
+        <div className="absolute right-[22%] top-[36%] h-1.5 w-1.5 rounded-full bg-[#E3BB62] opacity-70" />
+      </div>
       {/*  Ballons – nur zeigen, solange showCelebration true ist */}
       {showCelebration && (
         <div className="pointer-events-none fixed inset-0 z-30 flex justify-center mt-20">
@@ -258,224 +309,460 @@ export default function AssessmentResults(props: AssessmentResultsProps) {
         </div>
       )}
 
+      <div className="relative z-10 max-w-[1152px] mx-auto px-6 py-8">
 
-
-      <div className="max-w-[1152px] mx-auto px-6 py-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           {onBackToTopics ? (
             <button
               onClick={onBackToTopics}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium hover:bg-slate-100"
+              className="
+        inline-flex items-center gap-2
+        rounded-full
+        border border-[#E3BB62]/70
+        bg-white/95
+        px-4 py-2
+        text-sm font-semibold text-[#264555]
+        shadow-[0_10px_25px_-15px_rgba(15,23,42,.35)]
+        transition-all duration-200
+        hover:-translate-y-0.5
+        hover:border-[#E3BB62]
+        hover:shadow-[0_18px_40px_-18px_rgba(15,23,42,.45)]
+        focus:outline-none focus:ring-2 focus:ring-[#E3BB62]/50
+      "
             >
-              <Home className="w-5 h-5" />
+              <Home className="h-4 w-4 text-[#E3BB62]" />
               Zur Übersicht
             </button>
           ) : (
             <a
               href="/"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium hover:bg-slate-100"
+              className="
+        inline-flex items-center gap-2
+        rounded-full
+        border border-[#E3BB62]/70
+        bg-white/95
+        px-4 py-2
+        text-sm font-semibold text-[#264555]
+        shadow-[0_10px_25px_-15px_rgba(15,23,42,.35)]
+        transition-all duration-200
+        hover:-translate-y-0.5
+        hover:border-[#E3BB62]
+        hover:shadow-[0_18px_40px_-18px_rgba(15,23,42,.45)]
+        focus:outline-none focus:ring-2 focus:ring-[#E3BB62]/50
+      "
             >
-              <Home className="w-5 h-5" />
+              <Home className="h-4 w-4 text-[#E3BB62]" />
               Zur Übersicht
             </a>
           )}
         </div>
 
+        {/* Header */}
+        <div className="relative mb-8">
+          <div
+            className="
+      relative overflow-hidden
+      rounded-2xl
+      border border-white/40
+      bg-[linear-gradient(100deg,#1b2f5a_0%,#2f5aa8_55%,#3b82f6_100%)]
+      px-8 py-8
+      shadow-[0_26px_60px_-34px_rgba(15,23,42,.55)]
+    "
+          >
 
-        {/* Hero */}
-        <div className="relative rounded-2xl border border-slate-200 shadow bg-gradient-to-br from-slate-900 to-blue-500 text-white p-8 mb-8 overflow-hidden">
-          <div className="absolute top-5 -right-10 opacity-0 animate-[stamp-appear_0.6s_cubic-bezier(0.68,-0.55,0.265,1.55)_0.3s_forwards] rotate-[25deg] z-10">
-            <div className="inline-block px-10 py-3 text-2xl font-black tracking-widest uppercase rounded-xl border-[6px] border-white/40 shadow-[0_0_0_3px_rgba(255,255,255,0.3),inset_0_0_20px_rgba(255,255,255,0.2),0_8px_24px_rgba(0,0,0,0.3)] relative bg-white/10 backdrop-blur-[2px]">
-              <span>COMPLETED</span>
-              <span className="pointer-events-none absolute inset-[-8px] rounded-2xl border-[3px] border-white/30 border-dashed" />
-              <span className="pointer-events-none absolute inset-[-2px] rounded-xl bg-gradient-to-br from-transparent via-white/10 to-transparent" />
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[3px] bg-[#E3BB62]/80" />
+
+            <div className="relative pr-28">
+              <h1 className="text-3xl font-extrabold tracking-tight text-white drop-shadow-sm">
+                Assessment Abgeschlossen!
+              </h1>
+              <p className="mt-2 text-sm md:text-base text-white/85">
+                Übersicht Ihrer Antworten zum Thema{" "}
+                <span className="font-semibold text-white">
+                  IT-Sicherheit und Penetration Testing
+                </span>
+              </p>
             </div>
           </div>
 
-          <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-            <div>
-              <h1 className="text-3xl font-bold mb-2">Assessment Abgeschlossen!</h1>
-              <p className="text-lg/7 text-white/90">Übersicht Ihrer Antworten zum Thema <b>{topicName}</b></p>
-            </div>
+          {/*  COMPLETED */}
+          <div className="pointer-events-none absolute right-7 -top-1 rotate-12 opacity-100 z-0">
+            <div className="relative h-[140px] w-[140px] rounded-full border-[3px] border-[#E3BB62]">
+              <div className="absolute inset-[12px] rounded-full border-2 border-dashed border-emerald-300/" />
+              <div className="absolute -inset-10 rounded-full bg-emerald-500/10 blur-3xl" />
 
+              <div className="absolute left-1/2 top-1/2 w-[190px] -translate-x-1/2 -translate-y-1/2 rotate-12 rounded-2xl border border-[#E3BB62] bg-emerald px-4 py-2">
+                <div className="flex items-center justify-center gap-2">
+                  <span className="text-[11px] font-extrabold tracking-[0.22em] text-white">
+                    COMPLETED
+                  </span>
+                  <span className="pointer-events-none absolute inset-[-8px] rounded-3xl border-[3px] border-[#E3BB62] border-dashed" />
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
         {/* Stats */}
         <div className="grid gap-6 md:grid-cols-3 mb-8">
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow">
-            <div className="flex items-center gap-3 mb-3">
-              <BarChart3 className="w-6 h-6 text-indigo-700" />
-              <h3 className="text-sm font-semibold">Bearbeitungsstand</h3>
+          {/* Card 1 */}
+          <div
+            className="
+      group relative overflow-hidden
+      rounded-2xl border border-slate-200/80 bg-white
+      p-6
+      shadow-[0_14px_32px_-18px_rgba(15,23,42,.28)]
+      transition-all duration-300
+      hover:-translate-y-0.5 hover:shadow-[0_22px_48px_-22px_rgba(15,23,42,.36)]
+    "
+          >
+            {/* Gold Accent oben */}
+            <div className="absolute inset-x-0 top-0 h-[3px] bg-[#E3BB62]/80" />
+            {/* leichte “Sheen” */}
+            <div className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300
+      bg-[radial-gradient(circle_at_20%_0%,rgba(227,187,98,0.18)_0%,transparent_45%)]"
+            />
+
+            <div className="relative flex items-center gap-3 mb-3">
+              <div className="rounded-xl p-2.5 bg-indigo-50 border border-indigo-100">
+                <BarChart3 className="w-5 h-5 text-indigo-700" />
+              </div>
+              <h3 className="text-sm font-semibold text-slate-900">Bearbeitungsstand</h3>
             </div>
-            <div className="text-2xl font-bold text-indigo-700 mb-3">
-              fast fertig
+
+            <div className="relative text-2xl font-extrabold tracking-tight text-indigo-700">
+              Auf der Zielgeraden
+            </div>
+
+            <div className="relative mt-2 text-xs text-slate-500">
+              Status Ihres Assessments
             </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow">
-            <div className="flex items-center gap-3 mb-3">
-              <Target className="w-6 h-6 text-sky-600" />
-              <h3 className="text-sm font-semibold">Beantwortete Fragen</h3>
+          {/* Card 2 */}
+          <div
+            className="
+      group relative overflow-hidden
+      rounded-2xl border border-slate-200/80 bg-white
+      p-6
+      shadow-[0_14px_32px_-18px_rgba(15,23,42,.28)]
+      transition-all duration-300
+      hover:-translate-y-0.5 hover:shadow-[0_22px_48px_-22px_rgba(15,23,42,.36)]
+    "
+          >
+            {/* Blue Accent oben */}
+            <div className="absolute inset-x-0 top-0 h-[3px] bg-sky-500/70" />
+            <div className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300
+      bg-[radial-gradient(circle_at_25%_0%,rgba(14,165,233,0.18)_0%,transparent_45%)]"
+            />
+
+            <div className="relative flex items-center gap-3 mb-3">
+              <div className="rounded-xl p-2.5 bg-sky-50 border border-sky-100">
+                <Target className="w-5 h-5 text-sky-600" />
+              </div>
+              <h3 className="text-sm font-semibold text-slate-900">Beantwortete Fragen</h3>
             </div>
-            <div className="text-2xl font-bold text-sky-600 mb-3">
-              {effectiveAnswered}/{effectiveTotal}
+
+            <div className="relative flex items-end justify-between gap-4 mb-3">
+              <div className="text-2xl font-extrabold tracking-tight text-sky-700">
+                {effectiveAnswered}/{effectiveTotal}
+              </div>
+              <div className="text-xs font-semibold text-slate-500">
+                {Math.round(answeredPct)}%
+              </div>
             </div>
-            <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
-              <div className="h-full bg-sky-600 transition-[width] duration-700" style={{ width: `${answeredPct}%` }} />
+
+            <div className="relative w-full h-3 bg-slate-200 rounded-full overflow-hidden">
+              <div
+                className="h-full rounded-full transition-[width] duration-700 ease-out
+          bg-[linear-gradient(90deg,#38bdf8_0%,#1d4ed8_100%)]"
+                style={{ width: `${answeredPct}%` }}
+              />
+            </div>
+
+            <div className="relative mt-2 text-xs text-slate-500">
+              Fortschritt Ihrer Antworten
             </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow">
-            <div className="flex items-center gap-3 mb-3">
-              <PieChart className="w-6 h-6 text-blue-500" />
-              <h3 className="text-sm font-semibold">Abgeschlossen am</h3>
+          {/* Card 3 */}
+          <div
+            className="
+      group relative overflow-hidden
+      rounded-2xl border border-slate-200/80 bg-white
+      p-6
+      shadow-[0_14px_32px_-18px_rgba(15,23,42,.28)]
+      transition-all duration-300
+      hover:-translate-y-0.5 hover:shadow-[0_22px_48px_-22px_rgba(15,23,42,.36)]
+    "
+          >
+            {/* Neutral Accent oben */}
+            <div className="absolute inset-x-0 top-0 h-[3px] bg-[#264555]/40" />
+            <div className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300
+      bg-[radial-gradient(circle_at_20%_0%,rgba(38,69,85,0.14)_0%,transparent_45%)]"
+            />
+
+            <div className="relative flex items-center gap-3 mb-3">
+              <div className="rounded-xl p-2.5 bg-blue-50 border border-blue-100">
+                <PieChart className="w-5 h-5 text-blue-600" />
+              </div>
+              <h3 className="text-sm font-semibold text-slate-900">Abgeschlossen am</h3>
             </div>
-            <div className="text-[18px] font-medium mt-2">
+
+            <div className="relative text-[18px] font-semibold text-[#264555]">
               {completedAt
-                ? new Date(completedAt).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })
+                ? new Date(completedAt).toLocaleDateString("de-DE", {
+                  day: "2-digit",
+                  month: "2-digit",
+                  year: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })
                 : "—"}
+            </div>
+
+            <div className="relative mt-2 text-xs text-slate-500">
+              Zeitpunkt des Abschlusses
             </div>
           </div>
         </div>
+
         {/* Kleine /summary-Box */}
-
         {summary && (
-          <div className="mb-10 rounded-2xl border border-slate-200 bg-white p-6 shadow">
-            {/* Header / Meta wie bisher, nur leicht verfeinert */}
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-2xl bg-indigo-50 flex items-center justify-center border border-indigo-100">
-                  <BarChart3 className="w-5 h-5 text-indigo-700" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-semibold text-slate-900">
-                    Zusammenfassung Ihres Assessments
-                  </h3>
-                  <p className="text-xs text-slate-500">
-                    Thema: {summary.themaName}
-                  </p>
+          <section className="mb-10">
+            {/* OUTER WRAP */}
+            <div className="relative rounded-[28px] border border-slate-200/70 bg-white/85 backdrop-blur-sm shadow-[0_22px_60px_-38px_rgba(15,23,42,.45)] overflow-hidden">
+              {/* gold top accent */}
+              <div className="pointer-events-none absolute inset-x-0 top-0 h-[3px] bg-[#E3BB62]/85" />
+
+              {/* HEADER */}
+              <div className="px-6 pt-6 pb-4">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="h-11 w-11 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center">
+                      <BarChart3 className="h-5 w-5 text-indigo-700" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-semibold text-slate-900">
+                        Zusammenfassung Ihres Assessments
+                      </h3>
+                      <p className="text-xs text-slate-500">
+                        Thema:{" "}
+                        <span className="font-medium text-slate-700">
+                          {summary.themaName}
+                        </span>
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* CHIPS */}
+                  <div className="flex flex-wrap gap-2 text-xs">
+                    <span className="inline-flex items-center gap-2 rounded-full border border-emerald-100 bg-emerald-50 text-emerald-800 px-3 py-1">
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                      {countRequired} Pflichtfragen
+                    </span>
+
+                    <span className="inline-flex items-center gap-2 rounded-full border border-amber-100 bg-amber-50 text-amber-800 px-3 py-1">
+                      <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                      {countNotRequired} Optionale Fragen
+                    </span>
+
+                    <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 text-slate-700 px-3 py-1">
+                      <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
+                      {summary.uebersprungenAnzahl} übersprungen
+                    </span>
+                  </div>
                 </div>
               </div>
 
-              <div className="flex flex-wrap gap-2 text-xs">
-                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 text-emerald-700 px-3 py-1 border border-emerald-100">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                  {countRequired} Pflichtfragen
-                </span>
-                <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 text-amber-700 px-3 py-1 border border-amber-100">
-                  <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
-                  {countNotRequired} Optionale Fragen
-                </span>
-                <span className="inline-flex items-center gap-1 rounded-full bg-slate-50 text-slate-700 px-3 py-1 border border-slate-200">
-                  <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
-                  {summary.uebersprungenAnzahl} übersprungen
-                </span>
-              </div>
-            </div>
+              {/* TABLE AREA */}
+              {rows.length > 0 && (
+                <div className="border-t border-slate-200/70">
+                  <div className="px-4 pb-5">
+                    <div className="mt-4 rounded-2xl border border-slate-200/70 bg-white overflow-hidden">
+                      <div className="overflow-x-auto">
+                        <table className="min-w-full text-sm">
+                          {/* THEAD */}
+                          <thead className="bg-slate-50/80 border-b border-slate-200/70">
+                            <tr className="text-left text-[11px] uppercase tracking-wide text-slate-500">
+                              <th className="py-3.5 pl-5 pr-4 font-semibold w-[46%]">Frage</th>
+                              <th className="py-3.5 px-4 font-semibold w-[32%]">Antwort</th>
+                              <th className="py-3.5 px-4 font-semibold w-[12%]">Required</th>
+                              <th className="py-3.5 pr-5 pl-4 font-semibold text-right w-[10%]">Aktion</th>
+                            </tr>
+                          </thead>
 
-            {/* Tabelle in „Card-Look“ */}
-            {rows.length > 0 && (
-              <div className="mt-3 overflow-hidden rounded-2xl border border-slate-100 bg-slate-50/70">
-                <table className="min-w-full text-sm">
-                  <thead>
-                    <tr className="bg-slate-100/80 text-left text-xs uppercase tracking-wide text-slate-500">
-                      <th className="py-3 pl-4 pr-4 font-semibold">Frage</th>
-                      <th className="py-3 px-4 font-semibold">Antwort</th>
-                      <th className="py-3 px-4 font-semibold">Required</th>
-                      <th className="py-3 px-4 font-semibold text-right">Aktion</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rows.map((q, idx) => {
-                      const answeredValue = Array.isArray(q.answeredValue)
-                        ? q.answeredValue.join(", ")
-                        : (q.answeredValue === "" || q.answeredValue == null)
-                          ? "übersprungen"
-                          : String(q.answeredValue);
+                          {/* TBODY */}
+                          <tbody className="[&>tr]:border-b [&>tr]:border-slate-100 last:[&>tr]:border-b-0">
+                            {rows.map((q, idx) => {
+                              const raw: unknown = q.answeredValue;
 
-                      return (
-                        <tr
-                          key={q.questionId}
-                          className={`
-                    border-t border-slate-100
-                    ${idx % 2 === 0 ? "bg-white" : "bg-slate-50/60"}
-                    hover:bg-white/90 transition-colors
-                  `}
-                        >
-                          {/* Frage */}
-                          <td className="py-3 pl-4 pr-4 align-top">
-                            <div className="flex items-start gap-2">
-                              <span className="mt-1 h-2 w-2 rounded-full bg-indigo-400" />
-                              <div>
-                                <div className="font-medium text-slate-900">
-                                  {q.questionText}
-                                </div>
-                              </div>
-                            </div>
-                          </td>
-
-                          {/* Antwort */}
-                          <td className="py-3 px-4 align-top text-slate-700">
-                            {answeredValue}
-                          </td>
-
-                          {/* required */}
-                          <td className="py-3 px-4 align-top">
-                            <span
-                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium ${q.isRequired
-                                ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
-                                : "bg-amber-50 text-amber-700 border border-amber-100"
-                                }`}
-                            >
-                              {q.isRequired ? "Ja" : "Nein"}
-                            </span>
-                          </td>
-
-                          {/* Aktion rechtsbündig */}
-                          <td className="py-3 px-4 align-top text-right">
-                            <button
-                              type="button"
-                              className="text-xs font-medium text-sky-600 hover:text-sky-700 hover:underline"
-                              onClick={() => {
-                                if (!questionsById) return;
-                                const qMeta = questionsById[String(q.questionId)];
-                                if (!qMeta) {
-                                  console.warn(
-                                    "Kein UiQuestion-Meta für",
-                                    q.questionId
-                                  );
-                                  return;
+                              let answeredValue: string;
+                              if (q.isSkipped || raw === "" || raw == null) {
+                                answeredValue = "übersprungen";
+                              } else if (
+                                q.inputType === "ordering" ||
+                                q.questionTypeName === "Ordering"
+                              ) {
+                                if (Array.isArray(raw)) {
+                                  const first = raw[0];
+                                  if (Array.isArray(first)) {
+                                    const last = raw[raw.length - 1];
+                                    answeredValue = Array.isArray(last)
+                                      ? (last as unknown[]).map(String).join(", ")
+                                      : "übersprungen";
+                                  } else {
+                                    answeredValue = (raw as unknown[]).map(String).join(", ");
+                                  }
+                                } else {
+                                  answeredValue = String(raw);
                                 }
+                              } else if (Array.isArray(raw)) {
+                                answeredValue = (raw as unknown[]).map(String).join(", ");
+                              } else {
+                                answeredValue = String(raw);
+                              }
 
-                                const fallbackValue = Array.isArray(q.answeredValue)
-                                  ? q.answeredValue
-                                  : q.answeredValue;
+                              const isSkipped = q.isSkipped || answeredValue === "übersprungen";
 
-                                const initial = getInitialUiValueForQuestion(
-                                  qMeta,
-                                  answerValues,
-                                  fallbackValue
-                                );
+                              return (
+                                <tr
+                                  key={q.questionId}
+                                  className={[
+                                    "group transition",
+                                    idx % 2 === 0 ? "bg-white" : "bg-slate-50/30",
+                                    "hover:bg-[#FFFAEB]/40",
+                                  ].join(" ")}
+                                >
+                                  {/* Frage */}
+                                  <td className="py-4 pl-5 pr-4 align-top">
+                                    <div className="flex items-start gap-3">
+                                      <span className="mt-2 h-2 w-2 rounded-full bg-indigo-400 shrink-0" />
+                                      <div className="min-w-0">
+                                        <div className="font-semibold text-slate-900 leading-5">
+                                          {q.questionText}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </td>
 
-                                setEditQuestion(qMeta);
-                                setEditValue(initial);
-                                setEditError(null);
-                              }}
-                            >
-                              Antwort bearbeiten
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                                  {/* Antwort (clean, normal) */}
+                                  <td className="py-4 px-4 align-top">
+                                    {(() => {
+                                      const id = String(q.questionId);
+                                      const expanded = !!openAnswers[id];
+                                      const isLong = !isSkipped && answeredValue.length > 90;
 
-          </div>
+                                      return (
+                                        <div className="max-w-[560px]">
+                                          <div className={isSkipped ? "text-slate-500" : "text-slate-700"}>
+                                            <div
+                                              className={[
+                                                "text-sm leading-6 whitespace-pre-wrap break-words",
+                                                !expanded && isLong ? "line-clamp-2" : "",
+                                              ].join(" ")}
+                                              title={answeredValue}
+                                            >
+                                              {answeredValue}
+                                            </div>
+                                          </div>
+
+                                          {isLong && (
+                                            <button
+                                              type="button"
+                                              onClick={() => toggleAnswer(id)}
+                                              className="
+              mt-2 inline-flex items-center gap-2
+              text-xs font-semibold text-sky-700
+              hover:text-sky-800 hover:underline
+              focus:outline-none focus:ring-2 focus:ring-sky-200 rounded
+            "
+                                              aria-expanded={expanded}
+                                            >
+                                              {expanded ? "Weniger anzeigen" : "Mehr anzeigen"}
+                                            </button>
+                                          )}
+                                        </div>
+                                      );
+                                    })()}
+                                  </td>
+
+
+                                  {/* Required */}
+                                  <td className="py-4 px-4 align-top">
+                                    <span
+                                      className={[
+                                        "inline-flex items-center gap-2",
+                                        "px-2.5 py-1 rounded-full text-[11px] font-semibold",
+                                        "border",
+                                        q.isRequired
+                                          ? "bg-emerald-50 text-emerald-800 border-emerald-100"
+                                          : "bg-amber-50 text-amber-800 border-amber-100",
+                                      ].join(" ")}
+                                    >
+                                      <span
+                                        className={[
+                                          "h-1.5 w-1.5 rounded-full",
+                                          q.isRequired ? "bg-emerald-500" : "bg-amber-500",
+                                        ].join(" ")}
+                                      />
+                                      {q.isRequired ? "Ja" : "Nein"}
+                                    </span>
+                                  </td>
+
+                                  {/* Aktion */}
+                                  <td className="py-4 pr-5 pl-4 align-top text-right">
+                                    <button
+                                      type="button"
+                                      className="
+                                inline-flex items-center justify-center
+                                rounded-full
+                                border border-slate-200
+                                bg-white
+                                px-3 py-1.5
+                                text-xs font-semibold text-sky-700
+                                shadow-sm
+                                transition-all
+                                hover:border-sky-200 hover:bg-sky-50
+                                hover:-translate-y-[1px]
+                                focus:outline-none focus:ring-2 focus:ring-sky-200
+                              "
+                                      onClick={() => {
+                                        if (!questionsById) return;
+                                        const qMeta = questionsById[String(q.questionId)];
+                                        if (!qMeta) return;
+
+                                        const fallbackValue = Array.isArray(q.answeredValue)
+                                          ? q.answeredValue
+                                          : q.answeredValue;
+
+                                        const initial = getInitialUiValueForQuestion(
+                                          qMeta,
+                                          answerValues,
+                                          fallbackValue
+                                        );
+
+                                        setEditQuestion(qMeta);
+                                        setEditValue(initial);
+                                        setEditError(null);
+                                      }}
+                                    >
+                                      Bearbeiten
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </section>
         )}
 
 
@@ -658,74 +945,53 @@ export default function AssessmentResults(props: AssessmentResultsProps) {
                 )}
 
                 {editQuestion.type === "number" && (
-                  <input
-                    type="number"
-                    className="w-full p-4 border-2 border-gray-200 rounded-lg text-[15px] outline-none focus:border-blue-500"
+                  <SimpleNumberField
+                    value={typeof editValue === "number" || editValue === "" ? editValue : (editValue ? Number(editValue) : "")}
                     min={(editQuestion as any).min}
                     max={(editQuestion as any).max}
                     step={(editQuestion as any).step ?? 1}
-                    value={editValue ?? ""}
-                    onChange={(e) => {
-                      const raw = e.target.value;
-                      setEditValue(raw === "" ? "" : Number(raw));
-                    }}
+                    placeholder="z.B. 1980"
+                    onChange={(v) => setEditValue(v)}
                   />
                 )}
 
-                {editQuestion.type === "date" && (
-                  <input
-                    type="date"
-                    className="w-full p-4 border-2 border-gray-200 rounded-lg text-[15px] outline-none focus:border-blue-500"
-                    value={editValue ?? ""}
-                    onChange={(e) => setEditValue(e.target.value)}
-                  />
-                )}
 
-                {editQuestion.type === "order" && (() => {
-                  const base = (editQuestion as any).options || [];
-                  const current: string[] = Array.isArray(editValue)
-                    ? editValue
-                    : base;
-
-                  const move = (idx: number, dir: -1 | 1) => {
-                    const ni = idx + dir;
-                    if (ni < 0 || ni >= current.length) return;
-                    const arr = [...current];
-                    [arr[idx], arr[ni]] = [arr[ni], arr[idx]];
-                    setEditValue(arr);
-                  };
+                {editQuestion.type === "date" && (() => {
+                  const raw = typeof editValue === "string" ? editValue : "";
+                  const dateValue = parseIsoDateNoTz(raw);
 
                   return (
-                    <ul className="space-y-2">
-                      {current.map((opt, i) => (
-                        <li
-                          key={opt}
-                          className="flex items-center justify-between p-3 border-2 border-gray-200 rounded-lg bg-white"
-                        >
-                          <span className="text-[15px] text-[#333]">
-                            {i + 1}. {opt}
-                          </span>
-                          <div className="flex gap-2">
-                            <button
-                              className="px-3 py-1.5 rounded-lg border border-gray-300 bg-white hover:bg-gray-50"
-                              onClick={() => move(i, -1)}
-                              disabled={i === 0}
-                            >
-                              ↑
-                            </button>
-                            <button
-                              className="px-3 py-1.5 rounded-lg border border-gray-300 bg-white hover:bg-gray-50"
-                              onClick={() => move(i, +1)}
-                              disabled={i === current.length - 1}
-                            >
-                              ↓
-                            </button>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
+                    <FancyDatePicker
+                      minYear={1850}
+                      maxYear={new Date().getFullYear()}
+                      value={dateValue}
+                      onChange={(d) => setEditValue(d ? toIsoDateNoTz(d) : "")}
+                      placeholder="TT.MM.JJJJ"
+                    />
                   );
                 })()}
+
+
+
+                {editQuestion.type === "order" && (() => {
+                  const baseRaw = (editQuestion as any).options;
+
+                  const options: string[] =
+                    typeof baseRaw === "string"
+                      ? (() => { try { return JSON.parse(baseRaw); } catch { return []; } })()
+                      : Array.isArray(baseRaw)
+                        ? baseRaw
+                        : [];
+
+                  return (
+                    <OrderQuestionModal
+                      options={options}
+                      value={editValue ?? (editQuestion as any).answeredValue}
+                      onChange={(val) => setEditValue(val)}
+                    />
+                  );
+                })()}
+
 
                 {editError && (
                   <p className="mt-3 text-xs text-red-600">{editError}</p>
@@ -766,7 +1032,12 @@ export default function AssessmentResults(props: AssessmentResultsProps) {
                   try {
                     setSavingEdit(true);
                     setEditError(null);
-                    await onChangeAnswer(String(editQuestion.id), editValue);
+                    const payload =
+                      editQuestion.type === "order"
+                        ? normalizeOrderValue(editValue)
+                        : editValue;
+
+                    await onChangeAnswer(String(editQuestion.id), payload);
                     setEditQuestion(null);
                   } catch (e) {
                     console.error(e);
@@ -820,13 +1091,143 @@ export default function AssessmentResults(props: AssessmentResultsProps) {
         cancelLabel="Abbrechen"
         confirmLabel="Ja, endgültig abschließen"
         onCancel={() => setShowConfirmModal(false)}
-        onConfirm={() => {
+        onConfirm={async () => {
           setShowConfirmModal(false);
-          onComplete?.();
+
+          try {
+            await Promise.resolve(onComplete?.());
+          } catch (e) {
+            console.error(e);
+          }
         }}
+
       />
 
 
     </div>
+  );
+}
+import {
+  DndContext,
+  closestCorners,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { GripVertical } from "lucide-react";
+
+
+export function normalizeOrderValue(raw: unknown): string[] {
+  if (!Array.isArray(raw) || raw.length === 0) return [];
+
+  const first = raw[0];
+
+  // Historie: string[][]
+  if (Array.isArray(first)) {
+    const last = raw[raw.length - 1];
+    return Array.isArray(last) ? (last as unknown[]).map(String) : [];
+  }
+
+  // normal: string[]
+  return (raw as unknown[]).map(String);
+}
+
+function arrayMove<T>(arr: T[], from: number, to: number) {
+  const copy = [...arr];
+  const [item] = copy.splice(from, 1);
+  copy.splice(to, 0, item);
+  return copy;
+}
+
+function OrderItem({ id, label }: { id: string; label: string }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id });
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={[
+        "flex items-center gap-4 p-4",
+        "rounded-xl border bg-white",
+        "shadow-[0_8px_22px_rgba(15,23,42,0.08)]",
+        "border-[#e5e7eb]",
+        "transition-all duration-150 ease-out",
+        isDragging ? "opacity-70" : "hover:border-[#E3BB62] hover:bg-[#FFFAEB] hover:-translate-y-[1px] hover:shadow-[0_14px_30px_rgba(15,23,42,0.16)]",
+      ].join(" ")}
+    >
+      {/* DRAG HANDLE LINKS */}
+      <div
+        {...attributes}
+        {...listeners}
+        className="cursor-grab active:cursor-grabbing text-[#9ca3af] shrink-0"
+        aria-label="Ziehen"
+      >
+        <GripVertical size={22} />
+      </div>
+
+      {/* LABEL */}
+      <span className="text-gray-800 text-sm font-medium">{label}</span>
+    </div>
+  );
+}
+
+export function OrderQuestionModal({
+  options,
+  value,
+  onChange,
+}: {
+  options: string[];
+  value: unknown; // kann string[] oder string[][]
+  onChange: (val: string[]) => void;
+}) {
+  const initial = useMemo(() => {
+    const normalized = normalizeOrderValue(value);
+    return normalized.length ? normalized : options;
+  }, [value, options]);
+
+  const [items, setItems] = useState<string[]>(initial);
+
+  // wenn Modal geöffnet wird / value sich ändert -> syncen
+  useEffect(() => {
+    const next = normalizeOrderValue(value);
+    setItems(next.length ? next : options);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(value), JSON.stringify(options)]);
+
+  // nach oben melden
+  useEffect(() => {
+    onChange(items);
+  }, [items, onChange]);
+
+  const onDragEnd = ({ active, over }: DragEndEvent) => {
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = items.indexOf(String(active.id));
+    const newIndex = items.indexOf(String(over.id));
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    setItems(arrayMove(items, oldIndex, newIndex));
+  };
+
+  return (
+    <DndContext collisionDetection={closestCorners} onDragEnd={onDragEnd}>
+      <SortableContext items={items} strategy={verticalListSortingStrategy}>
+        <div className="space-y-3 mt-4">
+          {items.map((opt) => (
+            <OrderItem key={opt} id={opt} label={opt} />
+          ))}
+        </div>
+      </SortableContext>
+    </DndContext>
   );
 }
