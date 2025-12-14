@@ -174,10 +174,16 @@ public class PublicAccessController {
                 );
             }
 
-            // Prüfen ob revoked
+            // Prüfen ob revoked oder completed
             if ("revoked".equals(assignment.getStatus()) || "expired".equals(assignment.getStatus())) {
                 return new ResponseEntity<>(
                     Map.of("error", "Access has been revoked"), 
+                    HttpStatus.FORBIDDEN
+                );
+            }
+            if ("completed".equals(assignment.getStatus())) {
+                return new ResponseEntity<>(
+                    Map.of("error", "Katalog wurde bereits abgeschlossen"), 
                     HttpStatus.FORBIDDEN
                 );
             }
@@ -230,6 +236,9 @@ public class PublicAccessController {
             String status = assignment.getStatus() != null ? assignment.getStatus().toLowerCase() : "";
             if ("revoked".equals(status) || "expired".equals(status)) {
                 return new ResponseEntity<>(Map.of("error", "Access has been revoked"), HttpStatus.FORBIDDEN);
+            }
+            if ("completed".equals(status)) {
+                return new ResponseEntity<>(Map.of("error", "Katalog wurde bereits abgeschlossen"), HttpStatus.FORBIDDEN);
             }
 
             if (!code.trim().equalsIgnoreCase(assignment.getAccessCode())) {
