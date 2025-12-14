@@ -1,5 +1,5 @@
 import React from "react";
-import { FileText, Edit3, Trash2, ArrowRight, Copy, Info } from "lucide-react";
+import { Layers, Edit3, Trash2, ArrowRight, Copy, Info } from "lucide-react";
 
 function isColorLight(hex: string) {
   const c = hex.replace("#", "");
@@ -11,13 +11,11 @@ function isColorLight(hex: string) {
   return brightness > 180;
 }
 
-// 🎨 3-Color Concept basierend auf #56768f
+// 🎨 3-Color Concept basierend auf #E0CFA4
 
-const PRIMARY = "#433b3bff";     // Grau – Basis
-const SECONDARY = "#797272ff";   // etwas heller
-const ACCENT = "#8e8e8eff";
-
-
+const PRIMARY = "#e4d6b3ff"; // Grau – Basis
+const SECONDARY = "#eee5cd7c"; // etwas heller
+const ACCENT = "#e9e6e0ff";
 
 const GRADIENT = `linear-gradient(145deg, ${PRIMARY}, ${SECONDARY}, ${ACCENT})`;
 
@@ -53,56 +51,51 @@ const TopicCard = ({
   const descRefFull = React.useRef<HTMLParagraphElement | null>(null);
   const hoverTimeout = React.useRef<any>(null);
 
-
   const [showInfoIcon, setShowInfoIcon] = React.useState(false);
   const [showTooltipFull, setShowTooltipFull] = React.useState(false);
 
- 
+  React.useEffect(() => {
+    function checkOverflow() {
+      function isOverflow(el: HTMLElement | null) {
+        if (!el) return false;
+        return (
+          el.scrollWidth > el.clientWidth || el.scrollHeight > el.clientHeight
+        );
+      }
+
+      const titleOverflow = isOverflow(titleRef.current);
+      const subtitleOverflow = isOverflow(descRefFull.current);
+
+      setShowInfoIcon(titleOverflow || subtitleOverflow);
+    }
+
+    checkOverflow();
+
+    window.addEventListener("resize", checkOverflow);
+
+    return () => window.removeEventListener("resize", checkOverflow);
+  }, [t.title, t.subtitle]);
 
   React.useEffect(() => {
-  function checkOverflow() {
-    function isOverflow(el: HTMLElement | null) {
-      if (!el) return false;
-      return el.scrollWidth > el.clientWidth || el.scrollHeight > el.clientHeight;
-    }
+    const observer = new ResizeObserver(() => {
+      function isOverflow(el: HTMLElement | null) {
+        if (!el) return false;
+        return (
+          el.scrollWidth > el.clientWidth || el.scrollHeight > el.clientHeight
+        );
+      }
 
-    const titleOverflow = isOverflow(titleRef.current);
-    const subtitleOverflow = isOverflow(descRefFull.current);
+      const titleOverflow = isOverflow(titleRef.current);
+      const subtitleOverflow = isOverflow(descRefFull.current);
 
-    setShowInfoIcon(titleOverflow || subtitleOverflow);
-  }
+      setShowInfoIcon(titleOverflow || subtitleOverflow);
+    });
 
-  checkOverflow();
+    if (titleRef.current) observer.observe(titleRef.current);
+    if (descRefFull.current) observer.observe(descRefFull.current);
 
-  window.addEventListener("resize", checkOverflow);
-
-  return () => window.removeEventListener("resize", checkOverflow);
-}, [t.title, t.subtitle]);
-
-React.useEffect(() => {
-  const observer = new ResizeObserver(() => {
-    function isOverflow(el: HTMLElement | null) {
-      if (!el) return false;
-      return (
-        el.scrollWidth > el.clientWidth || el.scrollHeight > el.clientHeight
-      );
-    }
-
-    const titleOverflow = isOverflow(titleRef.current);
-    const subtitleOverflow = isOverflow(descRefFull.current);
-
-    setShowInfoIcon(titleOverflow || subtitleOverflow);
-  });
-
-  if (titleRef.current) observer.observe(titleRef.current);
-  if (descRefFull.current) observer.observe(descRefFull.current);
-
-  return () => observer.disconnect();
-}, []);
-
-
-
-
+    return () => observer.disconnect();
+  }, []);
 
   const textColor = isLight ? "text-black" : "text-white";
   const textColorSoft = isLight ? "text-black/50" : "text-white/80";
@@ -110,11 +103,13 @@ React.useEffect(() => {
   return (
     <div
       className="
-        relative flex flex-col rounded-xl overflow-visible
-        shadow-md p-5
+         relative flex flex-col rounded-xl overflow-visible
+    p-5 transition-all duration-400
+    hover:shadow-[0_0_0_4px_rgba(224,184,92,0.25)]
       "
       style={{
         background: GRADIENT,
+         border: "1px solid #E0B85C",
       }}
     >
       <div className="relative z-10 flex flex-col gap-4">
@@ -122,12 +117,16 @@ React.useEffect(() => {
         <div className="flex items-center justify-between">
           <div
             className="
-              w-12 h-12 rounded-xl flex items-center justify-center
-            bg-[#9b9696ff] border border-white/20 shadow-sm
-            "
+    w-12 h-12 rounded-xl flex items-center justify-center
+  "
+            style={{
+              background: "#f0eadaff", // fast weiß / creme
+              border: "1px solid #ddaf42ff", // dein Gold
+            }}
           >
-            <FileText size={23} className={textColorSoft} />
+            <Layers size={22} color="#0c0c0cff" />
           </div>
+
           {/* ⭐ Status Button */}
           <div
             onClick={() => onStatusChange()}
@@ -135,6 +134,7 @@ React.useEffect(() => {
      relative w-16 h-6 rounded-full cursor-pointer flex items-center
     transition-all duration-300 ease-out 
     ${t.status === "active" ? "bg-green-500 px-2" : "bg-red-500 px-0.5"}
+      
   `}
           >
             <span
@@ -157,7 +157,7 @@ React.useEffect(() => {
 
             <div
               className={`
-      w-4 h-4 bg-[#808080] rounded-full shadow-md transform transition-transform duration-300
+         w-4 h-4 bg-[#e4d6b3ff] rounded-full shadow-md  transform transition-transform duration-300
       ${t.status === "active" ? "translate-x-9" : "translate-x-px"}
     `}
             ></div>
@@ -178,41 +178,42 @@ React.useEffect(() => {
             </h4>
 
             {/* INFO ICON */}
-        {showInfoIcon && (
-  <div
-    className="ml-2 mt-[2px]"
-    onMouseEnter={() => {
-      hoverTimeout.current = setTimeout(() => {
-        setShowTooltipFull(true);
-      }, 350); // ⏳ 350ms Delay bevor Tooltip öffnet
-    }}
-    onMouseLeave={() => {
-      clearTimeout(hoverTimeout.current);
-      setShowTooltipFull(false);
-    }}
-  >
-    <div className="
+            {showInfoIcon && (
+              <div
+                className="ml-2 mt-[2px]"
+                onMouseEnter={() => {
+                  hoverTimeout.current = setTimeout(() => {
+                    setShowTooltipFull(true);
+                  }, 350); // ⏳ 350ms Delay bevor Tooltip öffnet
+                }}
+                onMouseLeave={() => {
+                  clearTimeout(hoverTimeout.current);
+                  setShowTooltipFull(false);
+                }}
+              >
+                <div
+                  className="
       w-6 h-6 flex items-center justify-center rounded-full 
-      bg-white/20 backdrop-blur-sm shadow-sm hover:bg-white/30 transition-all
-    ">
-      <Info className="w-4 h-4 text-white" strokeWidth={2.5} />
-    </div>
+      bg-[#E0B85C]/40 backdrop-blur-sm shadow-sm hover:bg-[#E0B85C] transition-all cursor-pointer
+    "
+                >
+                  <Info className="w-4 h-4 text-black" strokeWidth={2.5} />
+                </div>
 
-    <div
-      className={`
+                <div
+                  className={`
         ${showTooltipFull ? "opacity-100 visible" : "opacity-0 invisible"}
         absolute right-0 top-8 w-80 bg-gray-900 text-white text-xs p-3 rounded-lg
         border border-gray-700 shadow-[0_4px_10px_rgba(0,0,0,0.4)]
         transition-all duration-200 z-50
       `}
-    >
-      <b>{t.title}</b>
-      <br />
-      {t.subtitle || "Keine Beschreibung vorhanden"}
-    </div>
-  </div>
-)}
-
+                >
+                  <b>{t.title}</b>
+                  <br />
+                  {t.subtitle || "Keine Beschreibung vorhanden"}
+                </div>
+              </div>
+            )}
           </div>
           <p
             ref={descRefFull}
@@ -225,13 +226,21 @@ React.useEffect(() => {
         {/* FRAGENANZAHL */}
         <div
           className="
-            inline-flex items-center gap-2 px-3 py-2 rounded-lg
-            bg-[#9b9696ff] shadow-sm w-fit
-          "
+    inline-flex items-center gap-2
+    h-8 px-4
+    rounded-full
+    w-fit
+  "
+          style={{
+            background: "#F1EDE3", // helles Beige
+            border: "1px solid #E0B85C", // Gold-Rahmen
+          }}
         >
-          <span className={`text-sm ${textColorSoft}`}>Anzahl der Fragen:</span>
+          <span className="text-sm" style={{ color: "#6B6B6B" }}>
+            Anzahl der Fragen:
+          </span>
 
-          <span className={`text-lg font-semibold ${textColor}`}>
+          <span className="text-sm font-semibold" style={{ color: "#2F2F2F" }}>
             {t.questions}
           </span>
         </div>
@@ -241,47 +250,75 @@ React.useEffect(() => {
           <button
             onClick={() => onDelete(t)}
             className="
-              w-10 h-10 rounded-xl bg-[#9b9696ff]
-              flex items-center justify-center shadow-sm border border-white/20
-              hover:bg-red-500/20 transition-all
-            "
+    w-10 h-10 rounded-xl
+    flex items-center justify-center
+    transition-all hover:bg-red-500/20 transition-all
+     bg-[#F1EDE3]
+    hover:bg-[#e02e2eff]/15
+  "
+            style={{
+          
+              border: "1px solid #E0B85C", // Gold-Rahmen 3px
+            }}
           >
-            <Trash2 size={18} className={textColor} />
-          </button>
-          <button
-            onClick={() => onDuplicate(t)}
-            className="
-                          w-10 h-10 rounded-xl bg-[#9b9696ff]
-                          flex items-center justify-center shadow-sm border border-white/20
-                          hover:bg-blue-500/20 transition-all
-                        "
-          >
-            <Copy size={18} className={textColor} />
+            <Trash2 size={18} color="#e02e2eff" />
           </button>
 
           <button
-            onClick={() => onEdit(t)}
+            onClick={() => onDuplicate(t)}
             className="
-              w-20 h-10 rounded-xl bg-[#9b9696ff]
-              flex items-center justify-center shadow-sm border border-white/20
-              hover:bg-green-500/20 transition-all
-            "
+    w-10 h-10 rounded-xl
+    flex items-center justify-center
+    transition-all
+    bg-[#F1EDE3]
+    hover:bg-[#3d51c2ff]/15
+  "
+            style={{
+           
+              border: "1px solid #E0B85C", // Gold-Rahmen 3px
+            }}
           >
-            <Edit3 size={18} className={textColor} />
+            <Copy size={18} color="#3d51c2ff" />
           </button>
+
+     <button
+  onClick={() => onEdit(t)}
+  className="
+    w-20 h-10 rounded-xl
+    flex items-center justify-center
+    transition-all
+    bg-[#F1EDE3]
+    hover:bg-[#26ac31ff]/15
+  "
+  style={{
+    border: "1px solid #E0B85C",
+  }}
+>
+  <Edit3 size={18} color="#26ac31ff" />
+</button>
+
 
           <button
             onClick={() => onManage(t)}
             className="
-                    group flex-1 bg-[#d2e0e8ff] text-gray-900 font-medium rounded-lg py-2
-                    flex items-center justify-center gap-2 shadow-sm
-                    hover:bg-[#E3BB62]  transition-all text-sm
-                  "
+    group flex-1
+    flex items-center justify-center gap-2
+    py-2 rounded-lg
+    font-medium text-sm
+    transition-all
+    bg-white
+    hover:bg-[#F3E8CF]
+  "
+            style={{
+              border: "1px solid #E0B85C",
+              color: "#2F2F2F",
+            }}
           >
             Fragen Verwalten
             <ArrowRight
               size={16}
               className="transition-transform duration-200 group-hover:translate-x-2"
+              color="#6B675F"
             />
           </button>
         </div>

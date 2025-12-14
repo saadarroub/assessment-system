@@ -1,3 +1,4 @@
+import React from "react";
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import "@/styles/admin.css";
@@ -6,7 +7,6 @@ import TopicCard from "./TopicCard";
 import { useToast } from "@/shared/contexts/ToastContext";
 
 import PageHeader from "./catalogs/PageHeader";
-
 
 // Icons
 import {
@@ -17,7 +17,7 @@ import {
   ListOrdered,
   Users,
   Clock,
-  ChevronRight, Network
+  Network,
 } from "lucide-react";
 
 // API
@@ -40,26 +40,6 @@ type Topic = {
   color?: string;
   status: "active" | "inactive";
 };
-
-// STATS
-
-const STAT_COLORS = ["#808080", "#56768f", "#264555", "#d2c9b9"];
-
-const STAT_ICONS = [
-  <Layers size={48} />,
-
-  <Users size={48} />,
-  <Clock size={48} />,
-  <ListOrdered size={48} />,
-];
-
-const STATS = [
-  { label: "Themen", key: "total" },
-
-  { label: "Aktive Themen", key: "active" },
-  { label: "Inaktive Themen", key: "inactive" },
-  { label: "Gesamtfragen", key: "questions" },
-];
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -91,6 +71,85 @@ export default function AdminDashboard() {
 
   // Modal Input Referenz
   const titleInputRef = useRef<HTMLInputElement | null>(null);
+  function HeaderStat({
+    label,
+    value,
+    color,
+    icon,
+    onClick,
+  }: {
+    label: string;
+    value: number;
+    color: string;
+    icon: React.ReactNode;
+    onClick?: () => void;
+  }) {
+    // ✅ SICHTBARER, EDLER GLOW (wie DashboardPage)
+    const accentBg = `linear-gradient(135deg, ${color}40, ${color}10)`;
+
+    return (
+      <div
+        onClick={onClick}
+        className={`
+        group
+        relative overflow-hidden
+        rounded-2xl border
+        px-4 py-4
+        shadow-[0_8px_22px_rgba(0,0,0,0.06)]
+        transition
+        ${onClick
+            ? "cursor-pointer hover:-translate-y-[2px] hover:shadow-[0_16px_38px_rgba(0,0,0,0.10)]"
+            : ""
+          }
+      `}
+        style={{
+          borderColor: "#E5E7EB",
+          background:
+            "radial-gradient(circle at 0 0, rgba(255,255,255,0.7) 0, transparent 55%)," +
+            "radial-gradient(circle at 120% 0, rgba(0,0,0,0.03) 0, transparent 55%)," +
+            "#ffffff",
+        }}
+      >
+        {/* ✅ GLOW oben rechts (wie DashboardPage) */}
+        <div
+          className="pointer-events-none absolute -right-6 -top-8 h-24 w-24 rounded-full opacity-70 blur-sm transition group-hover:opacity-100"
+          style={{ background: accentBg }}
+        />
+
+        {/* CONTENT */}
+        <div className="relative flex items-center justify-between gap-3">
+          {/* LEFT */}
+          <div className="space-y-1">
+            <div className="inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.08em]">
+              <span
+                className="h-1.5 w-1.5 rounded-full"
+                style={{ background: color }}
+              />
+              <span className="text-slate-500">{label}</span>
+            </div>
+
+            <div className="text-3xl font-extrabold leading-none text-[#264555]">
+              {value.toLocaleString("de-DE")}
+            </div>
+          </div>
+
+          {/* RIGHT ICON */}
+          <div
+            className="
+            flex h-12 w-12 items-center justify-center
+            rounded-2xl border
+            bg-white/90
+            shadow-[0_6px_18px_rgba(0,0,0,0.06)]
+          "
+            style={{ borderColor: color, color }}
+          >
+            {React.cloneElement(icon as any, { size: 26 })}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
 
   // Flash Animation für neue Themen (wie KatalogeZuweisen)
   function flashNew(ids: string[], glowMs = 4000, badgeMs = 60000) {
@@ -287,13 +346,6 @@ export default function AdminDashboard() {
     }
   }, []);
 
-  // ⭐ Minimal Skeleton nur für den Zahlenwert (hell-blau)
-  function StatValueSkeleton() {
-    return (
-      <span className="inline-block h-3 w-16 rounded bg-[#cdd9e3] animate-pulse"></span>
-    );
-  }
-
   function TopicCardSkeleton() {
     return (
       <div className="bg-white rounded-xl shadow p-5 h-[250px] animate-pulse flex flex-col gap-4">
@@ -322,224 +374,287 @@ export default function AdminDashboard() {
       </style>
 
       {/* HEADER */}
-      <PageHeader
 
+      <PageHeader
         title="Fragenkatalog Administration"
         subtitle="Verwalten Sie Ihre Themen und erstellen Sie finale Kataloge"
         icon={<Network size={40} />}
         gradient="navy"
         height="280px"
         showPattern={true}
-
         center={false}
       />
 
+      {/* BODY */}
+      <main
+        className="min-h-[calc(100vh-64px)] mt-0 px-6 pb-8 pt-20"
+        style={{
+          background:
+            "radial-gradient(circle at 0 0, rgba(227,187,98,0.13) 0, transparent 40%)," +
+            "radial-gradient(circle at 100% 0, rgba(56,189,248,0.10) 0, transparent 42%)," +
+            "linear-gradient(to bottom, #f3f4f7 0, #e6e9ef 240px, #f4f5f8 100%)",
+        }}
+      >
+        {/* Top-Bar: Admin-Panel Button links + Neues Thema Button rechts */}
+        <div className="max-w-[1400px] xl:max-w-[1600px] mx-auto mb-3 flex items-center justify-between">
+          {/* Admin-Panel Button links (wie Breadcrumb in UserList) */}
+          <nav className="flex items-center">
+            <button
+              onClick={() => navigate("/admin/adminPanel")}
+              className="
+                inline-flex items-center gap-2
+                rounded-full border
+                px-3 py-1.5
+                shadow-[0_4px_10px_rgba(0,0,0,0.06)]
+                text-xs sm:text-sm
+                bg-white/80
+                backdrop-blur-[2px]
+                hover:bg-white
+                transition
+              "
+              style={{ borderColor: "#d2c9b9" }}
+            >
+              <span
+                className="inline-flex h-6 w-6 items-center justify-center rounded-full"
+                style={{
+                  background: "rgba(38,69,85,0.06)",
+                  color: "#264555",
+                }}
+              >
+                <MinusSquare size={14} />
+              </span>
+              <span className="font-semibold" style={{ color: "#264555" }}>
+                Admin-Panel
+              </span>
+            </button>
+          </nav>
 
-      {/* BODY */}     
-      <div className="dashboard-content bg-[hsl(0_0%_92%)] min-h-[calc(100vh-64px)] px-6 py-6">
-        {/* BUTTON */}
-        <div className="flex justify-end mt-4">
+          {/* Neues Thema Button rechts (wie Add User in UserList) */}
           <button
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#264555] text-white shadow-md hover:bg-[#223e4c]"
-            onClick={() => navigate("/admin/adminPanel")}
+            type="button"
+            onClick={() => setIsAddModalOpen(true)}
+            aria-label="Neues Thema"
+            className="
+              inline-flex items-center gap-2
+              rounded-full
+              px-4 py-2
+              text-sm font-semibold
+              focus:outline-none
+              transition
+              hover:-translate-y-[1px]
+            "
+            style={{
+              background: "hsl(40,60%,63%)",
+              color: "hsl(200,32%,22%)",
+              boxShadow: "0 6px 14px rgba(0,0,0,0.12)",
+              borderRadius: "999px",
+              border: "1px solid rgba(255,255,255,0.8)",
+            }}
           >
-            <MinusSquare size={16} />
-            Admin-Panel
+            <Plus size={16} />
+            <span>Neues Thema</span>
           </button>
         </div>
 
         {/* STATS */}
-        <section className="stats-panel mt-4">
-          <div className="grid grid-cols-4 gap-4">
-            {STATS.map((s, i) => (
-              <div
-                key={i}
-                onClick={() => {
-                  if (s.key === "questions") return;
-                  if (s.key === "active") setTopicFilter("active");
-                  else if (s.key === "inactive") setTopicFilter("inactive");
-                  else setTopicFilter("all");
-                }}
-                className={`
-   group
-  relative h-[110px] rounded-2xl 
-  shadow-[0_4px_16px_rgba(0,0,0,0.15)]
-  overflow-hidden p-5 flex flex-col justify-between
-  transition-all duration-300
+        <section className="mb-4">
+          <div className="mx-auto max-w-[1400px] xl:max-w-[1600px] grid grid-cols-4 gap-6">
+            <HeaderStat
+              label="Themen"
+              value={topics.length}
+              color="#E3BB62"
+              icon={<Layers size={26} />}
+              onClick={() => setTopicFilter("all")}
+            />
 
-  ${s.key !== "questions" ? "hover:bg-white/20 hover:brightness-125" : ""}
+            <HeaderStat
+              label="Aktive Themen"
+              value={topics.filter((t) => t.status === "active").length}
+              color="#38bdf8"
+              icon={<Users size={22} />}
+              onClick={() => setTopicFilter("active")}
+            />
 
-  ${s.key === "questions" ? "" : "cursor-pointer"}
-`}
-                style={{ backgroundColor: STAT_COLORS[i] }}
-              >
-                {/* ICON */}
-                <div
-                  className="absolute right-3 bottom-3 opacity-[0.18] transition-all duration-200"
-                  style={{ color: "white" }}
-                >
-                  {/* Default Icon */}
-                  <div
-                    className={`${s.key !== "questions" ? "group-hover:hidden" : ""
-                      }`}
-                  >
-                    {STAT_ICONS[i]}
-                  </div>
+            <HeaderStat
+              label="Inaktive Themen"
+              value={topics.filter((t) => t.status === "inactive").length}
+              color="#64748b"
+              icon={<Clock size={26} />}
+              onClick={() => setTopicFilter("inactive")}
+            />
 
-                  {/* Hover: >> Icon */}
-                  {s.key !== "questions" && (
-                    <div className="hidden group-hover:flex absolute right-0 bottom-0 items-center">
-                      <ChevronRight size={48} className="-mr-8" />
-                      <ChevronRight size={48} />
-                    </div>
-                  )}
-                </div>
-
-                {/* LABEL */}
-                <p
-                  className={`text-sm font-medium ${s.key === "questions" ? "text-black" : "text-white"
-                    }`}
-                >
-                  {s.label}
-                </p>
-
-                {/* VALUE (mit Skeleton nur während loading) */}
-                <p className="text-white text-4xl font-extrabold">
-                  {loading ? (
-                    <StatValueSkeleton />
-                  ) : s.key === "total" ? (
-                    topics.length
-                  ) : s.key === "questions" ? (
-                    topics.reduce((sum, t) => sum + (t.questions || 0), 0)
-                  ) : s.key === "active" ? (
-                    topics.filter((t) => t.status === "active").length
-                  ) : s.key === "inactive" ? (
-                    topics.filter((t) => t.status === "inactive").length
-                  ) : (
-                    "–"
-                  )}
-                </p>
-              </div>
-            ))}
+            <HeaderStat
+              label="Gesamtfragen"
+              value={topics.reduce((s, t) => s + (t.questions || 0), 0)}
+              color="#d2c9b9"
+              icon={<ListOrdered size={10} />}
+            />
           </div>
         </section>
 
         {/* THEMEN */}
 
-        <section className="topics-section">
-          <div className="section-header">
+        <section className="topics-section mt-4">
+          <div className="section-header max-w-[1400px] xl:max-w-[1600px] mx-auto mb-3">
             <h2>Themen</h2>
-            <button
-              className="btn btn-caramel"
-              onClick={() => setIsAddModalOpen(true)}
-              style={{
-                background: "hsl(40,60%,63%)", // Gelb
-                color: "hsl(200,32%,22%)", // dunkles Blau-Grau
-                boxShadow: "0 1px 2px rgba(0,0,0,.05)",
-              }}
-            >
-              <Plus size={16} />
-              Neues Thema
-            </button>
           </div>
 
           {/* SEARCH */}
-          <div className="mx-auto mb-6 mt-3 rounded-[12px] border bg-white/85 backdrop-blur-md shadow">
-            <div className="p-4 flex items-center justify-between gap-3">
-              <div className="relative flex-1">
-                <Search
-                  size={16}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                />
-                <input
-                  type="text"
-                  value={searchTerm}
-                  placeholder="Suche Thema..."
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full h-10 rounded-md border pl-10 pr-3 text-sm focus:ring-2 focus:ring-amber-400"
-                />
-              </div>
-
-              <div className="px-4 py-2 rounded-md border bg-white text-gray-600">
-                Zeige{" "}
-                <span className="font-semibold">{filteredTopics.length}</span>{" "}
-                Themen
-              </div>
-            </div>
-          </div>
-
-          {/* GRID (optimiert + lazy render) */}
           <div
             className="
-                mt-6 rounded-3xl bg-[#f5f5f5] p-3
-                shadow-[0_4px_20px_rgba(0,0,0,0.05)]
-                border border-gray-300/30
-              "
+              max-w-[1400px] xl:max-w-[1600px] mx-auto mb-4
+              rounded-[18px] border
+              px-4 py-3 md:px-5 md:py-4
+              shadow-[0_10px_30px_rgba(0,0,0,0.06)]
+            "
+            style={{
+              background: "linear-gradient(to bottom, #ffffff, #f7f7f7)",
+              borderColor: "#d2c9b9",
+            }}
           >
-            <div
-              className="grid grid-cols-4 gap-4"
-              style={{
-                gridTemplateColumns: "repeat(auto-fill, minmax(420px, 1fr))",
-              }}
-            >
-              {loading ? (
-                Array.from({ length: 6 }).map((_, i) => (
-                  <TopicCardSkeleton key={i} />
-                ))
-              ) : currentTopics.length === 0 ? (
-                <div className="col-span-full flex flex-col items-center justify-center py-20 text-gray-500">
-                  <Layers size={48} className="opacity-40" />
-                  <p className="mt-4 text-lg font-medium">
-                    Noch keine Themen vorhanden
-                  </p>
+            <div className="flex flex-wrap items-center justify-between gap-3 md:gap-4">
+              {/* Suche */}
+              <div className="relative flex-1 min-w-[220px] max-w-[36rem]">
+                <span
+                  className="absolute left-3 top-1/2 -translate-y-1/2"
+                  style={{ color: "#808080" }}
+                >
+                  <Search size={16} />
+                </span>
+
+                <input
+                  type="text"
+                  placeholder="Suche Thema…"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="
+                    w-full h-10 md:h-11
+                    rounded-[999px]
+                    border
+                    pl-10 pr-4
+                    text-sm
+                    outline-none
+                    transition
+                    bg-white
+                  "
+                  style={{
+                    borderColor: "#d2c9b9",
+                    color: "#264555",
+                    boxShadow: "0 1px 2px rgba(0,0,0,0.03)",
+                  }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.boxShadow = "0 0 0 2px rgba(227,187,98,0.75)";
+                    e.currentTarget.style.borderColor = "#E3BB62";
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.boxShadow = "0 1px 2px rgba(0,0,0,0.03)";
+                    e.currentTarget.style.borderColor = "#d2c9b9";
+                  }}
+                />
+              </div>
+
+              {/* Zähler rechts – dezente Badge */}
+              <div className="flex items-center gap-3">
+                <div
+                  className="
+                    inline-flex items-center gap-2
+                    rounded-full
+                    px-3 md:px-4 py-1.5
+                    text-xs md:text-sm font-medium
+                  "
+                  style={{
+                    background: "#264555",
+                    color: "white",
+                  }}
+                >
+                  <span
+                    className="h-2 w-2 rounded-full"
+                    style={{ background: "#E3BB62" }}
+                  />
+                  <span>
+                    Zeige{" "}
+                    <span className="font-semibold">
+                      {filteredTopics.length}
+                    </span>{" "}
+                    Themen
+                  </span>
                 </div>
-              ) : (
-                currentTopics.map((t) => {
-                  const isHighlight = highlightIds.has(t.id);
-                  const isBadge = badgeIds.has(t.id);
-
-                  return (
-                    <div
-                      key={t.id}
-                      className={[
-                        "relative",
-                        isHighlight
-                          ? [
-
-                            "ring-4 ring-green-400 ring-offset-4",
-
-                            "[animation:glowRing_.9s_ease-in-out_infinite]",
-                          ].join(" ")
-                          : "",
-                        "transition-transform duration-300 ease-out rounded-xl",
-                      ].join(" ")}
-                    >
-                      {isBadge && (
-                        <span className="absolute -left-1 -top-1 z-10 rounded-md bg-amber-500 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white shadow">
-                          Neu
-                        </span>
-                      )}
-
-                      <TopicCard
-                        t={t}
-                        loading={loading}
-                        onDelete={handleDelete}
-                        onEdit={handleEdit}
-                        onManage={handleManage}
-                        onDuplicate={handleDuplicate}
-                        onStatusChange={() => handleStatusChange(t.id)}
-                      />
-                    </div>
-                  );
-                })
-              )}
+              </div>
             </div>
+          </div>
 
-            {/* Lazy Loading Trigger */}
-            <div ref={loaderRef}></div>
+          <div className="max-w-[1400px] xl:max-w-[1600px] mx-auto">
+            <div
+              className="
+                  rounded-3xl bg-[#f5f5f5] p-3
+                  shadow-[0_4px_20px_rgba(0,0,0,0.05)]
+                  border border-gray-300/30
+                "
+            >
+              <div
+                className="grid grid-cols-4 gap-4"
+                style={{
+                  gridTemplateColumns: "repeat(auto-fill, minmax(420px, 1fr))",
+                }}
+              >
+                {loading ? (
+                  Array.from({ length: 6 }).map((_, i) => (
+                    <TopicCardSkeleton key={i} />
+                  ))
+                ) : currentTopics.length === 0 ? (
+                  <div className="col-span-full flex flex-col items-center justify-center py-20 text-gray-500">
+                    <Layers size={48} className="opacity-40" />
+                    <p className="mt-4 text-lg font-medium">
+                      Noch keine Themen vorhanden
+                    </p>
+                  </div>
+                ) : (
+                  currentTopics.map((t) => {
+                    const isHighlight = highlightIds.has(t.id);
+                    const isBadge = badgeIds.has(t.id);
+
+                    return (
+                      <div
+                        key={t.id}
+                        className={[
+                          "relative",
+                          isHighlight
+                            ? [
+                              "ring-4 ring-green-400 ring-offset-4",
+
+                              "[animation:glowRing_.9s_ease-in-out_infinite]",
+                            ].join(" ")
+                            : "",
+                          "transition-transform duration-300 ease-out rounded-xl",
+                        ].join(" ")}
+                      >
+                        {isBadge && (
+                          <span className="absolute -left-1 -top-1 z-10 rounded-md bg-amber-500 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white shadow">
+                            Neu
+                          </span>
+                        )}
+
+                        <TopicCard
+                          t={t}
+                          loading={loading}
+                          onDelete={handleDelete}
+                          onEdit={handleEdit}
+                          onManage={handleManage}
+                          onDuplicate={handleDuplicate}
+                          onStatusChange={() => handleStatusChange(t.id)}
+                        />
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              {/* Lazy Loading Trigger */}
+              <div ref={loaderRef}></div>
+            </div>
           </div>
         </section>
-      </div>
+      </main>
 
       {/* === EDIT MODAL === */}
       {isEditModalOpen && (

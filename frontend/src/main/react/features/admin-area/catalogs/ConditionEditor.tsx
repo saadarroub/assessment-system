@@ -1295,7 +1295,16 @@ export default function ConditionEditor() {
 />
 
       {/* BODY - Grauer Hintergrund wie AdminDashboard */}
-      <div className="bg-[hsl(0_0%_92%)] min-h-[calc(100vh-64px)] pb-10">
+            <main
+        className="min-h-[calc(100vh-64px)] mt-0 px-6 pb-8 pt-20"
+        style={{
+          background:
+            "radial-gradient(circle at 0 0, rgba(227,187,98,0.13) 0, transparent 40%)," +
+            "radial-gradient(circle at 100% 0, rgba(56,189,248,0.10) 0, transparent 42%)," +
+            "linear-gradient(to bottom, #f3f4f7 0, #e6e9ef 240px, #f4f5f8 100%)",
+        }}
+      >
+      
         {/* Hauptfrage hinzufügen */}
         <div className="px-8 pt-6 flex justify-end">
           <button
@@ -2050,10 +2059,13 @@ export default function ConditionEditor() {
             </div>
           </div>
         )}
-      </div>{" "}
+      {" "}
       {/* End of gray background container */}
+      </main>
     </AdminLayout>
+    
   );
+  
 }
 
 // 👁️ Hilfsfunktion für Preview Order Items (Drag & Drop)

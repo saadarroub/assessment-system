@@ -71,10 +71,12 @@ export default function PageHeader({
     : "items-start text-left";
 
   return (
+    
     <div
+
       className={`relative w-full bg-gradient-to-br ${gradients[gradient]}`}
       style={{ minHeight: height }}
-    >
+     >
 
       {/* blauer Glow rechts unten */}
       <div
