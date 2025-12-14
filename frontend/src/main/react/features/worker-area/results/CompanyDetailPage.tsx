@@ -9,7 +9,8 @@ import {
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import AdminLayout from "@/apps/app/AdminLayout";
-import { Search, FileText, ArrowLeft } from 'lucide-react';
+import { Search, FileText, ArrowLeft } from 'lucide-react'; // 아이콘 사용
+
 
 interface Participant {
   id: string;
@@ -75,8 +76,9 @@ export default function CompanyDetailPage() {
     fetchCompanyData();
   }, [companyId]);
 
-  const handleAnalyzeWorker = (sessionId: string) => {
-    navigate(`/app/results/${sessionId}`);
+  const handleAnalyzeWorker = (id: string) => {
+    //navigate(`/app/results/${sessionId}`);
+    navigate(`/app/employee/${id}`);
   };
 
   if (loading) return <AdminLayout><div className="p-10 text-center">Laden...</div></AdminLayout>;
@@ -146,7 +148,7 @@ export default function CompanyDetailPage() {
                       </td>
                       <td className="py-3 px-4 text-right">
                         <button
-                          onClick={() => handleAnalyzeWorker(p.sessionId)}
+                          onClick={() => handleAnalyzeWorker(p.id)}
                           className="bg-blue-600 hover:bg-blue-700 text-white text-sm px-3 py-1.5 rounded flex items-center gap-1 ml-auto transition-colors shadow-sm"
                         >
                           <Search size={14} /> Analysieren
