@@ -35,6 +35,12 @@ export async function getCompanies(): Promise<CompanyApi[]> {
   });
   return data ?? [];
 }
+export async function getActiveCompanies(): Promise<CompanyApi[]> {
+  const { data } = await apiClient.get<CompanyApi[]>("/companies/status/active", {
+    headers: { Accept: "application/json" },
+  });
+  return data ?? [];
+}
 
 export async function getCompany(id: string): Promise<CompanyApi> {
   const { data } = await apiClient.get<CompanyApi>(

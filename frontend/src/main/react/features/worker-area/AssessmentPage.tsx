@@ -262,6 +262,7 @@ export default function AssessmentPage() {
     totalScore: null,
     maxTotalScore: null,
   });
+
   // Summary / Review-Modus
   const [summary, setSummary] = useState<ApiSummaryResponse | null>(null);
   //const [showSummary, setShowSummary] = useState(false);
@@ -269,6 +270,28 @@ export default function AssessmentPage() {
   const [finalizing, setFinalizing] = useState(false);
 
   const [canGoBack, setCanGoBack] = useState(false);
+  const [toast, setToast] = useState<{
+    visible: boolean;
+    title: string;
+    description: string;
+  }>({
+    visible: false,
+    title: "",
+    description: "",
+  });
+  const showToast = useCallback((title: string, description: string) => {
+    setToast({
+      visible: true,
+      title,
+      description,
+    });
+
+    setTimeout(() => {
+      setToast(prev => ({ ...prev, visible: false }));
+    }, 3000);
+  }, []);
+
+
 
   //Wenn man die Seite neu lädst (gleiche assignmentId + themaId),
   //dann ist questionsById sofort wieder gefüllt.
@@ -838,31 +861,40 @@ export default function AssessmentPage() {
       setStatus("completed");
       setProgress(prev => ({
         ...prev,
-        answered: prev.total || prev.answered,
+        answered: prev.total || prev.answered
       }));
 
       try {
         const store = readStore();
         const dashKey = makeDashKey(assignmentKeyId, themaId);
         const prev = store[dashKey] ?? {};
+
         store[dashKey] = {
           ...prev,
           progress: 100,
+          status: "completed",
           completedAt: new Date().toISOString(),
           sessionId,
+
+
+          view: undefined,
         };
+
+        // optional sauberer: view entfernen statt undefined
+        delete store[dashKey].view;
+
         writeStore(store);
       } catch {
         // ignore
       }
 
-      window.alert("Katalog erfolgreich abgeschlossen.");
-      goBackToTopics();
+     showToast("Hallo Aymen", "Willkommen in BookR!");
+setTimeout(() => {
+  goBackToTopics();
+}, 600);
+
     } catch (e) {
       console.error("completeSession failed", e);
-      window.alert(
-        "Das Assessment konnte nicht abgeschlossen werden. Bitte versuchen Sie es später erneut."
-      );
     } finally {
       setFinalizing(false);
     }
@@ -937,6 +969,19 @@ export default function AssessmentPage() {
         : pct);
 
     // Sicherstellen, dass wir ALLE UiQuestion-Metas haben
+     {toast.visible && (
+        <div className="fixed right-8 top-8 z-[9999]">
+          <div className="flex items-start gap-3 rounded-md border border-[#b7d8ad] bg-[#dff2d8] px-4 py-3 shadow-lg">
+            <div className="mt-0.5 flex h-7 w-7 items-center justify-center rounded-full bg-white/70 text-[#1f3a1f]">
+              ✓
+            </div>
+            <div className="leading-tight text-[#1f3a1f]">
+              <div className="font-semibold">{toast.title}</div>
+              <div className="font-medium">{toast.description}</div>
+            </div>
+          </div>
+        </div>
+      )}
     return (
       <AssessmentResults
         topicName={topicName}
@@ -1003,7 +1048,7 @@ export default function AssessmentPage() {
 
     <div className=" relative min-h-screen overflow-hidden
       bg-[radial-gradient(circle_at_top,_#f9fafb_0%,_#e5e7eb_40%,_#f9fafb_100%)]">
-        <style>{`
+      <style>{`
   .hex-bg{
     /* etwas dunkler, damit man es auf hellen Gradients sieht */
     background-image:
@@ -1019,22 +1064,22 @@ export default function AssessmentPage() {
   }
 `}</style>
 
-{/* Deko nur im Content-Bereich, NICHT hinter dem Footer */}
-<div className="pointer-events-none absolute inset-x-0 top-0 bottom-64">
-  {/* Hexagon Pattern (CSS-only) */}
-  <div className="absolute inset-0 opacity-[0.14] hex-bg" />
+      {/* Deko nur im Content-Bereich, NICHT hinter dem Footer */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 bottom-64">
+        {/* Hexagon Pattern (CSS-only) */}
+        <div className="absolute inset-0 opacity-[0.14] hex-bg" />
 
-  {/* leichte “Wash” oben */}
-  <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.75)_0%,rgba(255,255,255,0)_55%)]" />
+        {/* leichte “Wash” oben */}
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.75)_0%,rgba(255,255,255,0)_55%)]" />
 
-  {/* Dunklerer blauer Glow unten links */}
-  <div className="absolute bottom-10 left-[-6rem] h-[22rem] w-[22rem] rounded-full blur-[90px] bg-[hsla(215,80%,15%,0.10)]" />
+        {/* Dunklerer blauer Glow unten links */}
+        <div className="absolute bottom-10 left-[-6rem] h-[22rem] w-[22rem] rounded-full blur-[90px] bg-[hsla(215,80%,15%,0.10)]" />
 
-  {/* Pünktchen */}
-  <div className="absolute left-[18%] top-[30%] h-2 w-2 rounded-full bg-[#E3BB62] opacity-80" />
-  <div className="absolute left-[26%] top-[42%] h-1.5 w-1.5 rounded-full bg-[#d2c9b9] opacity-75" />
-  <div className="absolute right-[22%] top-[36%] h-1.5 w-1.5 rounded-full bg-[#E3BB62] opacity-70" />
-</div>
+        {/* Pünktchen */}
+        <div className="absolute left-[18%] top-[30%] h-2 w-2 rounded-full bg-[#E3BB62] opacity-80" />
+        <div className="absolute left-[26%] top-[42%] h-1.5 w-1.5 rounded-full bg-[#d2c9b9] opacity-75" />
+        <div className="absolute right-[22%] top-[36%] h-1.5 w-1.5 rounded-full bg-[#E3BB62] opacity-70" />
+      </div>
 
 
       {/* Deko-Layer im Hintergrund */}
@@ -1500,13 +1545,13 @@ export default function AssessmentPage() {
 
                 {q.type === "number" && (
                   <NumberField
-  value={answers[q.id] ?? ""}
-  min={(q as any).min}
-  max={(q as any).max}
-  step={(q as any).step ?? 1}
-  placeholder="z.B. 1980"
-  onChange={(v) => setAnswer(q.id, v, "number")}
-/>
+                    value={answers[q.id] ?? ""}
+                    min={(q as any).min}
+                    max={(q as any).max}
+                    step={(q as any).step ?? 1}
+                    placeholder="z.B. 1980"
+                    onChange={(v) => setAnswer(q.id, v, "number")}
+                  />
 
                 )}
 
@@ -1639,6 +1684,7 @@ function OrderQuestion({
   const initial = value && value.length ? value : base;
 
   const [items, setItems] = useState<string[]>(initial);
+
 
   useEffect(() => {
     onChange(items);

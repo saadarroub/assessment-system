@@ -6,7 +6,7 @@ import { Link } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
 
 import { getTopicCountForCatalog, fetchThemenByCatalog, type ThemaDto } from "../service/themaCatalogService";
-import { getCompanies, getWorkersByCompany, type WorkerApi } from "../service/companyService";
+import { getCompanies,getActiveCompanies, getWorkersByCompany, type WorkerApi } from "../service/companyService";
 import { getCatalogs, createCatalog, type CatalogApi, updateCatalog, deleteCatalog } from "../service/catalogService";
 import { assignWorkerCatalogBulk } from "../service/assignmentService";
 import { Network } from "lucide-react";
@@ -150,7 +150,7 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
       try {
         setLoadingCompanies(true);
         setErrorMsg(null);
-        const list = await getCompanies();
+        const list = await getActiveCompanies();
         setCompanies(list);
       } catch (e) {
         console.error(e);

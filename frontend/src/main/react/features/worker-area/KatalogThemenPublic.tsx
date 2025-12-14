@@ -102,10 +102,11 @@ function CatalogCard({ data, onStart }: { data: TopicCardModel; onStart: () => v
 
 
   const [animate, setAnimate] = useState(false);
+
+  const prevP = useRef<number>(p);
+
   useEffect(() => {
-    setAnimate(false);
-    const t = setTimeout(() => setAnimate(true), 60);
-    return () => clearTimeout(t);
+    prevP.current = p;
   }, [p]);
 
   // === Status-abhängige Basis-Styles (nur Blautöne + Gold) ===
@@ -195,7 +196,8 @@ function CatalogCard({ data, onStart }: { data: TopicCardModel; onStart: () => v
                 transition-all duration-500 ease-in-out
                 bg-[linear-gradient(90deg,#4f88d2_0%,#264555_100%)]
               "
-              style={{ width: `${animate ? p : 0}%` }}
+              style={{ width: `${p}%` }}
+
             />
           </div>
         </div>
@@ -597,9 +599,13 @@ export default function KatalogThemenPublic() {
 
   const available = topicCards.filter((c) => c.effectiveProgress === 0);
 
-  const isCompletedCard = (c: TopicCardModel) =>
-    c.effectiveProgress >= 100 &&
-    (c.statusFromApi || "").toLowerCase() === "completed";
+ const isCompletedCard = (c: TopicCardModel) =>
+  c.effectiveProgress >= 100 &&
+  (
+    (c.statusFromApi || "").toLowerCase() === "completed"
+    || c.statusFromApi == null // ← DAS IST DER FIX
+  );
+
 
   const planned = topicCards.filter((c) => {
     if (c.effectiveProgress === 0) return false;
@@ -611,6 +617,8 @@ export default function KatalogThemenPublic() {
   const allCompleted =
     topicCards.length > 0 &&
     done.length === topicCards.length;
+    
+console.log(allCompleted);
 
   useEffect(() => {
     if (allCompleted) {
