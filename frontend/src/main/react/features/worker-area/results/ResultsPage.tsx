@@ -30,14 +30,32 @@ export default function ResultsPage() {
   const radarChartRef = useRef<HTMLDivElement>(null);
 
 
-  const [questions, setQuestions] = useState<Question[]>([
-    { id: 1, type: 'choice', category: 'Netzwerk', question: 'Ist die Firewall aktiviert?', answer: 'Ja', score: 100 },
-    { id: 2, type: 'choice', category: 'Zugriff', question: 'Werden Passwörter alle 90 Tage geändert?', answer: 'Nein', score: 0 },
+  const [questions, setQuestions] = useState<Question[]>([]); 
+  const [loading, setLoading] = useState(true); 
 
-    { id: 3, type: 'text', category: 'Incident Response', question: 'Beschreiben Sie den Prozess bei Datenverlust.', answer: 'Ich melde es dem IT-Support per E-Mail.', score: null },
-    { id: 4, type: 'date', category: 'Compliance', question: 'Wann war die letzte Schulung?', answer: '2023-11-01', score: null },
-    { id: 5, type: 'text', category: 'Physische Sicherheit', question: 'Wie werden Besucher protokolliert?', answer: 'Es liegt eine Liste am Empfang.', score: null },
-  ]);
+  useEffect(() => {
+    const fetchResults = async () => {
+      try {
+
+        const response = await fetch(`/api/worker-catalogs/${sessionId}/score`); 
+        
+        if (response.ok) {
+          const data = await response.json();
+          setQuestions(data);
+        } else {
+          console.error("Data Loading Failure");
+        }
+      } catch (error) {
+        console.error("Error:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (sessionId) {
+      fetchResults();
+    }
+  }, [sessionId]);
 
   const [adminNote, setAdminNote] = useState(''); 
   const [isSaved, setIsSaved] = useState(false);

@@ -56,6 +56,12 @@ public class WorkerCatalog {
     @Column(name = "notes", columnDefinition = "TEXT")
     private String notes;
 
+    @Column(name = "score")
+    private Integer score;
+
+    @Column(name = "passed")
+    private Boolean passed;
+
     // Constructors
     public WorkerCatalog() {
     }
@@ -179,5 +185,21 @@ public class WorkerCatalog {
 
     public void setNotes(String notes) {
         this.notes = notes;
+    }
+    
+    public Integer getScore() {
+        return score;
+    }
+
+    public void setScore(Integer score) {
+        this.score = score;
+    }
+
+    public Boolean getPassed() {
+        return passed;
+    }
+
+    public void setPassed(Boolean passed) {
+        this.passed = passed;
     }
 }

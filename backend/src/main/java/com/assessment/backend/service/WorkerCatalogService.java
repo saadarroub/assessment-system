@@ -42,6 +42,7 @@ public class WorkerCatalogService {
     private com.assessment.backend.repository.AssessmentSessionRepository assessmentSessionRepository;
 
     private static final int MAX_CODE_GENERATION_ATTEMPTS = 10;
+    
 
     // ===== ASSIGNMENT CREATION WITH CODE/TOKEN GENERATION =====
 
@@ -293,6 +294,9 @@ public class WorkerCatalogService {
         if (completedSessions.equals(totalSessions)) {
             assignment.setStatus("completed");
             assignment.setCompletedAt(LocalDateTime.now());
+            
+            calculateAndSaveScore(assignmentId);
+            
             repository.save(assignment);
         }
     }
@@ -316,4 +320,38 @@ public class WorkerCatalogService {
         }
     }
 
+    @Transactional
+    public void calculateAndSaveScore(UUID assignmentId) {
+
+        WorkerCatalog assignment = repository.findById(assignmentId)
+            .orElseThrow(() -> new RuntimeException("Assignment not found"));
+
+        List<com.assessment.backend.entity.AssessmentSession> sessions = 
+            assessmentSessionRepository.findByWorkerIdAndCompanyId(
+                assignment.getWorker().getId(), 
+                assignment.getCompany().getId()
+            );
+
+        int totalScore = 0;
+        int maxPossibleScore = 0;
+
+        for (com.assessment.backend.entity.AssessmentSession session : sessions) {
+
+            for (Answer answer : session.getAnswers()) {
+                 if (answer.isCorrect()) {
+                     totalScore += answer.getQuestion().getPoints();
+                 }
+                 maxPossibleScore += answer.getQuestion().getPoints();
+             }
+            
+                 totalScore += session.getScore();
+        }
+
+        assignment.setScore(totalScore);
+        
+        if (totalScore >= 60) assignment.setPassed(true);
+
+        repository.save(assignment);
+        System.out.println("Scoring completed for assignment: " + assignmentId + ", Score: " + totalScore);
+    }
 }
