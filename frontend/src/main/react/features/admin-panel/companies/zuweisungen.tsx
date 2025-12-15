@@ -118,6 +118,25 @@ export default function Zuweisungen() {
 
   const [bgStandardImg, setBgStandardImg] = useState<HTMLImageElement | null>(null);
 
+  const [highlightRowIds, setHighlightRowIds] = useState<Set<string>>(new Set());
+
+  function flashRowIds(ids: string[], ms = 3500) {
+    setHighlightRowIds(prev => {
+      const next = new Set(prev);
+      ids.forEach(id => next.add(id));
+      return next;
+    });
+
+    window.setTimeout(() => {
+      setHighlightRowIds(prev => {
+        const next = new Set(prev);
+        ids.forEach(id => next.delete(id));
+        return next;
+      });
+    }, ms);
+  }
+
+
   useEffect(() => {
     const imgStd = new Image();
     imgStd.src = capConsultingTemplate;
@@ -414,6 +433,47 @@ export default function Zuweisungen() {
     };
   }, []);
 
+  useEffect(() => {
+    if (loading) return;
+    if (!rows.length) return;
+
+    const raw = sessionStorage.getItem("flash_assignments");
+    if (!raw) return;
+
+    // ❗ SOFORT löschen -> garantiert "nur einmal", selbst bei Refresh danach
+    sessionStorage.removeItem("flash_assignments");
+
+    try {
+      const data = JSON.parse(raw) as {
+        workerIds: string[];
+        catalogId: string;
+        after: number;
+        ttlMs?: number;
+      };
+
+      if (!data?.workerIds?.length || !data?.catalogId || !data?.after) return;
+
+      if (data.ttlMs && Date.now() - data.after > data.ttlMs) return;
+
+      const idsToFlash = rows
+        .filter(r => {
+          const wid = r.worker?.id ?? "";
+          const cid = r.catalog?.id ?? "";
+          if (cid !== data.catalogId) return false;
+          if (!data.workerIds.includes(wid)) return false;
+
+          const t = r.assignedAt ? new Date(r.assignedAt).getTime() : 0;
+          return t >= data.after; // nur "neu"
+        })
+        .map(r => r.id);
+
+      if (idsToFlash.length) flashRowIds(idsToFlash, 3500);
+    } catch {
+      // ignore
+    }
+  }, [loading, rows]);
+
+
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
     const base = term
@@ -577,6 +637,44 @@ export default function Zuweisungen() {
 
   return (
     <AdminLayout>
+
+      <style>
+        {`
+@keyframes greenFlash {
+  0% {
+    background-color: rgba(16,185,129,0.05);
+    box-shadow: inset 0 0 0 rgba(16,185,129,0);
+  }
+  30% {
+    background-color: rgba(16,185,129,0.22);
+    box-shadow:
+      inset 0 0 0 9999px rgba(16,185,129,0.12),
+      0 0 22px rgba(16,185,129,0.35);
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: none;
+  }
+}
+
+@keyframes greenSweep {
+  0% {
+    transform: translateX(-120%);
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(120%);
+    opacity: 0;
+  }
+}
+`}
+      </style>
+
+
+
       {/* HEADER */}
       <PageHeader
         title="Zuweisungen Administration"
@@ -870,27 +968,36 @@ export default function Zuweisungen() {
                     const { date: eDate, time: eTime } = fmtParts(r.expiresAt);
                     const expired = isExpired(r.expiresAt);
 
+                    const isNew = highlightRowIds.has(r.id);
+
                     return (
                       <tr
                         key={r.id}
-                        className="
-    bg-white
-    transition
-    border-l-[4px] border-transparent
-    hover:border-[#E3BB62]
-    hover:bg-[#fff9ec]
+                        className={`
+    bg-white transition border-l-[4px] border-transparent
+    hover:border-[#E3BB62] hover:bg-[#fff9ec]
     hover:shadow-[0_4px_10px_rgba(0,0,0,0.04)]
-  "
+    ${isNew ? "animate-pulse" : ""}
+  `}
                         style={
-                          expired
+                          isNew
                             ? {
-                              borderLeftColor: "rgb(239 68 68)",
+                              borderLeftColor: "rgb(34 197 94)",
+                              boxShadow: "0 0 0 2px rgba(34,197,94,0.25)",
                               background:
-                                "linear-gradient(to right, rgba(239,68,68,0.08), rgba(255,255,255,1))",
+                                "linear-gradient(to right, rgba(34,197,94,0.08), rgba(255,255,255,1))",
                             }
-                            : undefined
+                            : expired
+                              ? {
+                                borderLeftColor: "rgb(239 68 68)",
+                                background:
+                                  "linear-gradient(to right, rgba(239,68,68,0.08), rgba(255,255,255,1))",
+                              }
+                              : undefined
                         }
                       >
+
+
 
                         {/* Worker */}
                         <td
@@ -968,35 +1075,58 @@ export default function Zuweisungen() {
                         >
                           <div className="inline-flex items-center justify-center gap-2">
                             {/* Einladen – wie "View" in Users */}
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setInviteFor(r);
-                                setCopiedLink(false);
-                                setCopiedCode(false);
-                              }}
-                              title="Einlade-Link erzeugen"
-                              className="
-                                inline-flex items-center gap-1.5
-                                rounded-full
-                                px-3 py-1.5
-                                text-[11px] font-semibold
-                                focus:outline-none
-                                transition
-                                hover:-translate-y-[0.5px]
-                              "
-                              style={{
-                                background: "hsl(40,60%,63%)",
-                                color: "hsl(200,32%,22%)",
-                                boxShadow: "0 4px 10px rgba(0,0,0,0.10)",
-                                border: "1px solid rgba(255,255,255,0.9)",
-                              }}
-                            >
-                              <LinkIcon size={13} />
-                              <span className="hidden sm:inline">
-                                Einladen
+                            {/* Einladen / Ungültig */}
+                            {expired ? (
+                              <span
+                                title="Einladung ist abgelaufen"
+                                className="
+      inline-flex items-center gap-1.5
+      rounded-full
+      px-3 py-1.5
+      text-[11px] font-semibold
+      border
+      cursor-not-allowed
+      opacity-80
+    "
+                                style={{
+                                  borderColor: "rgba(239,68,68,0.55)",
+                                  color: "rgb(153,27,27)",
+                                  background: "rgba(254,226,226,0.7)",
+                                }}
+                              >
+                                <KeyRound size={13} />
+                                <span className="hidden sm:inline">Ungültig</span>
                               </span>
-                            </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setInviteFor(r);
+                                  setCopiedLink(false);
+                                  setCopiedCode(false);
+                                }}
+                                title="Einlade-Link erzeugen"
+                                className="
+      inline-flex items-center gap-1.5
+      rounded-full
+      px-3 py-1.5
+      text-[11px] font-semibold
+      focus:outline-none
+      transition
+      hover:-translate-y-[0.5px]
+    "
+                                style={{
+                                  background: "hsl(40,60%,63%)",
+                                  color: "hsl(200,32%,22%)",
+                                  boxShadow: "0 4px 10px rgba(0,0,0,0.10)",
+                                  border: "1px solid rgba(255,255,255,0.9)",
+                                }}
+                              >
+                                <LinkIcon size={13} />
+                                <span className="hidden sm:inline">Einladen</span>
+                              </button>
+                            )}
+
 
                             {/* Verlängern – wie Edit-Icon-Button */}
                             <button
@@ -1342,16 +1472,16 @@ export default function Zuweisungen() {
                   style={{ borderColor: BRAND.sand }}
                 >
                   {/* Link zum Assessment */}
-                 {/* Link-Feld */}
-<div className="mb-4 space-y-1.5">
-  <label className="block text-sm font-medium text-slate-700">
-    Link
-  </label>
-  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-    <input
-      readOnly
-      value={buildUserInviteUrl(inviteFor)}
-      className="
+                  {/* Link-Feld */}
+                  <div className="mb-4 space-y-1.5">
+                    <label className="block text-sm font-medium text-slate-700">
+                      Link
+                    </label>
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                      <input
+                        readOnly
+                        value={buildUserInviteUrl(inviteFor)}
+                        className="
         flex-1 rounded-xl border px-3 py-2.5 text-sm
         bg-slate-50 border-slate-200
         outline-none
@@ -1360,47 +1490,47 @@ export default function Zuweisungen() {
         focus:ring-2 focus:ring-[rgba(227,187,98,0.45)]
         transition
       "
-      style={{ color: CSS.fg }}
-    />
-    <button
-      type="button"
-      onClick={async () => {
-        try {
-          await navigator.clipboard.writeText(
-            buildUserInviteUrl(inviteFor)
-          );
-          setCopiedLink(true);
-          setTimeout(() => setCopiedLink(false), 1200);
-        } catch {
-          /* ignore */
-        }
-      }}
-      className="
+                        style={{ color: CSS.fg }}
+                      />
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            await navigator.clipboard.writeText(
+                              buildUserInviteUrl(inviteFor)
+                            );
+                            setCopiedLink(true);
+                            setTimeout(() => setCopiedLink(false), 1200);
+                          } catch {
+                            /* ignore */
+                          }
+                        }}
+                        className="
         inline-flex items-center justify-center gap-1.5
         rounded-xl border px-3.5 py-2 text-xs sm:text-sm font-semibold
         bg-white/80
         hover:bg-[#fff9ec]
         transition
       "
-      style={{ borderColor: BRAND.sand, color: BRAND.navy }}
-    >
-      {copiedLink ? <Check size={14} /> : <Copy size={14} />}
-      <span>{copiedLink ? "Kopiert" : "Kopieren"}</span>
-    </button>
-  </div>
-</div>
+                        style={{ borderColor: BRAND.sand, color: BRAND.navy }}
+                      >
+                        {copiedLink ? <Check size={14} /> : <Copy size={14} />}
+                        <span>{copiedLink ? "Kopiert" : "Kopieren"}</span>
+                      </button>
+                    </div>
+                  </div>
 
-{/* Access-Code (optional) */}
-{inviteFor.accessCode && (
-  <div className="space-y-1.5">
-    <label className="block text-sm font-medium text-slate-700">
-      Access-Code
-    </label>
-    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-      <input
-        readOnly
-        value={inviteFor.accessCode}
-        className="
+                  {/* Access-Code (optional) */}
+                  {inviteFor.accessCode && (
+                    <div className="space-y-1.5">
+                      <label className="block text-sm font-medium text-slate-700">
+                        Access-Code
+                      </label>
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                        <input
+                          readOnly
+                          value={inviteFor.accessCode}
+                          className="
           flex-1 rounded-xl border px-3 py-2.5 text-sm
           bg-slate-50 border-slate-200
           outline-none
@@ -1409,38 +1539,38 @@ export default function Zuweisungen() {
           focus:ring-2 focus:ring-[rgba(227,187,98,0.45)]
           transition
         "
-        style={{ color: CSS.fg }}
-      />
-      <button
-        type="button"
-        onClick={async () => {
-          try {
-            await navigator.clipboard.writeText(
-              inviteFor.accessCode || ""
-            );
-            setCopiedCode(true);
-            setTimeout(() => setCopiedCode(false), 1200);
-          } catch {
-            /* ignore */
-          }
-        }}
-        className="
+                          style={{ color: CSS.fg }}
+                        />
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              await navigator.clipboard.writeText(
+                                inviteFor.accessCode || ""
+                              );
+                              setCopiedCode(true);
+                              setTimeout(() => setCopiedCode(false), 1200);
+                            } catch {
+                              /* ignore */
+                            }
+                          }}
+                          className="
           inline-flex items-center justify-center gap-1.5
           rounded-xl border px-3.5 py-2 text-xs sm:text-sm font-semibold
           bg-white/80
           hover:bg-[#fff9ec]
           transition
         "
-        style={{ borderColor: BRAND.sand, color: BRAND.navy }}
-      >
-        {copiedCode ? <Check size={14} /> : <Copy size={14} />}
-        <span>{copiedCode ? "Kopiert" : "Kopieren"}</span>
-      </button>
-    </div>
-  </div>
-)}
+                          style={{ borderColor: BRAND.sand, color: BRAND.navy }}
+                        >
+                          {copiedCode ? <Check size={14} /> : <Copy size={14} />}
+                          <span>{copiedCode ? "Kopiert" : "Kopieren"}</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
-                  
+
                 </div>
 
               </div>

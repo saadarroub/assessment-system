@@ -147,12 +147,12 @@ public class UserController {
             .map(user -> {
                 // Delete old avatar if not default
                 String oldAvatar = user.getProfileImagePath();
-                if (oldAvatar != null && !oldAvatar.equals("default-avatar.jpg")) {
+                if (oldAvatar != null && !oldAvatar.isBlank()) {
                     fileStorageService.deleteAvatar(oldAvatar);
                 }
 
                 // Reset to default
-                User updatedUser = userService.updateUserAvatar(id, "default-avatar.jpg");
+                User updatedUser = userService.updateUserAvatar(id,null);
                 return ResponseEntity.ok(UserSummaryDTO.fromEntity(updatedUser, rolePermissionService));
             })
             .orElse(ResponseEntity.notFound().build());

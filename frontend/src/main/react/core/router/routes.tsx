@@ -1,4 +1,3 @@
-// src/main/react/core/router/routes.tsx
 import { Routes, Route, Navigate } from 'react-router-dom';
 
 import LandingPage from '@/apps/landing/LandingPage';
@@ -22,8 +21,8 @@ import KatalogVerwaltung from '@/features/admin-area/KatalogVerwaltung';
 import Zuweisungen from '@/features/admin-panel/companies/zuweisungen';
 import InviteGate from '@/public/InviteGate';
 import ZugewiesenerKatalog from '@/public/ZugewiesenerKatalogPagePublic';
-import Ica3LandingSingle from '@/public/Ica3LandingSingle';
 import { DashboardPage } from '@/apps/app/DashboardPage';
+import AssessmentCompleted from '@/features/worker-area/AssessmentCompleted ';
 
 // Topic-Seiten
 import EamPage from '@/features/admin-area/topics/eam/EamPage';
@@ -35,12 +34,10 @@ import ConditionEditor from '@/features/admin-area/catalogs/ConditionEditor';
 import CatalogList from '@/features/admin-area/catalogs/CatalogList';
 import ReifegradPage from '@/features/admin-area/topics/reifegradmodelle/Reifegradmodelle';
 import EmployeeProfile from '@/features/profile/ProfilePage';
+import InviteInvalid from '@/public/InviteInvalid';
 
-<<<<<<< HEAD
 import Ica3LandingPage from '@/apps/landing/Ica3LandingPage';
-=======
 import EmployeeCatalogsPage from '@/features/worker-area/results/EmployeeCatalogsPage'; 
->>>>>>> 33dd4906 (update Employee Catalogs)
 
 export default function AppRoutes() {
   return (
@@ -88,14 +85,14 @@ export default function AppRoutes() {
           </ProtectedRoute>
         }
       />
-     <Route
-    path="/admin/profile"
-    element={
-      <ProtectedRoute>
-        <EmployeeProfile />
-      </ProtectedRoute>
-    }
-  />
+      <Route
+        path="/admin/profile"
+        element={
+          <ProtectedRoute>
+            <EmployeeProfile />
+          </ProtectedRoute>
+        }
+      />
       <Route
         path="/app/results/:sessionId"
         element={
@@ -304,6 +301,12 @@ export default function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/public/assessment-completed"
+        element={<AssessmentCompleted />}
+      />
+      <Route path="/public/invite-invalid" element={<InviteInvalid />} />
+
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

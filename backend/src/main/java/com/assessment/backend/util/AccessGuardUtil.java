@@ -24,6 +24,9 @@ public final class AccessGuardUtil {
         if ("revoked".equals(status) || "expired".equals(status)) {
             return new ResponseEntity<>(Map.of("error", "Access has been revoked"), HttpStatus.FORBIDDEN);
         }
+        if ("completed".equals(status)) {
+            return new ResponseEntity<>(Map.of("error", "Katalog wurde bereits abgeschlossen"), HttpStatus.FORBIDDEN);
+        }
         if (a.getExpiresAt() != null && LocalDateTime.now().isAfter(a.getExpiresAt())) {
             return new ResponseEntity<>(Map.of("error", "Access expired"), HttpStatus.FORBIDDEN);
         }

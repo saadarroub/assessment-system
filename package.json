@@ -5,6 +5,7 @@
     "@minoru/react-dnd-treeview": "^3.5.3",
     "axios": "^1.13.1",
     "canvas-confetti": "^1.9.4",
+    "date-fns": "^4.1.0",
     "dnd-kit-sortable-tree": "^0.1.73",
     "html2canvas": "^1.4.1",
     "jspdf": "^3.0.4",
