@@ -585,16 +585,17 @@ export default function AdminDashboard() {
 
           <div className="max-w-[1400px] xl:max-w-[1600px] mx-auto">
             <div
-              className="
-                  rounded-3xl bg-[#f5f5f5] p-3
-                  shadow-[0_4px_20px_rgba(0,0,0,0.05)]
-                  border border-gray-300/30
-                "
-            >
+  className="
+    rounded-3xl bg-[hsl(45_40%_96%)] p-3
+    shadow-[0_4px_20px_rgba(0,0,0,0.05)]
+    border border-gray-300/30
+  "
+>
+
               <div
-                className="grid grid-cols-4 gap-4"
+                className="grid grid-cols-4 gap-5"
                 style={{
-                  gridTemplateColumns: "repeat(auto-fill, minmax(420px, 1fr))",
+                  gridTemplateColumns: "repeat(auto-fill, minmax(380px, 1fr))",
                 }}
               >
                 {loading ? (
