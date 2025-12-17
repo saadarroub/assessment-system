@@ -99,7 +99,7 @@ const TopicCard = ({
         <div className="flex items-center justify-between">
         <div
   className="
-    h-12 w-12 rounded-lg
+    h-12 w-12  rounded-2xl
     flex items-center justify-center
     bg-[hsl(45_80%_55%_/_0.2)]
   "
@@ -209,7 +209,7 @@ const TopicCard = ({
           </div>
         <p
   ref={descRefFull}
-  className={`text-[14px] leading-relaxed line-clamp-2
+  className={`text-[15px] font-medium leading-relaxed line-clamp-2
     text-[hsl(30_8%_45%)]
   `}
 >
@@ -232,7 +232,7 @@ const TopicCard = ({
         >
          <span
   className="
-    text-sm font-medium
+    text-sm font-semibold 
     text-[hsl(30_10%_25%)]
   "
 >
@@ -252,75 +252,83 @@ const TopicCard = ({
 
         {/* BUTTONS */}
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => onDelete(t)}
-            className="
-    w-10 h-10 rounded-xl
+<button
+  onClick={() => onDelete(t)}
+  className="
+    w-11 h-10 rounded-xl
     flex items-center justify-center
-    transition-all
-    bg-white
-    hover:bg-red-50
-    border border-gray-200
-    hover:border-red-300
+    transition-colors duration-200
+    bg-[#f7f3ea]                       /* Hintergrund wie Fragenanzahl */
+    border border-[#f7cfcf] 
+     hover:border-[#e88a8a]         /* helleres Rot für Rahmen */
+    hover:bg-[#fde8e8]                 /* Hover bleibt rot (sanft) */
   "
-          >
-            <Trash2 size={18} color="#e74c3c" strokeWidth={2.2} />
-          </button>
+>
+  <Trash2 size={18} color="#e74c3c" strokeWidth={2.2} />
+</button>
+
+
 
           <button
-            onClick={() => onDuplicate(t)}
-            className="
-    w-10 h-10 rounded-xl
+  onClick={() => onDuplicate(t)}
+  className="
+    w-11 h-10 rounded-xl
     flex items-center justify-center
-    transition-all
-    bg-white
-    hover:bg-gray-100
-    border border-gray-200
-    hover:border-gray-300
+    transition-all duration-200
+    bg-[#f7f3ea]                 /* wie Anzahl der Fragen */
+    border border-[#c9ddf0]      /* sehr helles Blau (unhover) */
+    hover:bg-[#eef5fb]           /* zartes Blau beim Hover */
+    hover:border-[#9cc4e8]       /* Rahmen wird stärker beim Hover */
   "
-          >
-            <Copy size={18} color="#95a5a6" strokeWidth={2.2} />
-          </button>
+>
+  <Copy size={18} color="#5b8db8" strokeWidth={2.2} />
+</button>
 
-          <button
-            onClick={() => onEdit(t)}
-            className="
-    w-10 h-10 rounded-xl
+
+         <button
+  onClick={() => onEdit(t)}
+  className="
+    w-11 h-10 rounded-xl
     flex items-center justify-center
-    transition-all
-    bg-white
-    hover:bg-green-50
-    border border-gray-200
-    hover:border-green-300
+    transition-all duration-200
+    bg-[#f7f3ea]                 /* wie Anzahl der Fragen */
+    border border-[#c4e5d6]      /* sehr helles Grün (unhover) */
+    hover:bg-[#eaf7f0]           /* zartes Grün beim Hover */
+    hover:border-[#8fd1b3]       /* Rahmen wird stärker beim Hover */
   "
-          >
-            <Edit3 size={18} color="#27ae60" strokeWidth={2.2} />
-          </button>
+>
+  <Edit3 size={18} color="#27ae60" strokeWidth={2.2} />
+</button>
 
 
-          <button
-            onClick={() => onManage(t)}
-            className="
-    group flex-1
-    flex items-center justify-center gap-2
-    h-11 rounded-xl
-    font-medium text-[14.5px]
-    transition-all
-    bg-white
-    hover:bg-gray-50
-    border border-gray-200
-    hover:border-gray-300
-    text-gray-800
+
+<button
+  onClick={() => onManage(t)}
+  className="
+    group flex-1 ml-3
+    flex items-center justify-center gap-3
+    h-10 px-6
+    rounded-xl
+    font-semibold text-[14.5px]
+    transition-colors duration-200
+    bg-[hsl(45_80%_55%_/_0.2)]   /* gleiche Farbe wie Icon-Hintergrund */
+    hover:bg-[hsl(45_80%_55%_/_0.28)]
+    text-[hsl(30_10%_20%)]
   "
-          >
-            Fragen Verwalten
-            <ArrowRight
-              size={17}
-              className="transition-transform duration-200 group-hover:translate-x-1"
-              color="#2c3e50"
-              strokeWidth={2.5}
-            />
-          </button>
+>
+  <span>Fragen Verwalten</span>
+
+  <ArrowRight
+    size={16}
+    strokeWidth={2.5}
+    className="
+      transition-transform duration-200
+      group-hover:translate-x-2
+    "
+  />
+</button>
+
+
         </div>
       </div>
     </div>

@@ -586,7 +586,7 @@ export default function AdminDashboard() {
           <div className="max-w-[1400px] xl:max-w-[1600px] mx-auto">
             <div
   className="
-    rounded-3xl bg-[hsl(45_40%_96%)] p-3
+    rounded-3xl bg-[hsl(45_40%_96%)] p-5
     shadow-[0_4px_20px_rgba(0,0,0,0.05)]
     border border-gray-300/30
   "
