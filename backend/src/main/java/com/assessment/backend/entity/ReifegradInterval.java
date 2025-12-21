@@ -3,6 +3,8 @@ package com.assessment.backend.entity;
 import jakarta.persistence.*;
 import java.util.UUID;
 
+import com.assessment.backend.entity.ReifegradModel;
+
 @Entity
 @Table(name = "reifegrad_intervals")
 public class ReifegradInterval {
