@@ -1,96 +1,119 @@
-// src/main/react/api/client.ts
 import axios from "axios";
 import type { AxiosError, InternalAxiosRequestConfig } from "axios";
 import { AuthService } from "@/core/auth/AuthService";
 import { PermissionEventBus } from "@/core/auth/PermissionEventBus";
+import { SessionEventBus } from "@/core/auth/SessionEventBus";
+
+/* =========================================================
+   Axios Instance
+========================================================= */
 
 export const apiClient = axios.create({
   baseURL: "http://localhost:8080/api",
   headers: {
     "Content-Type": "application/json",
   },
-  // WICHTIG: Für httpOnly Cookies (Refresh Token)
-  withCredentials: true,
+  withCredentials: true, // httpOnly Refresh Cookie
 });
 
-// ========== REQUEST INTERCEPTOR: Attach Bearer Token ==========
+/* =========================================================
+   Helper: erkennt "Session abgelaufen" obwohl 403
+========================================================= */
+
+function isSessionExpired403(error: AxiosError): boolean {
+  const data = error.response?.data as any;
+  const msg = String(data?.message ?? "").toLowerCase();
+  const err = String(data?.error ?? "").toLowerCase();
+  const wwwAuth = String(
+    (error.response?.headers as any)?.["www-authenticate"] ?? ""
+  ).toLowerCase();
+
+  return (
+    msg.includes("expired") ||
+    msg.includes("full authentication") ||
+    msg.includes("authentication") ||
+    (msg.includes("token") && (msg.includes("invalid") || msg.includes("expired"))) ||
+    err.includes("invalid_token") ||
+    wwwAuth.includes("invalid_token")
+  );
+}
+
+/* =========================================================
+   REQUEST INTERCEPTOR – Bearer Token
+========================================================= */
+
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     const token = AuthService.getAccessToken();
-    
+
     if (token) {
-      // Attach Authorization Header automatisch
       config.headers.Authorization = `Bearer ${token}`;
     }
 
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
-// ========== RESPONSE INTERCEPTOR: Handle 401 (Unauthorized) & 403 (Forbidden) ==========
-apiClient.interceptors.response.use(
-  // Success Response → Durchleiten
-  (response) => response,
-  
-  // Error Response → Smart Handling
-  async (error: AxiosError) => {
-    const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+/* =========================================================
+   RESPONSE INTERCEPTOR – 401 / 403 GLOBAL HANDLING
+========================================================= */
 
-    // ===== 401 UNAUTHORIZED: Token expired → Refresh & Retry =====
+apiClient.interceptors.response.use(
+  (response) => response,
+
+  async (error: AxiosError) => {
+    const originalRequest =
+      error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+
+    /* ===== 401 → Access Token expired → Refresh ===== */
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
 
       try {
-        // Versuche Token zu refreshen
         const newToken = await AuthService.refreshToken();
-        
-        // Update Authorization Header mit neuem Token
-        if (originalRequest.headers) {
-          originalRequest.headers.Authorization = `Bearer ${newToken}`;
-        }
 
-        // Retry Original Request
+        originalRequest.headers.Authorization = `Bearer ${newToken}`;
         return apiClient(originalRequest);
-      } catch (refreshError) {
-        // Refresh fehlgeschlagen → User muss neu einloggen
-        // AuthService.clearTokens() wurde bereits in refreshToken() aufgerufen
-        
-        // Optional: Redirect zu Login (aber NICHT hier, sondern in AuthContext)
-        // window.location.href = '/login';
-        
-        return Promise.reject(refreshError);
+      } catch {
+        AuthService.clearTokens();
+        SessionEventBus.emit({
+          type: "EXPIRED",
+          message: "Deine Sitzung ist abgelaufen. Bitte neu einloggen.",
+        });
+        return Promise.reject(error);
       }
     }
 
-    // ===== 403 FORBIDDEN: Keine Berechtigung → Event emittieren =====
+    /* ===== 403 → Session ODER Permission ===== */
     if (error.response?.status === 403) {
-      // User bleibt eingeloggt, aber hat keine Permission für diese Aktion
-      
-      // Extrahiere Details aus Request
+
+      // SESSION ABGELAUFEN (kommt bei euch als 403)
+      if (isSessionExpired403(error)) {
+        AuthService.clearTokens();
+        SessionEventBus.emit({
+          type: "EXPIRED",
+          message: "Deine Sitzung ist abgelaufen. Bitte neu einloggen.",
+        });
+        return Promise.reject(error);
+      }
+
+      //ECHTE BERECHTIGUNG FEHLT
       const method = originalRequest.method?.toUpperCase() || "GET";
       const resource = originalRequest.url || "unknown";
-      const responsePayload = error.response?.data as { message?: string } | undefined;
-      const message = responsePayload?.message || "Keine Berechtigung für diese Aktion";
+      const responsePayload = error.response.data as { message?: string } | undefined;
 
-      // Unterscheide zwischen GET (Blur-Overlay) und anderen Methoden (Toast)
-      const isGetRequest = method === "GET";
-
-      // Emittiere Event für UI-Feedback
       PermissionEventBus.emit({
         action: `${method} ${resource}`,
         resource,
-        message,
-        isGetRequest, // Neu: Flag für UI-Entscheidung
+        message: responsePayload?.message || "Keine Berechtigung für diese Aktion",
+        isGetRequest: method === "GET",
       });
 
-      // Error weiterwerfen (Component kann entscheiden wie sie reagiert)
       return Promise.reject(error);
     }
 
-    // ===== Alle anderen Errors: Durchleiten =====
+    /* ===== Andere Fehler ===== */
     return Promise.reject(error);
   }
 );

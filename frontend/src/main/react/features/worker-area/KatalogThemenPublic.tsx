@@ -599,12 +599,12 @@ export default function KatalogThemenPublic() {
 
   const available = topicCards.filter((c) => c.effectiveProgress === 0);
 
- const isCompletedCard = (c: TopicCardModel) =>
-  c.effectiveProgress >= 100 &&
-  (
-    (c.statusFromApi || "").toLowerCase() === "completed"
-    || c.statusFromApi == null // ← DAS IST DER FIX
-  );
+  const isCompletedCard = (c: TopicCardModel) =>
+    c.effectiveProgress >= 100 &&
+    (
+      (c.statusFromApi || "").toLowerCase() === "completed"
+      || c.statusFromApi == null // ← DAS IST DER FIX
+    );
 
 
   const planned = topicCards.filter((c) => {
@@ -617,8 +617,8 @@ export default function KatalogThemenPublic() {
   const allCompleted =
     topicCards.length > 0 &&
     done.length === topicCards.length;
-    
-console.log(allCompleted);
+
+  console.log(allCompleted);
 
   useEffect(() => {
     if (allCompleted) {
@@ -715,7 +715,8 @@ console.log(allCompleted);
 
     <div className="
         relative min-h-screen overflow-hidden
-        bg-[linear-gradient(135deg,hsl(0_0%_98%)_0%,hsl(215_20%_96%)_50%,hsl(0_0%_98%)_100%)]
+        bg-gray-200
+
         text-[hsl(215_80%_15%)]
       "
     >
@@ -786,7 +787,7 @@ console.log(allCompleted);
 
         {/* innerer Kreis */}
         <div
-          className="
+          className={`
     absolute inset-3 rounded-full
     bg-[#314856]
     border border-[rgba(210,201,185,0.45)]
@@ -794,8 +795,12 @@ console.log(allCompleted);
     flex flex-col items-center justify-center
     text-center
     text-white
-  "
+
+    transition-all duration-300 ease-out
+    ${bubbleActive ? "scale-[1.06] shadow-[0_25px_55px_rgba(15,23,42,0.45)] " : "scale-100"}
+  `}
         >
+
           {remaining ? (
             bubbleActive ? (
               /* HOVER: HH:MM:SS */
@@ -834,53 +839,36 @@ console.log(allCompleted);
           )}
 
         </div>
-
-
-        {/* Rechteck RECHTS – erscheint nur bei Hover / Drag */}
-        <div
-          className={`
-      absolute -right-8 top-4
-      h-20 w-8
-      rounded-[999px]
-      bg-white
-      border border-white/40
-      shadow-[0_14px_28px_rgba(15,23,42,0.28)]
-      transition-all duration-300
-      ${bubbleActive ? "opacity-100 translate-x-0" : "opacity-0 translate-x-2"}
-    `}
-        />
-
-        {/*  Rechteck UNTEN LINKS – erscheint nur bei Hover / Drag */}
-        <div
-          className={`
-      absolute -left-6 bottom-[-6px]
-      h-7 w-24
-      rounded-[999px]
-      bg-[rgba(227,187,98,0.20)]
-      border border-[rgba(227,187,98,0.55)]
-      shadow-[0_10px_24px_rgba(15,23,42,0.25)]
-      transition-all duration-300
-      ${bubbleActive ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"}
-    `}
-        />
       </div>
 
 
       <section className="pt-10 pb-8 px-5">
         <div className="max-w-[1120px] mx-auto flex flex-col gap-6">
           {/* Greeting + Timer zusammen */}
-          <div className="relative">
-            <GreetingBanner firstName={welcomeName} />
+          <div
+            className="
+    relative
+    rounded-3xl
+    border-2 border-slate-200/90
+    bg-white/60
+    shadow-[0_18px_50px_-28px_rgba(15,23,42,0.22)]
+    overflow-hidden
+  "
+          >
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.55)_0%,rgba(255,255,255,0)_55%)]" />
 
-            <div className="absolute left-1/2 bottom-4 -translate-x-1/2 translate-y-1/2">
-              <div className="inline-flex items-center gap-2 rounded-full bg-white/70 backdrop-blur-md px-4 py-2 shadow-md text-sm text-slate-700">
+            <div className="relative p-3 sm:p-4">
+              <GreetingBanner firstName={welcomeName} />
+            </div>
+
+            <div className="absolute left-1/2 bottom-3 -translate-x-1/2">
+              <div className="inline-flex items-center gap-2 rounded-full bg-white/85 px-4 py-2 text-sm text-slate-700 border border-slate-200 shadow-sm">
                 <span className="h-2 w-2 rounded-full bg-[#E3BB62]" />
                 Ziehen Sie die Zeit-Bubble nach Wunsch
               </div>
             </div>
-
-
           </div>
+
 
           {/* Stats-Cards direkt unter dem Banner */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6">
@@ -894,7 +882,7 @@ console.log(allCompleted);
 
       <section className="mb-8">
         <div className="max-w-[1280px] mx-auto px-4">
-          <div className="flex flex-wrap gap-2 justify-center border-b-2 border-slate-200">
+          <div className="flex flex-wrap gap-2 justify-center border-b-2 border-slate-300">
             <button className={tabBtn("available")} onClick={() => setActiveTab("available")}>
               Verfügbare Themen
             </button>
@@ -961,14 +949,18 @@ console.log(allCompleted);
         id="cap-footer"
         style={{ ["--cap-pattern" as any]: `url(${patternUrl})` }}
         className="
-        text-white
-        bg-[#264555]                    /* CAP primary */
-        [background-image:var(--cap-pattern)]
-        bg-repeat bg-left-top
-        [background-size:170px]         
-        py-16 pb-8
-      "
+    relative
+    text-white
+    bg-[#264555]
+    [background-image:var(--cap-pattern)]
+    bg-repeat bg-left-top
+    [background-size:170px]
+    py-16 pb-8
+
+    border-t border-white/15
+  "
       >
+
         <div className="container mx-auto px-6">
           {/* Headline */}
           <div className="pb-6 text-center">

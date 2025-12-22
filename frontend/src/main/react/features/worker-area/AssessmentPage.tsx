@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import FancyDatePicker from "@/shared/components/FancyDatePicker";
 import NumberField from "@/shared/components/NumberField";
@@ -279,18 +279,22 @@ export default function AssessmentPage() {
     title: "",
     description: "",
   });
-  const showToast = useCallback((title: string, description: string) => {
-    setToast({
-      visible: true,
-      title,
-      description,
-    });
+  const toastTimerRef = useRef<number | null>(null);
 
-    setTimeout(() => {
+  const showToast = useCallback((title: string, description: string) => {
+    setToast({ visible: true, title, description });
+
+    if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = window.setTimeout(() => {
       setToast(prev => ({ ...prev, visible: false }));
     }, 3000);
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+    };
+  }, []);
 
 
   //Wenn man die Seite neu lädst (gleiche assignmentId + themaId),
@@ -888,13 +892,13 @@ export default function AssessmentPage() {
         // ignore
       }
 
-     showToast("Hallo Aymen", "Willkommen in BookR!");
-setTimeout(() => {
-  goBackToTopics();
-}, 600);
+showToast("Erfolgreich", "Das Assessment wurde erfolgreich abgeschlossen.");      setTimeout(() => {
+        goBackToTopics();
+      }, 600);
 
     } catch (e) {
       console.error("completeSession failed", e);
+      showToast("Fehler", "Konnte das Assessment nicht abschließen. Bitte erneut versuchen.");
     } finally {
       setFinalizing(false);
     }
@@ -957,54 +961,53 @@ setTimeout(() => {
     );
   }
   if (completed) {
-    const totalScore =
-      score.totalScore ?? summary?.totalScore ?? 0;
-    const maxTotalScore =
-      score.maxTotalScore ?? summary?.maxPossibleScore ?? 0;
+    const totalScore = score.totalScore ?? summary?.totalScore ?? 0;
+    const maxTotalScore = score.maxTotalScore ?? summary?.maxPossibleScore ?? 0;
 
-    const percent = maxTotalScore > 0
-      ? Math.round((totalScore / maxTotalScore) * 100)
-      : (progress.total
-        ? Math.round((progress.answered / progress.total) * 100)
-        : pct);
+    const percent =
+      maxTotalScore > 0
+        ? Math.round((totalScore / maxTotalScore) * 100)
+        : progress.total
+          ? Math.round((progress.answered / progress.total) * 100)
+          : pct;
 
-    // Sicherstellen, dass wir ALLE UiQuestion-Metas haben
-     {toast.visible && (
-        <div className="fixed right-8 top-8 z-[9999]">
-          <div className="flex items-start gap-3 rounded-md border border-[#b7d8ad] bg-[#dff2d8] px-4 py-3 shadow-lg">
-            <div className="mt-0.5 flex h-7 w-7 items-center justify-center rounded-full bg-white/70 text-[#1f3a1f]">
-              ✓
-            </div>
-            <div className="leading-tight text-[#1f3a1f]">
-              <div className="font-semibold">{toast.title}</div>
-              <div className="font-medium">{toast.description}</div>
+    return (
+      <>
+        {toast.visible && (
+          <div className="fixed right-8 top-8 z-[9999]">
+            <div className="flex items-start gap-3 rounded-md border border-[#b7d8ad] bg-[#dff2d8] px-4 py-3 shadow-lg">
+              <div className="mt-0.5 flex h-7 w-7 items-center justify-center rounded-full bg-white/70 text-[#1f3a1f]">
+                ✓
+              </div>
+              <div className="leading-tight text-[#1f3a1f]">
+                <div className="font-semibold">{toast.title}</div>
+                <div className="font-medium">{toast.description}</div>
+              </div>
             </div>
           </div>
-        </div>
-      )}
-    return (
-      <AssessmentResults
-        topicName={topicName}
-        onRestart={restart}
-        onBackToTopics={goBackToTopics}
-        onComplete={finalizeSession}
-        onChangeAnswer={changeAnswerFromResults}
-        questionsById={questionsById}
-        answerValues={answers}
+        )}
 
-        answered={progress.answered}
-        total={progress.total}
-        totalScore={totalScore}
-        maxTotalScore={maxTotalScore}
-
-        percent={percent}
-        // Noch nicht „serverseitig completed“, eher vorläufige Auswertung
-        overallLevel="Vorläufige Auswertung"
-        completedAt={new Date().toISOString()}
-        summary={summary}
-      />
+        <AssessmentResults
+          topicName={topicName}
+          onRestart={restart}
+          onBackToTopics={goBackToTopics}
+          onComplete={finalizeSession}
+          onChangeAnswer={changeAnswerFromResults}
+          questionsById={questionsById}
+          answerValues={answers}
+          answered={progress.answered}
+          total={progress.total}
+          totalScore={totalScore}
+          maxTotalScore={maxTotalScore}
+          percent={percent}
+          overallLevel="Vorläufige Auswertung"
+          completedAt={new Date().toISOString()}
+          summary={summary}
+        />
+      </>
     );
   }
+
   console.log("Aktuelle Frage:", q);
   const isCurrentRequiredUnanswered = (() => {
     if (!q) return false;

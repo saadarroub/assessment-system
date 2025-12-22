@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { Trash2, Edit, Plus, X, Save } from 'lucide-react';
 import AdminLayout from "@/apps/app/AdminLayout";
+import PageHeader from '../../catalogs/PageHeader';
+import { Network } from 'lucide-react';
 
 // --- [Component 1] The Modal (Dialog) ---
-const ModelModal = ({ isOpen, onClose, onSave, initialData }) => {
+const ModelModal = ({ isOpen, onClose, onSave, initialData }:any) => {
   if (!isOpen) return null;
 
   const [name, setName] = useState(initialData?.name || '');
@@ -13,7 +15,7 @@ const ModelModal = ({ isOpen, onClose, onSave, initialData }) => {
     { id: 1, start: 0, end: 100, name: 'Initial Level' }
   ]);
 
-  const handleIntervalChange = (index, newEnd) => {
+  const handleIntervalChange = (index :any, newEnd:any) => {
     const updatedIntervals = [...intervals];
     const current = updatedIntervals[index];
     
@@ -49,9 +51,9 @@ const ModelModal = ({ isOpen, onClose, onSave, initialData }) => {
     ]);
   };
 
-  const removeInterval = (index) => {
+  const removeInterval = (index:any) => {
     if (intervals.length === 1) return;
-    const updated = intervals.filter((_, i) => i !== index);
+    const updated = intervals.filter(( i:any) => i !== index);
     
     if (index > 0) {
        updated[index].start = updated[index - 1].end + 1;
@@ -84,6 +86,7 @@ const ModelModal = ({ isOpen, onClose, onSave, initialData }) => {
             <X size={24} />
           </button>
         </div>
+        
 
         {/* Body */}
         <div className="p-6 space-y-6">
@@ -126,7 +129,7 @@ const ModelModal = ({ isOpen, onClose, onSave, initialData }) => {
             </div>
             
             <div className="space-y-4 bg-gray-50 p-4 rounded-lg">
-              {intervals.map((interval, idx) => (
+              {intervals.map((interval :any, idx:any) => (
                 <div key={interval.id} className="flex items-center gap-4 bg-white p-3 rounded shadow-sm border border-gray-200">
                   {/* Start Value (Read Only usually) */}
                   <div className="w-16 text-center">
@@ -220,18 +223,18 @@ export default function MaturityModelPage() {
     setIsModalOpen(true);
   };
 
-  const handleEdit = (model) => {
+  const handleEdit = (model :any) => {
     setEditingModel(model);
     setIsModalOpen(true);
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = (id :any) => {
     if (window.confirm("Möchten Sie dieses Modell wirklich löschen?")) {
       setModels(models.filter(m => m.id !== id));
     }
   };
 
-  const handleSaveModel = (modelData) => {
+  const handleSaveModel = (modelData :any) => {
     if (modelData.id) {
       // Update existing
       setModels(models.map(m => m.id === modelData.id ? modelData : m));
@@ -243,14 +246,21 @@ export default function MaturityModelPage() {
 
   return (
       <AdminLayout>
+         <PageHeader
+
+        title=" Reifegradmodelle Administration"
+        subtitle=" Verwalten Sie hier die Bewertungsschemata für Reifegradmodelle"
+        icon={<Network size={40} />}
+        gradient="navy"
+        height="280px"
+        showPattern={true}
+        center={false}
+      />
     <div className="p-8 bg-gray-50 min-h-screen">
       <div className="max-w-6xl mx-auto">
         {/* Header Section */}
         <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Reifegradmodelle</h1>
-            <p className="text-gray-500">Verwalten Sie hier die Bewertungsschemata.</p>
-          </div>
+          
           <button 
             onClick={handleAddNew}
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow flex items-center gap-2 transition"
@@ -302,7 +312,7 @@ export default function MaturityModelPage() {
               ))}
               {models.length === 0 && (
                 <tr>
-                  <td colSpan="4" className="p-8 text-center text-gray-500">
+                  <td colSpan={4} className="p-8 text-center text-gray-500">
                     Keine Modelle gefunden. Erstellen Sie ein neues Modell.
                   </td>
                 </tr>

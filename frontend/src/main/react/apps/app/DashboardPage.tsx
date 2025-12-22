@@ -32,7 +32,6 @@ import { formatDistanceToNow } from "@/shared/utils/dateUtils";
 import { Network } from "lucide-react";
 import PageHeader from "@/features/admin-area/catalogs/PageHeader";
 
-/* ===== Farb-Tokens (wie auf anderen Admin-Seiten) ===== */
 const CSS = {
   border: "hsl(var(--border,30 15% 85%))",
   fg: "hsl(var(--foreground,205 35% 24%))",
@@ -44,7 +43,7 @@ const BRAND = {
   gray: "#808080",
   sand: "#d2c9b9",
   fog: "#ebebec",
-  gold: "#E3BB62", // Banana
+  gold: "#E3BB62", 
 };
 
 type StatCardProps = {
@@ -248,24 +247,8 @@ export function DashboardPage() {
       {/* ===== Hintergrund unterhalb des Headers ===== */}
       <main
         className="mt-0 min-h-[calc(100vh-64px)] px-6 pb-10 pt-20"
-        style={{
-          background:
-            "radial-gradient(circle at 0 0, rgba(227,187,98,0.13) 0, transparent 40%)," +
-            "radial-gradient(circle at 100% 0, rgba(56,189,248,0.10) 0, transparent 42%)," +
-            "linear-gradient(to bottom, #f3f4f7 0, #e6e9ef 240px, #f4f5f8 100%)",
-        }}
+       
       >
-        <div
-          className="
-            mx-auto
-            max-w-[1400px] xl:max-w-[1600px]
-            rounded-[16px]
-            border
-            p-6 md:p-7
-            shadow-[0_1px_0_rgba(0,0,0,.02),_0_18px_40px_-24px_rgba(38,69,85,.35)]
-          "
-          style={{ borderColor: CSS.border, background: BRAND.fog }}
-        >
           {/* ===== Top-Row: KPIs ===== */}
           <section className="mb-6">
             <div className="mb-3 flex items-center justify-between gap-2">
@@ -640,7 +623,7 @@ export function DashboardPage() {
               )}
             </div>
           </section>
-        </div>
+        
       </main>
     </AdminLayout>
   );

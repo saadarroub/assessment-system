@@ -66,7 +66,7 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
   const [companyId, setCompanyId] = useState("");
   const [recipientIds, setRecipientIds] = useState<string[]>([]);
   const [description, setDescription] = useState("");
-  const [dueDate, setDueDate] = useState<string>("");
+const [dueDateTime, setDueDateTime] = useState<string>(""); // für <input type="datetime-local">
   const [note, setNote] = useState("");
 
   // Auswahl Kataloge
@@ -287,7 +287,7 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
 
 
   /* ---------- Form/Actions ---------- */
-  const canAssign = !!companyId && recipientIds.length > 0 && !!selectedCatalogId && !!dueDate;
+const canAssign = !!companyId && recipientIds.length > 0 && !!selectedCatalogId && !!dueDateTime;
 
   function toggleRecipient(id: string) {
     setRecipientIds(prev => (prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]));
@@ -349,14 +349,13 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
     }
 
     const catalogId = selectedCatalogId;
-    if (!catalogId) return;
+    if (!dueDateTime) {
+  alert("Bitte ein Fälligkeitsdatum wählen.");
+  return;
+}
 
-    if (!dueDate) {
-      alert("Bitte ein Fälligkeitsdatum wählen.");
-      return;
-    }
+const expiresAt = formatLocalDateTimeToIsoSeconds(dueDateTime);
 
-    const expiresAt = `${dueDate}T00:00:00.000`;
 
     const payload = {
       workerIds: recipientIds,
@@ -463,6 +462,22 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
       return;
     }
   }
+  function formatLocalDateTimeToIsoSeconds(local: string) {
+  // local: "2025-12-07T00:00"
+  const d = new Date(local);
+
+  const pad = (n: number) => String(n).padStart(2, "0");
+
+  return (
+    `${d.getFullYear()}-` +
+    `${pad(d.getMonth() + 1)}-` +
+    `${pad(d.getDate())}T` +
+    `${pad(d.getHours())}:` +
+    `${pad(d.getMinutes())}:` +
+    `${pad(d.getSeconds())}`
+  );
+}
+
   /* ------------------------------- RENDER -------------------------------- */
 
   return (
@@ -654,13 +669,14 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
                   <label className="text-sm font-medium text-slate-700">
                     Fällig am <span className="text-red-500">*</span>
                   </label>
-                  <input
-                    type="date"
-                    className="h-11 w-full rounded-lg border border-slate-300 px-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/10"
-                    value={dueDate}
-                    required
-                    onChange={(e) => setDueDate(e.target.value)}
-                  />
+                 <input
+  type="datetime-local"
+  className="h-11 w-full rounded-lg border border-slate-300 px-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/10"
+  value={dueDateTime}
+  required
+  onChange={(e) => setDueDateTime(e.target.value)}
+/>
+
                 </div>
 
                 {/* Notiz */}

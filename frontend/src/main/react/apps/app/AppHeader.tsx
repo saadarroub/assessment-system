@@ -8,15 +8,45 @@ export default function AppHeader() {
   const [scrolled, setScrolled] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const [reveal, setReveal] = useState(false);
+  const [scrollDir, setScrollDir] = useState<"up" | "down">("up");
+  const [wasScrollingDown, setWasScrollingDown] = useState(false);
 
-  // Scroll-Listener: Header komprimiert sich beim Runterscrollen
+
   useEffect(() => {
+    let lastY = window.scrollY;
+
     const onScroll = () => {
-      setScrolled(window.scrollY > 20); // ab ~20px scrollen wird kleiner
+      const y = window.scrollY;
+
+      // "scrolled" 
+      setScrolled(y > 20);
+
+      // Scrollrichtung bestimmen (mit kleiner Deadzone)
+      const delta = y - lastY;
+      if (Math.abs(delta) > 6) {
+        const dir = delta > 0 ? "down" : "up";
+        setScrollDir(dir);
+
+        // Reveal-Animation nur wenn wir NACH OBEN scrollen
+        if (dir === "down") {
+          setWasScrollingDown(true);
+        }
+
+        if (dir === "up" && wasScrollingDown && y > 120) {
+          setReveal(true);
+          requestAnimationFrame(() => setReveal(false));
+          setWasScrollingDown(false);
+        }
+
+
+      }
+
+      lastY = y;
     };
 
     onScroll(); // initial
-    window.addEventListener("scroll", onScroll);
+    window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
@@ -52,37 +82,41 @@ export default function AppHeader() {
   const linkCls = ({ isActive }: { isActive: boolean }) =>
     `${baseNavLink} ${isActive ? activeNavLink : ""}`;
   const themenCls = `${baseNavLink} ${isThemenActive ? activeNavLink : ""}`;
-
   const headerBase =
-    "sticky top-0 z-40 border-b border-[#ebebec] bg-gradient-to-b from-white to-[#f7f7f5] transition-all duration-300";
-  const headerNotScrolledShadow = "shadow-[0_4px_12px_rgba(0,0,0,0.04)]";
+    "sticky top-0 z-40 bg-gradient-to-b from-white to-[#f7f7f5] transition-[box-shadow,background-color,backdrop-filter] duration-300";
+
+
+  const headerNotScrolledShadow =
+    "shadow-[0_1px_0_rgba(38,69,85,0.08),0_6px_12px_rgba(0,0,0,0.04)]";
+
   const headerScrolledExtra =
     "bg-white/95 backdrop-blur shadow-[0_6px_18px_rgba(0,0,0,0.08)]";
 
   return (
     <header
-      className={`${headerBase} ${
-        scrolled ? headerScrolledExtra : headerNotScrolledShadow
-      }`}
+      className={[
+        headerBase,
+        scrolled ? headerScrolledExtra : headerNotScrolledShadow,
+        "transform-gpu will-change-transform transition-all duration-200 ease-out",
+        reveal ? "-translate-y-[10px]" : "translate-y-0",
+
+      ].join(" ")}
     >
+
       {/* dünne CAP-Gold-Linie oben */}
       <div className="h-[2px] w-full bg-[#E3BB62]/80" />
 
       <div className="max-w-6xl mx-auto px-4 md:px-8">
         {/* eine Reihe: Logo | Nav | Textblock */}
-        <div
-          className={`flex items-center justify-between gap-6 ${
-            scrolled ? "py-2 md:py-2.5" : "py-3 md:py-3.5"
-          } transition-all duration-300`}
-        >
+        <div className="flex items-center justify-between gap-6 py-3 md:py-7">
+
           {/* LINKS: Logo */}
           <div className="flex items-center flex-none">
             <img
               src={logoCap}
               alt="CAP consulting"
-              className={`w-auto transition-all duration-300 ${
-                scrolled ? "h-8 md:h-9" : "h-9 md:h-10"
-              }`}
+              className={`w-auto transition-all duration-300 ${scrolled ? "h-8 md:h-9" : "h-9 md:h-10"
+                }`}
             />
           </div>
 
@@ -135,9 +169,8 @@ export default function AppHeader() {
 
             {/* Haupttitel mit Gradient-Underline + leichter Animation */}
             <h1
-              className={`relative mt-[2px] font-semibold text-[#264555] transition-all duration-300 ${
-                scrolled ? "text-[17px]" : "text-[19px]"
-              }`}
+              className={`relative mt-[2px] font-semibold text-[#264555] transition-all duration-300 ${scrolled ? "text-[17px]" : "text-[19px]"
+                }`}
             >
               <span className="relative z-10 px-1">Umfrage Plattform</span>
               <span
@@ -172,19 +205,16 @@ export default function AppHeader() {
           >
             <div className="flex flex-col gap-[3px]">
               <span
-                className={`h-[2px] w-5 rounded-full bg-[#264555] transition-transform ${
-                  mobileOpen ? "translate-y-[5px] rotate-45" : ""
-                }`}
+                className={`h-[2px] w-5 rounded-full bg-[#264555] transition-transform ${mobileOpen ? "translate-y-[5px] rotate-45" : ""
+                  }`}
               />
               <span
-                className={`h-[2px] w-4 rounded-full bg-[#264555] transition-opacity ${
-                  mobileOpen ? "opacity-0" : "opacity-100"
-                }`}
+                className={`h-[2px] w-4 rounded-full bg-[#264555] transition-opacity ${mobileOpen ? "opacity-0" : "opacity-100"
+                  }`}
               />
               <span
-                className={`h-[2px] w-5 rounded-full bg-[#264555] transition-transform ${
-                  mobileOpen ? "-translate-y-[5px] -rotate-45" : ""
-                }`}
+                className={`h-[2px] w-5 rounded-full bg-[#264555] transition-transform ${mobileOpen ? "-translate-y-[5px] -rotate-45" : ""
+                  }`}
               />
             </div>
           </button>
@@ -194,9 +224,8 @@ export default function AppHeader() {
       {/* Mobile Navigation Panel */}
       <div
         id="mobileNav"
-        className={`lg:hidden border-t border-[#ebebec] bg-white shadow-sm transition-all duration-200 origin-top ${
-          mobileOpen ? "max-h-80 opacity-100" : "max-h-0 opacity-0 overflow-hidden"
-        }`}
+        className={`lg:hidden border-t border-[#ebebec] bg-white shadow-sm transition-all duration-200 origin-top ${mobileOpen ? "max-h-80 opacity-100" : "max-h-0 opacity-0 overflow-hidden"
+          }`}
       >
         <nav className="flex flex-col py-2 px-4 gap-1">
           {/* Textblock im Mobile-Menü – gleiche Optik wie Desktop, nur linksbündig */}
@@ -231,10 +260,9 @@ export default function AppHeader() {
             to="/startseite"
             end
             className={({ isActive }) =>
-              `px-2 py-2 text-sm rounded-md ${
-                isActive
-                  ? "text-[#264555] font-semibold bg-[#ebebec]/60"
-                  : "text-[#264555]/80 hover:bg-[#ebebec]/40"
+              `px-2 py-2 text-sm rounded-md ${isActive
+                ? "text-[#264555] font-semibold bg-[#ebebec]/60"
+                : "text-[#264555]/80 hover:bg-[#ebebec]/40"
               }`
             }
             onClick={() => setMobileOpen(false)}
@@ -256,10 +284,9 @@ export default function AppHeader() {
             to="/app/help"
             end
             className={({ isActive }) =>
-              `mt-1 px-2 py-2 text-sm rounded-md ${
-                isActive
-                  ? "text-[#264555] font-semibold bg-[#ebebec]/60"
-                  : "text-[#264555]/80 hover:bg-[#ebebec]/40"
+              `mt-1 px-2 py-2 text-sm rounded-md ${isActive
+                ? "text-[#264555] font-semibold bg-[#ebebec]/60"
+                : "text-[#264555]/80 hover:bg-[#ebebec]/40"
               }`
             }
             onClick={() => setMobileOpen(false)}
@@ -271,10 +298,9 @@ export default function AppHeader() {
             to="/app/contact"
             end
             className={({ isActive }) =>
-              `mt-1 px-2 py-2 text-sm rounded-full ${
-                isActive
-                  ? "bg-[#E3BB62] text-[#264555] font-semibold shadow-md"
-                  : "bg-[#E3BB62]/90 text-[#264555] font-semibold hover:bg-[#E3BB62]"
+              `mt-1 px-2 py-2 text-sm rounded-full ${isActive
+                ? "bg-[#E3BB62] text-[#264555] font-semibold shadow-md"
+                : "bg-[#E3BB62]/90 text-[#264555] font-semibold hover:bg-[#E3BB62]"
               }`
             }
             onClick={() => setMobileOpen(false)}
@@ -283,6 +309,15 @@ export default function AppHeader() {
           </NavLink>
         </nav>
       </div>
+      <div className="
+  pointer-events-none
+  h-[1px]
+  w-full
+  bg-gradient-to-r
+  from-transparent
+  via-[#264555]/20
+  to-transparent
+" />
     </header>
   );
 }

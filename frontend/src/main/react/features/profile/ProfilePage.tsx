@@ -110,7 +110,19 @@ const EyeIcon: React.FC = () => (
   </svg>
 );
 
-/* ===== Passwort-Bereich ===== */
+const SkeletonLine = ({ className = "" }: { className?: string }) => (
+  <div
+    className={`animate-pulse rounded-lg bg-white/15 ${className}`}
+    aria-hidden="true"
+  />
+);
+
+const SkeletonInput = ({ className = "" }: { className?: string }) => (
+  <div
+    className={`h-11 animate-pulse rounded-lg bg-slate-200/60 ${className}`}
+    aria-hidden="true"
+  />
+);
 
 /* ===== Passwort-Bereich ===== */
 
@@ -550,7 +562,7 @@ const EmployeeProfile: React.FC = () => {
         postalCode: undefined,
         city: undefined,
         country: undefined,
-        currentPassword: profilePassword,   // ✅ HIER
+        currentPassword: profilePassword,
       };
 
       await updateUserProfile(auth.user.id, body);
@@ -650,11 +662,11 @@ const EmployeeProfile: React.FC = () => {
 
       if (url) {
         setAvatarImage(url);
-         window.dispatchEvent(
-        new CustomEvent("profile:avatar-updated", {
-          detail: { avatarUrl: url },
-        })
-      );
+        window.dispatchEvent(
+          new CustomEvent("profile:avatar-updated", {
+            detail: { avatarUrl: url },
+          })
+        );
         closeUploadModal();
       }
 
@@ -679,11 +691,11 @@ const EmployeeProfile: React.FC = () => {
     try {
       await deleteAvatar(auth.user.id);
       setAvatarImage(null);
-       window.dispatchEvent(
-      new CustomEvent("profile:avatar-updated", {
-        detail: { avatarUrl: null },
-      })
-    );
+      window.dispatchEvent(
+        new CustomEvent("profile:avatar-updated", {
+          detail: { avatarUrl: null },
+        })
+      );
       showSuccess("Ihr Profilfoto wurde entfernt.");
 
     } catch (err) {
@@ -693,60 +705,60 @@ const EmployeeProfile: React.FC = () => {
     }
   };
 
-const handlePasswordReset = async (
-  current: string,
-  next: string,
-  confirm: string
-) => {
-  const auth = getAuthSession();
-  if (!auth) {
-    showError("Die Sitzung ist abgelaufen. Bitte melde dich erneut an.");
-    throw new Error("Session expired");
-  }
-
-  try {
-    const body: ChangePasswordRequest = {
-      currentPassword: current,
-      newPassword: next,
-      confirmPassword: confirm,
-    };
-
-    // Passwort im Backend ändern
-    await changePassword(auth.user.id, body);
-
-    showSuccess("Ihr Passwort wurde erfolgreich geändert.");
-
-    // Backend-Logout (Refresh-Token-Cookie + Session auf Server)
-    //    accessToken kommt aus deiner AuthSession
-    await logoutApi(auth.accessToken);
-
-    //  Lokale Session löschen
-    sessionStorage.removeItem("auth_session");
-
-    // zur Login-Seite schicken
-    window.location.href = "/login";
-  } catch (err: any) {
-    console.error("Fehler beim Zurücksetzen des Passworts", err);
-
-    const backendMsg =
-      err?.response?.data?.message ??
-      err?.response?.data?.error ??
-      err?.message;
-
-    if (backendMsg) {
-      showError(backendMsg);
-    } else {
-      showError("Das Passwort konnte nicht geändert werden.");
+  const handlePasswordReset = async (
+    current: string,
+    next: string,
+    confirm: string
+  ) => {
+    const auth = getAuthSession();
+    if (!auth) {
+      showError("Die Sitzung ist abgelaufen. Bitte melde dich erneut an.");
+      throw new Error("Session expired");
     }
 
-    // weiterwerfen, damit dein Modal die Fehlermeldung anzeigen kann
-    throw err;
-  }
-};
+    try {
+      const body: ChangePasswordRequest = {
+        currentPassword: current,
+        newPassword: next,
+        confirmPassword: confirm,
+      };
+
+      // Passwort im Backend ändern
+      await changePassword(auth.user.id, body);
+
+      showSuccess("Ihr Passwort wurde erfolgreich geändert.");
+
+      // Backend-Logout (Refresh-Token-Cookie + Session auf Server)
+      //    accessToken kommt aus deiner AuthSession
+      await logoutApi(auth.accessToken);
+
+      //  Lokale Session löschen
+      sessionStorage.removeItem("auth_session");
+
+      // zur Login-Seite schicken
+      window.location.href = "/login";
+    } catch (err: any) {
+      console.error("Fehler beim Zurücksetzen des Passworts", err);
+
+      const backendMsg =
+        err?.response?.data?.message ??
+        err?.response?.data?.error ??
+        err?.message;
+
+      if (backendMsg) {
+        showError(backendMsg);
+      } else {
+        showError("Das Passwort konnte nicht geändert werden.");
+      }
+
+      // weiterwerfen, damit dein Modal die Fehlermeldung anzeigen kann
+      throw err;
+    }
+  };
 
 
   const initials =
-    viewProfile.name
+    (viewProfile.name ?? "")
       .trim()
       .split(" ")
       .filter(Boolean)
@@ -769,170 +781,201 @@ const handlePasswordReset = async (
       >
 
         <div className="mx-auto max-w-6xl">
-          {loading ? (
-            <div className="space-y-6">
-              <div className="h-72 rounded-3xl bg-slate-200/60 animate-pulse" />
-              <div className="h-64 rounded-2xl bg-slate-200/60 animate-pulse" />
-            </div>
-          ) : (
-            <>
-              {/* HERO */}
-              <section className="relative mb-10 overflow-hidden rounded-3xl bg-gradient-to-r from-[#182734] via-[#264555] to-[#182734] p-8 md:p-10 text-white shadow-[0_18px_45px_rgba(8,20,35,0.75)]">
-                <div
-                  className="pointer-events-none absolute -left-24 -top-24 h-56 w-56 rounded-full bg-[#E3BB62]/40 blur-3xl"
-                  aria-hidden="true"
-                />
-                <div
-                  className="pointer-events-none absolute -right-24 bottom-[-80px] h-64 w-64 rounded-full bg-[#56768f]/45 blur-3xl"
-                  aria-hidden="true"
-                />
+          {/* HERO */}
+          <section className="relative mb-10 overflow-hidden rounded-3xl bg-gradient-to-r from-[#182734] via-[#264555] to-[#182734] p-8 md:p-10 text-white">
+            <div
+              className="pointer-events-none absolute -left-24 -top-24 h-56 w-56 rounded-full bg-[#E3BB62]/40 blur-3xl"
+              aria-hidden="true"
+            />
+            <div
+              className="pointer-events-none absolute -right-24 bottom-[-80px] h-64 w-64 rounded-full bg-[#56768f]/45 blur-3xl"
+              aria-hidden="true"
+            />
 
-                <div
-                  className="pointer-events-none absolute inset-[-40px] opacity-18 mix-blend-soft-light"
-                  aria-hidden="true"
-                  style={{
-                    backgroundImage:
-                      "linear-gradient(135deg, rgba(255,255,255,0.18) 1px, transparent 1px)",
-                    backgroundSize: "28px 28px",
-                  }}
-                />
+            <div
+              className="pointer-events-none absolute inset-[-40px] opacity-18"
+              aria-hidden="true"
+              style={{
+                backgroundImage:
+                  "linear-gradient(135deg, rgba(255,255,255,0.18) 1px, transparent 1px)",
+                backgroundSize: "28px 28px",
+              }}
+            />
 
-                <div className="relative z-10 flex flex-col gap-8 md:flex-row md:items-center md:justify-between">
-                  <div className="max-w-xl space-y-4">
-                    <div className="inline-flex items-center gap-3 rounded-3xl border border-white/25 bg-white/10 px-4 py-2 backdrop-blur-md shadow-[0_12px_30px_rgba(0,0,0,0.45)]">
-                      <div className="relative">
-                        <div className="absolute inset-[-8px] rounded-full border border-white/25 opacity-60" />
-                        <span className="absolute -top-1 right-2 h-[5px] w-[5px] rounded-full bg-[#E3BB62]" />
-                        <span className="absolute bottom-0 -left-1 h-[4px] w-[4px] rounded-full bg-sky-300" />
-                        <div className="relative flex h-10 w-10 items-center justify-center rounded-full bg-white/15 border border-white/40 text-white">
-                          <User size={22} />
-                        </div>
-                      </div>
-
-                      <div className="flex flex-col">
-                        <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/70">
-                          SYSTEM · MANAGEMENT
-                        </span>
-                        <span className="text-[11px] text-white/85">
-                          Management & Administration der Plattform
-                        </span>
-                      </div>
+            <div className="relative z-10 flex flex-col gap-8 md:flex-row md:items-center md:justify-between">
+              <div className="max-w-xl space-y-4">
+                <div className="inline-flex items-center gap-3 rounded-3xl border border-white/25 bg-white/10 px-4 py-2 backdrop-blur-md ">
+                  <div className="relative">
+                    <div className="absolute inset-[-8px] rounded-full border border-white/25 opacity-60" />
+                    <span className="absolute -top-1 right-2 h-[5px] w-[5px] rounded-full bg-[#E3BB62]" />
+                    <span className="absolute bottom-0 -left-1 h-[4px] w-[4px] rounded-full bg-sky-300" />
+                    <div className="relative flex h-10 w-10 items-center justify-center rounded-full bg-white/15 border border-white/40 text-white">
+                      <User size={22} />
                     </div>
+                  </div>
 
-                    <div>
-                      <h1 className="text-3xl md:text-4xl font-extrabold tracking-wide drop-shadow-[0_4px_12px_rgba(0,0,0,0.45)]">
-                        Mein Profil
-                      </h1>
-                      <p className="mt-2 text-sm md:text-base text-white/90 max-w-xl">
-                        Verwalte deine persönlichen Daten und Zugangsdaten im
-                        Profiler.
-                      </p>
-                    </div>
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/70">
+                      SYSTEM · MANAGEMENT
+                    </span>
+                    <span className="text-[11px] text-white/85">
+                      Management & Administration der Plattform
+                    </span>
+                  </div>
+                </div>
 
-                    <div className="mt-4 flex justify-left">
-                      <div
-                        className="
+                <div>
+                  <h1 className="text-3xl md:text-4xl font-extrabold tracking-wide drop-shadow-[0_4px_12px_rgba(0,0,0,0.45)]">
+                    Mein Profil
+                  </h1>
+                  <p className="mt-2 text-sm md:text-base text-white/90 max-w-xl">
+                    Verwalte deine persönlichen Daten und Zugangsdaten im
+                    Profiler.
+                  </p>
+                </div>
+
+                <div className="mt-4 flex justify-left">
+                  <div
+                    className="
                           relative inline-flex items-center gap-2
                           rounded-full border border-white/30
                           bg-gradient-to-r from-white/10 via-white/5 to-transparent
                           px-5 py-1.5
                           text-[11px] font-medium tracking-wide
                           text-white/90
-                          shadow-[0_10px_25px_rgba(0,0,0,0.55)]
                           backdrop-blur-md
                         "
-                      >
-                        <span
-                          className="
+                  >
+                    <span
+                      className="
                             h-2.5 w-2.5 rounded-full bg-[#E3BB62]
-                            shadow-[0_0_12px_rgba(227,187,98,0.9)]
                           "
-                        />
-                        <span className="whitespace-nowrap">
-                          CapConsulting ·{" "}
-                          <span className="font-semibold text-[#E3BB62]">
-                            ICA³
-                          </span>
-                        </span>
-                      </div>
-                    </div>
+                    />
+                    <span className="whitespace-nowrap">
+                      CapConsulting ·{" "}
+                      <span className="font-semibold text-[#E3BB62]">
+                        ICA³
+                      </span>
+                    </span>
                   </div>
+                </div>
+              </div>
 
-                  <div className="relative flex flex-1 items-center justify-center md:justify-end">
-                    <div className="flex flex-col items-center gap-4 rounded-3xl bg-white/8 px-6 py-6 text-white shadow-[0_16px_40px_rgba(0,0,0,0.65)] border border-white/15 backdrop-blur-xl md:flex-row md:gap-6">
-                      <div className="relative shrink-0 flex flex-col items-center gap-2">
-                        {/* Avatar-Kreis */}
+              <div className="relative flex flex-1 items-center justify-center md:justify-end">
+                <div className="relative isolate overflow-hidden transform-gpu flex flex-col items-center gap-4 rounded-3xl px-6 py-6 text-white shadow-[0_16px_40px_rgba(0,0,0,0.65)] border border-white/15 md:flex-row md:gap-6">
+                  {/* Blur-Layer separat (stabil) */}
+                  <div
+                    className="absolute inset-0 rounded-3xl backdrop-blur-xl"
+                    style={{ background: "rgba(255,255,255,0.08)" }}
+                    aria-hidden="true"
+                  />
+
+                  {/* Dark-Mask gegen hellen Balken */}
+                  <div
+                    className="absolute inset-0 rounded-3xl"
+                    style={{
+                      background:
+                        "linear-gradient(to bottom, rgba(24,39,52,0.55) 0%, rgba(24,39,52,0.18) 45%, rgba(24,39,52,0.08) 100%)",
+                    }}
+                    aria-hidden="true"
+                  />
+
+                  {/* Content */}
+                  <div className="relative z-10 flex flex-col items-center gap-4 md:flex-row md:gap-6">
+                    <div className="relative shrink-0 flex flex-col items-center gap-2">
+                      {/* Avatar-Kreis */}
+                      <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border-4 border-white/40 bg-white/10 text-3xl font-bold text-white">
                         <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border-4 border-white/40 bg-white/10 text-3xl font-bold text-white">
-                          {avatarImage ? (
-                            <img
-                              src={avatarImage}
-                              alt="Avatar"
-                              className="h-full w-full object-cover"
-                            />
+                          {loading ? (
+                            <div className="h-full w-full animate-pulse bg-white/10" />
+                          ) : avatarImage ? (
+                            <img src={avatarImage} alt="Avatar" className="h-full w-full object-cover" />
                           ) : (
                             initials
                           )}
                         </div>
 
-                        {/* Overlay-Button: Kamera ODER Mülleimer */}
-                        <button
-                          type="button"
-                          onClick={avatarImage ? handleAvatarDelete : openUploadModal}
-                          className="absolute bottom-1 right-1 flex h-9 w-9 items-center justify-center rounded-full bg-white text-[#264555] shadow-md hover:bg-[#ebebec]"
-                          aria-label={avatarImage ? "Profilfoto entfernen" : "Profilfoto hochladen"}
-                        >
-                          {avatarImage ? (
-                            // 🔴 Mülleimer, wenn Bild vorhanden
-                            <Trash2 size={18} />
-                          ) : (
-                            // 📸 Kamera, wenn KEIN Bild vorhanden
-                            <svg
-                              width="18"
-                              height="18"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                            >
-                              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
-                              <circle cx="12" cy="13" r="4"></circle>
-                            </svg>
-                          )}
-                        </button>
                       </div>
 
-                      <div className="space-y-1 text-sm text-slate-100 text-center md:text-left">
-                        <div className="text-base font-semibold text-white">
-                          {viewProfile.name}
-                        </div>
-                        <div className="space-y-1 text-xs">
-                          <div className="flex items-center justify-center md:justify-start gap-2">
-                            <Mail size={14} className="text-[#E3BB62]" />
-                            <span>{viewProfile.email}</span>
-                          </div>
-                          <div className="flex items-center justify-center md:justify-start gap-2">
-                            <Phone size={14} className="text-[#E3BB62]" />
-                            <span>{viewProfile.phone}</span>
-                          </div>
-                          <div className="flex items-center justify-center md:justify-start gap-2">
-                            <MapPin size={14} className="text-[#E3BB62]" />
-                            <span>{viewProfile.address}</span>
-                          </div>
-                        </div>
-                        {profileUpdated && (
-                          <p className="mt-2 text-[11px] text-slate-200">
-                            {profileUpdated}
-                          </p>
+                      {/* Overlay-Button: Kamera ODER Mülleimer */}
+                      <button
+                        type="button"
+                        disabled={loading}
+                        onClick={avatarImage ? handleAvatarDelete : openUploadModal}
+                        className="absolute bottom-1 right-1 flex h-9 w-9 items-center justify-center rounded-full bg-white text-[#264555] shadow-md hover:bg-[#ebebec] disabled:opacity-60 disabled:cursor-not-allowed"
+                        aria-label={avatarImage ? "Profilfoto entfernen" : "Profilfoto hochladen"}
+                      >
+                        {avatarImage ? (
+                          <Trash2 size={18} />
+                        ) : (
+                          <svg
+                            width="18"
+                            height="18"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                          >
+                            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                            <circle cx="12" cy="13" r="4"></circle>
+                          </svg>
                         )}
+                      </button>
+                    </div>
+
+                    <div className="min-h-[92px] space-y-1 text-sm text-slate-100 text-center md:text-left">
+
+                      <div className="text-base font-semibold text-white">
+                        {loading ? <SkeletonLine className="h-5 w-48" /> : viewProfile.name}
                       </div>
+
+                      <div className="space-y-1 text-xs">
+                        <div className="flex items-center justify-center md:justify-start gap-2">
+                          <Mail size={14} className="text-[#E3BB62]" />
+                          {loading ? (
+                            <SkeletonLine className="h-3 w-56" />
+                          ) : (
+                            <span>{viewProfile.email}</span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center justify-center md:justify-start gap-2">
+                          <Phone size={14} className="text-[#E3BB62]" />
+                          {loading ? (
+                            <SkeletonLine className="h-3 w-40" />
+                          ) : (
+                            <span>{viewProfile.phone}</span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center justify-center md:justify-start gap-2">
+                          <MapPin size={14} className="text-[#E3BB62]" />
+                          {loading ? (
+                            <SkeletonLine className="h-3 w-64" />
+                          ) : (
+                            <span>{viewProfile.address}</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {loading ? (
+                        <SkeletonLine className="mt-2 h-3 w-44" />
+                      ) : (
+                        profileUpdated && (
+                          <p className="mt-2 text-[11px] text-slate-200">{profileUpdated}</p>
+                        )
+                      )}
                     </div>
                   </div>
                 </div>
-              </section>
 
-              {/* Unterer Bereich: Profil-Einstellungen */}
-              <div
-                className="
+              </div>
+            </div>
+          </section>
+
+          {/* Unterer Bereich: Profil-Einstellungen */}
+          <div
+            className="
     mx-auto max-w-4xl space-y-6
     mt-2
     rounded-[26px]
@@ -940,12 +983,12 @@ const handlePasswordReset = async (
     px-4 py-5 md:px-6 md:py-7
     bg-gradient-to-b from-[#f3f4f7] via-[#f9fafb] to-[#ffffff]
   "
-                style={{ borderColor: BRAND.sand }}
-              >
-                {/* kleiner Chip oben */}
-                <div className="mb-3 flex justify-start">
-                  <div
-                    className="
+            style={{ borderColor: BRAND.sand }}
+          >
+            {/* kleiner Chip oben */}
+            <div className="mb-3 flex justify-start">
+              <div
+                className="
         inline-flex items-center gap-2 rounded-full
         border border-[#ebebec]
         bg-gradient-to-b from-white to-[#f7f5f2]
@@ -953,129 +996,148 @@ const handlePasswordReset = async (
         text-[12px]
         shadow-[0_8px_18px_rgba(0,0,0,0.08)]
       "
-                  >
-                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#264555]/8 text-[#264555]">
-                      <User size={14} />
-                    </span>
-                    <span className="text-[#56768f]">
-                      Profil&nbsp;·&nbsp;
-                      <span className="font-semibold text-[#264555]">Einstellungen</span>
-                    </span>
-                  </div>
-                </div>
+              >
+                <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#264555]/8 text-[#264555]">
+                  <User size={14} />
+                </span>
+                <span className="text-[#56768f]">
+                  Profil&nbsp;·&nbsp;
+                  <span className="font-semibold text-[#264555]">Einstellungen</span>
+                </span>
+              </div>
+            </div>
 
-                {/* Persönliche Daten */}
-                <Card
-                  title="Persönliche Daten"
-                  icon={<User size={20} />}
-                  extra={
-                    <button
-                      type="button"
-                      onClick={toggleEditingPersonal}
-                      className="
+            {/* Persönliche Daten */}
+            <Card
+              title="Persönliche Daten"
+              icon={<User size={20} />}
+              extra={
+                <button
+                  type="button"
+                  onClick={toggleEditingPersonal}
+                  className="
         inline-flex items-center gap-2 rounded-full px-3 py-1.5
         text-[11px] font-semibold
         border
+        disabled:opacity-60 disabled:cursor-not-allowed
       "
-                      style={{
-                        borderColor: BRAND.sand,
-                        background: editingPersonal ? BRAND.navy : "#ffffff",
-                        color: editingPersonal ? "#ffffff" : BRAND.navy,
-                      }}
-                    >
-                      {editingPersonal ? "Bearbeitung beenden" : "Bearbeiten"}
-                    </button>
-                  }
+                  style={{
+                    borderColor: BRAND.sand,
+                    background: editingPersonal ? BRAND.navy : "#ffffff",
+                    color: editingPersonal ? "#ffffff" : BRAND.navy,
+                  }}
+                  disabled={loading}
+
                 >
+                  {editingPersonal ? "Bearbeitung beenden" : "Bearbeiten"}
+                </button>
+              }
+            >
 
-                  <div className="space-y-4">
-                    <p className="text-[11px] text-slate-500 mb-1">
-                      Diese Angaben werden in deinem Profil und in Kurzprofilen verwendet.
-                    </p>
+              <div className="space-y-4">
+                <p className="text-[11px] text-slate-500 mb-1">
+                  Diese Angaben werden in deinem Profil und in Kurzprofilen verwendet.
+                </p>
 
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                      <div className="md:col-span-2 flex flex-col gap-1">
-                        <label className="text-xs font-semibold text-slate-600">Name</label>
-                        <input
-                          className={`
-    h-11 rounded-lg border px-3 text-sm shadow-sm outline-none transition
-    ${editingPersonal
-                              ? "bg-slate-50 text-slate-800 focus:bg-white focus:border-[#56768f] focus:ring-2 focus:ring-[#56768f]/20"
-                              : "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed"
-                            }
-  `}
-                          disabled={!editingPersonal}
-                          value={form.name}
-                          onChange={handleInputChange("name")}
-                          placeholder="Name eingeben"
-                        />
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div className="md:col-span-2 flex flex-col gap-1">
+                    <label className="text-xs font-semibold text-slate-600">Name</label>
+                    {loading ? (
+                      <SkeletonInput />
+                    ) : (
+                      <input
+                        className={`
+      h-11 rounded-lg border px-3 text-sm shadow-sm outline-none transition
+      ${editingPersonal
+                            ? "bg-slate-50 text-slate-800 focus:bg-white focus:border-[#56768f] focus:ring-2 focus:ring-[#56768f]/20"
+                            : "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed"
+                          }
+    `}
+                        disabled={!editingPersonal}
+                        value={form.name}
+                        onChange={handleInputChange("name")}
+                        placeholder="Name eingeben"
+                      />
+                    )}
 
-                      </div>
 
-                      <div className="flex flex-col gap-1">
-                        <label className="text-xs font-semibold text-slate-600">E-Mail</label>
-                        <input
-                          type="email"
-                          className={`
-    h-11 rounded-lg border px-3 text-sm shadow-sm outline-none transition
-    ${editingPersonal
-                              ? "bg-slate-50 text-slate-800 focus:bg-white focus:border-[#56768f] focus:ring-2 focus:ring-[#56768f]/20"
-                              : "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed"
-                            }
-  `}
-                          disabled={!editingPersonal}
-                          value={form.email}
-                          onChange={handleInputChange("email")}
-                          placeholder="E-Mail eingeben"
-                        />
-
-                      </div>
-
-                      <div className="flex flex-col gap-1">
-                        <label className="text-xs font-semibold text-slate-600">
-                          Telefonnummer
-                        </label>
-                        <input
-                          className={`
-    h-11 rounded-lg border px-3 text-sm shadow-sm outline-none transition
-    ${editingPersonal
-                              ? "bg-slate-50 text-slate-800 focus:bg-white focus:border-[#56768f] focus:ring-2 focus:ring-[#56768f]/20"
-                              : "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed"
-                            }
-  `}
-                          disabled={!editingPersonal}
-                          value={form.phone}
-                          onChange={handleInputChange("phone")}
-                          placeholder="Telefonnummer eingeben"
-                        />
-                      </div>
-
-                      <div className="md:col-span-2 flex flex-col gap-1">
-                        <label className="text-xs font-semibold text-slate-600">Adresse</label>
-                        <input
-                          className={`
-    h-11 rounded-lg border px-3 text-sm shadow-sm outline-none transition
-    ${editingPersonal
-                              ? "bg-slate-50 text-slate-800 focus:bg-white focus:border-[#56768f] focus:ring-2 focus:ring-[#56768f]/20"
-                              : "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed"
-                            }
-  `}
-                          disabled={!editingPersonal}
-                          value={form.address}
-                          onChange={handleInputChange("address")}
-                          placeholder="Adresse eingeben (Straße, PLZ, Ort)"
-                        />
-                      </div>
-                    </div>
                   </div>
-                </Card>
 
-                {/* Passwort */}
-                <PasswordSection onReset={handlePasswordReset} />
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs font-semibold text-slate-600">E-Mail</label>
+                    {loading ? (
+                      <SkeletonInput />
+                    ) : (
+                      <input
+                        className={`
+      h-11 rounded-lg border px-3 text-sm shadow-sm outline-none transition
+      ${editingPersonal
+                            ? "bg-slate-50 text-slate-800 focus:bg-white focus:border-[#56768f] focus:ring-2 focus:ring-[#56768f]/20"
+                            : "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed"
+                          }
+    `}
+                        disabled={!editingPersonal}
+                        value={form.email}
+                        onChange={handleInputChange("email")}
+                        placeholder="E-Mail eingeben"
+                      />
+                    )}
+
+
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs font-semibold text-slate-600">
+                      Telefonnummer
+                    </label>
+                    {loading ? (
+                      <SkeletonInput />
+                    ) : (
+                      <input
+                        className={`
+      h-11 rounded-lg border px-3 text-sm shadow-sm outline-none transition
+      ${editingPersonal
+                            ? "bg-slate-50 text-slate-800 focus:bg-white focus:border-[#56768f] focus:ring-2 focus:ring-[#56768f]/20"
+                            : "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed"
+                          }
+    `}
+                        disabled={!editingPersonal}
+                        value={form.phone}
+                        onChange={handleInputChange("phone")}
+                        placeholder="Telefon eingeben"
+                      />
+                    )}
+
+                  </div>
+
+                  <div className="md:col-span-2 flex flex-col gap-1">
+                    <label className="text-xs font-semibold text-slate-600">Adresse</label>
+                    {loading ? (
+                      <SkeletonInput />
+                    ) : (
+                      <input
+                        className={`
+      h-11 rounded-lg border px-3 text-sm shadow-sm outline-none transition
+      ${editingPersonal
+                            ? "bg-slate-50 text-slate-800 focus:bg-white focus:border-[#56768f] focus:ring-2 focus:ring-[#56768f]/20"
+                            : "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed"
+                          }
+    `}
+                        disabled={!editingPersonal}
+                        value={form.address}
+                        onChange={handleInputChange("address")}
+                        placeholder="Adresse eingeben"
+                      />
+                    )}
+
+                  </div>
+                </div>
               </div>
+            </Card>
 
-            </>
-          )}
+            {/* Passwort */}
+            <PasswordSection onReset={handlePasswordReset} />
+          </div>
         </div>
 
         {showUploadModal && (
