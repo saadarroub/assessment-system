@@ -82,78 +82,118 @@ const TopicCard = ({
 
 
   return (
-    <div
-      className="
-         relative flex flex-col rounded-2xl overflow-visible
-    p-6 transition-all duration-300
-    hover:shadow-[0_12px_32px_rgba(0,0,0,0.06)]
-      "
-      style={{
-    background: "#ffffff",
-  border: "1px solid #e9ebe5ff",
-  boxShadow: "0 8px 22px rgba(0,0,0,0.06)",
-      }}
-    >
-      <div className="relative z-10 flex flex-col gap-5">
-        {/* ICON + STATUS */}
-        <div className="flex items-center justify-between">
-        <div
+   <div
   className="
-    h-12 w-12  rounded-2xl
-    flex items-center justify-center
-    bg-[hsl(45_80%_55%_/_0.2)]
+    group relative flex flex-col rounded-2xl overflow-hidden
+    
+    p-6
+    transition-shadow duration-300
+    hover:shadow-[0_16px_40px_rgba(0,0,0,0.08)]
+  "
+  style={{
+    background: "#ffffff",
+    border: "1px solid #e9ebe5ff",
+  }}
+>
+  {/* ✨ HOVER GLOW LAYER */}
+<div
+  className="
+    pointer-events-none
+    absolute inset-0
+    opacity-0
+    group-hover:opacity-100
+    transition-opacity duration-500
   "
 >
-  <Layers
-    className="text-[hsl(45_80%_55%)]"
-    size={26}
-    strokeWidth={2}
+  <div
+    className="
+      absolute inset-0
+      bg-[radial-gradient(circle_at_top_right,rgba(227,187,98,0.18),transparent_55%)]
+    "
+  />
+  <div
+    className="
+      absolute inset-0
+      bg-[radial-gradient(circle_at_bottom_left,rgba(227,187,98,0.18),transparent_55%)]
+    "
   />
 </div>
 
 
-          {/* ⭐ Status Badge + Toggle */}
-          <div className="flex items-center gap-2 -mt-6 ">
-            {/* Status Badge */}
-<span
-  className={`
-    px-2 py-1 rounded-full text-xs font-medium
-    ${
-      t.status === "active"
-        ? "bg-[hsl(142_71%_85%)] text-[hsl(142_71%_30%)]"
-        : "bg-[hsl(45_30%_88%)] text-[hsl(30_8%_45%)]"
-    }
-  `}
->
-
-  {t.status === "active" ? "aktiv" : "inaktiv"}
-</span>
-
-
-            {/* Toggle Switch */}
-           <div
-  onClick={() => onStatusChange()}
-  className={`
-    relative w-11 h-6 rounded-full cursor-pointer flex items-center
+      <div className="relative z-10 flex flex-col gap-5">
+        {/* ICON + STATUS */}
+        <div className="flex items-center justify-between">
+<div
+  className="
+    h-12 w-12 rounded-2xl
+    flex items-center justify-center
+    bg-[hsl(45_80%_55%_/_0.2)]
+    
     transition-all duration-300 ease-out
-    ${
-      t.status === "active"
-        ? "bg-emerald-500"   // helles Grün (aktiv)
-        : "bg-[hsl(45_30%_88%)]"    // helles Beige (inaktiv)
-    }
-  `}
+    group-hover:scale-[1.06]
+    group-hover:shadow-[0_6px_18px_rgba(227,187,98,0.35)]
+  "
 >
 
-              <div
-                className={`
-                  w-5 h-5 bg-white rounded-full shadow-sm transform transition-transform duration-300
-                  ${t.status === "active" ? "translate-x-5" : "translate-x-0.5"}
-                `}
-              ></div>
-            </div>
-          </div>
-        </div>
+  <Layers
+  className="
+    text-[hsl(45_80%_55%)]
+    transition-transform duration-300 ease-out
+    group-hover:-translate-y-[1px]
+  "
+  size={26}
+  strokeWidth={2}
+/>
 
+</div>
+
+
+          {/* ⭐ Status Badge + Toggle */}
+         {/* ⭐ Status Badge + Toggle */}
+<div className="flex items-center gap-2 -mt-6">
+  {/* Status Badge */}
+  <span
+    className={`
+      px-2 py-1 rounded-full text-xs font-medium
+      ${
+        t.status === "active"
+          ? "bg-[hsl(142_71%_85%)] text-[hsl(142_71%_30%)]"
+          : "bg-[hsl(45_30%_88%)] text-[hsl(30_8%_45%)]"
+      }
+    `}
+  >
+    {t.status === "active" ? "aktiv" : "inaktiv"}
+  </span>
+
+  {/* Toggle Switch */}
+  <div
+    onClick={() => onStatusChange()}
+    className={`
+      relative w-12 h-6 rounded-full cursor-pointer
+      flex items-center
+      transition-colors duration-150 ease-linear
+      ${
+        t.status === "active"
+          ? "bg-emerald-500"
+          : "bg-[hsl(45_30%_88%)]"
+      }
+    `}
+  >
+    <div
+      className={`
+        h-5 w-5 bg-white rounded-full
+        shadow-[0_1px_4px_rgba(0,0,0,0.25)]
+        transition-transform duration-150 ease-out
+        ${
+          t.status === "active"
+            ? "translate-x-[26px]"
+            : "translate-x-[2px]"
+        }
+      `}
+    />
+  </div>
+      </div>
+  </div>
         {/* TITLE */}
         <div className="flex flex-col gap-2 min-h-[80px]">
           {/* TITLE + INFO ICON */}
@@ -305,13 +345,13 @@ const TopicCard = ({
 <button
   onClick={() => onManage(t)}
   className="
-    group flex-1 ml-3
+    group/manage flex-1 ml-3
     flex items-center justify-center gap-3
     h-10 px-6
     rounded-xl
     font-semibold text-[14.5px]
     transition-colors duration-200
-    bg-[hsl(45_80%_55%_/_0.2)]   /* gleiche Farbe wie Icon-Hintergrund */
+    bg-[hsl(45_80%_55%_/_0.2)]
     hover:bg-[hsl(45_80%_55%_/_0.28)]
     text-[hsl(30_10%_20%)]
   "
@@ -323,10 +363,11 @@ const TopicCard = ({
     strokeWidth={2.5}
     className="
       transition-transform duration-200
-      group-hover:translate-x-2
+      group-hover/manage:translate-x-2
     "
   />
 </button>
+
 
 
         </div>
