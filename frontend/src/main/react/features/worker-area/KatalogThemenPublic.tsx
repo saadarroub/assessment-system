@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import AppHeader from "@/apps/app/AppHeader";
 import { fetchThemenByCatalog } from "@/features/service/themaCatalogService";
@@ -102,10 +102,11 @@ function CatalogCard({ data, onStart }: { data: TopicCardModel; onStart: () => v
 
 
   const [animate, setAnimate] = useState(false);
+
+  const prevP = useRef<number>(p);
+
   useEffect(() => {
-    setAnimate(false);
-    const t = setTimeout(() => setAnimate(true), 60);
-    return () => clearTimeout(t);
+    prevP.current = p;
   }, [p]);
 
   // === Status-abhängige Basis-Styles (nur Blautöne + Gold) ===
@@ -195,7 +196,8 @@ function CatalogCard({ data, onStart }: { data: TopicCardModel; onStart: () => v
                 transition-all duration-500 ease-in-out
                 bg-[linear-gradient(90deg,#4f88d2_0%,#264555_100%)]
               "
-              style={{ width: `${animate ? p : 0}%` }}
+              style={{ width: `${p}%` }}
+
             />
           </div>
         </div>
@@ -284,8 +286,9 @@ function StatsCard({
         bg-white/80 backdrop-blur-md
         px-6 py-5 text-center
         shadow-[0_10px_25px_-8px_rgba(15,23,42,.10)]
-        transition
-        hover:scale-[1.05]
+transition-all duration-300
+        hover:-translate-y-1
+
         hover:border-[hsla(45,60%,55%,0.5)]
         hover:shadow-[0_20px_40px_-12px_rgba(15,23,42,.18)]
       "
@@ -350,19 +353,104 @@ export default function KatalogThemenPublic() {
 
   //const sp = new URLSearchParams(location.search);
   const [expiresAt, setExpiresAt] = useState<string | null>(null);
-  {/*
-  const daysLeft = useMemo(() => {
+  const [now, setNow] = useState<number>(() => Date.now());
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+
+  const bubbleRef = useRef<HTMLDivElement | null>(null);
+
+  const [bubbleActive, setBubbleActive] = useState(false);
+
+
+  const [bubblePos, setBubblePos] = useState<{ x: number; y: number }>(() => {
+    // gespeicherte Position laden
+    try {
+      const raw = localStorage.getItem("publicBubblePos");
+      if (raw) return JSON.parse(raw);
+    } catch { }
+    // Default: wie jetzt ungefähr unten rechts
+    return { x: window.innerWidth - 220, y: window.innerHeight - 320 };
+  });
+
+  const dragRef = useRef<{
+    dragging: boolean;
+    offsetX: number;
+    offsetY: number;
+  }>({ dragging: false, offsetX: 0, offsetY: 0 });
+
+  // Position speichern (damit sie nach Reload bleibt)
+  useEffect(() => {
+    try {
+      localStorage.setItem("publicBubblePos", JSON.stringify(bubblePos));
+    } catch { }
+  }, [bubblePos]);
+
+  function onBubblePointerDown(e: React.PointerEvent) {
+    // Nur linke Maustaste
+    if (e.button !== 0) return;
+    setBubbleActive(true);
+
+    const el = bubbleRef.current;
+    if (!el) return;
+
+    const rect = el.getBoundingClientRect();
+
+    dragRef.current.dragging = true;
+    dragRef.current.offsetX = e.clientX - rect.left;
+    dragRef.current.offsetY = e.clientY - rect.top;
+
+    // wichtig: damit pointermove auch außerhalb weiter geht
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  }
+
+  function onBubblePointerMove(e: React.PointerEvent) {
+    if (!dragRef.current.dragging) return;
+
+    const el = bubbleRef.current;
+    if (!el) return;
+
+    const w = el.offsetWidth;
+    const h = el.offsetHeight;
+
+    // neue Position berechnen
+    let x = e.clientX - dragRef.current.offsetX;
+    let y = e.clientY - dragRef.current.offsetY;
+
+    // im Viewport halten
+    const maxX = window.innerWidth - w - 8;
+    const maxY = window.innerHeight - h - 8;
+
+    x = Math.max(8, Math.min(maxX, x));
+    y = Math.max(8, Math.min(maxY, y));
+
+    setBubblePos({ x, y });
+  }
+
+  function onBubblePointerUp() {
+    dragRef.current.dragging = false;
+    setBubbleActive(false);
+  }
+
+  const remaining = useMemo(() => {
     if (!expiresAt) return null;
 
     const target = new Date(expiresAt).getTime();
     if (Number.isNaN(target)) return null;
 
-    const diffMs = target - Date.now();
-    const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+    const remainingMs = Math.max(0, target - now);
 
-    return Math.max(0, diffDays);
-  }, [expiresAt]);
-   */}
+    const totalSec = Math.floor(remainingMs / 1000);
+    const d = Math.floor(totalSec / 86400);
+    const h = Math.floor((totalSec % 86400) / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    const s = totalSec % 60;
+
+    return { d, h, m, s, expired: remainingMs <= 0 };
+  }, [expiresAt, now]);
 
   //in expiresAt muss Z.b: 2025-11-05T18:00:00Z
   useEffect(() => {
@@ -474,18 +562,18 @@ export default function KatalogThemenPublic() {
             const newProgress = calcProgressPct(state);
             const newStatus = state.status ?? (entry as AssessEntry).status;
             // nur speichern, wenn sich etwas geändert hat
-         if (newProgress !== effectiveProgress || newStatus !== (entry as AssessEntry).status) {
-           const next: Record<string, AssessEntry> = {
-             ...assessments,
-             [dashKey]: {
-               ...(entry as AssessEntry),
-               progress: newProgress,
-               status: newStatus,
-             },
-           };
-           localStorage.setItem("assessments", JSON.stringify(next));
-           setTick((t) => t + 1);
-         }
+            if (newProgress !== effectiveProgress || newStatus !== (entry as AssessEntry).status) {
+              const next: Record<string, AssessEntry> = {
+                ...assessments,
+                [dashKey]: {
+                  ...(entry as AssessEntry),
+                  progress: newProgress,
+                  status: newStatus,
+                },
+              };
+              localStorage.setItem("assessments", JSON.stringify(next));
+              setTick((t) => t + 1);
+            }
           })
           .catch(() => { });
       }
@@ -511,18 +599,32 @@ export default function KatalogThemenPublic() {
 
   const available = topicCards.filter((c) => c.effectiveProgress === 0);
 
-const isCompletedCard = (c: TopicCardModel) =>
+ const isCompletedCard = (c: TopicCardModel) =>
   c.effectiveProgress >= 100 &&
-  (c.statusFromApi || "").toLowerCase() === "completed";
+  (
+    (c.statusFromApi || "").toLowerCase() === "completed"
+    || c.statusFromApi == null // ← DAS IST DER FIX
+  );
 
-const planned = topicCards.filter((c) => {
-  if (c.effectiveProgress === 0) return false;
-  if (isCompletedCard(c)) return false; // completed → nicht mehr laufend
-  return true;
-});
 
-const done = topicCards.filter(isCompletedCard);
+  const planned = topicCards.filter((c) => {
+    if (c.effectiveProgress === 0) return false;
+    if (isCompletedCard(c)) return false; // completed → nicht mehr laufend
+    return true;
+  });
 
+  const done = topicCards.filter(isCompletedCard);
+  const allCompleted =
+    topicCards.length > 0 &&
+    done.length === topicCards.length;
+    
+console.log(allCompleted);
+
+  useEffect(() => {
+    if (allCompleted) {
+      navigate("/public/assessment-completed", { replace: true });
+    }
+  }, [allCompleted]);
 
 
   /* --- Start/Fortsetzen: bestehenden sessionId-Wert NICHT überschreiben --- */
@@ -617,11 +719,32 @@ const done = topicCards.filter(isCompletedCard);
         text-[hsl(215_80%_15%)]
       "
     >
+      <style>{`
+  .hex-bg{
+    /* etwas dunkler, damit man es auf hellen Gradients sieht */
+    background-image:
+      conic-gradient(from 60deg, rgba(38,69,85,0.16) 0 60deg, transparent 0 360deg),
+      conic-gradient(from 60deg, rgba(38,69,85,0.10) 0 60deg, transparent 0 360deg);
+
+    /* größere Hexagons wie im Beispiel */
+    background-size: 520px 450px;
+    background-position: 0 0, 260px 225px;
+
+    /* minimal, nicht “matschig” */
+    filter: blur(0.2px);
+  }
+`}</style>
+
+
       {/* Deko nur im Content-Bereich, NICHT hinter dem Footer */}
       <div className="pointer-events-none absolute inset-x-0 top-0 bottom-64">
+        {/*Hexagon Pattern (CSS-only) */}
+        <div className="absolute inset-0 opacity-[0.14] hex-bg" />
 
-        {/* Goldener Glow oben rechts */}
-        <div className="absolute top-40 right-[-5rem] h-[26rem] w-[26rem] rounded-full blur-[90px] bg-[hsla(45,60%,55%,0.20)]" />
+        {/* leichte “Wash” oben */}
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.75)_0%,rgba(255,255,255,0)_55%)]" />
+
+
         {/* Dunklerer blauer Glow unten links */}
         <div className="absolute bottom-10 left-[-6rem] h-[22rem] w-[22rem] rounded-full blur-[90px] bg-[hsla(215,80%,15%,0.10)]" />
 
@@ -629,87 +752,119 @@ const done = topicCards.filter(isCompletedCard);
         <div className="absolute left-[18%] top-[30%] h-2 w-2 rounded-full bg-[#E3BB62] opacity-80" />
         <div className="absolute left-[26%] top-[42%] h-1.5 w-1.5 rounded-full bg-[#d2c9b9] opacity-75" />
         <div className="absolute right-[22%] top-[36%] h-1.5 w-1.5 rounded-full bg-[#E3BB62] opacity-70" />
+      </div>
 
-        {/*
-        <div
-          className="
-           hidden lg:block absolute lg:bottom-[210px] lg:right-[-4rem] xl:bottom-[195px] xl:right-[2%] 2xl:bottom-[180px] 2xl:right-[8%] h-40 w-40"
-        >
-          {daysLeft !== null && (
-            <div
-              className="
-              hidden lg:block
-              absolute bottom-[180px] right-[8%]
-            "
-            >
-              <CircleTimer daysLeft={daysLeft} />
-            </div>
-          )}
-        </div>
-          */}
-        {/* Kreis + Rechtecke – unten rechts, auf kleineren Screens weiter draußen */}
-        <div
-          className="
+      {/* bg-[#f7f8fb] text-[#333] min-h-screen*/}
+
+      <AppHeader />
+      <div
+        ref={bubbleRef}
+        onPointerDown={onBubblePointerDown}
+        onPointerMove={onBubblePointerMove}
+        onPointerUp={onBubblePointerUp}
+        onMouseEnter={() => setBubbleActive(true)}
+        onMouseLeave={() => {
+          if (!dragRef.current.dragging) {
+            setBubbleActive(false);
+          }
+        }}
+        className="
     hidden lg:block
-    absolute
-    lg:bottom-[210px] lg:right-[-4rem]
-    xl:bottom-[195px] xl:right-[2%]
-    2xl:bottom-[180px] 2xl:right-[8%]
-    h-40 w-40
+    fixed z-[999]
+    select-none
+    cursor-grab active:cursor-grabbing
+  "
+        style={{
+          left: bubblePos.x,
+          top: bubblePos.y,
+          width: 160,
+          height: 160,
+        }}
+      >
+        {/* äußerer Ring */}
+        <div className="absolute inset-0 rounded-full border border-[#E3BB62] opacity-90" />
+
+        {/* innerer Kreis */}
+        <div
+          className="
+    absolute inset-3 rounded-full
+    bg-[#314856]
+    border border-[rgba(210,201,185,0.45)]
+    shadow-[0_18px_40px_rgba(15,23,42,0.32)]
+    flex flex-col items-center justify-center
+    text-center
+    text-white
   "
         >
-          {/* äußerer Ring (Gold) */}
-          <div
-            className="
-      absolute inset-0
-      rounded-full
-      border border-[#E3BB62]
-      bg-transparent
-      opacity-90
-    "
-          />
+          {remaining ? (
+            bubbleActive ? (
+              /* HOVER: HH:MM:SS */
+              <div className="flex flex-col items-center">
+                <div className="text-[26px] font-bold tabular-nums leading-none">
+                  {String(remaining.h).padStart(2, "0")}:
+                  {String(remaining.m).padStart(2, "0")}:
+                  {String(remaining.s).padStart(2, "0")}
+                </div>
+                <div className="text-[10px] uppercase tracking-[0.18em] opacity-70 mt-1">
+                  verbleibend
+                </div>
+              </div>
+            ) : (
+              /*  NORMAL: Tage */
+              <>
+                <div
+                  className={`
+          text-[42px] font-extrabold leading-none
+          ${remaining.d <= 2
+                      ? "text-red-400"
+                      : remaining.d <= 5
+                        ? "text-[#E3BB62]"
+                        : "text-white"}
+        `}
+                >
+                  {remaining.d}
+                </div>
+                <div className="text-[11px] uppercase tracking-[0.2em] opacity-80 mt-1">
+                  Tage
+                </div>
+              </>
+            )
+          ) : (
+            <div className="text-xs opacity-60">–</div>
+          )}
 
-          {/* innerer Kreis */}
-          <div
-            className="
-      absolute inset-3
-      rounded-full
-      bg-[#314856]
-      border border-[rgba(210,201,185,0.45)]
-      shadow-[0_18px_40px_rgba(15,23,42,0.32)]
-    "
-          />
+        </div>
 
-          {/* schmales Rechteck rechts oben */}
-          <div
-            className="
+
+        {/* Rechteck RECHTS – erscheint nur bei Hover / Drag */}
+        <div
+          className={`
       absolute -right-8 top-4
       h-20 w-8
       rounded-[999px]
-      bg-[#fff]
+      bg-white
       border border-white/40
-      backdrop-blur-[2px]
       shadow-[0_14px_28px_rgba(15,23,42,0.28)]
-    "
-          />
+      transition-all duration-300
+      ${bubbleActive ? "opacity-100 translate-x-0" : "opacity-0 translate-x-2"}
+    `}
+        />
 
-          {/* langes Rechteck unten links */}
-          <div
-            className="
+        {/*  Rechteck UNTEN LINKS – erscheint nur bei Hover / Drag */}
+        <div
+          className={`
       absolute -left-6 bottom-[-6px]
       h-7 w-24
       rounded-[999px]
       bg-[rgba(227,187,98,0.20)]
       border border-[rgba(227,187,98,0.55)]
       shadow-[0_10px_24px_rgba(15,23,42,0.25)]
-    "
-          />
-        </div>
-        <div className=" hidden lg:block absolute bottom-[180px] right-[8%] /* Position: unten rechts, über dem Footer */ h-40 w-40 " ></div>
+      transition-all duration-300
+      ${bubbleActive ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"}
+    `}
+        />
       </div>
-      {/* bg-[#f7f8fb] text-[#333] min-h-screen*/}
 
-      <AppHeader />
 
       <section className="pt-10 pb-8 px-5">
         <div className="max-w-[1120px] mx-auto flex flex-col gap-6">
@@ -717,13 +872,14 @@ const done = topicCards.filter(isCompletedCard);
           <div className="relative">
             <GreetingBanner firstName={welcomeName} />
 
-            {expiresAt && (
-              <div className="absolute left-1/2 bottom-4 -translate-x-1/2 translate-y-1/2">
-                <div className="inline-flex items-center gap-2 rounded-full bg-white/90 px-4 py-2 shadow-md text-sm text-slate-700">
-                  <CountdownTimer expiresAt={expiresAt} />
-                </div>
+            <div className="absolute left-1/2 bottom-4 -translate-x-1/2 translate-y-1/2">
+              <div className="inline-flex items-center gap-2 rounded-full bg-white/70 backdrop-blur-md px-4 py-2 shadow-md text-sm text-slate-700">
+                <span className="h-2 w-2 rounded-full bg-[#E3BB62]" />
+                Ziehen Sie die Zeit-Bubble nach Wunsch
               </div>
-            )}
+            </div>
+
+
           </div>
 
           {/* Stats-Cards direkt unter dem Banner */}

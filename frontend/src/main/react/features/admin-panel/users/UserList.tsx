@@ -4,6 +4,7 @@ import AdminLayout from "@/apps/app/AdminLayout";
 import { Search, ArrowUpDown, Eye, Plus, Trash2, Pencil, Users } from "lucide-react";
 import ConfirmModal from "@/shared/components/ConfirmModal";
 import UserLogo from "@/assets/blue-user-icon-transparent.png";
+import { getUserProfile, buildAvatarUrl } from "@/features/service/profilePageService";
 import {
   getUsers,
   createUser,
@@ -25,6 +26,7 @@ export type UserRow = {
   email: string;
   roles: { id: string; name: string }[];
   status: "active" | "invited" | "disabled";
+  avatarUrl?: string | null;
 };
 
 type SortKey = "name" | "email" | "status";
@@ -125,6 +127,57 @@ export default function UsersPage() {
 
   const [removingRole, setRemovingRole] = useState(false);
   const [removeRoleError, setRemoveRoleError] = useState<string | null>(null);
+
+  const [avatarById, setAvatarById] = useState<Record<string, string | null>>({});
+
+  useEffect(() => {
+    if (!items.length) return;
+
+    let alive = true;
+
+    (async () => {
+      // nur für User laden, die noch keinen Cache-Eintrag haben
+      const missing = items
+        .map((u) => u.id)
+        .filter((id) => avatarById[id] === undefined);
+
+      if (!missing.length) return;
+
+      const results = await Promise.allSettled(
+        missing.map(async (id) => {
+          const p = await getUserProfile(id);
+          return [id, buildAvatarUrl(p.profileImagePath)] as const;
+        })
+      );
+
+      if (!alive) return;
+
+      setAvatarById((prev) => {
+        const next = { ...prev };
+        for (const r of results) {
+          if (r.status === "fulfilled") {
+            const [id, url] = r.value;
+            next[id] = url ?? null;
+          } else {
+            // wenn Fehler: merken wir "kein avatar"
+            // (sonst würdest du immer wieder neu versuchen)
+            const reason: any = r.reason;
+            const idGuess = String(reason?.config?.url ?? "");
+            // fallback: setze nichts, wenn du willst – ich setze auf null, damit Ruhe ist
+            // (wir haben id nicht sicher, daher einfach ignorieren)
+          }
+        }
+        return next;
+      });
+    })();
+
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items]);
+
+
 
   async function onRemoveRole() {
     if (!editUser || !editUser.roles.length) return;
@@ -749,14 +802,27 @@ export default function UsersPage() {
                           className="px-4 py-4"
                           style={{ borderBottom: `1px solid ${CSS.border}` }}
                         >
-                          <div className="flex items-center gap-3">
-                            {/* Avatar-Box */}
-                            <div className="grid h-8 w-8 place-items-center rounded-full bg-slate-100">
-                              <img
-                                src={UserLogo}
-                                alt="User avatar"
-                                className="h-7 w-7 rounded-full object-cover"
-                              />
+                          <div className="flex items-center gap-3 ">
+                            {/* Avatar */}
+                            <div
+                              className="grid h-8 w-8 place-items-center rounded-full bg-slate-100 overflow-hidden"
+                              title={u.name}
+                            >
+                              {avatarById[u.id] ? (
+                                <img
+                                  src={avatarById[u.id] as string}
+                                  alt={u.name}
+                                  className="h-8 w-8 rounded-full object-cover"
+                                  onError={() => {
+                                    // wenn Bild nicht geladen werden kann -> fallback auf Initial
+                                    setAvatarById((prev) => ({ ...prev, [u.id]: null }));
+                                  }}
+                                />
+                              ) : (
+                                <span className="text-[12px] font-bold" style={{ color: BRAND.navy }}>
+                                  {(u.name?.charAt(0) ?? "U").toUpperCase()}
+                                </span>
+                              )}
                             </div>
 
                             {/* Name */}

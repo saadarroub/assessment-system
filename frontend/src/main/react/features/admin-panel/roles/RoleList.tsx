@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import AdminLayout from "@/apps/app/AdminLayout";
-import { Search, ArrowUpDown, Shield, Plus, Trash2, Pencil } from "lucide-react";
+import { Search, ArrowUpDown, Shield, Plus, Trash2, Pencil, Eye, X } from "lucide-react";
 import { SoftSquaresBackground } from "@/shared/components/SoftSquaresBackground";
 
 import {
@@ -14,7 +14,7 @@ import {
   deleteRole,
   revokePermissions,
   type RoleApi,
-  type PermissionApi,
+  type PermissionApi, getPermissionsForRole, type RolePermissionResponseDTO
 } from "@/features/service/roleService";
 import { WithPermissionCheck } from "@/shared/components/WithPermissionCheck";
 import { useToast } from "@/shared/contexts/ToastContext";
@@ -115,6 +115,39 @@ export default function RoleList() {
   const [deletingRole, setDeletingRole] = useState<RoleRow | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  // View Permissions Modal
+  const [openView, setOpenView] = useState(false);
+  const [viewRole, setViewRole] = useState<RoleRow | null>(null);
+  const [viewPerms, setViewPerms] = useState<RolePermissionResponseDTO[]>([]);
+  const [viewLoading, setViewLoading] = useState(false);
+  const [viewError, setViewError] = useState<string | null>(null);
+
+  const openViewModal = async (role: RoleRow) => {
+    setOpenView(true);
+    setViewRole(role);
+    setViewPerms([]);
+    setViewError(null);
+    setViewLoading(true);
+
+    try {
+      const perms = await getPermissionsForRole(role.id);
+      setViewPerms(perms ?? []);
+    } catch (e: any) {
+      setViewError(e?.message ?? "Fehler beim Laden der Permissions");
+    } finally {
+      setViewLoading(false);
+    }
+  };
+
+  const closeViewModal = () => {
+    if (viewLoading) return;
+    setOpenView(false);
+    setViewRole(null);
+    setViewPerms([]);
+    setViewError(null);
+  };
+
 
   /* ============== Data Load ============== */
   useEffect(() => {
@@ -684,9 +717,10 @@ export default function RoleList() {
             </div>
           </div>
 
-<WithPermissionCheck error={error} loading={loading} minHeight="auto">
-  <section
-    className="
+          {/* ===== Card + Tabelle (EXAKT UsersPage-Style) ===== */}
+          <WithPermissionCheck error={error} loading={loading} minHeight="auto">
+            <section
+              className="
       max-w-[1400px] xl:max-w-[1600px]
       mx-auto
       rounded-[12px]
@@ -694,72 +728,70 @@ export default function RoleList() {
       shadow-[0_4px_6px_-1px_rgba(38,69,85,.08)]
       overflow-hidden
     "
-    style={{
-      borderColor: CSS.border,
-      background: BRAND.fog,
-    }}
-  >
-    <div className="overflow-x-auto">
-      <table className="w-full border-collapse">
-        <thead
-          className="text-left text-xs font-semibold uppercase tracking-[0.04em]"
-          style={{
-            background: "linear-gradient(to right, #ebebec, #ffffff)",
-            borderBottom: "2px solid #d2c9b9",
-            color: "#264555",
-          }}
-        >
-          <tr>
-            {[
-              { k: "name", label: "Rolle" },
-              { k: "description", label: "Beschreibung" },
-              { k: "permissionCount", label: "Berechtigungen" },
-              { k: "created", label: "Erstellt" },
-              { k: null, label: "Actions" },
-            ].map((col, idx) => (
-              <th
-                key={idx}
-                className={`px-4 py-3 text-[0.85rem] font-semibold ${
-                  col.label === "Actions" ? "text-center" : "text-left"
-                }`}
-                style={{ color: CSS.fg }}
-              >
-                {col.k ? (
-                  <button
-                    type="button"
-                    onClick={() => setSort(col.k as SortKey)}
-                    className="inline-flex items-center gap-2 hover:brightness-110"
-                    style={{ color: "inherit" }}
+              style={{
+                borderColor: CSS.border,
+                background: BRAND.fog,
+              }}
+            >
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse">
+                  <thead
+                    className="text-left text-xs font-semibold uppercase tracking-[0.04em]"
+                    style={{
+                      background: "linear-gradient(to right, #ebebec, #ffffff)",
+                      borderBottom: "2px solid #d2c9b9",
+                      color: "#264555",
+                    }}
                   >
-                    <span>{col.label}</span>
-                    <ArrowUpDown size={14} className="opacity-60" />
-                  </button>
-                ) : (
-                  <span>{col.label}</span>
-                )}
-              </th>
-            ))}
-          </tr>
-        </thead>
+                    <tr>
+                      {[
+                        { k: "name", label: "Rolle" },
+                        { k: "description", label: "Beschreibung" },
+                        { k: "permissionCount", label: "Berechtigungen" },
+                        { k: "created", label: "Erstellt" },
+                        { k: null, label: "Actions" },
+                      ].map((col, idx) => (
+                        <th
+                          key={idx}
+                          className={`px-4 py-3 text-[0.85rem] font-semibold ${col.label === "Actions" ? "text-center" : "text-left"
+                            }`}
+                          style={{ color: CSS.fg }}
+                        >
+                          {col.k ? (
+                            <button
+                              type="button"
+                              onClick={() => setSort(col.k as SortKey)}
+                              className="inline-flex items-center gap-2 hover:brightness-110"
+                            >
+                              <span>{col.label}</span>
+                              <ArrowUpDown size={14} className="opacity-60" />
+                            </button>
+                          ) : (
+                            <span>{col.label}</span>
+                          )}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
 
-        <tbody>
-          {loading ? (
-            <tr>
-              <td colSpan={5} className="px-4 py-4 bg-white">
-                Lade Rollen…
-              </td>
-            </tr>
-          ) : filtered.length === 0 ? (
-            <tr>
-              <td colSpan={5} className="px-4 py-10 bg-white">
-                {/* dein Empty-State wie vorher */}
-              </td>
-            </tr>
-          ) : (
-            pageData.map((role) => (
-              <tr
-                key={role.id}
-                className="
+                  <tbody>
+                    {loading ? (
+                      <tr>
+                        <td colSpan={5} className="px-4 py-4 bg-white">
+                          Lade Rollen…
+                        </td>
+                      </tr>
+                    ) : filtered.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="px-4 py-10 bg-white text-center text-sm text-slate-500">
+                          Keine Rollen vorhanden
+                        </td>
+                      </tr>
+                    ) : (
+                      pageData.map((role) => (
+                        <tr
+                          key={role.id}
+                          className="
                   bg-white
                   transition
                   border-l-[4px] border-transparent
@@ -767,138 +799,112 @@ export default function RoleList() {
                   hover:bg-[#fff9ec]
                   hover:shadow-[0_4px_10px_rgba(0,0,0,0.04)]
                 "
-              >
-                {/* Rolle */}
-                <td
-                  className="px-4 py-4 align-middle"
-                  style={{ borderBottom: `1px solid ${CSS.border}` }}
-                >
-                  <div className="flex items-center gap-2">
-                    <Shield size={16} className="text-gray-400" />
-                    <span className="font-semibold" style={{ color: CSS.fg }}>
-                      {role.name}
-                    </span>
-                  </div>
-                </td>
+                        >
+                          {/* Rolle */}
+                          <td
+                            className="px-4 py-4"
+                            style={{ borderBottom: `1px solid ${CSS.border}` }}
+                          >
+                            <div className="flex items-center gap-2">
+                              <Shield size={16} className="text-gray-400" />
+                              <span className="font-semibold" style={{ color: CSS.fg }}>
+                                {role.name}
+                              </span>
+                            </div>
+                          </td>
 
-                {/* Beschreibung */}
-                <td
-                  className="px-4 py-4 text-[0.875rem] align-middle"
-                  style={{
-                    color: CSS.mutedFg,
-                    borderBottom: `1px solid ${CSS.border}`,
-                  }}
-                >
-                  {role.description || "—"}
-                </td>
+                          {/* Beschreibung */}
+                          <td
+                            className="px-4 py-4 text-[0.875rem]"
+                            style={{
+                              color: CSS.mutedFg,
+                              borderBottom: `1px solid ${CSS.border}`,
+                            }}
+                          >
+                            {role.description || "—"}
+                          </td>
 
-                {/* Berechtigungen */}
-             {/* Permissions Count */}
-<td
-  className="px-4 py-4 w-[9rem]"
-  style={{ borderBottom: `1px solid ${CSS.border}` }}
->
-  <div className="inline-flex items-center justify-center w-full">
-    {countsLoading && permissionCounts[role.id] == null ? (
-      <span
-        className="text-[0.875rem]"
-        style={{ color: CSS.mutedFg }}
-      >
-        …
-      </span>
-    ) : (
-      <span
-        className="
-          inline-flex items-center justify-center
-          rounded-md px-3 py-1
-          text-[12px] font-semibold
-        "
-        style={{
-          background: CSS.muted,
-          color: CSS.mutedFg,
-        }}
-      >
-        {permissionCounts[role.id] ?? 0}
-      </span>
-    )}
-  </div>
-</td>
+                          {/* Berechtigungen */}
+                          <td
+                            className="px-4 py-4  pl-20 "
+                            style={{ borderBottom: `1px solid ${CSS.border}` }}
+                          >
+                            <span
+                              className="inline-flex items-center justify-center rounded-md px-3 py-1 text-[12px] font-semibold"
+                              style={{ background: CSS.muted, color: CSS.mutedFg }}
+                            >                             
+                             {permissionCounts[role.id] ?? 0}
+                            </span>
+                          </td>
 
-{/* Erstellt */}
-<td
-  className="px-4 py-4 text-[0.875rem] w-[10rem] whitespace-nowrap"
-  style={{
-    color: CSS.mutedFg,
-    borderBottom: `1px solid ${CSS.border}`,
-  }}
->
-  <div className="inline-flex items-center justify-center w-full">
-    {formatDate(role.created)}
-  </div>
-</td>
+                          {/* Erstellt */}
+                          <td
+                            className="px-4 py-4 text-[0.875rem]"
+                            style={{
+                              color: CSS.mutedFg,
+                              borderBottom: `1px solid ${CSS.border}`,
+                            }}
+                          >
+                            {formatDate(role.created)}
+                          </td>
 
+                          {/* Actions */}
+                          <td
+                            className="px-4 py-4 text-center whitespace-nowrap"
+                            style={{ borderBottom: `1px solid ${CSS.border}` }}
+                          >
+                            <div className="inline-flex items-center justify-center gap-2">
+                              <button
+                                type="button"
+                                aria-label="View permissions"
+                                title="Permissions anzeigen"
+                                onClick={() => void openViewModal(role)}
+                                className="
+    inline-flex items-center gap-1.5
+    rounded-full
+    px-3 py-1.5
+    text-[11px] font-semibold
+    focus:outline-none
+    transition
+    hover:-translate-y-[0.5px]
+  "
+                                style={{
+                                  background: "hsl(40,60%,63%)",
+                                  color: "hsl(200,32%,22%)",
+                                  boxShadow: "0 4px 10px rgba(0,0,0,0.10)",
+                                  border: "1px solid rgba(255,255,255,0.9)",
+                                }}
+                              >
+                                <Eye size={13} />
+                                <span className="hidden sm:inline">View</span>
+                              </button>
 
-                {/* Actions */}
-                <td
-                  className="px-4 py-4 text-center whitespace-nowrap align-middle"
-                  style={{ borderBottom: `1px solid ${CSS.border}` }}
-                >
-                  <div className="inline-flex items-center justify-center gap-2">
-                    <button
-                      type="button"
-                      aria-label="Edit role"
-                      title="Bearbeiten"
-                      onClick={() => void openEditModal(role)}
-                      className="
-                        inline-flex items-center justify-center
-                        rounded-full
-                        px-2.5 py-1.5
-                        text-[11px] font-medium
-                        border
-                        transition
-                        hover:bg-[#f5f0e4]
-                      "
-                      style={{
-                        borderColor: "#d2c9b9",
-                        color: "#264555",
-                        background: "#ffffff",
-                      }}
-                    >
-                      <Pencil size={13} />
-                    </button>
+                              <button
+                                onClick={() => openEditModal(role)}
+                                className="rounded-full border px-2.5 py-1.5 text-[11px] hover:bg-[#f5f0e4]"
+                                style={{ borderColor: BRAND.sand }}
+                              >
+                                <Pencil size={13} />
+                              </button>
 
-                    <button
-                      type="button"
-                      aria-label="Delete role"
-                      title="Löschen"
-                      onClick={() => openDeleteModal(role)}
-                      className="
-                        inline-flex items-center justify-center
-                        rounded-full
-                        px-2.5 py-1.5
-                        text-[11px] font-medium
-                        border
-                        transition
-                        hover:bg-[#fff1f1]
-                      "
-                      style={{
-                        borderColor: "rgba(248,113,113,0.8)",
-                        color: "rgb(185,28,28)",
-                        background: "#ffffff",
-                      }}
-                    >
-                      <Trash2 size={13} />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))
-          )}
-        </tbody>
-      </table>
-    </div>
-  </section>
-</WithPermissionCheck>
+                              <button
+                                onClick={() => openDeleteModal(role)}
+                                className="rounded-full border px-2.5 py-1.5 text-[11px] hover:bg-[#fff1f1]"
+                                style={{ borderColor: "rgba(248,113,113,0.8)", color: "rgb(185,28,28)" }}
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </WithPermissionCheck>
+
 
 
 
@@ -1709,6 +1715,128 @@ export default function RoleList() {
         }}
         icon={<Trash2 className="text-red-500" />}
       />
+      {openView && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/40 backdrop-blur-sm"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) closeViewModal();
+          }}
+        >
+          <div className="w-full max-w-2xl px-4 sm:px-0" onClick={(e) => e.stopPropagation()}>
+            <div className="relative overflow-hidden rounded-3xl bg-white shadow-2xl border border-slate-200/80">
+              {/* Glows */}
+              <div className="pointer-events-none absolute -right-24 -top-24 h-52 w-52 rounded-full bg-gradient-to-br from-[#E3BB62]/40 via-amber-400/20 to-transparent opacity-60" />
+              <div className="pointer-events-none absolute -left-24 -bottom-24 h-52 w-52 rounded-full bg-gradient-to-tr from-sky-500/20 via-indigo-500/10 to-transparent opacity-60" />
+
+              <div className="relative px-6 pt-6 pb-5">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h3 className="text-lg sm:text-xl font-semibold text-slate-900 mb-1">
+                      Permissions
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Rolle: <span className="font-semibold text-slate-700">{viewRole?.name}</span>
+                    </p>
+                  </div>
+                </div>
+
+                {viewError && (
+                  <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                    {viewError}
+                  </div>
+                )}
+
+                <div className="mt-4 rounded-2xl border overflow-hidden" style={{ borderColor: BRAND.sand }}>
+                  <div
+                    className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.04em]"
+                    style={{
+                      background: "linear-gradient(to right, #ebebec, #ffffff)",
+                      borderBottom: "1px solid #d2c9b9",
+                      color: "#264555",
+                    }}
+                  >
+                    Zugewiesene Berechtigungen
+                  </div>
+
+                  <div className="max-h-[420px] overflow-auto bg-white">
+                    {viewLoading ? (
+                      <div className="px-4 py-4 text-sm text-slate-600">Lade Permissions…</div>
+                    ) : viewPerms.length === 0 ? (
+                      <div className="px-4 py-6 text-sm text-slate-600">
+                        Diese Rolle hat aktuell keine Permissions.
+                      </div>
+                    ) : (
+                      <ul className="divide-y">
+                        {viewPerms.map((p) => (
+                          <li key={p.permissionId} className="px-4 py-3">
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <div className="text-sm font-semibold" style={{ color: BRAND.navy }}>
+                                  {p.permissionName}
+                                </div>
+                                {p.permissionDescription && (
+                                  <div className="text-xs text-slate-500 mt-0.5">
+                                    {p.permissionDescription}
+                                  </div>
+                                )}
+                              </div>
+
+                              <span
+                                className="inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold"
+                                style={{
+                                  background: "rgba(38,69,85,0.06)",
+                                  color: BRAND.navy,
+                                  border: `1px solid ${BRAND.sand}`,
+                                }}
+                              >
+                                {p.grantedAt && (
+                                  <div className="">
+                                    Zugewiesen am{" "}
+                                    {new Date(p.grantedAt).toLocaleDateString("de-DE")}
+                                  </div>
+                                )}
+                              </span>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+            </div>
+            <div className="h-3" />
+
+            <div className="mt-1 flex gap-2">
+              <button
+                type="button"
+                onClick={closeViewModal}
+                disabled={viewLoading}
+                className="
+      flex-1
+      h-12
+      text-sm font-semibold
+      rounded-xl
+      bg-[#E3BB62]
+      text-[#264555]
+      hover:bg-[#d8ac55]
+      shadow-[0_10px_30px_rgba(0,0,0,0.18)]
+      transition
+      hover:-translate-y-[1px]
+      disabled:opacity-60
+    "
+              >
+                Schließen
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
     </AdminLayout>
   );
 }

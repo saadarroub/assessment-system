@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import FancyDatePicker from "@/shared/components/FancyDatePicker";
+import NumberField from "@/shared/components/NumberField";
+
+
 import {
   startSession,
   getNextQuestion,
@@ -226,7 +230,7 @@ export default function AssessmentPage() {
     query.get("themaId") ||
     query.get("topicId") ||
     ""
-  ).trim(); // erforderlich
+  ).trim();
 
   // Einheitliche Rücknavigation zur Themenliste (mit ALLEN Parametern)
   function goBackToTopics() {
@@ -258,6 +262,7 @@ export default function AssessmentPage() {
     totalScore: null,
     maxTotalScore: null,
   });
+
   // Summary / Review-Modus
   const [summary, setSummary] = useState<ApiSummaryResponse | null>(null);
   //const [showSummary, setShowSummary] = useState(false);
@@ -265,6 +270,28 @@ export default function AssessmentPage() {
   const [finalizing, setFinalizing] = useState(false);
 
   const [canGoBack, setCanGoBack] = useState(false);
+  const [toast, setToast] = useState<{
+    visible: boolean;
+    title: string;
+    description: string;
+  }>({
+    visible: false,
+    title: "",
+    description: "",
+  });
+  const showToast = useCallback((title: string, description: string) => {
+    setToast({
+      visible: true,
+      title,
+      description,
+    });
+
+    setTimeout(() => {
+      setToast(prev => ({ ...prev, visible: false }));
+    }, 3000);
+  }, []);
+
+
 
   //Wenn man die Seite neu lädst (gleiche assignmentId + themaId),
   //dann ist questionsById sofort wieder gefüllt.
@@ -413,7 +440,7 @@ export default function AssessmentPage() {
       // ==== Session existiert schon -> fortsetzen / Summary laden ====
       if (existingSid) {
         setSessionId(existingSid);
-        // 🔹 Fall 1: wir waren zuletzt in der Result-Ansicht
+        //  wir waren zuletzt in der Result-Ansicht
         if (storedView === "results") {
           try {
             const s = await getSummary(token, existingSid);
@@ -563,18 +590,25 @@ export default function AssessmentPage() {
     setAnswers(prev => {
       const id = String(qid);
       const next: any = { ...prev };
-      if (mode === "checkbox" || mode === "order") {
+
+      if (mode === "checkbox") {
         const arr = Array.isArray(prev[id]) ? [...prev[id]] : [];
         const i = arr.indexOf(val);
         if (i > -1) arr.splice(i, 1);
         else arr.push(val);
         next[id] = arr;
+      } else if (mode === "order") {
+        // Bei Order bekommen wir IMMER ein Array der Reihenfolge
+        // -> direkt übernehmen, KEINE Historie mehr bauen
+        next[id] = Array.isArray(val) ? val.map(String) : [];
       } else {
         next[id] = val;
       }
+
       return next;
     });
   };
+
 
   /*  Navigation  */
   const prev = async () => {
@@ -827,31 +861,40 @@ export default function AssessmentPage() {
       setStatus("completed");
       setProgress(prev => ({
         ...prev,
-        answered: prev.total || prev.answered,
+        answered: prev.total || prev.answered
       }));
 
       try {
         const store = readStore();
         const dashKey = makeDashKey(assignmentKeyId, themaId);
         const prev = store[dashKey] ?? {};
+
         store[dashKey] = {
           ...prev,
           progress: 100,
+          status: "completed",
           completedAt: new Date().toISOString(),
           sessionId,
+
+
+          view: undefined,
         };
+
+        // optional sauberer: view entfernen statt undefined
+        delete store[dashKey].view;
+
         writeStore(store);
       } catch {
         // ignore
       }
 
-      window.alert("Katalog erfolgreich abgeschlossen.");
-      goBackToTopics();
+     showToast("Hallo Aymen", "Willkommen in BookR!");
+setTimeout(() => {
+  goBackToTopics();
+}, 600);
+
     } catch (e) {
       console.error("completeSession failed", e);
-      window.alert(
-        "Das Assessment konnte nicht abgeschlossen werden. Bitte versuchen Sie es später erneut."
-      );
     } finally {
       setFinalizing(false);
     }
@@ -926,6 +969,19 @@ export default function AssessmentPage() {
         : pct);
 
     // Sicherstellen, dass wir ALLE UiQuestion-Metas haben
+     {toast.visible && (
+        <div className="fixed right-8 top-8 z-[9999]">
+          <div className="flex items-start gap-3 rounded-md border border-[#b7d8ad] bg-[#dff2d8] px-4 py-3 shadow-lg">
+            <div className="mt-0.5 flex h-7 w-7 items-center justify-center rounded-full bg-white/70 text-[#1f3a1f]">
+              ✓
+            </div>
+            <div className="leading-tight text-[#1f3a1f]">
+              <div className="font-semibold">{toast.title}</div>
+              <div className="font-medium">{toast.description}</div>
+            </div>
+          </div>
+        </div>
+      )}
     return (
       <AssessmentResults
         topicName={topicName}
@@ -987,11 +1043,44 @@ export default function AssessmentPage() {
     }
   }
 
-
   /* -------- Render -------- */
   return (
+
     <div className=" relative min-h-screen overflow-hidden
       bg-[radial-gradient(circle_at_top,_#f9fafb_0%,_#e5e7eb_40%,_#f9fafb_100%)]">
+      <style>{`
+  .hex-bg{
+    /* etwas dunkler, damit man es auf hellen Gradients sieht */
+    background-image:
+      conic-gradient(from 60deg, rgba(38,69,85,0.16) 0 60deg, transparent 0 360deg),
+      conic-gradient(from 60deg, rgba(38,69,85,0.10) 0 60deg, transparent 0 360deg);
+
+    /* größere Hexagons wie im Beispiel */
+    background-size: 520px 450px;
+    background-position: 0 0, 260px 225px;
+
+    /* minimal, nicht “matschig” */
+    filter: blur(0.2px);
+  }
+`}</style>
+
+      {/* Deko nur im Content-Bereich, NICHT hinter dem Footer */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 bottom-64">
+        {/* Hexagon Pattern (CSS-only) */}
+        <div className="absolute inset-0 opacity-[0.14] hex-bg" />
+
+        {/* leichte “Wash” oben */}
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.75)_0%,rgba(255,255,255,0)_55%)]" />
+
+        {/* Dunklerer blauer Glow unten links */}
+        <div className="absolute bottom-10 left-[-6rem] h-[22rem] w-[22rem] rounded-full blur-[90px] bg-[hsla(215,80%,15%,0.10)]" />
+
+        {/* Pünktchen */}
+        <div className="absolute left-[18%] top-[30%] h-2 w-2 rounded-full bg-[#E3BB62] opacity-80" />
+        <div className="absolute left-[26%] top-[42%] h-1.5 w-1.5 rounded-full bg-[#d2c9b9] opacity-75" />
+        <div className="absolute right-[22%] top-[36%] h-1.5 w-1.5 rounded-full bg-[#E3BB62] opacity-70" />
+      </div>
+
 
       {/* Deko-Layer im Hintergrund */}
       <div className="pointer-events-none absolute inset-0 ">
@@ -1174,7 +1263,6 @@ export default function AssessmentPage() {
         />
 
         {/* zusätzliche Shapes NUR für große Screens  */}
-        {/* Extra-Blob oben rechts – nur ab lg */}
         <div
           className="
           hidden lg:block
@@ -1185,8 +1273,6 @@ export default function AssessmentPage() {
         />
 
         {/* zusätzliche Shapes NUR für große Screens  */}
-
-        {/* Extra-Blob oben rechts – nur ab lg */}
         <div
           className="
           hidden lg:block
@@ -1458,31 +1544,39 @@ export default function AssessmentPage() {
                 )}
 
                 {q.type === "number" && (
-                  <input
-                    type="number"
-                    className="w-full p-4 border-2 border-gray-200 rounded-lg text-[15px] outline-none focus:border-blue-500"
+                  <NumberField
+                    value={answers[q.id] ?? ""}
                     min={(q as any).min}
                     max={(q as any).max}
                     step={(q as any).step ?? 1}
-                    placeholder={(q as any).placeholder || ""}
-                    value={answers[q.id] ?? ""}
-                    onChange={(e) => {
-                      const raw = e.target.value;
-                      setAnswer(q.id, raw === "" ? "" : Number(raw), "number");
-                    }}
+                    placeholder="z.B. 1980"
+                    onChange={(v) => setAnswer(q.id, v, "number")}
                   />
+
                 )}
 
-                {q.type === "date" && (
-                  <input
-                    type="date"
-                    className="w-full p-4 border-2 border-gray-200 rounded-lg text-[15px] outline-none focus:border-blue-500"
-                    min={(q as any).min}
-                    max={(q as any).max}
-                    value={answers[q.id] ?? ""}
-                    onChange={(e) => setAnswer(q.id, e.target.value, "date")}
-                  />
-                )}
+                {q.type === "date" && (() => {
+                  const raw = answers[q.id] ?? ""; // "YYYY-MM-DD"
+
+                  // sicherer Parse (kein Zeitzonen-Shift)
+                  const dateValue = raw
+                    ? new Date(Number(raw.slice(0, 4)), Number(raw.slice(5, 7)) - 1, Number(raw.slice(8, 10)))
+                    : undefined;
+
+                  return (
+                    <FancyDatePicker
+                      minYear={1850}
+                      maxYear={new Date().getFullYear()}
+                      value={dateValue}
+                      onChange={(d) => {
+                        const iso = d ? d.toISOString().slice(0, 10) : "";
+                        setAnswer(q.id, iso, "date");
+                      }}
+                    />
+                  );
+                })()}
+
+
 
                 {q.type === "order" && (
                   <OrderQuestion
@@ -1547,15 +1641,23 @@ function OrderItem({ id, label }: { id: string; label: string }) {
       ref={setNodeRef}
       style={style}
       className="
-        flex items-center gap-4 p-4 rounded-xl border shadow-sm
-        bg-gradient-to-br from-[#ece9df] to-[#f5f3eb]
+     flex items-center gap-4 p-4
+        rounded-xl border
+        bg-white
+        shadow-[0_8px_22px_rgba(15,23,42,0.08)]
+        border-[#e5e7eb]
+        transition-all duration-150 ease-out
+        hover:border-[#E3BB62]
+        hover:bg-[#FFFAEB]
+        hover:-translate-y-[1px]
+        hover:shadow-[0_14px_30px_rgba(15,23,42,0.16)]
       "
     >
       {/* DRAG HANDLE */}
       <div
         {...attributes}
         {...listeners}
-        className="cursor-grab active:cursor-grabbing text-gray-400"
+        className="cursor-grab active:cursor-grabbing text-[#9ca3af]"
       >
         <GripVertical size={22} />
       </div>
@@ -1582,6 +1684,7 @@ function OrderQuestion({
   const initial = value && value.length ? value : base;
 
   const [items, setItems] = useState<string[]>(initial);
+
 
   useEffect(() => {
     onChange(items);

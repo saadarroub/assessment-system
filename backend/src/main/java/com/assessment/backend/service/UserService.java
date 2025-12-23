@@ -45,7 +45,7 @@ public class UserService {
         user.setName(request.name);
         user.setEmail(request.email);
         user.setPassword(passwordEncoder.encode(request.password));
-        user.setProfileImagePath("default-avatar.jpg"); // Set default avatar
+        user.setProfileImagePath(null); // Set default avatar
         System.out.println("ENCODED PASSWORD (create) = " + user.getPassword());
         User savedUser = userRepository.save(user);
         if (request.roleId != null) {
