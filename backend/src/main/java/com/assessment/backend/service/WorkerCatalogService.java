@@ -24,8 +24,6 @@ import java.util.stream.Collectors;
 @Service
 public class WorkerCatalogService {
 
-    // TODO : Parsing the expiration date !!!!
-
     @Autowired
     private WorkerCatalogRepository repository;
 

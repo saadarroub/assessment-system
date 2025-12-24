@@ -1,7 +1,7 @@
 /* ===================== BASE URLs ===================== */
-const PUB_BASE = import.meta.env.VITE_PUBLIC_BASE ?? "http://localhost:8080"; // /public
+const PUB_BASE = import.meta.env.VITE_PUBLIC_BASE ?? ""; // /public
 const API_BASE =
-  (import.meta as any)?.env?.VITE_API_URL ?? "http://localhost:8080/api";     // /api
+  (import.meta as any)?.env?.VITE_API_URL ?? "/api";     // /api
 
 /* ===================== Invite Meta ===================== */
 export type InviteMeta = {
