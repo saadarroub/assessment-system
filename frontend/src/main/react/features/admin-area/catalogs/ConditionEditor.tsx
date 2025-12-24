@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useToast } from "@/shared/contexts/ToastContext";
 import PageHeader from "./PageHeader";
+
 // Icons
 import AdminLayout from "@/apps/app/AdminLayout";
 import "@/styles/admin.css";
@@ -972,20 +973,41 @@ export default function ConditionEditor() {
     return (
       <div ref={setNodeRef} style={style} className="mt-3">
         {/* Karten-Header */}
-        <div
-          className={
-            "flex items-center justify-between rounded-xl shadow-sm px-4 py-3 border " +
-            (isThisDragging ? "drag-active-highlight" : "border-gray-400")
-          }
-          style={
-            isThisDragging
-              ? {} // 👉 Beim Dragging kein Hintergrund → CSS gewinnt
-              : {
-                  background:
-                    "linear-gradient(135deg, #e9e5ddff 30%, #efede4ff 100%)",
-                }
-          }
-        >
+<div
+  className={
+    "group relative flex items-center justify-between rounded-xl px-4 py-3 border transition-colors duration-300 " +
+    (isThisDragging ? "drag-active-highlight" : "border-[#e5dcc7]")
+  }
+
+style={
+  isThisDragging
+    ? {}
+    : {
+        background:
+          "linear-gradient(135deg, #fffdf7ff 0%, #fdf9efff 100%)",
+        border: "1px solid #ddc691ff",
+        boxShadow: "0 3px 10px rgba(0,0,0,0.03)",
+      }
+}
+
+
+
+        >{/* Goldener Hover-Glow */}
+<div
+  className="
+    pointer-events-none
+    absolute inset-0 rounded-xl
+    opacity-0 group-hover:opacity-100
+    transition-opacity duration-300
+  "
+  style={{
+    background: `
+      radial-gradient(circle at top left, rgba(227,187,98,0.35), transparent 45%),
+      radial-gradient(circle at top right, rgba(227,187,98,0.25), transparent 45%)
+    `,
+  }}
+/>
+
           <div className="flex items-start gap-3">
             {/* Grip */}
             <GripVertical
@@ -1069,8 +1091,19 @@ export default function ConditionEditor() {
             </div>
           </div>
 
-          {/* Rechts */}
-          <div className="flex items-center gap-6">
+          
+          {/* Rechts – Buttons nur bei Hover sichtbar */}
+<div
+  className="
+    flex items-center gap-6
+    opacity-0
+    pointer-events-none
+    transition-opacity duration-200
+    group-hover:opacity-100
+    group-hover:pointer-events-auto
+  "
+>
+
             {/* Preview/Simulate */}
             <button
               onClick={() => {
@@ -1295,7 +1328,7 @@ export default function ConditionEditor() {
 />
 
       {/* BODY - Grauer Hintergrund wie AdminDashboard */}
-            <main
+      <main
         className="min-h-[calc(100vh-64px)] mt-0 px-6 pb-8 pt-20"
         style={{
           background:
@@ -1304,52 +1337,114 @@ export default function ConditionEditor() {
             "linear-gradient(to bottom, #f3f4f7 0, #e6e9ef 240px, #f4f5f8 100%)",
         }}
       >
-      
-        {/* Hauptfrage hinzufügen */}
-        <div className="px-8 pt-6 flex justify-end">
+        {/* Top-Bar: Neue Hauptfrage Button rechts */}
+        <div className="max-w-[1400px] xl:max-w-[1600px] mx-auto mb-3 flex items-center justify-end">
           <button
             onClick={handleAddQuestion}
+            type="button"
+            aria-label="Neue Hauptfrage"
+            className="
+              inline-flex items-center gap-2
+              rounded-full
+              px-4 py-2
+              text-sm font-semibold
+              focus:outline-none
+              transition
+              hover:-translate-y-[1px]
+            "
             style={{
-              background: "hsl(40,60%,63%)", // Gelb
-              color: "hsl(200,32%,22%)", // dunkles Blau-Grau
-              boxShadow: "0 1px 2px rgba(0,0,0,.05)",
+              background: "hsl(40,60%,63%)",
+              color: "hsl(200,32%,22%)",
+              boxShadow: "0 6px 14px rgba(0,0,0,0.12)",
+              borderRadius: "999px",
+              border: "1px solid rgba(255,255,255,0.8)",
             }}
-            className="flex items-center gap-2 bg-brand-sand text-white font-medium px-4 py-2 rounded shadow hover:shadow-md hover:scale-105 transition-all duration-200"
           >
             <Plus size={16} />
-            Neue Hauptfrage
+            <span>Neue Hauptfrage</span>
           </button>
         </div>
 
         {/* 🔍 SEARCH BOX */}
-        <div className="px-8 pt-4">
-          <div className="mx-auto rounded-[12px] border bg-white/85 backdrop-blur-md shadow">
-            <div className="p-4 flex items-center justify-between gap-3">
-              <div className="relative flex-1">
-                <Search
-                  size={16}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                />
-                <input
-                  type="text"
-                  value={searchTerm}
-                  placeholder="Suche Frage..."
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full h-10 rounded-md border pl-10 pr-3 text-sm focus:ring-2 focus:ring-amber-400"
-                />
-              </div>
+        <div className="max-w-[1400px] xl:max-w-[1600px] mx-auto mb-4 rounded-[18px] border px-4 py-3 md:px-5 md:py-4 shadow-[0_10px_30px_rgba(0,0,0,0.06)]"
+          style={{
+            background: "linear-gradient(to bottom, #ffffff, #f7f7f7)",
+            borderColor: "#d2c9b9",
+          }}
+        >
+          <div className="flex flex-wrap items-center justify-between gap-3 md:gap-4">
+            {/* Suche */}
+            <div className="relative flex-1 min-w-[220px] max-w-[36rem]">
+              <span
+                className="absolute left-3 top-1/2 -translate-y-1/2"
+                style={{ color: "#808080" }}
+              >
+                <Search size={16} />
+              </span>
 
-              <div className="px-4 py-2 rounded-md border bg-white text-gray-600">
-                Zeige{" "}
-                <span className="font-semibold">{totalQuestionCount}</span>{" "}
-                Fragen
+              <input
+                type="text"
+                placeholder="Suche Frage…"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="
+                  w-full h-10 md:h-11
+                  rounded-[999px]
+                  border
+                  pl-10 pr-4
+                  text-sm
+                  outline-none
+                  transition
+                  bg-white
+                "
+                style={{
+                  borderColor: "#d2c9b9",
+                  color: "#264555",
+                  boxShadow: "0 1px 2px rgba(0,0,0,0.03)",
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.boxShadow = "0 0 0 2px rgba(227,187,98,0.75)";
+                  e.currentTarget.style.borderColor = "#E3BB62";
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.boxShadow = "0 1px 2px rgba(0,0,0,0.03)";
+                  e.currentTarget.style.borderColor = "#d2c9b9";
+                }}
+              />
+            </div>
+
+            {/* Zähler rechts – dezente Badge */}
+            <div className="flex items-center gap-3">
+              <div
+                className="
+                  inline-flex items-center gap-2
+                  rounded-full
+                  px-3 md:px-4 py-1.5
+                  text-xs md:text-sm font-medium
+                "
+                style={{
+                  background: "#264555",
+                  color: "white",
+                }}
+              >
+                <span
+                  className="h-2 w-2 rounded-full"
+                  style={{ background: "#E3BB62" }}
+                />
+                <span>
+                  Zeige{" "}
+                  <span className="font-semibold">
+                    {totalQuestionCount}
+                  </span>{" "}
+                  Fragen
+                </span>
               </div>
             </div>
           </div>
         </div>
 
         {/* Fragenliste mit DnD */}
-        <div className="px-10 pt-6 pb-10">
+        <div className="max-w-[1400px] xl:max-w-[1600px] mx-auto pt-4 pb-10">
           <div style={{ position: "relative", overflow: "hidden" }}>
             <DndContext
               collisionDetection={closestCorners}

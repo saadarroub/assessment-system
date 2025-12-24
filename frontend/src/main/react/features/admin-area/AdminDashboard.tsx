@@ -25,8 +25,6 @@ import {
   getAllQuestionNodes,
   getAllThemas,
   createThema,
-  deleteThema,
-  updateThema,
   duplicateThema,
   changeThemaStatus,
 } from "@/api/questionApi";
@@ -49,14 +47,6 @@ export default function AdminDashboard() {
   const [topics, setTopics] = useState<Topic[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [selectedTopic, setSelectedTopic] = useState<Topic | null>(null);
-
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [editThemaName, setEditThemaName] = useState("");
-  const [editThemaDesc, setEditThemaDesc] = useState("");
-  const [editThemaId, setEditThemaId] = useState<string | null>(null);
-
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [newThemaName, setNewThemaName] = useState("");
   const [newThemaDesc, setNewThemaDesc] = useState("");
@@ -69,8 +59,6 @@ export default function AdminDashboard() {
   const [highlightIds, setHighlightIds] = useState<Set<string>>(new Set());
   const [badgeIds, setBadgeIds] = useState<Set<string>>(new Set());
 
-  // Modal Input Referenz
-  const titleInputRef = useRef<HTMLInputElement | null>(null);
   function HeaderStat({
     label,
     value,
@@ -277,16 +265,22 @@ export default function AdminDashboard() {
   }, [filteredTopics]);
 
   // Callbacks (stable)
-  const handleDelete = useCallback((t: Topic) => {
-    setSelectedTopic(t);
-    setShowDeleteModal(true);
+  const handleDeleteSuccess = useCallback((t: Topic) => {
+    setTopics((prev) => prev.filter((topic) => topic.id !== t.id));
   }, []);
 
-  const handleEdit = useCallback((t: Topic) => {
-    setEditThemaId(t.id);
-    setEditThemaName(t.title);
-    setEditThemaDesc(t.subtitle);
-    setIsEditModalOpen(true);
+  const handleEditSuccess = useCallback((t: Topic) => {
+    setTopics((prev) =>
+      prev.map((topic) =>
+        topic.id === t.id
+          ? {
+            ...topic,
+            title: t.title,
+            subtitle: t.subtitle,
+          }
+          : topic
+      )
+    );
   }, []);
 
   const handleManage = useCallback(
@@ -367,8 +361,8 @@ export default function AdminDashboard() {
             50%       { background-color: #d1fae5; }  /* Intensiveres Grün */
           }
           @keyframes glowRing {
-            0%, 100% { box-shadow: 0 0 0 0 rgba(34,197,94,0.6); }  /* Stärkerer Glow */
-            50%      { box-shadow: 0 0 0 16px rgba(34,197,94,0.0); }  /* Größerer Ring */
+            0%, 100% { box-shadow: 0 0 0 0 rgba(34,197,94,0.35); }  /* Stärkerer Glow */
+            50%      { box-shadow: 0 0 0 8px rgba(34,197,94,0.0); }  /* Größerer Ring */
           }
         `}
       </style>
@@ -621,9 +615,8 @@ export default function AdminDashboard() {
                           "relative",
                           isHighlight
                             ? [
-                              "ring-4 ring-green-400 ring-offset-4",
-
-                              "[animation:glowRing_.9s_ease-in-out_infinite]",
+                            "ring-2 ring-green-400 ring-offset-2",
+"[animation:glowRing_0.8s_ease-in-out_infinite]",
                             ].join(" ")
                             : "",
                           "transition-transform duration-300 ease-out rounded-xl",
@@ -638,8 +631,8 @@ export default function AdminDashboard() {
                         <TopicCard
                           t={t}
                           loading={loading}
-                          onDelete={handleDelete}
-                          onEdit={handleEdit}
+                          onDeleteSuccess={handleDeleteSuccess}
+                          onEditSuccess={handleEditSuccess}
                           onManage={handleManage}
                           onDuplicate={handleDuplicate}
                           onStatusChange={() => handleStatusChange(t.id)}
@@ -657,131 +650,131 @@ export default function AdminDashboard() {
         </section>
       </main>
 
-      {/* === EDIT MODAL === */}
-      {isEditModalOpen && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex justify-center items-center z-[9999]">
-          <div className="bg-white rounded-xl shadow-xl w-[420px] p-6">
-            <h3 className="text-lg font-semibold mb-4 text-center">
-              Thema bearbeiten
-            </h3>
-
-            {/* TITEL */}
-            <div className="mb-4 text-left">
-              <label className="block text-sm font-medium text-black-600 mb-1">
-                Titel
-              </label>
-              <input
-                ref={titleInputRef}
-                type="text"
-                value={editThemaName}
-                onChange={(e) => setEditThemaName(e.target.value)}
-                maxLength={70}
-                className="w-full border rounded-md p-2 focus:ring-2 focus:ring-[#56768f]"
-              />
-            </div>
-
-            {/* BESCHREIBUNG */}
-            <div className="mb-6 text-left">
-              <label className="block text-sm font-medium text-black-600 mb-1">
-                Beschreibung
-              </label>
-              <textarea
-                value={editThemaDesc}
-                onChange={(e) => setEditThemaDesc(e.target.value)}
-                className="w-full border rounded-md p-2 h-24 resize-none focus:ring-2 focus:ring-[#56768f]"
-              />
-            </div>
-
-            {/* ACTION BUTTONS */}
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setIsEditModalOpen(false)}
-                className="px-4 py-2 bg-gray-200 rounded"
-              >
-                Abbrechen
-              </button>
-
-              <button
-                onClick={async () => {
-                  if (!editThemaId) return;
-                  try {
-                    const updated = await updateThema(editThemaId, {
-                      name: editThemaName,
-                      description: editThemaDesc,
-                    });
-
-                    setTopics((prev) =>
-                      prev.map((t) =>
-                        t.id === updated.id
-                          ? {
-                            ...t,
-                            title: updated.name,
-                            subtitle: updated.description,
-                          }
-                          : t
-                      )
-                    );
-                    showSuccess("Thema erfolgreich aktualisiert!");
-
-                    setIsEditModalOpen(false);
-                  } catch (err) {
-                    showError(
-                      "Fehler: Thema konnte nicht aktualisiert werden."
-                    );
-                  }
-                }}
-                className="px-4 py-2 bg-[#56768f] text-white rounded"
-              >
-                Speichern
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* === ADD MODAL === */}
       {isAddModalOpen && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex justify-center items-center z-[9999]">
-          <div className="bg-white rounded-xl shadow-lg w-[420px] p-6">
-            <h3 className="text-lg font-semibold mb-4 text-center">
-              Neues Thema hinzufügen
-            </h3>
+          <div className="w-full max-w-xl px-4 sm:px-0">
+            <div className="relative overflow-hidden rounded-3xl bg-white shadow-2xl border border-slate-200/80">
+              {/* Deko-Glows */}
+              <div
+                className="pointer-events-none absolute -right-24 -top-24 h-52 w-52 rounded-full bg-gradient-to-br from-[#E3BB62]/40 via-amber-400/20 to-transparent opacity-60"
+                aria-hidden="true"
+              />
+              <div
+                className="pointer-events-none absolute -left-24 -bottom-24 h-52 w-52 rounded-full bg-gradient-to-tr from-sky-500/20 via-indigo-500/10 to-transparent opacity-60"
+                aria-hidden="true"
+              />
 
-            {/* TITEL LABEL */}
-            <label className="block text-left text-sm font-medium text-gray-700 mb-1">
-              Titel
-            </label>
-            <input
-              type="text"
-              value={newThemaName}
-              maxLength={70}
-              onChange={(e) => setNewThemaName(e.target.value)}
-              className="w-full border rounded-md p-2 mb-4 focus:ring-2 focus:ring-[#56768f]"
-              placeholder="Titel eingeben..."
-            />
+              {/* Inhalt */}
+              <div className="relative px-6 pt-6 pb-5">
+                <h3 className="text-lg sm:text-xl font-semibold text-slate-900 mb-4">
+                  Neues Thema hinzufügen
+                </h3>
 
-            {/* BESCHREIBUNG LABEL */}
-            <label className="block text-left text-sm font-medium text-gray-700 mb-1">
-              Beschreibung
-            </label>
-            <textarea
-              value={newThemaDesc}
-              onChange={(e) => setNewThemaDesc(e.target.value)}
-              className="w-full border p-2 rounded mb-5 min-h-[100px] resize-y focus:ring-2 focus:ring-[#56768f]"
-              placeholder="Beschreibung eingeben..."
-            />
+                <form className="space-y-4">
+                  {/* TITEL */}
+                  <div>
+                    <label
+                      htmlFor="add-title"
+                      className="block text-sm font-medium text-slate-700 mb-1"
+                    >
+                      Titel <span className="text-red-500">*</span>
+                    </label>
+                <textarea
+  id="add-title"
+  rows={1}
+  maxLength={70}
+  value={newThemaName}
+  onChange={(e) => {
+    setNewThemaName(e.target.value);
 
-            {/* BUTTONS */}
-            <div className="flex justify-end gap-2">
+    // ⭐ Auto-Resize
+    e.currentTarget.style.height = "auto";
+    e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
+  }}
+  placeholder="Titel eingeben..."
+  className="
+    w-full
+    rounded-xl
+    border
+    px-3 py-2.5
+    text-sm
+    bg-slate-50
+    border-slate-200
+    outline-none
+    resize-none
+    overflow-hidden
+    leading-snug
+    break-words
+    overflow-wrap-anywhere
+    focus:bg-white
+    focus:border-[#E3BB62]
+    focus:ring-2 focus:ring-[rgba(227,187,98,0.45)]
+    transition
+  "
+/>
+
+                  </div>
+
+                  {/* BESCHREIBUNG */}
+                  <div>
+                    <label
+                      htmlFor="add-desc"
+                      className="block text-sm font-medium text-slate-700 mb-1"
+                    >
+                      Beschreibung
+                    </label>
+                    <textarea
+                      id="add-desc"
+                      value={newThemaDesc}
+                      onChange={(e) => setNewThemaDesc(e.target.value)}
+                      placeholder="Beschreibung eingeben..."
+                      rows={3}
+                      className="
+                        w-full rounded-xl border px-3 py-2.5 text-sm
+                        bg-slate-50
+                        border-slate-200
+                        outline-none
+                        focus:bg-white
+                        focus:border-[#E3BB62]
+                        focus:ring-2 focus:ring-[rgba(227,187,98,0.45)]
+                        transition
+                      "
+                    />
+                  </div>
+                </form>
+              </div>
+            </div>
+
+            {/* Buttons außerhalb des Modals */}
+            <div className="h-3" />
+            <div className="mt-1 flex gap-2">
               <button
+                type="button"
                 onClick={() => setIsAddModalOpen(false)}
-                className="px-4 py-2 bg-gray-200 rounded"
+                className="
+                  flex-1
+                  h-12
+                  text-sm font-medium
+                  text-slate-800
+                  bg-[#f3f3f3]
+                  hover:bg-[#e5e5e5]
+                  border border-slate-200
+                  rounded-xl
+                  disabled:opacity-60
+                  transition
+                "
               >
                 Abbrechen
               </button>
 
               <button
+                type="button"
                 onClick={async () => {
+                  if (!newThemaName.trim()) {
+                    showError("Titel darf nicht leer sein!");
+                    return;
+                  }
                   try {
                     // IDs VOR dem Anlegen merken
                     const beforeIds = new Set(topics.map((t) => t.id));
@@ -814,7 +807,18 @@ export default function AdminDashboard() {
                     showError("Fehler: Thema konnte nicht erstellt werden.");
                   }
                 }}
-                className="px-4 py-2 bg-[#56768f] text-white rounded"
+                className="
+                  flex-1
+                  h-12
+                  text-sm font-semibold
+                  rounded-xl
+                  bg-[#E3BB62]
+                  text-[#264555]
+                  hover:bg-[#d8ac55]
+                  shadow-[0_10px_30px_rgba(0,0,0,0.18)]
+                  transition
+                  hover:-translate-y-[1px]
+                "
               >
                 Speichern
               </button>
@@ -823,51 +827,6 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      {/* === DELETE MODAL === */}
-      {showDeleteModal && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex justify-center items-center z-[9999]">
-          <div className="bg-white rounded-xl shadow-lg w-[420px] p-6 text-center">
-            <h2 className="text-lg font-semibold mb-4">Thema löschen</h2>
-
-            <p className="text-gray-600 mb-6">
-              Möchten Sie das Thema{" "}
-              <span className="font-semibold">{selectedTopic?.title}</span>{" "}
-              wirklich löschen?
-            </p>
-
-            <div className="flex justify-center gap-3">
-              <button
-                onClick={() => setShowDeleteModal(false)}
-                className="px-4 py-2 border border-gray-300 rounded text-gray-700"
-              >
-                Abbrechen
-              </button>
-
-              <button
-                onClick={async () => {
-                  if (!selectedTopic) return;
-
-                  try {
-                    await deleteThema(selectedTopic.id);
-
-                    setTopics((prev) =>
-                      prev.filter((t) => t.id !== selectedTopic.id)
-                    );
-                    showSuccess("Thema erfolgreich gelöscht!");
-
-                    setShowDeleteModal(false);
-                  } catch {
-                    showError("Fehler: Thema konnte nicht gelöscht werden.");
-                  }
-                }}
-                className="px-4 py-2 bg-red-600 text-white rounded"
-              >
-                Löschen
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </AdminLayout>
+</AdminLayout>
   );
 }

@@ -92,14 +92,12 @@ export default function ConfirmModal(props: ConfirmModalProps) {
                 {icon ?? <AlertTriangle className="text-amber-500" />}
               </div>
 
-              <div className="flex-1">
-                <div className="flex flex-wrap items-center gap-2 mb-1">
-                  <h2 className="text-lg sm:text-xl font-semibold text-slate-900">
-                    {title}
-                  </h2>
-                </div>
+              <div className="flex-1 min-w-0">
+                <h2 className="text-lg sm:text-xl font-semibold text-slate-900 mb-2 break-words">
+                  {title}
+                </h2>
 
-                <p className="text-sm text-slate-600 leading-relaxed">
+                <p className="text-sm text-slate-600 leading-relaxed break-words">
                   {description}
                 </p>
               </div>
