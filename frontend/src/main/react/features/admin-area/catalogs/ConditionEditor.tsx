@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useToast } from "@/shared/contexts/ToastContext";
+import PageHeader from "./PageHeader";
+
 // Icons
 import AdminLayout from "@/apps/app/AdminLayout";
 import "@/styles/admin.css";
@@ -20,10 +22,14 @@ import {
   ListOrdered,
   Edit3,
   GripVertical,
-  ChevronDown,
   ChevronRight,
   Search,
+
+  ChevronUp,
+  ChevronDown,
+
   Eye,
+
 } from "lucide-react";
 
 import {
@@ -967,20 +973,41 @@ export default function ConditionEditor() {
     return (
       <div ref={setNodeRef} style={style} className="mt-3">
         {/* Karten-Header */}
-        <div
-          className={
-            "flex items-center justify-between rounded-xl shadow-sm px-4 py-3 border " +
-            (isThisDragging ? "drag-active-highlight" : "border-gray-400")
-          }
-          style={
-            isThisDragging
-              ? {} // 👉 Beim Dragging kein Hintergrund → CSS gewinnt
-              : {
-                  background:
-                    "linear-gradient(135deg, #e9e5ddff 30%, #efede4ff 100%)",
-                }
-          }
-        >
+<div
+  className={
+    "group relative flex items-center justify-between rounded-xl px-4 py-3 border transition-colors duration-300 " +
+    (isThisDragging ? "drag-active-highlight" : "border-[#e5dcc7]")
+  }
+
+style={
+  isThisDragging
+    ? {}
+    : {
+        background:
+          "linear-gradient(135deg, #fffdf7ff 0%, #fdf9efff 100%)",
+        border: "1px solid #ddc691ff",
+        boxShadow: "0 3px 10px rgba(0,0,0,0.03)",
+      }
+}
+
+
+
+        >{/* Goldener Hover-Glow */}
+<div
+  className="
+    pointer-events-none
+    absolute inset-0 rounded-xl
+    opacity-0 group-hover:opacity-100
+    transition-opacity duration-300
+  "
+  style={{
+    background: `
+      radial-gradient(circle at top left, rgba(227,187,98,0.35), transparent 45%),
+      radial-gradient(circle at top right, rgba(227,187,98,0.25), transparent 45%)
+    `,
+  }}
+/>
+
           <div className="flex items-start gap-3">
             {/* Grip */}
             <GripVertical
@@ -1064,8 +1091,19 @@ export default function ConditionEditor() {
             </div>
           </div>
 
-          {/* Rechts */}
-          <div className="flex items-center gap-6">
+          
+          {/* Rechts – Buttons nur bei Hover sichtbar */}
+<div
+  className="
+    flex items-center gap-6
+    opacity-0
+    pointer-events-none
+    transition-opacity duration-200
+    group-hover:opacity-100
+    group-hover:pointer-events-auto
+  "
+>
+
             {/* Preview/Simulate */}
             <button
               onClick={() => {
@@ -1253,100 +1291,160 @@ export default function ConditionEditor() {
   return (
     <AdminLayout>
       {/* Header */}
-      <div className="relative bg-gradient-to-br from-[#d2c9b9] via-[#e8e2d7] to-[#ffffff] px-10 py-10 shadow-sm border-b border-gray-300/40">
-        {/* BACK BUTTON */}
-        <div
-          onClick={() => navigate("/admin")}
-          className="
-                  group w-fit flex items-center gap-3 cursor-pointer
-                  bg-white/60 backdrop-blur-xl 
-                  border border-gray-300/30 
-                  px-5 py-2.5 rounded-xl 
-                  shadow-[0_3px_10px_rgba(0,0,0,0.08)]
-                  transition-all duration-300
-                  hover:bg-white/80 hover:shadow-[0_6px_16px_rgba(0,0,0,0.12)]
-                  hover:-translate-y-0.5
-                "
-        >
-          <ArrowLeft
-            size={20}
-            className="text-[#264555] transition-all group-hover:-translate-x-1"
-          />
-          <span className="text-sm font-semibold text-[#264555]">
-            Zurück zur Übersicht
-          </span>
-        </div>
 
-        {/* TITLE BLOCK */}
-        <div className="mt-8 text-center">
-          <div className="flex justify-center items-center gap-4">
-            <div
-              className="
-          p-4 rounded-2xl shadow-md 
-          bg-gradient-to-br from-[#264555] to-[#3f5568]
-          text-white
-        "
-            >
-              <Layers size={28} />
-            </div>
+      {/* BACK BUTTON – oben links fixiert */}
+<div className="absolute left-10 top-10 z-20">
+  <button
+    onClick={() => navigate("/admin")}
+    className="
+      group flex items-center gap-2 
+      bg-white/70 backdrop-blur-xl 
+      border border-gray-300 
+      px-5 py-2.5 rounded-xl 
+      shadow-sm 
+      hover:bg-white/90 
+      transition-all
+    "
+  >
+    <ArrowLeft
+      size={20}
+      className="text-[#264555] transition-all group-hover:-translate-x-1"
+    />
+    <span className="text-sm font-semibold text-[#264555]">
+      Zurück zur Übersicht
+    </span>
+  </button>
+</div>
 
-            <h1 className="text-4xl md:text-5xl font-extrabold text-[#264555] tracking-tight">
-              {thema?.name || "Lade Thema..."}
-            </h1>
-          </div>
+    <PageHeader
+  title={thema?.name || "Lade Thema..."}
+  subtitle="Bearbeiten · Fragen verwalten · Struktur aufbauen"
+  icon={<Layers size={40} />}
+  gradient="navy"       // ⭐ Dein helles Sand-Design
+  height="250px"
+  center={true}
+  showPattern={true}
 
-          <p className="text-gray-700 mt-3 text-[15px]">
-            Bearbeiten · Fragen verwalten · Struktur aufbauen
-          </p>
-        </div>
-      </div>
+/>
+
       {/* BODY - Grauer Hintergrund wie AdminDashboard */}
-      <div className="bg-[hsl(0_0%_92%)] min-h-[calc(100vh-64px)] pb-10">
-        {/* Hauptfrage hinzufügen */}
-        <div className="px-8 pt-6 flex justify-end">
+      <main
+        className="min-h-[calc(100vh-64px)] mt-0 px-6 pb-8 pt-20"
+        style={{
+          background:
+            "radial-gradient(circle at 0 0, rgba(227,187,98,0.13) 0, transparent 40%)," +
+            "radial-gradient(circle at 100% 0, rgba(56,189,248,0.10) 0, transparent 42%)," +
+            "linear-gradient(to bottom, #f3f4f7 0, #e6e9ef 240px, #f4f5f8 100%)",
+        }}
+      >
+        {/* Top-Bar: Neue Hauptfrage Button rechts */}
+        <div className="max-w-[1400px] xl:max-w-[1600px] mx-auto mb-3 flex items-center justify-end">
           <button
             onClick={handleAddQuestion}
+            type="button"
+            aria-label="Neue Hauptfrage"
+            className="
+              inline-flex items-center gap-2
+              rounded-full
+              px-4 py-2
+              text-sm font-semibold
+              focus:outline-none
+              transition
+              hover:-translate-y-[1px]
+            "
             style={{
-              background: "hsl(40,60%,63%)", // Gelb
-              color: "hsl(200,32%,22%)", // dunkles Blau-Grau
-              boxShadow: "0 1px 2px rgba(0,0,0,.05)",
+              background: "hsl(40,60%,63%)",
+              color: "hsl(200,32%,22%)",
+              boxShadow: "0 6px 14px rgba(0,0,0,0.12)",
+              borderRadius: "999px",
+              border: "1px solid rgba(255,255,255,0.8)",
             }}
-            className="flex items-center gap-2 bg-brand-sand text-white font-medium px-4 py-2 rounded shadow hover:shadow-md hover:scale-105 transition-all duration-200"
           >
             <Plus size={16} />
-            Neue Hauptfrage
+            <span>Neue Hauptfrage</span>
           </button>
         </div>
 
         {/* 🔍 SEARCH BOX */}
-        <div className="px-8 pt-4">
-          <div className="mx-auto rounded-[12px] border bg-white/85 backdrop-blur-md shadow">
-            <div className="p-4 flex items-center justify-between gap-3">
-              <div className="relative flex-1">
-                <Search
-                  size={16}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                />
-                <input
-                  type="text"
-                  value={searchTerm}
-                  placeholder="Suche Frage..."
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full h-10 rounded-md border pl-10 pr-3 text-sm focus:ring-2 focus:ring-amber-400"
-                />
-              </div>
+        <div className="max-w-[1400px] xl:max-w-[1600px] mx-auto mb-4 rounded-[18px] border px-4 py-3 md:px-5 md:py-4 shadow-[0_10px_30px_rgba(0,0,0,0.06)]"
+          style={{
+            background: "linear-gradient(to bottom, #ffffff, #f7f7f7)",
+            borderColor: "#d2c9b9",
+          }}
+        >
+          <div className="flex flex-wrap items-center justify-between gap-3 md:gap-4">
+            {/* Suche */}
+            <div className="relative flex-1 min-w-[220px] max-w-[36rem]">
+              <span
+                className="absolute left-3 top-1/2 -translate-y-1/2"
+                style={{ color: "#808080" }}
+              >
+                <Search size={16} />
+              </span>
 
-              <div className="px-4 py-2 rounded-md border bg-white text-gray-600">
-                Zeige{" "}
-                <span className="font-semibold">{totalQuestionCount}</span>{" "}
-                Fragen
+              <input
+                type="text"
+                placeholder="Suche Frage…"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="
+                  w-full h-10 md:h-11
+                  rounded-[999px]
+                  border
+                  pl-10 pr-4
+                  text-sm
+                  outline-none
+                  transition
+                  bg-white
+                "
+                style={{
+                  borderColor: "#d2c9b9",
+                  color: "#264555",
+                  boxShadow: "0 1px 2px rgba(0,0,0,0.03)",
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.boxShadow = "0 0 0 2px rgba(227,187,98,0.75)";
+                  e.currentTarget.style.borderColor = "#E3BB62";
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.boxShadow = "0 1px 2px rgba(0,0,0,0.03)";
+                  e.currentTarget.style.borderColor = "#d2c9b9";
+                }}
+              />
+            </div>
+
+            {/* Zähler rechts – dezente Badge */}
+            <div className="flex items-center gap-3">
+              <div
+                className="
+                  inline-flex items-center gap-2
+                  rounded-full
+                  px-3 md:px-4 py-1.5
+                  text-xs md:text-sm font-medium
+                "
+                style={{
+                  background: "#264555",
+                  color: "white",
+                }}
+              >
+                <span
+                  className="h-2 w-2 rounded-full"
+                  style={{ background: "#E3BB62" }}
+                />
+                <span>
+                  Zeige{" "}
+                  <span className="font-semibold">
+                    {totalQuestionCount}
+                  </span>{" "}
+                  Fragen
+                </span>
               </div>
             </div>
           </div>
         </div>
 
         {/* Fragenliste mit DnD */}
-        <div className="px-10 pt-6 pb-10">
+        <div className="max-w-[1400px] xl:max-w-[1600px] mx-auto pt-4 pb-10">
           <div style={{ position: "relative", overflow: "hidden" }}>
             <DndContext
               collisionDetection={closestCorners}
@@ -1500,6 +1598,11 @@ export default function ConditionEditor() {
                       <button
                         key={type.id}
                         onClick={() => {
+                          // Reihenfolge-Typ noch nicht verfügbar
+                          if (type.value === "order") {
+                            alert("Dieser Fragetyp ist noch nicht verfügbar.");
+                            return;
+                          }
                          
                           setSelectedType(type);
                           if (errorType) setErrorType(null); // 🔥 Fehler zurücksetzen
@@ -1632,101 +1735,124 @@ export default function ConditionEditor() {
                         />
 
                         {/* Score */}
-                     
                         {!isOrderType && (
-                          <input
-                            type="number"
-                            placeholder="Score"
-                            min={-1}
-                            max={6}
-                            step={1}
-                            value={
-                              opt.score == null || Number.isNaN(opt.score)
-                                ? ""
-                                : opt.score
-                            }
-                            onInput={(e: React.FormEvent<HTMLInputElement>) => {
-                              // ❗ Browser-Standard verhindern (1 bei ArrowUp)
-                              // Wenn ein Pfeil gedrückt wird, ignorieren wir onInput komplett
-                              if (
-                                (e.nativeEvent as any).inputType?.includes(
-                                  "arrow"
-                                )
-                              ) {
-                                return;
-                              }
+                          <div className="relative w-24">
+                            <input
+                              type="text"
+                              placeholder="Score"
+                              className="w-full border rounded-md px-2 py-1 text-center pr-6"
+                              value={opt.score ?? ""}
+                              onChange={(e) => {
+                                const val = e.target.value;
 
-                              let val = e.currentTarget.value;
-
-                              // Wenn leer → nichts setzen
-                              if (val === "") {
-                                setOptions(
-                                  options.map((o, j) =>
-                                    j === i ? { ...o, score: null } : o
-                                  )
-                                );
-                                return;
-                              }
-
-                              // Tastatureingabe (0–6)
-                              if (/^[0-6]$/.test(val)) {
-                                setOptions(
-                                  options.map((o, j) =>
-                                    j === i ? { ...o, score: Number(val) } : o
-                                  )
-                                );
-                              }
-                            }}
-                            onKeyDown={(e) => {
-                              const allowed = [
-                                "0",
-                                "1",
-                                "2",
-                                "3",
-                                "4",
-                                "5",
-                                "6",
-                                "Backspace",
-                                "Delete",
-                                "Tab",
-                                "ArrowLeft",
-                                "ArrowRight",
-                                "ArrowUp",
-                                "ArrowDown",
-                              ];
-
-                              if (!allowed.includes(e.key)) {
-                                e.preventDefault();
-                              }
-
-                              // ---- Pfeile steuern ----
-                              if (
-                                e.key === "ArrowUp" ||
-                                e.key === "ArrowDown"
-                              ) {
-                                e.preventDefault(); // ❗ verhindert Browser-Auto-„1“
-
-                                let current = opt.score;
-
-                                // Erstes Pfeil-Klicken bei leerem Feld
-                                if (current == null) {
-                                  current = e.key === "ArrowUp" ? 0 : 6; // ✅ GENAU DAS HIER
-                                } else {
-                                  if (e.key === "ArrowUp")
-                                    current = Math.min(6, current + 1);
-                                  if (e.key === "ArrowDown")
-                                    current = Math.max(0, current - 1);
+                                if (val === "") {
+                                  setOptions(
+                                    options.map((o, j) =>
+                                      j === i ? { ...o, score: null } : o
+                                    )
+                                  );
+                                  return;
                                 }
 
-                                setOptions(
-                                  options.map((o, j) =>
-                                    j === i ? { ...o, score: current } : o
-                                  )
-                                );
-                              }
-                            }}
-                            className="w-24 border rounded-md px-2 py-1 text-center"
-                          />
+                                // ⭐ 0–6 erlauben statt 0–5
+                                if (/^[0-6]$/.test(val)) {
+                                  setOptions(
+                                    options.map((o, j) =>
+                                      j === i ? { ...o, score: Number(val) } : o
+                                    )
+                                  );
+                                }
+                              }}
+                              onKeyDown={(e) => {
+                                if (
+                                  e.key === "ArrowUp" ||
+                                  e.key === "ArrowDown"
+                                ) {
+                                  e.preventDefault();
+
+                                  let current = opt.score;
+
+                                  // ⭐ Start bei leerem Feld
+                                  if (current == null)
+                                    current = e.key === "ArrowUp" ? 0 : 6;
+                                  else {
+                                    // ⭐ Pfeile gehen bis 6 statt 5
+                                    if (e.key === "ArrowUp")
+                                      current = Math.min(6, current + 1);
+                                    if (e.key === "ArrowDown")
+                                      current = Math.max(0, current - 1);
+                                  }
+
+                                  setOptions(
+                                    options.map((o, j) =>
+                                      j === i ? { ...o, score: current } : o
+                                    )
+                                  );
+                                }
+                              }}
+                            />
+
+                            {/* CUSTOM ARROW BUTTONS */}
+                            <div
+                              className="
+        absolute right-1 top-1/2 -translate-y-1/2 
+        flex flex-col 
+        bg-gray-100 border border-gray-300 
+        rounded-md overflow-hidden
+      "
+                              style={{ width: "24px", height: "32px" }}
+                            >
+                              <button
+                                type="button"
+                                className="flex-1 flex items-center justify-center hover:bg-gray-200"
+                                onClick={() => {
+                                  let current = opt.score;
+
+                                  // ⭐ Max = 6 statt 5
+                                  current =
+                                    current == null
+                                      ? 0
+                                      : Math.min(6, current + 1);
+
+                                  setOptions(
+                                    options.map((o, j) =>
+                                      j === i ? { ...o, score: current } : o
+                                    )
+                                  );
+                                }}
+                              >
+                                <ChevronUp
+                                  size={14}
+                                  className="text-gray-600"
+                                />
+                              </button>
+
+                              <button
+                                type="button"
+                                className="flex-1 flex items-center justify-center hover:bg-gray-200"
+                                onClick={() => {
+                                  let current = opt.score;
+
+                                  // ⭐ Wenn leer → start = 6
+                                  current =
+                                    current == null
+                                      ? 6
+                                      : Math.max(0, current - 1);
+
+                                  setOptions(
+                                    options.map((o, j) =>
+                                      j === i ? { ...o, score: current } : o
+                                    )
+                                  );
+                                }}
+                              >
+                                <ChevronDown
+                                  size={14}
+                                  className="text-gray-600"
+                                />
+                              </button>
+                            </div>
+                          </div>
                         )}
 
                         {/* Löschen */}
@@ -1734,7 +1860,7 @@ export default function ConditionEditor() {
                           onClick={() =>
                             setOptions(options.filter((_, j) => j !== i))
                           }
-                          className="text-gray-500 hover:text-red-500 transition-all"
+                          className="text-red-500 hover:text-red-400 transition-all"
                         >
                           <Trash2 size={18} />
                         </button>
@@ -2028,10 +2154,13 @@ export default function ConditionEditor() {
             </div>
           </div>
         )}
-      </div>{" "}
+      {" "}
       {/* End of gray background container */}
+      </main>
     </AdminLayout>
+    
   );
+  
 }
 
 // 👁️ Hilfsfunktion für Preview Order Items (Drag & Drop)

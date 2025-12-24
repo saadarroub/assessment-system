@@ -44,9 +44,9 @@ export type ApiState = {
 /* 
    HTTP Helper 
  */
-// Per .env steuerbar, sonst localhost:8080
+// Per .env steuerbar, sonst relative URL für Production
 const BACKEND_BASE =
-  (import.meta as any).env?.VITE_BACKEND_BASE || "http://localhost:8080";
+  (import.meta as any).env?.VITE_BACKEND_BASE || "";
 
 // Hilfsfunktion, damit wir sauber zusammensetzen
 const join = (base: string, path: string) =>

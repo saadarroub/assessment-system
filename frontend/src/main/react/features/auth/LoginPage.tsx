@@ -4,7 +4,7 @@ import { useAuthCtx } from "@/core/auth/AuthContext";
 import { AuthService } from "@/core/auth/AuthService";
 import type { UserData } from "@/core/auth/AuthService";
 
-const API_URL = (import.meta as any)?.env?.VITE_API_URL ?? "http://localhost:8080/api";
+const API_URL = (import.meta as any)?.env?.VITE_API_URL ?? "/api";
 
 export default function LoginPage() {
   const [email, setEmail]       = useState("");

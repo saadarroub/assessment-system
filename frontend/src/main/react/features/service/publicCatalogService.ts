@@ -1,6 +1,6 @@
 
 const PUB_BASE =
-  (import.meta as any)?.env?.VITE_PUBLIC_BASE ?? "http://localhost:8080";
+  (import.meta as any)?.env?.VITE_PUBLIC_BASE ?? "";
 
 /** Ein Thema aus der Public-API */
 export type PublicThemaDto = {
