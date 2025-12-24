@@ -1,5 +1,3 @@
-// src/main/react/features/worker-area/results/ResultsPage.tsx
-
 import React, { useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import AdminLayout from "@/apps/app/AdminLayout";
@@ -65,7 +63,7 @@ export default function ResultsPage() {
 
   const radarChartRef = useRef<HTMLDivElement>(null);
 
-  // Demo-Daten wie vorher (Logik bleibt gleich)
+  // Demo-Daten 
   const [questions, setQuestions] = useState<Question[]>([
     {
       id: 1,
@@ -144,7 +142,7 @@ export default function ResultsPage() {
   };
 
   const onSave = () => {
-    // Hier kannst du später API-Call machen. Für jetzt: nur UI-State.
+    // Hier  API-Call 
     setIsSaved(true);
   };
 
@@ -212,7 +210,7 @@ export default function ResultsPage() {
           q.score !== null ? `${q.score}` : "Offen",
         ]),
         styles: { fontSize: 8, cellPadding: 3 },
-        headStyles: { fillColor: [38, 69, 85] }, // navy
+        headStyles: { fillColor: [38, 69, 85] }, 
         columnStyles: {
           0: { cellWidth: 25 },
           1: { cellWidth: 60 },
@@ -232,7 +230,7 @@ export default function ResultsPage() {
 
   return (
     <AdminLayout>
-      {/* HERO Header (wie UsersPage) */}
+      {/* HERO Header  */}
       <PageHeader
         title="Manuelle Bewertung & Report"
         subtitle={`Bewerte offene Antworten, ergänze Maßnahmen und exportiere den Bericht als PDF — Session: ${
@@ -245,7 +243,7 @@ export default function ResultsPage() {
         center={false}
       />
 
-      {/* ===== Außenbereich unter dem Hero (wie UsersPage) ===== */}
+      {/*  Außenbereich unter dem Hero  */}
       <main
         className="min-h-[calc(100vh-64px)] mt-0 px-6 pb-10 pt-20"
         style={{
@@ -254,9 +252,9 @@ export default function ResultsPage() {
             "linear-gradient(to bottom, #f3f4f7 0, #e6e9ef 240px, #f4f5f8 100%)",
         }}
       >
-        {/* ===== Top-Bar: Breadcrumb + Actions ===== */}
+        {/*  Top-Bar: Breadcrumb + Actions  */}
         <div className="max-w-[1400px] xl:max-w-[1600px] mx-auto mb-3 flex items-center justify-between gap-3">
-          {/* Breadcrumb links – hübscher Pill */}
+          {/* Breadcrumb links  */}
           <nav className="flex items-center">
             <div
               className="
@@ -360,7 +358,7 @@ export default function ResultsPage() {
           </div>
         </div>
 
-        {/* ===== Info-Leiste (wie Suche/Count Card) ===== */}
+        {/*  Info-Leiste */}
         <div
           className="
             max-w-[1400px] xl:max-w-[1600px] mx-auto mb-5
@@ -404,11 +402,11 @@ export default function ResultsPage() {
           </div>
         </div>
 
-        {/* ===== Content Grid ===== */}
+        {/*  Content Grid  */}
         <div className="max-w-[1400px] xl:max-w-[1600px] mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* LEFT / MAIN */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Manuelle Bewertung Card (UserList Card-Style) */}
+            {/* Manuelle Bewertung Card */}
             <section
               className="
                 rounded-[12px] border overflow-hidden
@@ -581,7 +579,7 @@ export default function ResultsPage() {
               </div>
             </section>
 
-            {/* Bereits bewertet Table (UserList Table-Look) */}
+            {/* Bereits bewertet Table */}
             <section
               className="
                 rounded-[12px] border
