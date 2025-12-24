@@ -20,7 +20,7 @@ import {
   summaryRowToUiQuestion,
   type ApiSummaryResponse,
 } from "@/features/service/publicAssessmentService";
-import aa from '@/assets/aa.gif';
+import aa from '@/assets/ICA3_Logo.jpg';
 import {
   DndContext,
   closestCorners,
@@ -892,7 +892,7 @@ export default function AssessmentPage() {
         // ignore
       }
 
-showToast("Erfolgreich", "Das Assessment wurde erfolgreich abgeschlossen.");      setTimeout(() => {
+      showToast("Erfolgreich", "Das Assessment wurde erfolgreich abgeschlossen."); setTimeout(() => {
         goBackToTopics();
       }, 600);
 
@@ -1068,7 +1068,8 @@ showToast("Erfolgreich", "Das Assessment wurde erfolgreich abgeschlossen.");    
 `}</style>
 
       {/* Deko nur im Content-Bereich, NICHT hinter dem Footer */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 bottom-64">
+      <div className="pointer-events-none absolute inset-0">
+
         {/* Hexagon Pattern (CSS-only) */}
         <div className="absolute inset-0 opacity-[0.14] hex-bg" />
 
@@ -1087,14 +1088,6 @@ showToast("Erfolgreich", "Das Assessment wurde erfolgreich abgeschlossen.");    
 
       {/* Deko-Layer im Hintergrund */}
       <div className="pointer-events-none absolute inset-0 ">
-        {/* Dunkelblauer Blob oben links */}
-        <div
-          className="
-          absolute -top-40 -left-24 h-72 w-72
-          rounded-full blur-3xl
-          bg-[hsla(215,60%,25%,0.22)]
-        "
-        />
 
         {/* Goldener Glow rechts */}
         <div
@@ -1147,7 +1140,7 @@ showToast("Erfolgreich", "Das Assessment wurde erfolgreich abgeschlossen.");    
         "
         />
 
-        {/* ===== Quadrat-Stack links wie im Lovable-Hero ===== */}
+        {/*  Quadrat-Stack links  */}
         <div
           className="
           absolute
@@ -1157,7 +1150,7 @@ showToast("Erfolgreich", "Das Assessment wurde erfolgreich abgeschlossen.");    
           lg:h-72 lg:w-72
         "
         >
-          {/* äußerer Rahmen – #d2c9b9 */}
+          {/* äußerer Rahmen */}
           <div
             className="
             absolute inset-0
@@ -1572,8 +1565,16 @@ showToast("Erfolgreich", "Das Assessment wurde erfolgreich abgeschlossen.");    
                       maxYear={new Date().getFullYear()}
                       value={dateValue}
                       onChange={(d) => {
-                        const iso = d ? d.toISOString().slice(0, 10) : "";
+                        const toYMD = (date: Date) => {
+                          const y = date.getFullYear();
+                          const m = String(date.getMonth() + 1).padStart(2, "0");
+                          const day = String(date.getDate()).padStart(2, "0");
+                          return `${y}-${m}-${day}`; // "YYYY-MM-DD"
+                        };
+
+                        const iso = d ? toYMD(d) : "";
                         setAnswer(q.id, iso, "date");
+
                       }}
                     />
                   );
