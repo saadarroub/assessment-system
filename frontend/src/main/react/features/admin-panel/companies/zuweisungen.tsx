@@ -10,6 +10,10 @@ import {
   Network,
   Trash2,
   KeyRound,
+  Mail,
+  FileText,
+  Paintbrush,
+  X,
 } from "lucide-react";
 import AdminLayout from "@/apps/app/AdminLayout";
 import {
@@ -103,6 +107,10 @@ export default function Zuweisungen() {
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
 
+  // Email Modal State
+  const [emailModalFor, setEmailModalFor] = useState<AssignmentApi | null>(null);
+  const [copiedDesign, setCopiedDesign] = useState(false);
+
   // Delete-Flow mit ConfirmModal (wie UsersPage)
   const [deleteFor, setDeleteFor] = useState<AssignmentApi | null>(null);
   const [openDelete, setOpenDelete] = useState(false);
@@ -153,9 +161,177 @@ export default function Zuweisungen() {
     const APP_ORIGIN = window.location.origin;
     return `${APP_ORIGIN}/invite/${token}`;
   }
-  //  Mail-Versand 
-  function handleSendInviteEmail(a: AssignmentApi) {
+  // HTML Email Template Generator
+  function createHtmlEmailTemplate(a: AssignmentApi, inviteLink: string): string {
+    const workerName = a.worker?.name || "Teilnehmer/in";
+    const catalogTitle = a.catalog?.title || "Katalog";
+    const expiresDate = a.expiresAt ? new Date(a.expiresAt).toLocaleString("de-DE", {
+      day: '2-digit',
+      month: '2-digit', 
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    }) : null;
 
+    return `<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light dark">
+    <meta name="supported-color-schemes" content="light dark">
+    <title>Einladung zum Assessment</title>
+    <style>
+        :root {
+            color-scheme: light dark;
+        }
+        
+        /* Dark Mode Support */
+        @media (prefers-color-scheme: dark) {
+            .email-body {
+                background-color: #1a1a2e !important;
+            }
+            .email-container {
+                background-color: #16213e !important;
+                border-color: #2a3f5f !important;
+            }
+            .content-area {
+                background-color: #16213e !important;
+            }
+            .text-dark {
+                color: #e8e8e8 !important;
+            }
+            .text-muted {
+                color: #b0b0b0 !important;
+            }
+            .text-navy {
+                color: #7eb8da !important;
+            }
+            .info-box {
+                background-color: #1f2f4a !important;
+                border-left-color: #E3BB62 !important;
+            }
+            .info-text {
+                color: #d0d0d0 !important;
+            }
+            .code-badge {
+                background-color: #2a3f5f !important;
+                color: #7eb8da !important;
+            }
+            .link-box {
+                background-color: #1f2f4a !important;
+            }
+            .link-text {
+                color: #7eb8da !important;
+            }
+            .footer-area {
+                background-color: #1a1a2e !important;
+                border-top-color: #2a3f5f !important;
+            }
+            .footer-divider {
+                border-top-color: #2a3f5f !important;
+            }
+        }
+    </style>
+</head>
+<body class="email-body" style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f5f5;">
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" class="email-body" style="background-color: #f5f5f5; padding: 40px 20px;">
+        <tr>
+            <td align="center">
+                <table width="600" cellpadding="0" cellspacing="0" border="0" class="email-container" style="max-width: 600px; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+                    
+                    <!-- Header - bleibt gleich in beiden Modi -->
+                    <tr>
+                        <td style="background: linear-gradient(135deg, ${BRAND.navy} 0%, ${BRAND.steel} 100%); padding: 40px 30px; text-align: center;">
+                            <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 600; letter-spacing: -0.5px;">
+                                ICA³ Assessment
+                            </h1>
+                            <p style="margin: 10px 0 0 0; color: #ebebec; font-size: 16px;">
+                                Einladung zur Teilnahme
+                            </p>
+                        </td>
+                    </tr>
+
+                    <!-- Content -->
+                    <tr>
+                        <td class="content-area" style="padding: 40px 30px; background-color: #ffffff;">
+                            <p class="text-navy" style="margin: 0 0 20px 0; color: ${BRAND.navy}; font-size: 18px; font-weight: 500;">
+                                Hallo ${workerName},
+                            </p>
+                            
+                            <p class="text-dark" style="margin: 0 0 25px 0; color: #333333; font-size: 16px; line-height: 1.6;">
+                                Sie wurden eingeladen, am Assessment <strong class="text-navy" style="color: ${BRAND.navy};">"${catalogTitle}"</strong> teilzunehmen.
+                            </p>
+
+                            <!-- Info Box -->
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" class="info-box" style="background-color: #f8f8f9; border-left: 4px solid ${BRAND.gold}; border-radius: 6px; margin: 25px 0;">
+                                <tr>
+                                    <td style="padding: 20px;">
+                                        <p class="info-text" style="margin: 0 0 15px 0; color: #333333; font-size: 15px; line-height: 1.6;">
+                                            <strong class="text-navy" style="color: ${BRAND.navy};">📋 Assessment:</strong> ${catalogTitle}
+                                        </p>
+                                        ${a.accessCode ? `
+                                        <p class="info-text" style="margin: 0 0 15px 0; color: #333333; font-size: 15px; line-height: 1.6;">
+                                            <strong class="text-navy" style="color: ${BRAND.navy};">🔑 Access-Code:</strong> 
+                                            <span class="code-badge" style="background-color: #ffffff; padding: 4px 12px; border-radius: 4px; font-family: 'Courier New', monospace; font-weight: 600; color: ${BRAND.navy};">${a.accessCode}</span>
+                                        </p>
+                                        ` : ''}
+                                        ${expiresDate ? `
+                                        <p class="info-text" style="margin: 0; color: #333333; font-size: 15px; line-height: 1.6;">
+                                            <strong class="text-navy" style="color: ${BRAND.navy};">⏰ Gültig bis:</strong> ${expiresDate}
+                                        </p>
+                                        ` : ''}
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <!-- CTA Button - bleibt gleich -->
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 30px 0;">
+                                <tr>
+                                    <td align="center">
+                                        <a href="${inviteLink}" style="display: inline-block; background: linear-gradient(135deg, ${BRAND.navy} 0%, ${BRAND.steel} 100%); color: #E3BB62; text-decoration: none; padding: 16px 40px; border-radius: 8px; font-size: 16px; font-weight: 600; box-shadow: 0 4px 12px #E3BB62;">
+                                            ▶️ Assessment starten
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <p class="text-muted" style="margin: 25px 0 0 0; color: #666666; font-size: 14px; line-height: 1.6;">
+                                Oder kopieren Sie diesen Link in Ihren Browser:
+                            </p>
+                            <p class="link-box" style="margin: 8px 0 0 0; padding: 12px; background-color: #f8f8f9; border-radius: 6px; word-break: break-all;">
+                                <a href="${inviteLink}" class="link-text" style="color: ${BRAND.steel}; font-size: 13px; text-decoration: none;">${inviteLink}</a>
+                            </p>
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td class="footer-area" style="background-color: #f8f8f9; padding: 30px; text-align: center; border-top: 1px solid #e0e0e0;">
+                            <p class="text-navy" style="margin: 0 0 10px 0; color: ${BRAND.navy}; font-size: 16px; font-weight: 600;">
+                                Viele Grüße
+                            </p>
+                            <p class="text-muted" style="margin: 0; color: ${BRAND.steel}; font-size: 15px;">
+                                Ihr ICA³ Team
+                            </p>
+                            <div class="footer-divider" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
+                                <p class="text-muted" style="margin: 0; color: #808080; font-size: 12px; line-height: 1.5;">
+                                    Diese E-Mail wurde automatisch generiert.
+                                </p>
+                            </div>
+                        </td>
+                    </tr>
+
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>`;
+  }
+
+  //  Mail-Versand - öffnet Email-Auswahl Modal
+  function handleSendInviteEmail(a: AssignmentApi) {
     const email =
       (a.worker as any)?.email ||
       (a.worker as any)?.mail ||
@@ -166,6 +342,18 @@ export default function Zuweisungen() {
       showError("Für diesen Empfänger ist keine E-Mail-Adresse hinterlegt.");
       return;
     }
+
+    // Öffne Email-Options-Modal
+    setEmailModalFor(a);
+  }
+
+  // Plain Text Email senden
+  function sendPlainTextEmail(a: AssignmentApi) {
+    const email =
+      (a.worker as any)?.email ||
+      (a.worker as any)?.mail ||
+      a.worker?.id ||
+      "";
 
     const inviteLink = buildUserInviteUrl(a);
 
@@ -191,8 +379,67 @@ export default function Zuweisungen() {
       email
     )}?subject=${subject}&body=${encodeURIComponent(body)}`;
 
-    // Standard-Mailprogramm öffnen
     window.location.href = mailtoUrl;
+    setEmailModalFor(null);
+  }
+
+  // Design kopieren und Email öffnen
+  async function copyDesignAndOpenEmail(a: AssignmentApi) {
+    const email =
+      (a.worker as any)?.email ||
+      (a.worker as any)?.mail ||
+      a.worker?.id ||
+      "";
+
+    const inviteLink = buildUserInviteUrl(a);
+    const htmlContent = createHtmlEmailTemplate(a, inviteLink);
+
+    try {
+      // HTML als formatiertes HTML in Zwischenablage kopieren (nicht als Plain Text!)
+      const htmlBlob = new Blob([htmlContent], { type: 'text/html' });
+      const textBlob = new Blob([htmlContent], { type: 'text/plain' });
+      
+      const clipboardItem = new ClipboardItem({
+        'text/html': htmlBlob,
+        'text/plain': textBlob, // Fallback für Programme die kein HTML unterstützen
+      });
+      
+      await navigator.clipboard.write([clipboardItem]);
+      setCopiedDesign(true);
+      showSuccess("Design wurde kopiert! Fügen Sie es mit Strg+V in die E-Mail ein.");
+
+      // Kurz warten, dann Email öffnen
+      setTimeout(() => {
+        const subject = encodeURIComponent(
+          `Einladung zum Assessment "${a.catalog?.title || "Katalog"}"`
+        );
+        const mailtoUrl = `mailto:${encodeURIComponent(email)}?subject=${subject}`;
+        window.location.href = mailtoUrl;
+        
+        setCopiedDesign(false);
+        setEmailModalFor(null);
+      }, 500);
+    } catch (err) {
+      // Fallback für ältere Browser
+      try {
+        await navigator.clipboard.writeText(htmlContent);
+        setCopiedDesign(true);
+        showSuccess("Design wurde kopiert (als Text). Fügen Sie es mit Strg+V ein.");
+        
+        setTimeout(() => {
+          const subject = encodeURIComponent(
+            `Einladung zum Assessment "${a.catalog?.title || "Katalog"}"`
+          );
+          const mailtoUrl = `mailto:${encodeURIComponent(email)}?subject=${subject}`;
+          window.location.href = mailtoUrl;
+          
+          setCopiedDesign(false);
+          setEmailModalFor(null);
+        }, 500);
+      } catch {
+        showError("Kopieren fehlgeschlagen. Bitte versuchen Sie es erneut.");
+      }
+    }
   }
 
   function handleExportInvitePdf(a: AssignmentApi) {
@@ -1620,6 +1867,176 @@ export default function Zuweisungen() {
               >
                 Per E-Mail schicken
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Email Options Modal */}
+      {emailModalFor && (
+        <div
+          className="fixed inset-0 z-[1200] flex items-center justify-center bg-black/50 backdrop-blur-sm px-4"
+          role="dialog"
+          aria-modal="true"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setEmailModalFor(null);
+          }}
+        >
+          <div
+            className="w-full max-w-md"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="relative overflow-hidden rounded-3xl bg-white shadow-2xl border border-slate-200/80">
+              {/* Decorative Glows */}
+              <div
+                className="pointer-events-none absolute -right-20 -top-20 h-40 w-40 rounded-full bg-gradient-to-br from-[#E3BB62]/40 via-amber-400/20 to-transparent opacity-60"
+                aria-hidden="true"
+              />
+              <div
+                className="pointer-events-none absolute -left-20 -bottom-20 h-40 w-40 rounded-full bg-gradient-to-tr from-sky-500/20 via-indigo-500/10 to-transparent opacity-60"
+                aria-hidden="true"
+              />
+
+              {/* Content */}
+              <div className="relative px-6 pt-6 pb-6">
+                {/* Header */}
+                <div className="flex items-start justify-between mb-5">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-[#264555] to-[#56768f] shadow-lg">
+                      <Mail size={22} className="text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-slate-900">
+                        E-Mail senden
+                      </h3>
+                      <p className="text-xs text-slate-500">
+                        Wählen Sie eine Versandoption
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setEmailModalFor(null)}
+                    className="rounded-full p-2 hover:bg-slate-100 transition"
+                  >
+                    <X size={18} className="text-slate-400" />
+                  </button>
+                </div>
+
+                {/* Recipient Info */}
+                <div className="mb-5 p-3 rounded-xl bg-slate-50 border border-slate-200">
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="text-slate-500">An:</span>
+                    <span className="font-medium text-slate-800">
+                      {(emailModalFor.worker as any)?.email ||
+                        (emailModalFor.worker as any)?.mail ||
+                        emailModalFor.worker?.id ||
+                        "Empfänger"}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm mt-1">
+                    <span className="text-slate-500">Betreff:</span>
+                    <span className="text-slate-700">
+                      Einladung zum Assessment "{emailModalFor.catalog?.title || "Katalog"}"
+                    </span>
+                  </div>
+                </div>
+
+                {/* Options */}
+                <div className="space-y-3">
+                  {/* Option 1: Plain Text */}
+                  <button
+                    type="button"
+                    onClick={() => sendPlainTextEmail(emailModalFor)}
+                    className="
+                      w-full flex items-center gap-4 p-4
+                      rounded-xl border border-slate-200
+                      bg-white hover:bg-slate-50
+                      transition group text-left
+                    "
+                  >
+                    <div className="flex h-11 w-11 items-center justify-center rounded-full bg-slate-100 group-hover:bg-slate-200 transition">
+                      <FileText size={20} className="text-slate-600" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-medium text-slate-800">Als Plain Text senden</p>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Einfache Text-E-Mail ohne Formatierung
+                      </p>
+                    </div>
+                  </button>
+
+                  {/* Option 2: Design kopieren + Email öffnen */}
+                  <div className="relative group">
+                    <button
+                      type="button"
+                      onClick={() => copyDesignAndOpenEmail(emailModalFor)}
+                      disabled={copiedDesign}
+                      className="
+                        w-full flex items-center gap-4 p-4
+                        rounded-xl border-2 border-[#E3BB62]
+                        bg-gradient-to-r from-[#fffbf0] to-[#fff9e6]
+                        hover:from-[#fff7e0] hover:to-[#fff5d6]
+                        transition text-left
+                        shadow-[0_4px_15px_rgba(227,187,98,0.25)]
+                      "
+                    >
+                      <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#E3BB62] shadow-md">
+                        {copiedDesign ? (
+                          <Check size={20} className="text-white" />
+                        ) : (
+                          <Paintbrush size={20} className="text-white" />
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-semibold text-[#264555]">
+                          {copiedDesign ? "Design kopiert!" : "Mit Design senden"}
+                        </p>
+                        <p className="text-xs text-[#56768f] mt-0.5">
+                          {copiedDesign
+                            ? "E-Mail öffnet sich..."
+                            : "Schönes HTML-Design wird kopiert"}
+                        </p>
+                      </div>
+                      <span className="text-[#E3BB62] font-bold text-lg">★</span>
+                    </button>
+                    
+                    {/* Tooltip */}
+                    <div className="
+                      absolute -top-2 left-1/2 -translate-x-1/2 -translate-y-full
+                      opacity-0 group-hover:opacity-100
+                      transition-opacity duration-200
+                      pointer-events-none z-10
+                    ">
+                      <div className="bg-[#264555] text-white text-xs px-3 py-2 rounded-lg shadow-lg max-w-[260px] text-center">
+                        <p className="font-medium">💡 So funktioniert's:</p>
+                        <p className="mt-1">Das Design wird in die Zwischenablage kopiert. Fügen Sie es mit <strong>Strg+V</strong> in die E-Mail ein.</p>
+                        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-full">
+                          <div className="border-8 border-transparent border-t-[#264555]"></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Cancel Button */}
+                <button
+                  type="button"
+                  onClick={() => setEmailModalFor(null)}
+                  className="
+                    w-full mt-4 h-11
+                    text-sm font-medium
+                    rounded-xl
+                    bg-slate-100
+                    text-slate-600
+                    border border-slate-200
+                    hover:bg-slate-200
+                    transition
+                  "
+                >
+                  Abbrechen
+                </button>
+              </div>
             </div>
           </div>
         </div>
