@@ -1566,10 +1566,6 @@ export default function ConditionEditor() {
                   className="pointer-events-none absolute -right-24 -top-24 h-52 w-52 rounded-full bg-gradient-to-br from-[#E3BB62]/40 via-amber-400/20 to-transparent opacity-60"
                   aria-hidden="true"
                 />
-                <div
-                  className="pointer-events-none absolute -left-24 -bottom-24 h-52 w-52 rounded-full bg-gradient-to-tr from-sky-500/20 via-indigo-500/10 to-transparent opacity-60"
-                  aria-hidden="true"
-                />
 
                 {/* Inhalt / Formular */}
                 <div className="relative px-6 pt-6 pb-5 max-h-[calc(100vh-150px)] overflow-y-auto" ref={modalRef}>
