@@ -1,17 +1,40 @@
 import AdminLayout from "@/apps/app/AdminLayout";
 import { useMemo, useState, useEffect, useRef } from "react";
-import { Building2, Settings, Pencil, Wrench, Plus, X, ListChecks } from "lucide-react";
+import {
+  Building2,
+  Settings,
+  Pencil,
+  Plus,
+  ListChecks,
+  Trash2,
+  Users,
+  User,
+} from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
 
-import { getTopicCountForCatalog, fetchThemenByCatalog, type ThemaDto } from "../service/themaCatalogService";
-import { getCompanies,getActiveCompanies, getWorkersByCompany, type WorkerApi } from "../service/companyService";
-import { getCatalogs, createCatalog, type CatalogApi, updateCatalog, deleteCatalog } from "../service/catalogService";
+import {
+  getTopicCountForCatalog,
+  fetchThemenByCatalog,
+  type ThemaDto,
+} from "../service/themaCatalogService";
+import {
+  getActiveCompanies,
+  getWorkersByCompany,
+  type WorkerApi,
+} from "../service/companyService";
+import {
+  getCatalogs,
+  createCatalog,
+  type CatalogApi,
+  updateCatalog,
+  deleteCatalog,
+} from "../service/catalogService";
 import { assignWorkerCatalogBulk } from "../service/assignmentService";
 import { Network } from "lucide-react";
 import PageHeader from "@/features/admin-area/catalogs/PageHeader";
-
+import ConfirmModal from "@/shared/components/ConfirmModal";
 
 /* ----------------------------- Types & Models ----------------------------- */
 
@@ -26,9 +49,9 @@ export type Recipient = {
 };
 
 export type KatalogItem = {
-  id: string;          // Backend-ID
-  name: string;        // aus title gemappt
-  subtitle?: string;   // aus description gemappt
+  id: string; // Backend-ID
+  name: string; // aus title gemappt
+  subtitle?: string; // aus description gemappt
   icon?: LucideIcon;
   color?: string;
   topicCount?: number;
@@ -37,7 +60,7 @@ export type KatalogItem = {
 export type AssignPayload = {
   companyId: string;
   recipientIds: string[];
-  catalogIds: string[];     // wir senden Katalog-IDs
+  catalogIds: string[]; // wir senden Katalog-IDs
   description?: string;
   dueDate?: string;
   note?: string;
@@ -49,7 +72,7 @@ export type KatalogeZuweisenProps = {
 
 /* --------------------------------- UI ------------------------------------ */
 
-export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
+export default function KatalogeZuweisen({}: KatalogeZuweisenProps) {
   // Kataloge
   const [catalogs, setCatalogs] = useState<KatalogItem[]>([]);
   const [loadingCatalogs, setLoadingCatalogs] = useState(false);
@@ -58,7 +81,6 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
   // Firmen & Empfänger
   const [companies, setCompanies] = useState<Company[]>([]);
   const [recipients, setRecipients] = useState<Recipient[]>([]);
-  const [loadingCompanies, setLoadingCompanies] = useState(false);
   const [loadingRecipients, setLoadingRecipients] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -70,14 +92,15 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
   const [note, setNote] = useState("");
 
   // Auswahl Kataloge
-  const [selectedCatalogId, setSelectedCatalogId] = useState<string | null>(null);; // useState<Set<string>>(new Set())
+  const [selectedCatalogId, setSelectedCatalogId] = useState<string | null>(
+    null
+  ); // useState<Set<string>>(new Set())
 
-  const [selectedCatalogTopics, setSelectedCatalogTopics] = useState<ThemaDto[] | null>(null);
+  const [selectedCatalogTopics, setSelectedCatalogTopics] = useState<
+    ThemaDto[] | null
+  >(null);
   const [loadingTopics, setLoadingTopics] = useState(false);
   const [topicsError, setTopicsError] = useState<string | null>(null);
-
-  // Edit/Lösch-Modus (Icon-Toggle, kein Text)
-  const [editMode, setEditMode] = useState(false);
 
   // Katalog-Suche
   const [catalogSearch, setCatalogSearch] = useState("");
@@ -105,6 +128,28 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
 
   const DEFAULT_ICON: LucideIcon = Building2;
   const DEFAULT_COLOR = "#094c79ff";
+
+  // Tooltip state per Katalog
+  const [showTooltipFull, setShowTooltipFull] = useState<Map<string, boolean>>(
+    new Map()
+  );
+  const hoverTimeouts = useRef<Map<string, ReturnType<typeof setTimeout>>>(
+    new Map()
+  );
+  const tooltipRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+
+  // Refs für Titel und Beschreibung pro Katalog
+  const titleRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const descRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+
+  const [openCompanies, setOpenCompanies] = useState(false);
+  const [companySearch, setCompanySearch] = useState("");
+  const topicsRef = useRef<HTMLDivElement | null>(null);
+  const filteredCompanies = useMemo(() => {
+    const q = companySearch.trim().toLowerCase();
+    if (!q) return companies;
+    return companies.filter((c) => c.name.toLowerCase().includes(q));
+  }, [companySearch, companies]);
 
   /* ---------- Kataloge laden ---------- */
   async function loadCatalogs(): Promise<KatalogItem[]> {
@@ -142,28 +187,37 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
       setLoadingCatalogs(false);
     }
   }
-  useEffect(() => { void loadCatalogs(); }, []);
+
+  useEffect(() => {
+    if (selectedCatalogId && topicsRef.current) {
+      topicsRef.current.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }
+  }, [selectedCatalogId]);
+
+  useEffect(() => {
+    void loadCatalogs();
+  }, []);
 
   /* ---------- Firmen laden ---------- */
   useEffect(() => {
     (async () => {
       try {
-        setLoadingCompanies(true);
         setErrorMsg(null);
         const list = await getActiveCompanies();
         setCompanies(list);
       } catch (e) {
         console.error(e);
         setErrorMsg("Firmen konnten nicht geladen werden.");
-      } finally {
-        setLoadingCompanies(false);
       }
     })();
   }, []);
 
   /* ---------- Empfänger laden bei Firmenwechsel ---------- */
   function adaptWorkersToRecipients(workers: WorkerApi[]): Recipient[] {
-    return workers.map(w => ({
+    return workers.map((w) => ({
       id: w.id,
       name: w.name,
       type: "person",
@@ -196,22 +250,30 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
 
   function flashNew(ids: string[], glowMs = 4000, badgeMs = 60000) {
     // HIGHLIGHT (grüner Glow)
-    setHighlightIds(prev => {
-      const next = new Set(prev); ids.forEach(id => next.add(id)); return next;
+    setHighlightIds((prev) => {
+      const next = new Set(prev);
+      ids.forEach((id) => next.add(id));
+      return next;
     });
     window.setTimeout(() => {
-      setHighlightIds(prev => {
-        const next = new Set(prev); ids.forEach(id => next.delete(id)); return next;
+      setHighlightIds((prev) => {
+        const next = new Set(prev);
+        ids.forEach((id) => next.delete(id));
+        return next;
       });
     }, glowMs);
 
     // BADGE (NEU)
-    setBadgeIds(prev => {
-      const next = new Set(prev); ids.forEach(id => next.add(id)); return next;
+    setBadgeIds((prev) => {
+      const next = new Set(prev);
+      ids.forEach((id) => next.add(id));
+      return next;
     });
     window.setTimeout(() => {
-      setBadgeIds(prev => {
-        const next = new Set(prev); ids.forEach(id => next.delete(id)); return next;
+      setBadgeIds((prev) => {
+        const next = new Set(prev);
+        ids.forEach((id) => next.delete(id));
+        return next;
       });
     }, badgeMs);
   }
@@ -220,8 +282,10 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
   const filteredRecipients = useMemo(() => {
     const q = recipientSearch.trim().toLowerCase();
     if (!q) return recipients;
-    return recipients.filter(r =>
-      r.name.toLowerCase().includes(q) || (r.email ?? "").toLowerCase().includes(q)
+    return recipients.filter(
+      (r) =>
+        r.name.toLowerCase().includes(q) ||
+        (r.email ?? "").toLowerCase().includes(q)
     );
   }, [recipientSearch, recipients]);
 
@@ -229,21 +293,23 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
   const filteredCatalogs = useMemo(() => {
     const q = catalogSearch.trim().toLowerCase();
     if (!q) return catalogs;
-    return catalogs.filter(k =>
-      k.name.toLowerCase().includes(q) ||
-      (k.subtitle && k.subtitle.toLowerCase().includes(q))
+    return catalogs.filter(
+      (k) =>
+        k.name.toLowerCase().includes(q) ||
+        (k.subtitle && k.subtitle.toLowerCase().includes(q))
     );
   }, [catalogSearch, catalogs]);
 
   const allFilteredSelected =
     filteredRecipients.length > 0 &&
-    filteredRecipients.every(e => recipientIds.includes(e.id));
+    filteredRecipients.every((e) => recipientIds.includes(e.id));
 
   /* ---------- Outside click fürs Dropdown ---------- */
   useEffect(() => {
     const onDocClick = (e: MouseEvent) => {
       if (!dropdownRef.current) return;
-      if (!dropdownRef.current.contains(e.target as Node)) setOpenRecipients(false);
+      if (!dropdownRef.current.contains(e.target as Node))
+        setOpenRecipients(false);
     };
     document.addEventListener("click", onDocClick);
     return () => document.removeEventListener("click", onDocClick);
@@ -285,12 +351,53 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
     };
   }, [selectedCatalogId]);
 
+  /* ---------- Tooltip Position Update beim Scrollen ---------- */
+  useEffect(() => {
+    function updateTooltipPositions() {
+      tooltipRefs.current.forEach((tooltipEl, catalogId) => {
+        if (tooltipEl && showTooltipFull.get(catalogId)) {
+          const cardElement = tooltipEl.closest(".group");
+          if (cardElement) {
+            const logoSpan = cardElement.querySelector(
+              'span[class*="absolute top-2 left-2"]'
+            ) as HTMLElement;
+            if (logoSpan) {
+              const rect = logoSpan.getBoundingClientRect();
+              const tooltipWidth = 288; // w-72 = 18rem = 288px
+              tooltipEl.style.top = `${rect.bottom + 8}px`;
+              tooltipEl.style.left = `${
+                rect.left + rect.width / 2 - tooltipWidth / 2
+              }px`;
+            }
+          }
+        }
+      });
+    }
+
+    if (showTooltipFull.size > 0) {
+      updateTooltipPositions();
+      window.addEventListener("scroll", updateTooltipPositions, true);
+      window.addEventListener("resize", updateTooltipPositions);
+    }
+
+    return () => {
+      window.removeEventListener("scroll", updateTooltipPositions, true);
+      window.removeEventListener("resize", updateTooltipPositions);
+    };
+  }, [showTooltipFull]);
+
+  /* ---------- Overflow Detection für Tooltip (optional, falls später benötigt) ---------- */
+  // Die Refs werden gesetzt, aber die Overflow-Erkennung wird aktuell nicht verwendet,
+  // da der Tooltip immer beim Hover über das Logo angezeigt wird
 
   /* ---------- Form/Actions ---------- */
-  const canAssign = !!companyId && recipientIds.length > 0 && !!selectedCatalogId && !!dueDate;
+  const canAssign =
+    !!companyId && recipientIds.length > 0 && !!selectedCatalogId && !!dueDate;
 
   function toggleRecipient(id: string) {
-    setRecipientIds(prev => (prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]));
+    setRecipientIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
   }
 
   /**  setSelectedCatalogIds(prev => {
@@ -303,15 +410,16 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
     setSelectedCatalogId(id);
   } */
   function selectOrToggleCatalog(id: string) {
-    setSelectedCatalogId(prev => (prev === id ? null : id));
+    setSelectedCatalogId((prev) => (prev === id ? null : id));
   }
 
   function selectAllFromCompanyFiltered() {
     if (filteredRecipients.length === 0) return;
-    setRecipientIds(prev => {
+    setRecipientIds((prev) => {
       const set = new Set(prev);
-      if (allFilteredSelected) filteredRecipients.forEach(r => set.delete(r.id));
-      else filteredRecipients.forEach(r => set.add(r.id));
+      if (allFilteredSelected)
+        filteredRecipients.forEach((r) => set.delete(r.id));
+      else filteredRecipients.forEach((r) => set.add(r.id));
       return Array.from(set);
     });
   }
@@ -376,7 +484,7 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
           workerIds: recipientIds,
           catalogId,
           after: Date.now() - 4000, // kleiner Puffer, falls Backend-Zeit minimal abweicht
-          ttlMs: 60_000,            // optional: max. 60s gültig
+          ttlMs: 60_000, // optional: max. 60s gültig
         })
       );
       navigate("/admin/adminPanel/zuweisungen", { replace: true });
@@ -385,12 +493,11 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
     }
   }
 
-
   /* ---------- Dialog Helper ---------- */
   function openCreateDialog() {
     setDialogMode("create");
-    setDialogCatalog(null);     // kein bestehender Katalog
-    setFormTitle("");           // leeres Formular
+    setDialogCatalog(null); // kein bestehender Katalog
+    setFormTitle(""); // leeres Formular
     setFormDesc("");
     setDialogOpen(true);
   }
@@ -429,7 +536,7 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
 
     if (dialogMode === "delete" && dialogCatalog) {
       await deleteCatalog(dialogCatalog.id);
-      setSelectedCatalogId(prev => (prev === dialogCatalog.id ? null : prev));
+      setSelectedCatalogId((prev) => (prev === dialogCatalog.id ? null : prev));
       await loadCatalogs();
       closeDialog();
       return;
@@ -443,7 +550,7 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
       }
 
       // IDs VOR dem Anlegen merken
-      const before = new Set(catalogs.map(c => c.id));
+      const before = new Set(catalogs.map((c) => c.id));
 
       await createCatalog({
         title: formTitle.trim(),
@@ -452,7 +559,9 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
 
       // Neu laden und NEUE IDs ermitteln
       const latest: KatalogItem[] = await loadCatalogs();
-      const createdIds = latest.filter(k => !before.has(k.id)).map(k => k.id);
+      const createdIds = latest
+        .filter((k) => !before.has(k.id))
+        .map((k) => k.id);
 
       // Aufleuchten + „Neu“-Badge auslösen (4s Glow, 60s Badge)
       if (createdIds.length > 0) {
@@ -466,25 +575,23 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
   /* ------------------------------- RENDER -------------------------------- */
 
   return (
-
     <AdminLayout>
       {/* Header */}
       <style>
         {`
   @keyframes blinkBg {
-    0%, 100% { background-color: #ffffff; }      /* weiß */
-    50%       { background-color: #ecfdf5; }     /* green-50 */
+    0%, 100% { background-color: #ffffff; }
+    50%       { background-color: #d1fae5; }  /* Intensiveres Grün wie AdminDashboard */
   }
   @keyframes glowRing {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(34,197,94,0.35); }
-    50%      { box-shadow: 0 0 0 8px rgba(34,197,94,0.0); }
+    0%, 100% { box-shadow: 0 0 0 0 rgba(34,197,94,0.35); }  /* Stärkerer Glow */
+    50%      { box-shadow: 0 0 0 8px rgba(34,197,94,0.0); }  /* Größerer Ring */
   }
 `}
       </style>
 
       {/* HEADER */}
       <PageHeader
-
         title="Kataloge zuweisen"
         subtitle="Weisen Sie Kataloge an Mitarbeitende zu und verwalten Sie deren Zugriffe"
         icon={<Network size={40} />}
@@ -494,13 +601,40 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
         center={false}
       />
 
-      <div className="bg-[hsl(0_0%_92%)] min-h-[calc(100vh-64px)] mt-2 px-6 py-6">
+      {/* BODY */}
+      <main
+        className="min-h-[calc(100vh-64px)] mt-0 px-6 pb-8 pt-20"
+        style={{
+          background:
+            "radial-gradient(circle at 0 0, rgba(227,187,98,0.13) 0, transparent 40%)," +
+            "radial-gradient(circle at 100% 0, rgba(56,189,248,0.10) 0, transparent 42%)," +
+            "linear-gradient(to bottom, #f3f4f7 0, #e6e9ef 240px, #f4f5f8 100%)",
+        }}
+      >
+        <div className="flex flex-col lg:flex-row gap-5 max-w-full mx-auto">
+          {/* Left: Grundinformationen - FESTE BREITE */}
+          <div className="w-full lg:w-[520px] flex-shrink-0">
+            <div
+              className="relative rounded-2xl p-5  "
+              style={{
+                background:
+                  "linear-gradient(180deg, #ffffff 0%, #ffffffff 100%)",
+                border: "1px solid rgba(227,187,98,0.35)",
+                boxShadow: "0 8px 24px rgba(0,0,0,0.04)",
+              }}
+            >
+              <div
+                className="absolute inset-0 pointer-events-none rounded-2xl"
+                style={{
+                  background:
+                    "radial-gradient(600px at 100% 0%, rgba(227,187,98,0.22), transparent 40%)",
+                }}
+              />
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-          {/* Left: Grundinformationen */}
-          <div className="lg:col-span-5">
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-              <h2 className="mb-4 text-[18px] font-semibold text-slate-900">Grundinformationen</h2>
+              <h2 className="text-[18px] font-semibold text-slate-900">
+                Grundinformationen
+              </h2>
+              <div className="mt-1 h-[3px] mb-3 w-16 rounded-full bg-gradient-to-r from-[#E3BB62] to-[#F2E3A2]" />
 
               {(errorMsg || catalogError) && (
                 <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
@@ -510,63 +644,158 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
 
               <div className="space-y-4">
                 {/* Firma */}
-                <div className="space-y-1">
+                <div className="space-y-2 relative">
                   <label className="text-sm font-medium text-slate-700">
-                    Firma <span className="text-red-500">*</span>
+                    Firma <span className="text-[#E3BB62]">*</span>
                   </label>
-                  <select
-                    className="h-11 w-full rounded-lg border border-slate-300 px-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/10 disabled:opacity-50"
-                    value={companyId}
-                    onChange={(e) => setCompanyId(e.target.value)}
-                    disabled={loadingCompanies}
+
+                  {/* Trigger */}
+                  <button
+                    type="button"
+                    onClick={() => setOpenCompanies((v) => !v)}
+                    className="relative w-full h-11 rounded-xl border border-[#e5dcc7] bg-white
+                  px-3 pr-10 text-left text-sm cursor-pointer
+                  focus:outline-none focus:ring-3 focus:ring-[rgba(227,187,98,0.25)]
+                  transition-colors"
                   >
-                    <option value="">{loadingCompanies ? "Lade Firmen…" : "Firma auswählen…"}</option>
-                    {companies.map((c) => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                  </select>
+                    {companyId ? (
+                      companies.find((c) => c.id === companyId)?.name
+                    ) : (
+                      <span className="text-slate-400">Firma auswählen…</span>
+                    )}
+
+                    {/* Chevron */}
+                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#9b8f75]">
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <polyline points="6 9 12 15 18 9" />
+                      </svg>
+                    </span>
+                  </button>
+
+                  {/* Dropdown */}
+                  {openCompanies && (
+                    <div
+                      className="absolute z-50 mt-1 w-full rounded-2xl bg-white overflow-hidden"
+                      style={{
+                        border: "2px solid rgba(190, 146, 52, 0.35)",
+                        boxShadow: "0 18px 40px rgba(3, 3, 3, 0.16)",
+                      }}
+                    >
+                      {/* Suche */}
+                      <div
+                        className="px-3 py-2"
+                        style={{
+                          background:
+                            "linear-gradient(180deg, #fffdf7 0%, #ffffff 100%)",
+                          borderBottom: "1px solid rgba(227,187,98,0.35)",
+                        }}
+                      >
+                        <input
+                          value={companySearch}
+                          onChange={(e) => setCompanySearch(e.target.value)}
+                          placeholder="Firma suchen…"
+                          className="h-10 w-full rounded-xl border border-[#e5dcc7] bg-white
+          px-3 text-sm placeholder:text-[#9b8f75]
+          focus:border-[#E3BB62] focus:outline-none
+          focus:ring-3 focus:ring-[rgba(227,187,98,0.25)]"
+                          autoFocus
+                        />
+                      </div>
+
+                      {/* Liste */}
+                      <div className="max-h-64 overflow-auto py-2">
+                        {filteredCompanies.length === 0 ? (
+                          <div className="px-4 py-3 text-sm text-slate-500">
+                            Keine Firmen gefunden
+                          </div>
+                        ) : (
+                          filteredCompanies.map((c) => (
+                            <button
+                              key={c.id}
+                              type="button"
+                              onClick={() => {
+                                setCompanyId(c.id);
+                                setOpenCompanies(false);
+                                setCompanySearch("");
+                              }}
+                              className="
+  w-full px-4 py-3 text-left text-sm
+  transition-colors
+  hover:bg-[#fff6db]
+
+  border-b border-[rgba(227,187,98,0.35)]
+  last:border-b-0
+"
+
+                            >
+                              {c.name}
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Empfänger */}
-                <div className="space-y-1" ref={dropdownRef}>
+                <div className="space-y-2" ref={dropdownRef}>
                   <label className="text-sm font-medium text-slate-700">
-                    Empfänger (kunde) <span className="text-red-500">*</span>
+                    Empfänger (kunde) <span className="text-[#E3BB62]">*</span>
                   </label>
 
                   <button
                     type="button"
-                    onClick={(e) => { e.stopPropagation(); if (companyId) setOpenRecipients(v => !v); }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (companyId) setOpenRecipients((v) => !v);
+                    }}
                     disabled={!companyId || loadingRecipients}
                     className={[
-                      "relative w-full rounded-lg border px-3 py-2 text-left text-sm",
-                      "flex items-start",
+                      "relative w-full h-11 rounded-xl border px-3 text-left text-sm",
+                      "flex items-center transition-colors",
                       companyId
-                        ? "border-slate-300 bg-white hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-blue-500/10"
-                        : "border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed"
+                        ? "border-[#e5dcc7] bg-white hover:bg-[#fffdf7] focus:outline-none focus:ring-3 focus:ring-[rgba(227,187,98,0.25)] focus:border-[#E3BB62]"
+                        : "border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed",
                     ].join(" ")}
                   >
                     <span className="pr-8 w-full">
                       {!companyId ? (
-                        <span className="text-slate-400">Zuerst Firma auswählen…</span>
+                        <span className="text-slate-400">
+                          Zuerst Firma auswählen…
+                        </span>
                       ) : recipientIds.length === 0 ? (
                         <span className="text-slate-400">
-                          {loadingRecipients ? "Lade Empfänger…" : "Empfänger auswählen…"}
+                          {loadingRecipients
+                            ? "Lade Empfänger…"
+                            : "Empfänger auswählen…"}
                         </span>
                       ) : (
                         <span className="flex flex-wrap gap-1 max-h-24 overflow-y-auto">
                           {recipientIds
-                            .map(id => recipients.find(r => r.id === id))
+                            .map((id) => recipients.find((r) => r.id === id))
                             .filter(Boolean)
-                            .map(r => (
+                            .map((r) => (
                               <span
                                 key={r!.id}
-                                className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2 py-1 text-xs text-blue-700"
+                                className="inline-flex items-center gap-1 rounded-md bg-[#fff6db] px-2 py-1 text-xs text-[#7a5c16]"
                               >
                                 {r!.name}
                                 <button
                                   type="button"
-                                  onClick={(e) => { e.stopPropagation(); toggleRecipient(r!.id); }}
-                                  className="rounded p-0.5 hover:bg-blue-100"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    toggleRecipient(r!.id);
+                                  }}
+                                  className="rounded p-0.5 hover:bg-[#f3e6c3]"
                                   aria-label={`${r!.name} entfernen`}
                                 >
                                   ✕
@@ -577,18 +806,30 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
                       )}
                     </span>
 
-                    <span className="absolute right-2 top-2.5 text-slate-400">👤</span>
+                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#9b8f75]">
+                      <User size={16} />
+                    </span>
                   </button>
 
                   {openRecipients && (
                     <div className="relative z-40">
-                      <div className="absolute mt-1 w-full rounded-lg border border-slate-200 bg-white shadow-lg">
-                        <div className="p-2 border-b border-slate-200">
+                      <div
+                        className="absolute  w-full rounded-2xl bg-white"
+                        style={{
+                          border: "2px solid rgba(190, 146, 52, 0.35)",
+                          boxShadow: "0 18px 40px rgba(3, 3, 3, 0.16)",
+                        }}
+                      >
+                        <div className="p-3 border-b border-[#efe7d6]">
                           <input
                             value={recipientSearch}
                             onChange={(e) => setRecipientSearch(e.target.value)}
                             placeholder="Mitarbeitende suchen…"
-                            className="h-9 w-full rounded-md border border-slate-300 px-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/10"
+                            className="h-10 w-full rounded-xl border border-[#e5dcc7] bg-[#ffffff]
+px-3 text-sm placeholder:text-[#9b8f75]
+focus:border-[#E3BB62] focus:outline-none
+focus:ring-3 focus:ring-[rgba(227,187,98,0.25)]
+transition-colors"
                             autoFocus
                           />
                         </div>
@@ -596,36 +837,75 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
                         <button
                           type="button"
                           onClick={selectAllFromCompanyFiltered}
-                          className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-slate-50"
-                          disabled={loadingRecipients || recipients.length === 0}
+                          className="flex w-full items-center gap-3 px-4 py-3 text-sm
+hover:bg-[#fff6db] transition-colors"
+                          disabled={
+                            loadingRecipients || recipients.length === 0
+                          }
                         >
-                          <span className="text-lg">👥</span>
-                          <span className="flex-1 text-left">Alle aus Firma auswählen</span>
-                          <span className="text-xs text-slate-500">{allFilteredSelected ? "✓" : ""}</span>
+                          <span className="text-[#9b8f75]">
+                            <Users size={16} />
+                          </span>
+
+                          <span className="flex-1 text-left">
+                            Alle aus Firma auswählen
+                          </span>
+                          <span className="text-xs text-slate-500">
+                            {allFilteredSelected ? "✓" : ""}
+                          </span>
                         </button>
 
                         <div className="max-h-72 overflow-auto py-1">
                           {loadingRecipients ? (
-                            <div className="px-3 py-2 text-sm text-slate-500">Laden…</div>
+                            <div className="px-3 py-2 text-sm text-slate-500">
+                              Laden…
+                            </div>
                           ) : filteredRecipients.length === 0 ? (
-                            <div className="px-3 py-2 text-sm text-slate-500">Keine Ergebnisse</div>
+                            <div className="px-3 py-2 text-sm text-slate-500">
+                              Keine Ergebnisse
+                            </div>
                           ) : (
-                            filteredRecipients.map(r => {
+                            filteredRecipients.map((r) => {
                               const checked = recipientIds.includes(r.id);
                               return (
                                 <button
                                   key={r.id}
                                   type="button"
                                   onClick={() => toggleRecipient(r.id)}
-                                  className="w-full px-3 py-2 text-left hover:bg-slate-50"
+                        className="
+  w-full px-4 py-3 text-left
+  transition-colors
+  hover:bg-[#fff6db]
+
+  border-b border-[rgba(227,187,98,0.35)]
+  last:border-b-0
+"
+
                                 >
                                   <div className="flex items-start gap-2">
-                                    <span className="mt-[2px] inline-block h-4 w-4 rounded-full border border-slate-400">
-                                      {checked && <span className="block h-4 w-4 rounded-full bg-blue-600" />}
+                                    <span
+                                      className="mt-[2px] inline-flex h-4 w-4 items-center justify-center
+  rounded-full border"
+                                      style={{
+                                        borderColor: checked
+                                          ? "#E3BB62"
+                                          : "#d6c9a6",
+                                      }}
+                                    >
+                                      {checked && (
+                                        <span className="h-2.5 w-2.5 rounded-full bg-[#E3BB62]" />
+                                      )}
                                     </span>
+
                                     <div className="min-w-0">
-                                      <div className="text-sm text-slate-800">{r.name}</div>
-                                      {r.email && <div className="text-xs text-slate-500 truncate">{r.email}</div>}
+                                      <div className="text-sm text-slate-800 font-medium">
+                                        {r.name}
+                                      </div>
+                                      {r.email && (
+                                        <div className="text-xs text-slate-500 truncate">
+                                          {r.email}
+                                        </div>
+                                      )}
                                     </div>
                                   </div>
                                 </button>
@@ -640,9 +920,15 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
 
                 {/* Beschreibung */}
                 <div className="space-y-1">
-                  <label className="text-sm font-medium text-slate-700">Beschreibung</label>
+                  <label className="text-sm font-medium text-slate-700">
+                    Beschreibung
+                  </label>
                   <textarea
-                    className="min-h-[96px] w-full resize-y rounded-lg border border-slate-300 px-3 py-2 text-sm placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/10"
+                    className="min-h-[80px] w-full resize-none rounded-xl border border-[#e5dcc7] bg-white
+                            px-3 py-2 pr-6 pb-6 text-sm placeholder:text-[#9ca3af]
+                            focus:border-[#E3BB62] focus:outline-none
+                            focus:ring-2 focus:ring-[rgba(227,187,98,0.25)]
+                            transition-colors"
                     placeholder="Beschreibung des Katalogs…"
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
@@ -650,13 +936,17 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
                 </div>
 
                 {/* Fällig am */}
+
                 <div className="space-y-1">
                   <label className="text-sm font-medium text-slate-700">
-                    Fällig am <span className="text-red-500">*</span>
+                    Fällig am <span className="text-[#E3BB62]">*</span>
                   </label>
                   <input
                     type="date"
-                    className="h-11 w-full rounded-lg border border-slate-300 px-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/10"
+                    className="h-11 w-full rounded-xl border border-[#e5dcc7] bg-white px-3 text-sm
+                          focus:border-[#E3BB62] focus:outline-none
+                          focus:ring-3 focus:ring-[rgba(227,187,98,0.25)]
+                          transition-colors"
                     value={dueDate}
                     required
                     onChange={(e) => setDueDate(e.target.value)}
@@ -665,10 +955,15 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
 
                 {/* Notiz */}
                 <div className="space-y-1">
-                  <label className="text-sm font-medium text-slate-700">Notiz</label>
+                  <label className="text-sm font-medium text-slate-700">
+                    Notiz
+                  </label>
                   <input
                     type="text"
-                    className="h-11 w-full rounded-lg border border-slate-300 px-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/10"
+                    className="h-11 w-full rounded-xl border border-[#e5dcc7] bg-white px-3 text-sm
+                            focus:border-[#E3BB62] focus:outline-none
+                            focus:ring-3 focus:ring-[rgba(227,187,98,0.25)]
+                            transition-colors"
                     placeholder="Optionale Notiz…"
                     value={note}
                     onChange={(e) => setNote(e.target.value)}
@@ -677,91 +972,180 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
 
                 {/* Themen im ausgewählten Katalog */}
                 {selectedCatalogId && (
-                  <div className="mt-6 space-y-3 rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3 shadow-sm">
+                  <div
+                    ref={topicsRef}
+                    className="
+      mt-5
+      rounded-2xl
+      border border-[#E3BB62]/30
+      bg-gradient-to-b from-[#FFFCF2] to-[#FFF9E6]
+      px-4 py-4
+      shadow-[0_6px_18px_rgba(212,175,55,0.15)]
+      space-y-4
+    "
+                  >
+                    {/* Header */}
                     <div className="flex items-center gap-3">
-                      <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-white shadow-sm">
-                        <ListChecks className="h-4 w-4 text-slate-600" />
+                      <span
+                        className="
+          inline-flex h-9 w-9 items-center justify-center
+          rounded-xl
+          bg-[#E3BB62]/20
+          text-[#264555]
+        "
+                      >
+                        <ListChecks className="h-4 w-4" />
                       </span>
 
                       <div className="min-w-0">
-                        <p className="text-sm font-medium text-slate-800">
+                        <p className="text-sm font-semibold text-[#264555]">
                           Themen im ausgewählten Katalog
                         </p>
 
                         {loadingTopics && (
-                          <p className="text-xs text-slate-500">Themen werden geladen…</p>
+                          <p className="text-xs text-slate-500">
+                            Themen werden geladen…
+                          </p>
                         )}
 
                         {!loadingTopics && topicsError && (
                           <p className="text-xs text-red-600">{topicsError}</p>
                         )}
 
-                        {!loadingTopics && !topicsError && selectedCatalogTopics && (
-                          <p className="text-xs text-slate-600">
-                            {selectedCatalogTopics.length === 1
-                              ? "1 Thema"
-                              : `${selectedCatalogTopics.length} Themen`}
-                          </p>
-                        )}
+                        {!loadingTopics &&
+                          !topicsError &&
+                          selectedCatalogTopics && (
+                            <p className="text-xs text-[#8a7a52]">
+                              {selectedCatalogTopics.length === 1
+                                ? "1 Thema"
+                                : `${selectedCatalogTopics.length} Themen`}
+                            </p>
+                          )}
                       </div>
                     </div>
 
-                    {/* Liste der Themen */}
-                    {!loadingTopics && !topicsError && selectedCatalogTopics && selectedCatalogTopics.length > 0 && (
-                      <ul className="max-h-36 space-y-1 overflow-y-auto rounded-lg bg-white px-3 py-2 text-xs text-slate-700">
-                        {selectedCatalogTopics.map((t) => (
-                          <li key={t.id} className="flex items-start gap-2">
-                            <span className="mt-[5px] h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                            <span className="leading-relaxed">{t.name}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
+                    {/* Themenliste */}
+                    {!loadingTopics &&
+                      !topicsError &&
+                      selectedCatalogTopics &&
+                      selectedCatalogTopics.length > 0 && (
+                        <ul
+                          className="
+            max-h-40
+            overflow-y-auto
+            rounded-xl
+            bg-white
+            px-3 py-2
+            text-xs
+            text-[#264555]
+            space-y-1.5
+            border border-[#E3BB62]/20
+          "
+                        >
+                          {selectedCatalogTopics.map((t) => (
+                            <li key={t.id} className="flex items-start gap-2">
+                              <span className="mt-[6px] h-1.5 w-1.5 rounded-full bg-[#E3BB62]" />
+                              <span className="leading-relaxed">{t.name}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
 
-                    {/* Fallback, falls keine Themen vorhanden */}
-                    {!loadingTopics && !topicsError && selectedCatalogTopics && selectedCatalogTopics.length === 0 && (
-                      <p className="text-xs text-slate-500">
-                        Für diesen Katalog sind noch keine Themen zugeordnet.
-                      </p>
-                    )}
+                    {/* Keine Themen */}
+                    {!loadingTopics &&
+                      !topicsError &&
+                      selectedCatalogTopics &&
+                      selectedCatalogTopics.length === 0 && (
+                        <p className="text-xs text-slate-500">
+                          Für diesen Katalog sind noch keine Themen zugeordnet.
+                        </p>
+                      )}
                   </div>
                 )}
-
-
               </div>
-
             </div>
 
+            {/* Aktionen */}
+            <div className="pt-3  flex gap-3">
+              {/* Abbrechen */}
+              <button
+                type="button"
+                onClick={() => navigate(-1)}
+                className="
+      flex-1 h-12
+      rounded-xl
+      border border-slate-300
+      bg-white
+      text-sm font-medium text-slate-700
+      hover:bg-slate-50
+      transition
+    "
+              >
+                Abbrechen
+              </button>
+
+              {/* Kataloge zuweisen */}
+              <button
+                onClick={handleAssign}
+                disabled={!canAssign}
+                className="
+      flex-1 h-12
+      rounded-xl
+      bg-[#E3BB62]
+      text-sm font-semibold text-[#264555]
+      shadow-[0_10px_30px_rgba(0,0,0,0.18)]
+      transition
+      hover:bg-[#d8ac55]
+      hover:-translate-y-[1px]
+      disabled:opacity-50
+      disabled:cursor-not-allowed
+    "
+              >
+                Kataloge zuweisen
+              </button>
+            </div>
           </div>
 
-          {/* Right: Katalog-Karten */}
-          <div className="lg:col-span-7">
-            <div className="rounded-2xl border border-[#ebebec] bg-white p-6 shadow-sm">
-              {/* Header mit Verwaltungs-Link + Icon-Toggle */}
-              <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-[18px] font-semibold text-[#264555]">Kataloge auswählen</h2>
+          {/* Right: Katalog-Karten - FLEXIBEL */}
+          <div className="flex-1 w-full min-w-0">
+            <div
+              className="rounded-2xl p-6 shadow-sm overflow-visible"
+              style={{
+                background: "#ffffffff",
+                border: "1px solid rgba(184,150,46,0.25)",
+                position: "relative",
+                zIndex: 1,
+              }}
+            >
+              {/* Header mit Verwaltungs-Link */}
+              <div
+                className="mb-4 flex items-center justify-between relative"
+                style={{ zIndex: 1 }}
+              >
+                <h2 className="text-[20px] font-semibold text-[#3D3225]">
+                  Katalog auswählen
+                  <div className="mt-1 h-[3px] w-16 rounded-full bg-gradient-to-r from-[#E3BB62] to-[#F2E3A2]" />{" "}
+                </h2>
 
                 <div className="flex items-center gap-3">
-                  {/* Icon-only Toggle für Edit/Lösch-Modus */}
-                  <button
-                    type="button"
-                    onClick={() => setEditMode(v => !v)}
-                    className={[
-                      "inline-flex h-9 w-9 items-center justify-center rounded-lg border",
-                      editMode ? "border-[#E3BB62] bg-[#fff3c4]" : "border-slate-300 bg-white hover:bg-slate-50",
-                    ].join(" ")}
-                    aria-pressed={editMode}
-                    aria-label={editMode ? "Bearbeitungsmodus aktiv" : "Bearbeitungsmodus inaktiv"}
-                    title={editMode ? "Modus: Löschen aktiv" : "Modus aktivieren: Löschen"}
-                  >
-                    <Wrench size={16} />
-                  </button>
-
                   <Link
                     to="/admin/kataloge/verwaltung"
-                    className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                    className="
+      inline-flex items-center gap-2
+      rounded-xl
+      border border-[#E3BB62]/60
+      bg-gradient-to-r from-[#FFF6DB] to-[#F2E3A2]
+      px-4 py-2
+      text-sm font-semibold
+      text-[#264555]
+      shadow-[0_4px_12px_rgba(227,187,98,0.35)]
+      transition-all duration-200
+      hover:from-[#F2E3A2] hover:to-[#E3BB62]
+      hover:shadow-[0_6px_18px_rgba(227,187,98,0.45)]
+      
+    "
                   >
-                    <Settings size={16} />
+                    <Settings size={16} className="text-[#264555]" />
                     Themen zuordnen
                   </Link>
                 </div>
@@ -775,10 +1159,21 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
                     placeholder="Kataloge durchsuchen..."
                     value={catalogSearch}
                     onChange={(e) => setCatalogSearch(e.target.value)}
-                    className="h-10 w-full rounded-lg border border-slate-300 pl-10 pr-3 text-sm placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/10"
+                    className="
+  h-11 w-full rounded-xl
+  border border-[#D4AF37]/40
+  bg-white
+  pl-11 pr-4 text-sm
+  placeholder:text-[#9b8f75]
+  text-[#3D3225]
+  focus:border-[#B8962E]
+  focus:outline-none
+  focus:ring-3 focus:ring-[rgba(193, 159, 59, 0.25)]
+  transition
+"
                   />
                   <svg
-                    className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+                    className="absolute left-4 top-1/2 h-5 w-4 -translate-y-1/2 text-[#B8962E]"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -786,7 +1181,7 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
                     <path
                       strokeLinecap="round"
                       strokeLinejoin="round"
-                      strokeWidth={2}
+                      strokeWidth={3}
                       d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
                     />
                   </svg>
@@ -794,264 +1189,581 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
               </div>
 
               <div className="mb-4 flex items-center justify-between gap-3">
-                <span className="text-sm text-[#56768f] truncate">
-                  {loadingCatalogs ? "Kataloge werden geladen…" :
-                    catalogSearch ? `${filteredCatalogs.length} ${filteredCatalogs.length === 1 ? 'Ergebnis' : 'Ergebnisse'} gefunden` :
-                      "Wählen Sie die Kataloge aus, die Sie zuweisen möchten"}
+                <span className="text-sm text-[#6b5a3c] truncate">
+                  {loadingCatalogs
+                    ? "Kataloge werden geladen…"
+                    : catalogSearch
+                    ? `${filteredCatalogs.length} ${
+                        filteredCatalogs.length === 1
+                          ? "Ergebnis"
+                          : "Ergebnisse"
+                      } gefunden`
+                    : "Wählen Sie den Katalog aus, den Sie zuweisen möchten"}
                 </span>
 
                 <div className="flex items-center gap-2 shrink-0">
-                  <span className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700">
-                    <span className="font-semibold text-slate-900">{catalogs.length}</span>
-                    <span>{catalogs.length === 1 ? "Katalog" : "Kataloge"}</span>
+                  <span
+                    className="
+    inline-flex items-center gap-2
+    rounded-xl
+    border border-[#F3E6B3]
+    bg-[#FFFCF2]
+    px-4 py-2
+    text-sm font-semibold
+    text-[#264555]
+    
+  "
+                  >
+                    <span className="text-[15px] font-bold">
+                      {catalogs.length}
+                    </span>
+                    <span className="text-[14px]">
+                      {catalogs.length === 1 ? "Katalog" : "Kataloge"}
+                    </span>
                   </span>
 
                   <button
                     type="button"
                     onClick={openCreateDialog}
-                    className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 bg-white hover:bg-slate-50"
                     title="Neuen Katalog anlegen"
                     aria-label="Neuen Katalog anlegen"
+                    className="
+    inline-flex h-9 w-9 items-center justify-center
+    rounded-xl
+    border border-[#E3BB62]/60
+    bg-gradient-to-br from-[#FFF6DB] to-[#F2E3A2]
+    text-[#264555]
+   
+    transition-colors duration-200
+    hover:from-[#F2E3A2] hover:to-[#E3BB62]
+  "
                   >
-                    <Plus size={16} />
+                    <Plus size={19} />
                   </button>
                 </div>
               </div>
 
               {/* Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 ">
-                {filteredCatalogs.length === 0 && catalogSearch ? (
-                  <div className="col-span-full text-center py-12">
-                    <p className="text-sm text-slate-500">Keine Kataloge gefunden für "{catalogSearch}"</p>
-                  </div>
-                ) : (
-                  filteredCatalogs.map((k) => {
-                    const Icon = k.icon ?? Building2;
-                    const selected = selectedCatalogId === k.id;//selectedCatalogIds.has(k.id)
-                    const metaLabel = (k.topicCount ?? 0) === 1
-                      ? "1 Thema"
-                      : `${k.topicCount ?? 0} Themen`;       //"– Themen";
+              <div
+                className="
+    max-h-[520px]
+    overflow-y-auto
+    overflow-x-visible
+    pr-2
+  "
+              >
+                <div
+                  className="
+                              grid gap-4
+                            [grid-template-columns:repeat(auto-fit,minmax(240px,1fr))]
+                            "
+                >
+                  {filteredCatalogs.length === 0 && catalogSearch ? (
+                    <div className="col-span-full text-center py-12">
+                      <p className="text-sm text-slate-500">
+                        Keine Kataloge gefunden für "{catalogSearch}"
+                      </p>
+                    </div>
+                  ) : (
+                    filteredCatalogs.map((k) => {
+                      const Icon = k.icon ?? Building2;
+                      const selected = selectedCatalogId === k.id; //selectedCatalogIds.has(k.id)
+                      const metaLabel =
+                        (k.topicCount ?? 0) === 1
+                          ? "1 Thema"
+                          : `${k.topicCount ?? 0} Themen`; //"– Themen";
 
-                    // Card-Klick: normal -> Auswahl; im editMode -> Delete-Dialog
-                    const onCardClick = () => {
-                      if (!editMode) selectOrToggleCatalog(k.id);
-                    };
-                    const isHighlight = highlightIds.has(k.id);
-                    const isBadge = badgeIds.has(k.id);
-                    return (
-                      <div
-                        key={k.id}
-                        className={[
-                          // Basisklassen
-                          "relative w-full text-left rounded-xl border p-4 min-h-[132px] cursor-pointer",
-                          // sanfte Animation
-                          "transition-transform transition-colors duration-300 ease-out",
-                          // bestehende Zustände
-                          editMode
-                            ? "border-[#E3BB62] bg-[#fff8e1]/60 hover:bg-[#fff3c4]/60"
-                            : selected
-                              ? "border-[#E3BB62] bg-[#ebebec]"
-                              : "border-[#ebebec] hover:border-[#56768f]/50 hover:bg-[#ebebec]/50",
-                          //  kurzer grüner Glow + leichtes Pop
-                          isHighlight
-                            ? [
-                              "scale-[1.02]",                         // leichtes Pop
-                              "ring-2 ring-green-500 ring-offset-2",  // grüner Ring
-                              "[animation:blinkBg_.9s_ease-in-out_infinite]",   // BG blinkt grün↔weiß
-                              "[box-shadow:0_0_0_0_rgba(34,197,94,0.35)]",       // Start-Glow
-                              "[animation:glowRing_1.2s_ease-in-out_infinite]"   // Ring pulsiert
-                            ].join(" ")
-                            : ""
-                        ].join(" ")}
-                        onClick={onCardClick}
-                      >
-                        {/* rechter Indikator: Auswahl-Kreis ODER X im editMode */}
-                        {editMode ? (
-                          <button
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); openDeleteDialog(k); }}
-                            className="absolute right-3 top-3 inline-flex h-6 w-6 items-center justify-center
-               rounded-full border-2 border-[#E11D48] text-[#E11D48] bg-white
-               hover:bg-red-50"
-                            title="Katalog löschen"
-                            aria-label="Katalog löschen"
-                          >
-                            <X size={12} />
-                          </button>
-                        ) : (
-                          <span className="absolute right-3 top-3 inline-flex h-5 w-5 items-center justify-center rounded-full border-2 border-[#56768f]">
-                            {selected && <span className="h-3.5 w-3.5 rounded-full bg-[#E3BB62]" />}
-                          </span>
-                        )}
+                      // Card-Klick: normal -> Auswahl; im editMode -> Delete-Dialog
+                      const onCardClick = () => {
+                        selectOrToggleCatalog(k.id);
+                      };
+                      const isHighlight = highlightIds.has(k.id);
+                      const isBadge = badgeIds.has(k.id);
+                      return (
+                        <div
+                          key={k.id}
+                          className={[
+                            "group relative w-full text-left rounded-2xl p-1 min-h-[160px] cursor-pointer",
+                            "transition-all duration-300 ease-out",
+                            "overflow-visible",
+                            selected
+                              ? "border border-[#D4AF37] bg-gradient-to-br from-[#FFFAE8] via-[#F6E7B8] to-[#EDD98A] ring-0 ring-[#E3BB62]/50 shadow-[0_10px_30px_rgba(212,175,55,0.28)]"
+                              : "border border-[#D4AF37]/30 bg-white hover:shadow-[0_14px_36px_rgba(212,175,55,0.22)]",
 
-                        {isBadge && (
-                          <span className="absolute -left-1 -top-1 rounded-md bg-amber-500 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white shadow">
-                            Neu
-                          </span>
-                        )}
-
-                        <div className="flex items-start gap-3 pr-6">
+                            //  kurzer grüner Glow + leichtes Pop (wie AdminDashboard)
+                            isHighlight
+                              ? [
+                                  "ring-2 ring-green-400 ring-offset-2", // grüner Ring
+                                  "[animation:glowRing_0.8s_ease-in-out_infinite]", // Ring pulsiert (wie AdminDashboard)
+                                ].join(" ")
+                              : "",
+                          ].join(" ")}
+                          onClick={onCardClick}
+                        >
+                          {/* Auswahl-Kreis oben rechts */}
                           <span
-                            className="grid h-10 w-10 place-items-center rounded-xl text-white shrink-0"
-                            style={{ backgroundColor: k.color ?? DEFAULT_COLOR }}
+                            className="
+    absolute right-3 top-3
+    inline-flex h-5 w-5 items-center justify-center
+    rounded-full border-2
+    border-[#56768f]
+    transition-colors duration-200
+    group-hover:border-[#E3BB62]
+    group-hover:bg-[#FFF9E6]
+  "
                           >
-                            <Icon size={18} />
+                            {selected && (
+                              <span className="h-3.5 w-3.5 rounded-full bg-[#E3BB62]" />
+                            )}
                           </span>
 
-                          <div className="min-w-0 flex-1">
-                            <div className="text-[14px] font-semibold text-[#264555] leading-5 line-clamp-2">
-                              {k.name}
-                            </div>
+                          {isBadge && (
+                            <span className="
+      absolute -left-1 -top-1
+      z-30
+      rounded-md
+      bg-amber-500
+      px-2 py-0.5
+      text-[10px]
+      font-semibold
+      uppercase
+      tracking-wide
+      text-white
+      shadow
+      pointer-events-none
+    ">
+                              Neu
+                            </span>
+                          )}
 
-                            {k.subtitle && (
-                              <div className="mt-1 mb-2 text-xs text-slate-600 leading-5 line-clamp-2 min-h-[2.5rem]">
-                                {k.subtitle ?? "\u00A0"}
+                          <div className="relative flex flex-col gap-2 px-3 overflow-visible">
+                            {" "}
+                            <span
+                              className={[
+                                "absolute top-2 left-2 z-10",
+                                "flex items-center justify-center",
+                                "w-[70px] h-[32px] rounded-[10px]",
+                                "transition-all duration-300",
+                                "cursor-pointer",
+
+                                // 🔹 NORMAL (leichtes Gold)
+                                !selected &&
+                                  "bg-gradient-to-r from-[#F6E7B8] to-[#EDD98A] shadow-[0_2px_8px_rgba(212,175,55,0.25)]",
+
+                                // 🔸 HOVER (stärkeres Gold)
+                                !selected &&
+                                  "group-hover:from-[#F2E3A2] group-hover:to-[#E3BB62] group-hover:shadow-[0_4px_12px_rgba(212,175,55,0.35)]",
+
+                                // ⭐ SELECTED (kräftiges Gold – dein aktuelles)
+                                selected &&
+                                  "bg-gradient-to-r from-[#E3BB62] to-[#D4AF37] shadow-[0_6px_18px_rgba(212,175,55,0.45)]",
+                              ]
+                                .filter(Boolean)
+                                .join(" ")}
+                              onMouseEnter={(e) => {
+                                e.stopPropagation();
+                                const timeout = setTimeout(() => {
+                                  setShowTooltipFull((prev) => {
+                                    const next = new Map(prev);
+                                    next.set(k.id, true);
+                                    return next;
+                                  });
+                                }, 350);
+                                hoverTimeouts.current.set(k.id, timeout);
+                              }}
+                              onMouseLeave={(e) => {
+                                e.stopPropagation();
+                                const timeout = hoverTimeouts.current.get(k.id);
+                                if (timeout) {
+                                  clearTimeout(timeout);
+                                  hoverTimeouts.current.delete(k.id);
+                                }
+                                setShowTooltipFull((prev) => {
+                                  const next = new Map(prev);
+                                  next.set(k.id, false);
+                                  return next;
+                                });
+                              }}
+                            >
+                              <Icon
+                                size={18}
+                                className={[
+                                  "transition-colors duration-300",
+                                  selected
+                                    ? "text-[#264555]"
+                                    : "text-[#264555]/80",
+                                ].join(" ")}
+                              />
+                            </span>
+                            {/* Tooltip - außerhalb des Logo-Spans für höheren z-index */}
+                            {showTooltipFull.get(k.id) && (
+                              <div
+                                className={`
+                                  ${
+                                    showTooltipFull.get(k.id)
+                                      ? "opacity-100 visible"
+                                      : "opacity-0 invisible"
+                                  }
+                                  fixed w-72
+                                  rounded-xl p-3 text-xs
+                                  transition-all duration-200 z-[99999]
+
+                                  bg-[#fffaf0]
+                                  text-[#264555]
+                                  border border-[#e6dcc8]
+                                  shadow-[0_10px_30px_rgba(38,69,85,0.18)]
+
+                                  break-words
+                                  overflow-wrap-anywhere
+                                  whitespace-normal
+                                `}
+                                ref={(el) => {
+                                  if (el) {
+                                    tooltipRefs.current.set(k.id, el);
+                                    const cardElement = el.closest(".group");
+                                    if (cardElement) {
+                                      const logoSpan =
+                                        cardElement.querySelector(
+                                          'span[class*="absolute top-2 left-2"]'
+                                        ) as HTMLElement;
+                                      if (logoSpan) {
+                                        const rect =
+                                          logoSpan.getBoundingClientRect();
+                                        const tooltipWidth = 288; // w-72 = 18rem = 288px
+                                        el.style.top = `${rect.bottom + 8}px`;
+                                        el.style.left = `${
+                                          rect.left +
+                                          rect.width / 2 -
+                                          tooltipWidth / 2 +
+                                          100
+                                        }px`;
+                                      }
+                                    }
+                                  } else {
+                                    tooltipRefs.current.delete(k.id);
+                                  }
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.stopPropagation();
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.stopPropagation();
+                                  setShowTooltipFull((prev) => {
+                                    const next = new Map(prev);
+                                    next.set(k.id, false);
+                                    return next;
+                                  });
+                                }}
+                              >
+                                <b>{k.name}</b>
+                                <br />
+                                {k.subtitle || "Keine Beschreibung vorhanden"}
                               </div>
                             )}
+                            <div className="min-w-0 pt-[52px] text-left">
+                              <div
+                                ref={(el) => {
+                                  if (el) {
+                                    titleRefs.current.set(k.id, el);
+                                  } else {
+                                    titleRefs.current.delete(k.id);
+                                  }
+                                }}
+                                className="text-[15px] font-semibold text-[#264555] leading-5 line-clamp-1 break-words
+    overflow-wrap-anywhere"
+                              >
+                                {k.name}
+                              </div>
+<div
+  ref={(el) => {
+    if (el) {
+      descRefs.current.set(k.id, el);
+    } else {
+      descRefs.current.delete(k.id);
+    }
+  }}
 
-                            <div className="mt-2 flex items-center justify-between">
-                              <span className="text-xs text-slate-500">{metaLabel}</span>
+  className="
+    mt-0 mb-2
+    text-[13px] text-slate-600
+    leading-[1.35]
+    line-clamp-2
+    min-h-[2.25rem]
+    break-words
+    overflow-wrap-anywhere
+  "
+>
+  {k.subtitle || "\u00A0"}
 
-                              {/* ✎ Icon-only: öffnet Edit-Modal */}
-                              {editMode && (
-                                <button
-                                  type="button"
-                                  onClick={(e) => { e.stopPropagation(); openEditDialog(k); }}
-                                  className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-700 hover:bg-slate-50" //{${editMode ? "" : "hidden"}`} in css
-                                  title="Katalog bearbeiten"
-                                  aria-label="Katalog bearbeiten"
-                                >
-                                  <Pencil size={14} />
-                                </button>)}
+
+</div>
+
+
+                              <div className="mt-2 flex items-center justify-between">
+                                <span className="text-sm font-medium text-[#D4AF37]">
+                                  {metaLabel}
+                                </span>
+
+                                {/* Bearbeiten & Löschen Buttons - nur sichtbar bei Hover, nicht wenn Tooltip angezeigt wird */}
+                                {!showTooltipFull.get(k.id) && (
+                                  <div
+                                    className="
+                                          absolute top-30 right-3
+                                          flex items-center gap-1.5
+                                          opacity-0 group-hover:opacity-100
+                                          transition-opacity duration-200
+                                          z-20
+                                        "
+                                  >
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        openEditDialog(k);
+                                      }}
+                                      className="
+                                              inline-flex h-8 w-8 items-center justify-center
+                                              rounded-lg
+                                              bg-transparent
+                                              text-emerald-600
+                                              transition-all duration-200
+                                              hover:bg-emerald-100
+                                              hover:text-[#264555]
+                                            "
+                                      title="Katalog bearbeiten"
+                                      aria-label="Katalog bearbeiten"
+                                    >
+                                      <Pencil size={15} />
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        openDeleteDialog(k);
+                                      }}
+                                      className="
+                                            inline-flex h-8 w-8 items-center justify-center
+                                            rounded-lg
+                                            bg-transparent
+                                            text-red-600
+                                            transition-all duration-200
+                                            hover:bg-red-100
+                                            hover:text-red-600
+                                          "
+                                      title="Katalog löschen"
+                                      aria-label="Katalog löschen"
+                                    >
+                                      <Trash2 size={15} />
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-
-              {/* Footer-Zeile */}
-              <hr className="my-4 border-t border-[#ebebec]" />
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-slate-600">Ausgewählt:</span>
-                <span className="font-semibold text-[#264555]">
-                  {selectedCatalogId ? "1 Katalog" : "0 Kataloge"}
-                </span>
+                      );
+                    })
+                  )}
+                </div>{" "}
               </div>
             </div>
           </div>
         </div>
 
-        {/* Sticky Footer Actions */}
-        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60">
-          <div className="mx-auto flex max-w-7xl items-center justify-end gap-3 px-6 py-3">
-            <button
-              type="button"
-              onClick={() => history.back()}
-              className="h-10 rounded-lg border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50"
-            >
-              Abbrechen
-            </button>
-            <button
-              onClick={handleAssign}
-              disabled={!canAssign}
-              className="h-10 rounded-lg bg-[#264555] px-4 text-sm font-medium text-white disabled:opacity-50"
-            >
-              Kataloge zuweisen
-            </button>
-          </div>
-        </div>
-
-        {/* ---------- Zentrierte Modals für Edit/Delete ---------- */}
-        {dialogOpen && (
+        {/* ---------- Zentrierte Modals für Edit ---------- */}
+        {dialogOpen && dialogMode !== "delete" && (
           <div
-            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30 backdrop-blur-sm p-4"
             role="dialog"
             aria-modal="true"
+            className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/40 backdrop-blur-sm"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) closeDialog();
+            }}
           >
-            <div className="w-full max-w-lg rounded-2xl bg-white shadow-xl ring-1 ring-black/5">
-              <div className="border-b border-slate-200 px-5 py-4">
-                <h3 className="text-[16px] font-semibold text-slate-900">
-                  {dialogMode === "create"
-                    ? "Neuen Katalog anlegen"
-                    : dialogMode === "edit"
-                      ? "Katalog bearbeiten"
-                      : "Katalog löschen"}
-                </h3>
-              </div>
+            <div
+              className="w-full max-w-2xl px-4 sm:px-0 flex flex-col items-center"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Karten-Block mit Glow */}
+              <div className="w-full relative overflow-hidden rounded-3xl bg-white shadow-2xl border border-slate-200/80">
+                {/* Deko-Glows */}
+                <div
+                  className="pointer-events-none absolute -right-24 -top-24 h-52 w-52 rounded-full bg-gradient-to-br from-[#E3BB62]/40 via-amber-400/20 to-transparent opacity-60"
+                  aria-hidden="true"
+                />
+                <div
+                  className="pointer-events-none absolute -left-24 -bottom-24 h-52 w-52 rounded-full bg-gradient-to-tr from-sky-500/20 via-indigo-500/10 to-transparent opacity-60"
+                  aria-hidden="true"
+                />
 
-              {/* Body */}
-              <div className="px-5 py-4">
-                {dialogMode === "create" || dialogMode === "edit" ? (
+                {/* Inhalt / Formular */}
+                <div className="relative px-6 pt-6 pb-5 max-h-[calc(100vh-150px)] overflow-y-auto">
+                  {/* 🔹 Titelbereich */}
+                  <h3 className="text-lg sm:text-xl font-semibold text-slate-900 mb-1">
+                    {dialogMode === "create"
+                      ? "Neuen Katalog anlegen"
+                      : "Katalog bearbeiten"}
+                  </h3>
+                  <p className="text-xs text-slate-500 mb-4">
+                    Felder mit <span className="text-[#E3BB62]">*</span> sind
+                    Pflichtfelder.
+                  </p>
+
+                  {/* Body */}
                   <form
-                    onSubmit={(e) => { e.preventDefault(); void submitDialog(); }}
-                    className="space-y-4"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      void submitDialog();
+                    }}
+                    className="space-y-6"
                   >
-                    <div className="space-y-1">
-                      <label className="text-sm font-medium text-slate-700">Titel</label>
+                    {/* Titel */}
+                    <div>
+                      <label
+                        htmlFor="catalog-title"
+                        className="block text-sm font-medium text-slate-700 mb-1"
+                      >
+                        Titel <span className="text-[#E3BB62]">*</span>
+                      </label>
                       <input
-                        className="h-11 w-full rounded-lg border border-slate-300 px-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/10"
+                        id="catalog-title"
+                        type="text"
+                        className={`
+                          w-full rounded-xl border px-3 py-2.5 text-sm
+                          bg-slate-50 border-slate-200
+                          outline-none
+                          focus:bg-white
+                          focus:border-[#E3BB62]
+                          focus:ring-2 focus:ring-[rgba(227,187,98,0.45)]
+                          transition
+                        `}
                         value={formTitle}
                         onChange={(e) => setFormTitle(e.target.value)}
                         autoFocus
                       />
                     </div>
 
-                    <div className="space-y-1">
-                      <label className="text-sm font-medium text-slate-700">Beschreibung</label>
+                    {/* Beschreibung */}
+                    <div>
+                      <label
+                        htmlFor="catalog-desc"
+                        className="block text-sm font-medium text-slate-700 mb-1"
+                      >
+                        Beschreibung
+                      </label>
                       <textarea
-                        className="min-h-[96px] w-full resize-y rounded-lg border border-slate-300 px-3 py-2 text-sm placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/10"
+                        id="catalog-desc"
+                        rows={3}
+                        className={`
+                          w-full rounded-xl border px-3 py-2.5 text-sm
+                          bg-slate-50 border-slate-200
+                          outline-none
+                          focus:bg-white
+                          focus:border-[#E3BB62]
+                          focus:ring-2 focus:ring-[rgba(227,187,98,0.45)]
+                          transition
+                          resize-none
+                        `}
                         value={formDesc}
                         onChange={(e) => setFormDesc(e.target.value)}
                         placeholder="Optional…"
                       />
                     </div>
                   </form>
-                ) : (
-                  <div className="space-y-2">
-                    <p className="text-sm text-slate-700">
-                      Soll der folgende Katalog wirklich gelöscht werden?
-                    </p>
-                    <div className="rounded-lg bg-slate-50 px-3 py-2 text-sm">
-                      <div className="font-medium text-slate-900">{dialogCatalog?.name}</div>
-                      {dialogCatalog?.subtitle && (
-                        <div className="text-slate-600 line-clamp-2">{dialogCatalog.subtitle}</div>
-                      )}
-                    </div>
-                  </div>
-                )}
+                </div>
               </div>
 
-              {/* Footer */}
-              <div className="flex items-center justify-end gap-3 border-t border-slate-200 px-5 py-3">
+              {/* Buttons AUSSERHALB des Modals */}
+              <div className="mt-3 w-full flex gap-3">
                 <button
                   type="button"
                   onClick={closeDialog}
-                  className="h-10 rounded-lg border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                  className="
+                    flex-1 h-12
+                    rounded-xl
+                    flex items-center justify-center
+                    text-sm font-medium
+                    text-slate-700
+                    bg-white
+                    border border-slate-300
+                    hover:bg-slate-50
+                    transition-colors
+                  "
                 >
                   Abbrechen
                 </button>
 
                 {dialogMode === "create" ? (
-                  <button onClick={() => void submitDialog()} className="h-10 rounded-lg bg-[#264555] px-4 text-sm font-medium text-white">
+                  <button
+                    onClick={() => void submitDialog()}
+                    className="
+                      flex-1 h-12
+                      rounded-xl
+                      flex items-center justify-center
+                      text-sm font-semibold
+                      text-[#264555]
+                      bg-[#E3BB62]
+                      hover:bg-[#d8ac55]
+                      shadow-[0_10px_30px_rgba(0,0,0,0.18)]
+                      transition
+                      hover:-translate-y-[1px]
+                    "
+                  >
                     Anlegen
                   </button>
-                ) : dialogMode === "edit" ? (
-                  <button onClick={() => void submitDialog()} className="h-10 rounded-lg bg-[#264555] px-4 text-sm font-medium text-white">
-                    Speichern
-                  </button>
                 ) : (
-                  <button onClick={() => void submitDialog()} className="h-10 rounded-lg bg-red-600 px-4 text-sm font-medium text-white">
-                    Löschen
+                  <button
+                    onClick={() => void submitDialog()}
+                    className="
+                      flex-1 h-12
+                      rounded-xl
+                      flex items-center justify-center
+                      text-sm font-semibold
+                      text-[#264555]
+                      bg-[#E3BB62]
+                      hover:bg-[#d8ac55]
+                      shadow-[0_10px_30px_rgba(0,0,0,0.18)]
+                      transition
+                      hover:-translate-y-[1px]
+                    "
+                  >
+                    Speichern
                   </button>
                 )}
               </div>
             </div>
           </div>
         )}
-      </div>
+
+        {/* ===== Delete Confirm Modal mit ConfirmModal ===== */}
+        <ConfirmModal
+          open={dialogOpen && dialogMode === "delete" && !!dialogCatalog}
+          title="Katalog löschen?"
+          description={
+            <>
+              Willst du den Katalog{" "}
+              <span className="font-semibold">{dialogCatalog?.name}</span>{" "}
+              wirklich löschen?
+            </>
+          }
+          hintTitle="Hinweis"
+          hintText={
+            <>
+              Diese Aktion kann{" "}
+              <span className="font-semibold text-red-700">
+                nicht rückgängig gemacht
+              </span>{" "}
+              werden.
+            </>
+          }
+          cancelLabel="Abbrechen"
+          confirmLabel="Ja, löschen"
+          onCancel={closeDialog}
+          onConfirm={() => void submitDialog()}
+          icon={<Trash2 className="text-red-500" />}
+        />
+      </main>
     </AdminLayout>
   );
 }
