@@ -67,6 +67,8 @@ export default function ConditionEditor() {
   // 🔍 Such-State
   const [searchTerm, setSearchTerm] = useState("");
 
+  
+
   useEffect(() => {
     async function fetchThemaDetails() {
       try {
@@ -1566,10 +1568,7 @@ export default function ConditionEditor() {
                   className="pointer-events-none absolute -right-24 -top-24 h-52 w-52 rounded-full bg-gradient-to-br from-[#E3BB62]/40 via-amber-400/20 to-transparent opacity-60"
                   aria-hidden="true"
                 />
-                <div
-                  className="pointer-events-none absolute -left-24 -bottom-24 h-52 w-52 rounded-full bg-gradient-to-tr from-sky-500/20 via-indigo-500/10 to-transparent opacity-60"
-                  aria-hidden="true"
-                />
+               
 
                 {/* Inhalt / Formular */}
                 <div className="relative px-6 pt-6 pb-5 max-h-[calc(100vh-150px)] overflow-y-auto" ref={modalRef}>
@@ -1893,14 +1892,25 @@ export default function ConditionEditor() {
                         {errorOptions}
                       </p>
                     )}
-                    <button
-                      onClick={() =>
-                        setOptions([...options, { label: "", score: null }])
-                      }
-                      className="flex items-center gap-2 text-sm text-brand-sand font-medium hover:underline mt-2"
-                    >
-                      <Plus size={14} /> Neue Option hinzufügen
-                    </button>
+               <button
+  onClick={() =>
+    setOptions([...options, { label: "", score: null }])
+  }
+  className="
+    flex items-center gap-2
+    mt-3
+    text-sm font-semibold
+    transition
+    hover:underline
+  "
+  style={{
+    color: "#b08d2a", // dunkles Gold → sehr gut lesbar
+  }}
+>
+  <Plus size={16} className="text-[#b08d2a]" />
+  Neue Option hinzufügen
+</button>
+
                   </div>
                 )}
                 </div>
