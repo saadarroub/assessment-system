@@ -474,7 +474,6 @@ export default function UsersPage() {
           background:
             // oben weicher Übergang vom dunklen Header
             "radial-gradient(circle at 0 0, rgba(227,187,98,0.13) 0, transparent 40%)," +
-            "radial-gradient(circle at 100% 0, rgba(56,189,248,0.10) 0, transparent 42%)," +
             // Grundfläche: sehr sanftes, leicht blau-graues Licht
             "linear-gradient(to bottom, #f3f4f7 0, #e6e9ef 240px, #f4f5f8 100%)",
         }}
@@ -1081,10 +1080,6 @@ export default function UsersPage() {
             </div>
           </div>
         </div>
-
-
-
-
       </main>
 
       {/* ===== Create User Modal (gleicher Style wie Edit/Confirm) ===== */}

@@ -3,6 +3,7 @@ import { NavLink, useNavigate } from "react-router-dom";
 import { useAuthCtx } from "@/core/auth/AuthContext";
 import { AuthService } from "@/core/auth/AuthService";
 import { logoutApi } from "@/features/auth/logoutService";
+import { SessionEventBus } from "@/core/auth/SessionEventBus";
 import {
   getUserProfile,
   buildAvatarUrl,
@@ -131,6 +132,14 @@ const NAV_Analyse: Array<{
   ];
 
 export default function AdminLayout({ children }: AdminLayoutProps) {
+  const [sessionExpired, setSessionExpired] = useState(false);
+
+useEffect(() => {
+  return SessionEventBus.subscribe(() => {
+    setSessionExpired(true);
+  });
+}, []);
+
   const [collapsed, setCollapsed] = useState(false);
 
   const mainStyle = {
@@ -1004,6 +1013,34 @@ useEffect(() => {
       >
         {children}
       </main>
+      {sessionExpired && (
+  <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50">
+    <div className="w-[420px] rounded-2xl bg-white p-6 shadow-2xl">
+      <h2 className="text-lg font-semibold text-[#264555]">
+        Session abgelaufen
+      </h2>
+
+      <p className="mt-2 text-sm text-slate-600">
+        Deine Anmeldung ist nicht mehr gültig.
+        <br />
+        Bitte melde dich erneut an.
+      </p>
+
+      <div className="mt-5 flex justify-end">
+        <button
+          onClick={() => {
+            setSessionExpired(false);
+            navigate("/login", { replace: true });
+          }}
+          className="rounded-xl bg-[#E3BB62] px-4 py-2 text-sm font-medium text-[#264555]"
+        >
+          Neu einloggen
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
     </div>
   );
 }

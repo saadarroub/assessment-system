@@ -60,7 +60,7 @@ export default function AppRoutes() {
 	      
 
       <Route
-        path="/app/reifegradmodelle"
+        path="/admin/reifegradmodelle"
         element={
           <ProtectedRoute>
             <ReifegradPage />

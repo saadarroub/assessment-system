@@ -256,6 +256,7 @@ export function DashboardPage() {
         }}
       >
         {/* ===== Top-Row: KPIs ===== */}
+          <div className="max-w-[1400px] xl:max-w-[1600px] mx-auto">
         <section className="mb-6">
           <div className="mb-3 flex items-center justify-between gap-2">
             <h2 className="m-0 text-xl font-semibold" style={{ color: BRAND.navy }}>
@@ -629,6 +630,7 @@ export function DashboardPage() {
             )}
           </div>
         </section>
+        </div>
       </main>
     </AdminLayout>
   );
