@@ -9,6 +9,7 @@ import {
   Trash2,
   Users,
   User,
+  Layers,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -72,7 +73,7 @@ export type KatalogeZuweisenProps = {
 
 /* --------------------------------- UI ------------------------------------ */
 
-export default function KatalogeZuweisen({}: KatalogeZuweisenProps) {
+export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
   // Kataloge
   const [catalogs, setCatalogs] = useState<KatalogItem[]>([]);
   const [loadingCatalogs, setLoadingCatalogs] = useState(false);
@@ -156,7 +157,9 @@ export default function KatalogeZuweisen({}: KatalogeZuweisenProps) {
     try {
       setLoadingCatalogs(true);
       setCatalogError(null);
-      const apiList = await getCatalogs();
+      const res = await getCatalogs();
+      const apiList = Array.isArray(res) ? res : [];
+
       const ui: KatalogItem[] = apiList.map((c: CatalogApi) => ({
         id: c.id,
         name: c.title,
@@ -181,6 +184,10 @@ export default function KatalogeZuweisen({}: KatalogeZuweisenProps) {
       return finalList; // damit wir nach dem Create die neuen IDs erkennen
     } catch (e) {
       console.error(e);
+      // Falls nur leer oder 404, behandeln wir dies als "Keine Kataloge" statt Fehler
+      // (simple Heuristik: wenn wir hier landen, setzen wir Error, 
+      //  es sei denn wir wollen "leere Liste" erzwingen. 
+      //  Aber sicherer ist: apiList check oben fixen.)
       setCatalogError("Kataloge konnten nicht geladen werden.");
       return [];
     } finally {
@@ -365,9 +372,8 @@ export default function KatalogeZuweisen({}: KatalogeZuweisenProps) {
               const rect = logoSpan.getBoundingClientRect();
               const tooltipWidth = 288; // w-72 = 18rem = 288px
               tooltipEl.style.top = `${rect.bottom + 8}px`;
-              tooltipEl.style.left = `${
-                rect.left + rect.width / 2 - tooltipWidth / 2
-              }px`;
+              tooltipEl.style.left = `${rect.left + rect.width / 2 - tooltipWidth / 2
+                }px`;
             }
           }
         }
@@ -536,7 +542,11 @@ export default function KatalogeZuweisen({}: KatalogeZuweisenProps) {
 
     if (dialogMode === "delete" && dialogCatalog) {
       await deleteCatalog(dialogCatalog.id);
+
+      // Optimistic Update: Sofort aus der Liste entfernen
+      setCatalogs((prev) => prev.filter((c) => c.id !== dialogCatalog.id));
       setSelectedCatalogId((prev) => (prev === dialogCatalog.id ? null : prev));
+
       await loadCatalogs();
       closeDialog();
       return;
@@ -611,7 +621,7 @@ export default function KatalogeZuweisen({}: KatalogeZuweisenProps) {
             "linear-gradient(to bottom, #f3f4f7 0, #e6e9ef 240px, #f4f5f8 100%)",
         }}
       >
-        <div className="flex flex-col lg:flex-row gap-5 max-w-full mx-auto">
+        <div className="flex flex-col lg:flex-row gap-5 max-w-[1400px] xl:max-w-[1600px] mx-auto">
           {/* Left: Grundinformationen - FESTE BREITE */}
           <div className="w-full lg:w-[520px] flex-shrink-0">
             <div
@@ -872,7 +882,7 @@ hover:bg-[#fff6db] transition-colors"
                                   key={r.id}
                                   type="button"
                                   onClick={() => toggleRecipient(r.id)}
-                        className="
+                                  className="
   w-full px-4 py-3 text-left
   transition-colors
   hover:bg-[#fff6db]
@@ -1107,7 +1117,8 @@ hover:bg-[#fff6db] transition-colors"
           </div>
 
           {/* Right: Katalog-Karten - FLEXIBEL */}
-          <div className="flex-1 w-full min-w-0">
+          <div className="flex-1 w-full  min-w-0">
+
             <div
               className="rounded-2xl p-6 shadow-sm overflow-visible"
               style={{
@@ -1193,12 +1204,11 @@ hover:bg-[#fff6db] transition-colors"
                   {loadingCatalogs
                     ? "Kataloge werden geladen…"
                     : catalogSearch
-                    ? `${filteredCatalogs.length} ${
-                        filteredCatalogs.length === 1
-                          ? "Ergebnis"
-                          : "Ergebnisse"
+                      ? `${filteredCatalogs.length} ${filteredCatalogs.length === 1
+                        ? "Ergebnis"
+                        : "Ergebnisse"
                       } gefunden`
-                    : "Wählen Sie den Katalog aus, den Sie zuweisen möchten"}
+                      : "Wählen Sie den Katalog aus, den Sie zuweisen möchten"}
                 </span>
 
                 <div className="flex items-center gap-2 shrink-0">
@@ -1255,13 +1265,18 @@ hover:bg-[#fff6db] transition-colors"
                 <div
                   className="
                               grid gap-4
-                            [grid-template-columns:repeat(auto-fit,minmax(240px,1fr))]
+                                px-1 pt-1 pb-1
+                           [grid-template-columns:repeat(auto-fill,minmax(260px,1fr))]
+                              
                             "
                 >
-                  {filteredCatalogs.length === 0 && catalogSearch ? (
-                    <div className="col-span-full text-center py-12">
-                      <p className="text-sm text-slate-500">
-                        Keine Kataloge gefunden für "{catalogSearch}"
+                  {filteredCatalogs.length === 0 ? (
+                    <div className="col-span-full flex flex-col items-center justify-center py-12 text-slate-500">
+                      <Layers size={48} className="opacity-40 mb-3" />
+                      <p className="text-sm font-medium">
+                        {catalogSearch
+                          ? `Keine Kataloge gefunden für "${catalogSearch}"`
+                          : "Keine Kataloge vorhanden"}
                       </p>
                     </div>
                   ) : (
@@ -1293,9 +1308,9 @@ hover:bg-[#fff6db] transition-colors"
                             //  kurzer grüner Glow + leichtes Pop (wie AdminDashboard)
                             isHighlight
                               ? [
-                                  "ring-2 ring-green-400 ring-offset-2", // grüner Ring
-                                  "[animation:glowRing_0.8s_ease-in-out_infinite]", // Ring pulsiert (wie AdminDashboard)
-                                ].join(" ")
+                                "ring-2 ring-green-400 ring-offset-2", // grüner Ring
+                                "[animation:glowRing_0.8s_ease-in-out_infinite]", // Ring pulsiert (wie AdminDashboard)
+                              ].join(" ")
                               : "",
                           ].join(" ")}
                           onClick={onCardClick}
@@ -1348,15 +1363,15 @@ hover:bg-[#fff6db] transition-colors"
 
                                 // 🔹 NORMAL (leichtes Gold)
                                 !selected &&
-                                  "bg-gradient-to-r from-[#F6E7B8] to-[#EDD98A] shadow-[0_2px_8px_rgba(212,175,55,0.25)]",
+                                "bg-gradient-to-r from-[#F6E7B8] to-[#EDD98A] shadow-[0_2px_8px_rgba(212,175,55,0.25)]",
 
                                 // 🔸 HOVER (stärkeres Gold)
                                 !selected &&
-                                  "group-hover:from-[#F2E3A2] group-hover:to-[#E3BB62] group-hover:shadow-[0_4px_12px_rgba(212,175,55,0.35)]",
+                                "group-hover:from-[#F2E3A2] group-hover:to-[#E3BB62] group-hover:shadow-[0_4px_12px_rgba(212,175,55,0.35)]",
 
                                 // ⭐ SELECTED (kräftiges Gold – dein aktuelles)
                                 selected &&
-                                  "bg-gradient-to-r from-[#E3BB62] to-[#D4AF37] shadow-[0_6px_18px_rgba(212,175,55,0.45)]",
+                                "bg-gradient-to-r from-[#E3BB62] to-[#D4AF37] shadow-[0_6px_18px_rgba(212,175,55,0.45)]",
                               ]
                                 .filter(Boolean)
                                 .join(" ")}
@@ -1395,18 +1410,21 @@ hover:bg-[#fff6db] transition-colors"
                                 ].join(" ")}
                               />
                             </span>
+
+
+
                             {/* Tooltip - außerhalb des Logo-Spans für höheren z-index */}
                             {showTooltipFull.get(k.id) && (
                               <div
+
                                 className={`
-                                  ${
-                                    showTooltipFull.get(k.id)
-                                      ? "opacity-100 visible"
-                                      : "opacity-0 invisible"
+                      ${showTooltipFull.get(k.id)
+                                    ? "opacity-100 visible"
+                                    : "opacity-0 invisible"
                                   }
-                                  fixed w-72
-                                  rounded-xl p-3 text-xs
-                                  transition-all duration-200 z-[99999]
+                      fixed w-72
+                      rounded-xl p-3 text-xs
+                      transition-all duration-200 z-[99999]
 
                                   bg-[#fffaf0]
                                   text-[#264555]
@@ -1431,12 +1449,11 @@ hover:bg-[#fff6db] transition-colors"
                                           logoSpan.getBoundingClientRect();
                                         const tooltipWidth = 288; // w-72 = 18rem = 288px
                                         el.style.top = `${rect.bottom + 8}px`;
-                                        el.style.left = `${
-                                          rect.left +
+                                        el.style.left = `${rect.left +
                                           rect.width / 2 -
                                           tooltipWidth / 2 +
                                           100
-                                        }px`;
+                                          }px`;
                                       }
                                     }
                                   } else {
@@ -1474,16 +1491,16 @@ hover:bg-[#fff6db] transition-colors"
                               >
                                 {k.name}
                               </div>
-<div
-  ref={(el) => {
-    if (el) {
-      descRefs.current.set(k.id, el);
-    } else {
-      descRefs.current.delete(k.id);
-    }
-  }}
+                              <div
+                                ref={(el) => {
+                                  if (el) {
+                                    descRefs.current.set(k.id, el);
+                                  } else {
+                                    descRefs.current.delete(k.id);
+                                  }
+                                }}
 
-  className="
+                                className="
     mt-0 mb-2
     text-[13px] text-slate-600
     leading-[1.35]
@@ -1492,11 +1509,11 @@ hover:bg-[#fff6db] transition-colors"
     break-words
     overflow-wrap-anywhere
   "
->
-  {k.subtitle || "\u00A0"}
+                              >
+                                {k.subtitle || "\u00A0"}
 
 
-</div>
+                              </div>
 
 
                               <div className="mt-2 flex items-center justify-between">
@@ -1572,64 +1589,65 @@ hover:bg-[#fff6db] transition-colors"
         </div>
 
         {/* ---------- Zentrierte Modals für Edit ---------- */}
-        {dialogOpen && dialogMode !== "delete" && (
-          <div
-            role="dialog"
-            aria-modal="true"
-            className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/40 backdrop-blur-sm"
-            onClick={(e) => {
-              if (e.target === e.currentTarget) closeDialog();
-            }}
-          >
+        {
+          dialogOpen && dialogMode !== "delete" && (
             <div
-              className="w-full max-w-2xl px-4 sm:px-0 flex flex-col items-center"
-              onClick={(e) => e.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+              className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/40 backdrop-blur-sm"
+              onClick={(e) => {
+                if (e.target === e.currentTarget) closeDialog();
+              }}
             >
-              {/* Karten-Block mit Glow */}
-              <div className="w-full relative overflow-hidden rounded-3xl bg-white shadow-2xl border border-slate-200/80">
-                {/* Deko-Glows */}
-                <div
-                  className="pointer-events-none absolute -right-24 -top-24 h-52 w-52 rounded-full bg-gradient-to-br from-[#E3BB62]/40 via-amber-400/20 to-transparent opacity-60"
-                  aria-hidden="true"
-                />
-                <div
-                  className="pointer-events-none absolute -left-24 -bottom-24 h-52 w-52 rounded-full bg-gradient-to-tr from-sky-500/20 via-indigo-500/10 to-transparent opacity-60"
-                  aria-hidden="true"
-                />
+              <div
+                className="w-full max-w-2xl px-4 sm:px-0 flex flex-col items-center"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Karten-Block mit Glow */}
+                <div className="w-full relative overflow-hidden rounded-3xl bg-white shadow-2xl border border-slate-200/80">
+                  {/* Deko-Glows */}
+                  <div
+                    className="pointer-events-none absolute -right-24 -top-24 h-52 w-52 rounded-full bg-gradient-to-br from-[#E3BB62]/40 via-amber-400/20 to-transparent opacity-60"
+                    aria-hidden="true"
+                  />
+                  <div
+                    className="pointer-events-none absolute -left-24 -bottom-24 h-52 w-52 rounded-full bg-gradient-to-tr from-sky-500/20 via-indigo-500/10 to-transparent opacity-60"
+                    aria-hidden="true"
+                  />
 
-                {/* Inhalt / Formular */}
-                <div className="relative px-6 pt-6 pb-5 max-h-[calc(100vh-150px)] overflow-y-auto">
-                  {/* 🔹 Titelbereich */}
-                  <h3 className="text-lg sm:text-xl font-semibold text-slate-900 mb-1">
-                    {dialogMode === "create"
-                      ? "Neuen Katalog anlegen"
-                      : "Katalog bearbeiten"}
-                  </h3>
-                  <p className="text-xs text-slate-500 mb-4">
-                    Felder mit <span className="text-[#E3BB62]">*</span> sind
-                    Pflichtfelder.
-                  </p>
+                  {/* Inhalt / Formular */}
+                  <div className="relative px-6 pt-6 pb-5 max-h-[calc(100vh-150px)] overflow-y-auto">
+                    {/* 🔹 Titelbereich */}
+                    <h3 className="text-lg sm:text-xl font-semibold text-slate-900 mb-1">
+                      {dialogMode === "create"
+                        ? "Neuen Katalog anlegen"
+                        : "Katalog bearbeiten"}
+                    </h3>
+                    <p className="text-xs text-slate-500 mb-4">
+                      Felder mit <span className="text-[#E3BB62]">*</span> sind
+                      Pflichtfelder.
+                    </p>
 
-                  {/* Body */}
-                  <form
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      void submitDialog();
-                    }}
-                    className="space-y-6"
-                  >
-                    {/* Titel */}
-                    <div>
-                      <label
-                        htmlFor="catalog-title"
-                        className="block text-sm font-medium text-slate-700 mb-1"
-                      >
-                        Titel <span className="text-[#E3BB62]">*</span>
-                      </label>
-                      <input
-                        id="catalog-title"
-                        type="text"
-                        className={`
+                    {/* Body */}
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        void submitDialog();
+                      }}
+                      className="space-y-6"
+                    >
+                      {/* Titel */}
+                      <div>
+                        <label
+                          htmlFor="catalog-title"
+                          className="block text-sm font-medium text-slate-700 mb-1"
+                        >
+                          Titel <span className="text-[#E3BB62]">*</span>
+                        </label>
+                        <input
+                          id="catalog-title"
+                          type="text"
+                          className={`
                           w-full rounded-xl border px-3 py-2.5 text-sm
                           bg-slate-50 border-slate-200
                           outline-none
@@ -1638,24 +1656,24 @@ hover:bg-[#fff6db] transition-colors"
                           focus:ring-2 focus:ring-[rgba(227,187,98,0.45)]
                           transition
                         `}
-                        value={formTitle}
-                        onChange={(e) => setFormTitle(e.target.value)}
-                        autoFocus
-                      />
-                    </div>
+                          value={formTitle}
+                          onChange={(e) => setFormTitle(e.target.value)}
+                          autoFocus
+                        />
+                      </div>
 
-                    {/* Beschreibung */}
-                    <div>
-                      <label
-                        htmlFor="catalog-desc"
-                        className="block text-sm font-medium text-slate-700 mb-1"
-                      >
-                        Beschreibung
-                      </label>
-                      <textarea
-                        id="catalog-desc"
-                        rows={3}
-                        className={`
+                      {/* Beschreibung */}
+                      <div>
+                        <label
+                          htmlFor="catalog-desc"
+                          className="block text-sm font-medium text-slate-700 mb-1"
+                        >
+                          Beschreibung
+                        </label>
+                        <textarea
+                          id="catalog-desc"
+                          rows={3}
+                          className={`
                           w-full rounded-xl border px-3 py-2.5 text-sm
                           bg-slate-50 border-slate-200
                           outline-none
@@ -1665,21 +1683,21 @@ hover:bg-[#fff6db] transition-colors"
                           transition
                           resize-none
                         `}
-                        value={formDesc}
-                        onChange={(e) => setFormDesc(e.target.value)}
-                        placeholder="Optional…"
-                      />
-                    </div>
-                  </form>
+                          value={formDesc}
+                          onChange={(e) => setFormDesc(e.target.value)}
+                          placeholder="Optional…"
+                        />
+                      </div>
+                    </form>
+                  </div>
                 </div>
-              </div>
 
-              {/* Buttons AUSSERHALB des Modals */}
-              <div className="mt-3 w-full flex gap-3">
-                <button
-                  type="button"
-                  onClick={closeDialog}
-                  className="
+                {/* Buttons AUSSERHALB des Modals */}
+                <div className="mt-3 w-full flex gap-3">
+                  <button
+                    type="button"
+                    onClick={closeDialog}
+                    className="
                     flex-1 h-12
                     rounded-xl
                     flex items-center justify-center
@@ -1690,14 +1708,14 @@ hover:bg-[#fff6db] transition-colors"
                     hover:bg-slate-50
                     transition-colors
                   "
-                >
-                  Abbrechen
-                </button>
+                  >
+                    Abbrechen
+                  </button>
 
-                {dialogMode === "create" ? (
-                  <button
-                    onClick={() => void submitDialog()}
-                    className="
+                  {dialogMode === "create" ? (
+                    <button
+                      onClick={() => void submitDialog()}
+                      className="
                       flex-1 h-12
                       rounded-xl
                       flex items-center justify-center
@@ -1709,13 +1727,13 @@ hover:bg-[#fff6db] transition-colors"
                       transition
                       hover:-translate-y-[1px]
                     "
-                  >
-                    Anlegen
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => void submitDialog()}
-                    className="
+                    >
+                      Anlegen
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => void submitDialog()}
+                      className="
                       flex-1 h-12
                       rounded-xl
                       flex items-center justify-center
@@ -1727,14 +1745,15 @@ hover:bg-[#fff6db] transition-colors"
                       transition
                       hover:-translate-y-[1px]
                     "
-                  >
-                    Speichern
-                  </button>
-                )}
+                    >
+                      Speichern
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )
+        }
 
         {/* ===== Delete Confirm Modal mit ConfirmModal ===== */}
         <ConfirmModal
@@ -1763,7 +1782,7 @@ hover:bg-[#fff6db] transition-colors"
           onConfirm={() => void submitDialog()}
           icon={<Trash2 className="text-red-500" />}
         />
-      </main>
-    </AdminLayout>
+      </main >
+    </AdminLayout >
   );
 }
