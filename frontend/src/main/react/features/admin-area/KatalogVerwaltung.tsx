@@ -44,6 +44,7 @@ export default function KatalogVerwaltung({ }: Props) {
     const [topics, setTopics] = useState<Topic[]>([]);
     const [loadingTopics, setLoadingTopics] = useState(false);
     const [topicError, setTopicError] = useState<string | null>(null);
+    const [topicSearch, setTopicSearch] = useState("");
 
     /* ---------- Kataloge (links) ---------- */
     const [catalogs, setCatalogs] = useState<CatalogItem[]>([]);
@@ -224,6 +225,18 @@ export default function KatalogVerwaltung({ }: Props) {
             (c.subtitle && c.subtitle.toLowerCase().includes(q))
         );
     });
+
+    // Gefilterte Themen
+    const filteredTopics = topics.filter((t: Topic) => {
+        const q = topicSearch.trim().toLowerCase();
+        if (!q) return true;
+        return (
+            t.name.toLowerCase().includes(q) ||
+            (t.subtitle && t.subtitle.toLowerCase().includes(q))
+        );
+    });
+
+    /* ------------------------------- RENDER -------------------------------- */
 
     /* ------------------------------- RENDER -------------------------------- */
 
@@ -467,11 +480,52 @@ export default function KatalogVerwaltung({ }: Props) {
                                 </h2>
                             </div>
 
+
+
+                            {/* Such-Feld für Themen */}
+                            <div className="mb-4">
+                                <div className="relative">
+                                    <input
+                                        type="text"
+                                        placeholder="Themen durchsuchen..."
+                                        value={topicSearch}
+                                        onChange={(e) => setTopicSearch(e.target.value)}
+                                        className="
+                                          h-11 w-full rounded-xl
+                                          border border-[#D4AF37]/40
+                                          bg-white
+                                          pl-11 pr-4 text-sm
+                                          placeholder:text-[#9b8f75]
+                                          text-[#3D3225]
+                                          focus:border-[#B8962E]
+                                          focus:outline-none
+                                          focus:ring-3 focus:ring-[rgba(193, 159, 59, 0.25)]
+                                          transition
+                                        "
+                                    />
+                                    <svg
+                                        className="absolute left-4 top-1/2 h-5 w-4 -translate-y-1/2 text-[#B8962E]"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                    >
+                                        <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth={3}
+                                            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                                        />
+                                    </svg>
+                                </div>
+                            </div>
+
                             <div className="mb-4">
                                 <span className="text-sm text-[#6b5a3c]">
                                     {loadingTopics
                                         ? "Themen werden geladen…"
-                                        : "Wählen Sie die Themen aus, die Sie zuweisen möchten"}
+                                        : topicSearch
+                                            ? `${filteredTopics.length} ${filteredTopics.length === 1 ? "Ergebnis" : "Ergebnisse"} gefunden`
+                                            : "Wählen Sie die Themen aus, die Sie zuweisen möchten"}
                                 </span>
                             </div>
 
@@ -485,13 +539,17 @@ export default function KatalogVerwaltung({ }: Props) {
                                         <div className="col-span-full text-center py-12">
                                             <p className="text-sm text-red-600">{topicError}</p>
                                         </div>
-                                    ) : topics.length === 0 ? (
+                                    ) : filteredTopics.length === 0 ? (
                                         <div className="col-span-full flex flex-col items-center justify-center py-12 text-slate-500">
                                             <Layers size={48} className="opacity-40 mb-3" />
-                                            <p className="text-sm font-medium">Keine Themen vorhanden</p>
+                                            <p className="text-sm font-medium">
+                                                {topicSearch
+                                                    ? `Keine Themen gefunden für "${topicSearch}"`
+                                                    : "Keine Themen vorhanden"}
+                                            </p>
                                         </div>
                                     ) : (
-                                        topics.map((t) => {
+                                        filteredTopics.map((t) => {
                                             const Icon = t.icon ?? Building2;
                                             const selected = selectedTopicIds.has(t.id);
                                             const count = qCountByThema[t.id];
@@ -678,6 +736,6 @@ export default function KatalogVerwaltung({ }: Props) {
                     </div>
                 </div>
             </main>
-        </AdminLayout>
+        </AdminLayout >
     );
 }
