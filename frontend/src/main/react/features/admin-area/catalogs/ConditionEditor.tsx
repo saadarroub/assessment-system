@@ -67,7 +67,7 @@ export default function ConditionEditor() {
   // 🔍 Such-State
   const [searchTerm, setSearchTerm] = useState("");
 
-  
+
 
   useEffect(() => {
     async function fetchThemaDetails() {
@@ -198,25 +198,47 @@ export default function ConditionEditor() {
   }
 
   useEffect(() => {
-  if (isModalOpen) {
-    // Scroll komplett blockieren
-    document.body.style.overflow = "hidden";
-    document.body.style.position = "fixed";
-    document.body.style.width = "100%";
-  } else {
-    // Scroll wieder freigeben
-    document.body.style.overflow = "";
-    document.body.style.position = "";
-    document.body.style.width = "";
-  }
+    if (isModalOpen) {
+      const scrollY = window.scrollY;
 
-  return () => {
-    // Cleanup falls Component unmountet
-    document.body.style.overflow = "";
-    document.body.style.position = "";
-    document.body.style.width = "";
-  };
-}, [isModalOpen]);
+      // Scrollposition speichern
+      document.body.dataset.scrollY = scrollY.toString();
+
+      // Scroll blockieren OHNE Sprung
+      document.body.style.position = "fixed";
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.left = "0";
+      document.body.style.right = "0";
+      document.body.style.width = "100%";
+      document.body.style.overflow = "hidden";
+    } else {
+      const scrollY = document.body.dataset.scrollY;
+
+      // Styles zurücksetzen
+      document.body.style.position = "";
+      document.body.style.top = "";
+      document.body.style.left = "";
+      document.body.style.right = "";
+      document.body.style.width = "";
+      document.body.style.overflow = "";
+
+      // Scroll exakt wiederherstellen
+      if (scrollY) {
+        window.scrollTo(0, parseInt(scrollY, 10));
+        delete document.body.dataset.scrollY;
+      }
+    }
+
+    return () => {
+      document.body.style.position = "";
+      document.body.style.top = "";
+      document.body.style.left = "";
+      document.body.style.right = "";
+      document.body.style.width = "";
+      document.body.style.overflow = "";
+    };
+  }, [isModalOpen]);
+
 
 
   // 🔹 frage Requiredn
@@ -1067,95 +1089,179 @@ export default function ConditionEditor() {
             )}
 
             {/* Frage */}
-            <div className="flex flex-col mt-1">
+            <div className="relative z-20 flex flex-col mt-0">
               <p className="font-semibold">{q.text}</p>
 
-              <div className="flex items-center gap-2 mt-2">
-                {/* Typ-Badge */}
-                <span className="inline-block text-xs text-[#4a65b9] bg-[#e6edff] px-2 py-0.5 rounded-full">
-                  {questionTypes.find((t) => t.value === q.type)?.label}
-                </span>
-
-                {/* Required-Badge */}
-                {q.required ? (
-                  <span className="inline-block text-xs text-[#8b5d00] bg-[#fff4d6] px-2 py-0.5 rounded-full">
-                    Pflicht
+              <div className="relative z-20 flex items-center gap-2 mt-2">
+                <div className="flex items-center gap-2 mt-0">
+                  {/* Typ */}
+                  <span
+                    className="
+      inline-flex items-center gap-1
+      px-2.5 py-0.5
+      text-xs font-medium
+      rounded-full
+      border
+      transition-all
+      bg-[#eef2ff] text-[#264555] border-[#d6ddff]
+      group-hover:bg-[#e6edff]
+      group-hover:border-[#c7d2fe]
+    "
+                  >
+                    {questionTypes.find((t) => t.value === q.type)?.label}
                   </span>
-                ) : (
-                  <span className="inline-block text-xs text-[#555] bg-[#eaeaea] px-2 py-0.5 rounded-full">
-                    Optional
-                  </span>
-                )}
 
-                {/* MAX SCORING BADGE - oder "Nicht bewertet" wenn isScorable=false */}
-                {q.isScorable === false ? (
-                  <span className="inline-block text-xs text-[#6c757d] bg-[#e9ecef] px-2 py-0.5 rounded-full">
-                    Nicht bewertet
-                  </span>
-                ) : (
-                  <span className="inline-block text-xs text-[#0f5132] bg-[#d1e7dd] px-2 py-0.5 rounded-full">
-                    Max Score:{" "}
-                    {(() => {
-                      // 1. wenn Optionen existieren → SUMME der Scores
-                      if (q.options && q.options.length > 0) {
-                        const sum = q.options
-                          .map((o: any) => Number(o.score))
-                          .filter((n: number) => !isNaN(n))
-                          .reduce((a: number, b: number) => a + b, 0);
+                  {/* Pflicht / Optional */}
+                  {q.required ? (
+                    <span
+                      className="
+        inline-flex items-center gap-1
+        px-2.5 py-0.5
+        text-xs font-medium
+        rounded-full
+        border
+        transition-all
+        bg-[#fff4d6] text-[#8b5d00] border-[#e8d8a8]
+        group-hover:bg-[#ffedc2]
+        group-hover:border-[#ddc691]
+      "
+                    >
+                      Pflicht
+                    </span>
+                  ) : (
+                    <span
+                      className="
+        inline-flex items-center gap-1
+        px-2.5 py-0.5
+        text-xs font-medium
+        rounded-full
+        border
+        transition-all
+        bg-[#f0f0f0] text-[#555] border-[#d9d9d9]
+        group-hover:bg-[#e6e6e6]
+      "
+                    >
+                      Optional
+                    </span>
+                  )}
 
-                        return sum > 0 ? sum : 6; // falls keine gültigen Scores → 6
-                      }
+                  {/* Max Score */}
+                  {/* Bewertung */}
+                  {q.isScorable === false ? (
+                    <span
+                      className="
+      inline-flex items-center gap-1
+      px-2.5 py-0.5
+      text-xs font-medium
+      rounded-full
+      border
+      transition-all
+      bg-[#f1f3f5] text-[#6c757d] border-[#dee2e6]
+      group-hover:bg-[#e9ecef]
+      group-hover:border-[#ced4da]
+    "
+                    >
+                      Nicht bewertet
+                    </span>
+                  ) : (
+                    <span
+                      className="
+      inline-flex items-center gap-1
+      px-2.5 py-0.5
+      text-xs font-medium
+      rounded-full
+      border
+      transition-all
+      bg-[#e6f4ea] text-[#0f5132] border-[#b7dfc2]
+      group-hover:bg-[#d1e7dd]
+      group-hover:border-[#a3cfbb]
+    "
+                    >
+                      Max Score:{" "}
+                      {(() => {
+                        if (q.options && q.options.length > 0) {
+                          const sum = q.options
+                            .map((o: any) => Number(o.score))
+                            .filter((n: number) => !isNaN(n))
+                            .reduce((a: number, b: number) => a + b, 0);
 
-                      // 2. andere Typen (manuelle) → Standard 6
-                      return 6;
-                    })()}
-                  </span>
-                )}
+                          return sum > 0 ? sum : 6;
+                        }
+                        return 6;
+                      })()}
+                    </span>
+                  )}
+
+                </div>
+
               </div>
             </div>
           </div>
 
 
           {/* Rechts – Buttons nur bei Hover sichtbar */}
+          {/* Rechts – Actions (Design passend zu Sand/Navy) */}
           <div
             className="
-    flex items-center gap-6
-    opacity-0
-    pointer-events-none
-    transition-opacity duration-200
-    group-hover:opacity-100
-    group-hover:pointer-events-auto
+    flex items-center gap-2
+    rounded-full
+    px-2 py-1
+    border border-[#e5dcc7]
+    bg-white/70 backdrop-blur-md
+    shadow-[0_10px_24px_rgba(0,0,0,0.10)]
+    opacity-0 translate-x-2 pointer-events-none
+    transition-all duration-200
+    group-hover:opacity-100 group-hover:translate-x-0 group-hover:pointer-events-auto
   "
           >
-
-            {/* Preview/Simulate */}
+            {/* Preview */}
             <button
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation();
                 setPreviewQuestion(q);
                 setPreviewAnswer(null);
               }}
-              className="transition-all duration-200 hover:scale-125 hover:opacity-80"
-              title="Vorschau: So sieht die Frage im Assessment aus"
+              className="
+      h-9 w-9 rounded-full
+      flex items-center justify-center
+      border border-[#e5dcc7]
+      bg-white/60 text-[#264555]
+      transition-all
+      hover:bg-[#f3ecff]
+      hover:-translate-y-[1px]
+      hover:shadow-[0_10px_20px_rgba(0,0,0,0.14)]
+    "
             >
-              <Eye size={20} className="text-purple-600" />
+              <Eye size={18} />
             </button>
 
             {/* Add */}
             <button
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation();
                 setParentQuestion(q);
                 setIsRequired(true);
                 setIsScorable(true);
                 setIsModalOpen(true);
               }}
-              className="transition-all duration-200 hover:scale-125 hover:opacity-80"
+              className="
+      h-9 w-9 rounded-full
+      flex items-center justify-center
+      border border-[#e5dcc7]
+      bg-white/60 text-[#264555]
+      transition-all
+      hover:bg-[#fff4d6]
+      hover:-translate-y-[1px]
+      hover:shadow-[0_10px_20px_rgba(0,0,0,0.14)]
+    "
             >
-              <Plus size={20} className="text-green-600" />
+              <Plus size={18} />
             </button>
 
             {/* Edit */}
             <button
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation();
                 setEditingQuestion(q);
                 setParentQuestion(null);
                 setQuestionText(q.text);
@@ -1163,19 +1269,41 @@ export default function ConditionEditor() {
                 setOptions(normalizeOptions(q));
                 setIsModalOpen(true);
               }}
-              className="transition-all duration-200 hover:scale-125 hover:opacity-80"
+              className="
+      h-9 w-9 rounded-full
+      flex items-center justify-center
+      border border-[#e5dcc7]
+      bg-white/60 text-[#264555]
+      transition-all
+      hover:bg-[#e6edff]
+      hover:-translate-y-[1px]
+      hover:shadow-[0_10px_20px_rgba(0,0,0,0.14)]
+    "
             >
-              <Edit3 size={20} className="text-blue-600" />
+              <Edit3 size={18} />
             </button>
 
             {/* Delete */}
             <button
-              onClick={() => handleDeleteQuestion(q)}
-              className="transition-all duration-200 hover:scale-125 hover:opacity-80"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDeleteQuestion(q);
+              }}
+              className="
+      h-9 w-9 rounded-full
+      flex items-center justify-center
+      border border-[#e5dcc7]
+      bg-white/60
+      transition-all
+      hover:bg-[#ffecec]
+      hover:-translate-y-[1px]
+      hover:shadow-[0_10px_20px_rgba(0,0,0,0.14)]
+    "
             >
-              <Trash2 size={20} className="text-red-500" />
+              <Trash2 size={18} className="text-red-600" />
             </button>
           </div>
+
         </div>
 
         {/* Kinder */}
@@ -1514,8 +1642,8 @@ export default function ConditionEditor() {
           </div>
         </div>
 
-     
-       
+
+
 
         {/* 🗑️ Lösch-Bestätigungs-Modal */}
         <ConfirmModal
@@ -1568,7 +1696,7 @@ export default function ConditionEditor() {
                   className="pointer-events-none absolute -right-24 -top-24 h-52 w-52 rounded-full bg-gradient-to-br from-[#E3BB62]/40 via-amber-400/20 to-transparent opacity-60"
                   aria-hidden="true"
                 />
-               
+
 
                 {/* Inhalt / Formular */}
                 <div className="relative px-6 pt-6 pb-5 max-h-[calc(100vh-150px)] overflow-y-auto" ref={modalRef}>
@@ -1652,7 +1780,7 @@ export default function ConditionEditor() {
                         <button
                           key={type.id}
                           onClick={() => {
-                            
+
                             setSelectedType(type);
                             if (errorType) setErrorType(null);
                             setErrorOptions(null);
@@ -1722,197 +1850,197 @@ export default function ConditionEditor() {
                     </div>
                   )}
 
-                {/* 🔸 Antwortoptionen */}
-                {showOptions && (
-                  <div
-                    ref={optionsRef}
-                    className="border-t border-gray-200 pt-4 mt-4"
-                  >
-                    <h3 className="text-md font-semibold text-gray-800 mb-3">
-                      Antwortmöglichkeiten
-                    </h3>
-                    {options.map((opt, i) => (
-                      <div
-                        key={i}
-                        className="flex items-center gap-3 mb-3 border border-gray-200 p-2 rounded-lg"
-                      >
-                        {/* Antworttext */}
-                        <input
-                          type="text"
-                          placeholder="Antworttext..."
-                          value={opt.label}
-                          onChange={(e) => {
-                            setOptions(
-                              options.map((o, j) =>
-                                j === i ? { ...o, label: e.target.value } : o
-                              )
-                            );
-                            if (errorOptions) setErrorOptions(null); // 🔥 hier hinzufügen
-                          }}
-                          className={`flex-1 border rounded-md px-2 py-1 focus:ring-1 focus:ring-brand-sand focus:outline-none ${hasSubmitted && !opt.label.trim()
+                  {/* 🔸 Antwortoptionen */}
+                  {showOptions && (
+                    <div
+                      ref={optionsRef}
+                      className="border-t border-gray-200 pt-4 mt-4"
+                    >
+                      <h3 className="text-md font-semibold text-gray-800 mb-3">
+                        Antwortmöglichkeiten
+                      </h3>
+                      {options.map((opt, i) => (
+                        <div
+                          key={i}
+                          className="flex items-center gap-3 mb-3 border border-gray-200 p-2 rounded-lg"
+                        >
+                          {/* Antworttext */}
+                          <input
+                            type="text"
+                            placeholder="Antworttext..."
+                            value={opt.label}
+                            onChange={(e) => {
+                              setOptions(
+                                options.map((o, j) =>
+                                  j === i ? { ...o, label: e.target.value } : o
+                                )
+                              );
+                              if (errorOptions) setErrorOptions(null); // 🔥 hier hinzufügen
+                            }}
+                            className={`flex-1 border rounded-md px-2 py-1 focus:ring-1 focus:ring-brand-sand focus:outline-none ${hasSubmitted && !opt.label.trim()
                               ? "border-red-500"
                               : "border-gray-300"
-                            }`}
-                        />
+                              }`}
+                          />
 
-                        {/* Score */}
-                        {!isOrderType && (
-                          <div className="relative w-24">
-                            <input
-                              type="text"
-                              placeholder="Score"
-                              className="w-full border rounded-md px-2 py-1 text-center pr-6"
-                              value={opt.score ?? ""}
-                              onChange={(e) => {
-                                const val = e.target.value;
+                          {/* Score */}
+                          {!isOrderType && (
+                            <div className="relative w-24">
+                              <input
+                                type="text"
+                                placeholder="Score"
+                                className="w-full border rounded-md px-2 py-1 text-center pr-6"
+                                value={opt.score ?? ""}
+                                onChange={(e) => {
+                                  const val = e.target.value;
 
-                                if (val === "") {
-                                  setOptions(
-                                    options.map((o, j) =>
-                                      j === i ? { ...o, score: null } : o
-                                    )
-                                  );
-                                  return;
-                                }
-
-                                // ⭐ 0–6 erlauben statt 0–5
-                                if (/^[0-6]$/.test(val)) {
-                                  setOptions(
-                                    options.map((o, j) =>
-                                      j === i ? { ...o, score: Number(val) } : o
-                                    )
-                                  );
-                                }
-                              }}
-                              onKeyDown={(e) => {
-                                if (
-                                  e.key === "ArrowUp" ||
-                                  e.key === "ArrowDown"
-                                ) {
-                                  e.preventDefault();
-
-                                  let current = opt.score;
-
-                                  // ⭐ Start bei leerem Feld
-                                  if (current == null)
-                                    current = e.key === "ArrowUp" ? 0 : 6;
-                                  else {
-                                    // ⭐ Pfeile gehen bis 6 statt 5
-                                    if (e.key === "ArrowUp")
-                                      current = Math.min(6, current + 1);
-                                    if (e.key === "ArrowDown")
-                                      current = Math.max(0, current - 1);
+                                  if (val === "") {
+                                    setOptions(
+                                      options.map((o, j) =>
+                                        j === i ? { ...o, score: null } : o
+                                      )
+                                    );
+                                    return;
                                   }
 
-                                  setOptions(
-                                    options.map((o, j) =>
-                                      j === i ? { ...o, score: current } : o
-                                    )
-                                  );
-                                }
-                              }}
-                            />
-
-                            {/* CUSTOM ARROW BUTTONS */}
-                            <div
-                              className="
-        absolute right-1 top-1/2 -translate-y-1/2 
-        flex flex-col 
-        bg-gray-100 border border-gray-300 
-        rounded-md overflow-hidden
-      "
-                              style={{ width: "24px", height: "32px" }}
-                            >
-                              <button
-                                type="button"
-                                className="flex-1 flex items-center justify-center hover:bg-gray-200"
-                                onClick={() => {
-                                  let current = opt.score;
-
-                                  // ⭐ Max = 6 statt 5
-                                  current =
-                                    current == null
-                                      ? 0
-                                      : Math.min(6, current + 1);
-
-                                  setOptions(
-                                    options.map((o, j) =>
-                                      j === i ? { ...o, score: current } : o
-                                    )
-                                  );
+                                  // ⭐ 0–6 erlauben statt 0–5
+                                  if (/^[0-6]$/.test(val)) {
+                                    setOptions(
+                                      options.map((o, j) =>
+                                        j === i ? { ...o, score: Number(val) } : o
+                                      )
+                                    );
+                                  }
                                 }}
-                              >
-                                <ChevronUp
-                                  size={14}
-                                  className="text-gray-600"
-                                />
-                              </button>
+                                onKeyDown={(e) => {
+                                  if (
+                                    e.key === "ArrowUp" ||
+                                    e.key === "ArrowDown"
+                                  ) {
+                                    e.preventDefault();
 
-                              <button
-                                type="button"
-                                className="flex-1 flex items-center justify-center hover:bg-gray-200"
-                                onClick={() => {
-                                  let current = opt.score;
+                                    let current = opt.score;
 
-                                  // ⭐ Wenn leer → start = 6
-                                  current =
-                                    current == null
-                                      ? 6
-                                      : Math.max(0, current - 1);
+                                    // ⭐ Start bei leerem Feld
+                                    if (current == null)
+                                      current = e.key === "ArrowUp" ? 0 : 6;
+                                    else {
+                                      // ⭐ Pfeile gehen bis 6 statt 5
+                                      if (e.key === "ArrowUp")
+                                        current = Math.min(6, current + 1);
+                                      if (e.key === "ArrowDown")
+                                        current = Math.max(0, current - 1);
+                                    }
 
-                                  setOptions(
-                                    options.map((o, j) =>
-                                      j === i ? { ...o, score: current } : o
-                                    )
-                                  );
+                                    setOptions(
+                                      options.map((o, j) =>
+                                        j === i ? { ...o, score: current } : o
+                                      )
+                                    );
+                                  }
                                 }}
+                              />
+
+                              {/* CUSTOM ARROW BUTTONS */}
+                              <div
+                                className="
+                                      absolute right-1 top-1/2 -translate-y-1/2 
+                                      flex flex-col 
+                                      bg-gray-100 border border-gray-300 
+                                      rounded-md overflow-hidden
+                                    "
+                                style={{ width: "24px", height: "32px" }}
                               >
-                                <ChevronDown
-                                  size={14}
-                                  className="text-gray-600"
-                                />
-                              </button>
+                                <button
+                                  type="button"
+                                  className="flex-1 flex items-center justify-center hover:bg-gray-200"
+                                  onClick={() => {
+                                    let current = opt.score;
+
+                                    // ⭐ Max = 6 statt 5
+                                    current =
+                                      current == null
+                                        ? 0
+                                        : Math.min(6, current + 1);
+
+                                    setOptions(
+                                      options.map((o, j) =>
+                                        j === i ? { ...o, score: current } : o
+                                      )
+                                    );
+                                  }}
+                                >
+                                  <ChevronUp
+                                    size={14}
+                                    className="text-gray-600"
+                                  />
+                                </button>
+
+                                <button
+                                  type="button"
+                                  className="flex-1 flex items-center justify-center hover:bg-gray-200"
+                                  onClick={() => {
+                                    let current = opt.score;
+
+                                    // ⭐ Wenn leer → start = 6
+                                    current =
+                                      current == null
+                                        ? 6
+                                        : Math.max(0, current - 1);
+
+                                    setOptions(
+                                      options.map((o, j) =>
+                                        j === i ? { ...o, score: current } : o
+                                      )
+                                    );
+                                  }}
+                                >
+                                  <ChevronDown
+                                    size={14}
+                                    className="text-gray-600"
+                                  />
+                                </button>
+                              </div>
                             </div>
-                          </div>
-                        )}
+                          )}
 
-                        {/* Löschen */}
-                        <button
-                          onClick={() =>
-                            setOptions(options.filter((_, j) => j !== i))
-                          }
-                          className="text-red-500 hover:text-red-400 transition-all"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      </div>
-                    ))}
-                    {errorOptions && (
-                      <p className="text-red-500 text-xs mt-1">
-                        {errorOptions}
-                      </p>
-                    )}
-               <button
-  onClick={() =>
-    setOptions([...options, { label: "", score: null }])
-  }
-  className="
+                          {/* Löschen */}
+                          <button
+                            onClick={() =>
+                              setOptions(options.filter((_, j) => j !== i))
+                            }
+                            className="text-red-500 hover:text-red-400 transition-all"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        </div>
+                      ))}
+                      {errorOptions && (
+                        <p className="text-red-500 text-xs mt-1">
+                          {errorOptions}
+                        </p>
+                      )}
+                      <button
+                        onClick={() =>
+                          setOptions([...options, { label: "", score: null }])
+                        }
+                        className="
     flex items-center gap-2
     mt-3
     text-sm font-semibold
     transition
     hover:underline
   "
-  style={{
-    color: "#b08d2a", // dunkles Gold → sehr gut lesbar
-  }}
->
-  <Plus size={16} className="text-[#b08d2a]" />
-  Neue Option hinzufügen
-</button>
+                        style={{
+                          color: "#b08d2a", // dunkles Gold → sehr gut lesbar
+                        }}
+                      >
+                        <Plus size={16} className="text-[#b08d2a]" />
+                        Neue Option hinzufügen
+                      </button>
 
-                  </div>
-                )}
+                    </div>
+                  )}
                 </div>
               </div>
 
