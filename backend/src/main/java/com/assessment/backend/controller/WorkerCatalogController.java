@@ -365,4 +365,46 @@ public class WorkerCatalogController {
             return new ResponseEntity<>(Map.of("error", "Internal server error"), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
+
+    // ===== MANUAL REVIEW (Neu Hinzugefügt) =====
+
+    /**
+     * POST /api/worker-catalog/{id}/manual-review
+     * Speichert die manuelle Bewertung eines Admins
+     */
+    @PostMapping("/{id}/manual-review")
+    @PreAuthorize("hasAuthority('catalogs.review')") // Optional: Permission Check
+    public ResponseEntity<?> submitManualReview(
+            @PathVariable("id") UUID id,
+            @RequestBody ManualReviewRequest request) {
+        try {
+            // TODO: User aus dem SecurityContext holen
+            // User adminUser = authService.getCurrentUser(); 
+            // Hier null übergeben, da Auth-Kontext nicht bekannt ist
+            
+            workerCatalogService.submitManualReview(
+                id, 
+                request.getScore(), 
+                request.getNotes(), 
+                null
+            );
+            
+            return new ResponseEntity<>(Map.of("message", "Review saved successfully"), HttpStatus.OK);
+        } catch (RuntimeException e) {
+            return new ResponseEntity<>(Map.of("error", e.getMessage()), HttpStatus.NOT_FOUND);
+        } catch (Exception e) {
+            return new ResponseEntity<>(Map.of("error", "Internal server error"), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    // DTO Class für Manual Review Request
+    public static class ManualReviewRequest {
+        private Integer score;
+        private String notes;
+
+        public Integer getScore() { return score; }
+        public void setScore(Integer score) { this.score = score; }
+        public String getNotes() { return notes; }
+        public void setNotes(String notes) { this.notes = notes; }
+    }
 }

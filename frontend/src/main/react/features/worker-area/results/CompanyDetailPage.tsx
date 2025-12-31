@@ -2,15 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import {
-  BarChart, Bar, LineChart, Line, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell
-} from 'recharts';
-import html2canvas from 'html2canvas';
-import jsPDF from 'jspdf';
 import AdminLayout from "@/apps/app/AdminLayout";
-import { Search, FileText, ArrowLeft } from 'lucide-react'; // 아이콘 사용
-
+import { Search, FileText, ArrowLeft, AlertCircle } from 'lucide-react';
 
 interface Participant {
   id: string;
@@ -19,7 +12,7 @@ interface Participant {
   position: string;
   department: string;
   completionDate: string;
-  status: 'completed' | 'pending' | 'in-progress';
+  status: 'completed' | 'pending' | 'in-progress' | 'review_pending';
 }
 
 interface CompanyOverall {
@@ -43,10 +36,9 @@ export default function CompanyDetailPage() {
   useEffect(() => {
     const fetchCompanyData = async () => {
       try {
+        await new Promise(resolve => setTimeout(resolve, 500)); // API 지연 시뮬레이션
 
-        await new Promise(resolve => setTimeout(resolve, 500));
-
-
+        // 1. Mock Company Data
         const mockCompany: CompanyOverall = {
           companyId: companyId || 'C001',
           companyName: 'TechCorp GmbH',
@@ -58,10 +50,12 @@ export default function CompanyDetailPage() {
           catalogScores: [] 
         };
 
+        // 2. Mock Participants (Lisa Web: 평가 필요 상태)
         const mockParticipants: Participant[] = [
           { id: 'w1', sessionId: 'sess_101', name: 'Max Mustermann', position: 'IT-Leiter', department: 'IT', completionDate: '2025-03-15', status: 'completed' },
           { id: 'w2', sessionId: 'sess_102', name: 'Anna Schmidt', position: 'CISO', department: 'Security', completionDate: '2025-03-16', status: 'completed' },
           { id: 'w3', sessionId: 'sess_103', name: 'John Doe', position: 'DevOps', department: 'Engineering', completionDate: '2025-03-18', status: 'in-progress' },
+          { id: 'w4', sessionId: 'sess_104', name: 'Lisa Web', position: 'Frontend Dev', department: 'IT', completionDate: '2025-03-19', status: 'review_pending' },
         ];
         
         setCompanyData(mockCompany);
@@ -77,8 +71,11 @@ export default function CompanyDetailPage() {
   }, [companyId]);
 
   const handleAnalyzeWorker = (id: string) => {
-    //navigate(`/app/results/${sessionId}`);
     navigate(`/app/employee/${id}`);
+  };
+
+  const handleManualReview = (sessionId: string) => {
+    navigate(`/app/results/${sessionId}`);
   };
 
   if (loading) return <AdminLayout><div className="p-10 text-center">Laden...</div></AdminLayout>;
@@ -87,7 +84,6 @@ export default function CompanyDetailPage() {
   return (
     <AdminLayout>
       <div className="min-h-screen bg-gray-50">
-        {/* Header */}
         <div className="bg-white shadow-sm border-b border-gray-200">
           <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
             <div className="flex items-center gap-4">
@@ -102,7 +98,6 @@ export default function CompanyDetailPage() {
           </div>
         </div>
 
-        {/* Content */}
         <div className="max-w-7xl mx-auto px-6 py-8 space-y-8">
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -139,20 +134,42 @@ export default function CompanyDetailPage() {
                       <td className="py-3 px-4 font-medium text-gray-800">{p.name}</td>
                       <td className="py-3 px-4 text-sm text-gray-600">{p.position}</td>
                       <td className="py-3 px-4 text-sm text-gray-600">{p.department}</td>
+                      
                       <td className="py-3 px-4">
-                         <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
-                            p.status === 'completed' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                          }`}>
-                            {p.status === 'completed' ? 'Fertig' : 'In Bearbeitung'}
-                          </span>
+                          {p.status === 'completed' && (
+                            <span className="inline-block px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              Fertig
+                            </span>
+                          )}
+                          {p.status === 'in-progress' && (
+                            <span className="inline-block px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                              In Bearbeitung
+                            </span>
+                          )}
+                          {/* review_pending 뱃지 추가 */}
+                          {p.status === 'review_pending' && (
+                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800 border border-orange-200">
+                              <AlertCircle size={12} /> Bewertung erforderlich
+                            </span>
+                          )}
                       </td>
+
                       <td className="py-3 px-4 text-right">
-                        <button
-                          onClick={() => handleAnalyzeWorker(p.id)}
-                          className="bg-blue-600 hover:bg-blue-700 text-white text-sm px-3 py-1.5 rounded flex items-center gap-1 ml-auto transition-colors shadow-sm"
-                        >
-                          <Search size={14} /> Analysieren
-                        </button>
+                        {p.status === 'review_pending' ? (
+                          <button
+                            onClick={() => handleManualReview(p.sessionId)}
+                            className="bg-orange-500 hover:bg-orange-600 text-white text-sm px-3 py-1.5 rounded flex items-center gap-1 ml-auto transition-colors shadow-sm"
+                          >
+                            <FileText size={14} /> Bewerten
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleAnalyzeWorker(p.id)}
+                            className="bg-blue-600 hover:bg-blue-700 text-white text-sm px-3 py-1.5 rounded flex items-center gap-1 ml-auto transition-colors shadow-sm"
+                          >
+                            <Search size={14} /> Analysieren
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}

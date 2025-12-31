@@ -1,14 +1,7 @@
 package com.assessment.backend.service;
 
-import com.assessment.backend.entity.Catalog;
-import com.assessment.backend.entity.Company;
-import com.assessment.backend.entity.User;
-import com.assessment.backend.entity.Worker;
-import com.assessment.backend.entity.WorkerCatalog;
-import com.assessment.backend.repository.WorkerCatalogRepository;
-import com.assessment.backend.repository.WorkerRepository;
-import com.assessment.backend.repository.CatalogRepository;
-import com.assessment.backend.repository.CompanyRepository;
+import com.assessment.backend.entity.*;
+import com.assessment.backend.repository.*;
 import com.assessment.backend.util.AccessCodeGenerator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -98,8 +91,8 @@ public class WorkerCatalogService {
 
         // 6. assignedBy setzen (optional, wenn User-Management vorhanden)
         // if (assignedById != null) {
-        //     User assignedBy = userRepository.findById(assignedById).orElse(null);
-        //     assignment.setAssignedBy(assignedBy);
+        //      User assignedBy = userRepository.findById(assignedById).orElse(null);
+        //      assignment.setAssignedBy(assignedBy);
         // }
 
         // 7. Speichern
@@ -303,15 +296,45 @@ public class WorkerCatalogService {
         Long completedSessions = assessmentSessionRepository
             .countByWorkerIdAndThemaIdInAndStatus(workerId, themaIds, "completed");
 
-        // Wenn alle Sessions für ALLE Themen des Katalogs completed sind, Assignment auf completed setzen
+        // Wenn alle Sessions für ALLE Themen des Katalogs completed sind
         if (completedSessions.equals(totalSessions) && completedSessions >= themaIds.size()) {
-            assignment.setStatus("completed");
-            assignment.setCompletedAt(LocalDateTime.now());
             
-            calculateAndSaveScore(assignmentId);
+            boolean needsManualReview = true; 
+
+            if (needsManualReview) {
+                assignment.setStatus("review_pending");
+                assignment.setCompletedAt(LocalDateTime.now());
+            } else {
+                assignment.setStatus("completed");
+                assignment.setCompletedAt(LocalDateTime.now());
+                calculateAndSaveScore(assignmentId);
+            }
             
             repository.save(assignment);
         }
+    }
+    
+    @Transactional
+    public void submitManualReview(UUID assignmentId, Integer manualScore, String notes, User adminUser) {
+        WorkerCatalog assignment = repository.findById(assignmentId)
+            .orElseThrow(() -> new RuntimeException("Assignment not found"));
+
+        assignment.setScore(manualScore);
+        assignment.setNotes(notes);
+        
+        if (adminUser != null) {
+            assignment.setAssignedBy(adminUser);
+        }
+
+        assignment.setStatus("completed");
+
+        if (manualScore != null && manualScore >= 60) {
+            assignment.setPassed(true);
+        } else {
+            assignment.setPassed(false);
+        }
+
+        repository.save(assignment);
     }
 
     /**

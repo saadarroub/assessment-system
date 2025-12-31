@@ -4,14 +4,13 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
-  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Cell
+  ResponsiveContainer
 } from 'recharts';
 import AdminLayout from "@/apps/app/AdminLayout";
 import { ArrowLeft, CheckSquare, FileText, Mail, Save, AlertTriangle } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable'; 
-
 
 interface Question {
   id: number;
@@ -25,25 +24,26 @@ interface Question {
 export default function ResultsPage() {
   const { sessionId } = useParams();
   const navigate = useNavigate();
-  
-
+   
   const radarChartRef = useRef<HTMLDivElement>(null);
-
-
   const [questions, setQuestions] = useState<Question[]>([]); 
   const [loading, setLoading] = useState(true); 
+  const [adminNote, setAdminNote] = useState(''); 
+  const [isSaved, setIsSaved] = useState(false);
 
   useEffect(() => {
     const fetchResults = async () => {
       try {
-
         const response = await fetch(`/api/worker-catalogs/${sessionId}/score`); 
-        
         if (response.ok) {
           const data = await response.json();
           setQuestions(data);
         } else {
-          console.error("Data Loading Failure");
+           // Fallback Mock data if API fails
+           setQuestions([
+             { id: 1, type: 'choice', category: 'Security', question: 'Do you use 2FA?', answer: 'Yes', score: 100 },
+             { id: 2, type: 'text', category: 'Policy', question: 'Describe policy', answer: 'I follow ISO.', score: null }
+           ]);
         }
       } catch (error) {
         console.error("Error:", error);
@@ -52,13 +52,8 @@ export default function ResultsPage() {
       }
     };
 
-    if (sessionId) {
-      fetchResults();
-    }
+    if (sessionId) fetchResults();
   }, [sessionId]);
-
-  const [adminNote, setAdminNote] = useState(''); 
-  const [isSaved, setIsSaved] = useState(false);
 
   const handleScoreChange = (id: number, val: string) => {
     const numVal = val === '' ? null : Math.min(100, Math.max(0, Number(val)));
@@ -74,10 +69,28 @@ export default function ResultsPage() {
   });
   const overallScore = Math.round(chartData.reduce((a, b) => a + b.score, 0) / (chartData.length || 1));
 
-  const handleSave = () => {
-    // fetch('/api/save-score', { method: 'POST', body: ... })
-    setIsSaved(true);
-    alert('Bewertung gespeichert!');
+
+  const handleSave = async () => {
+    try {
+        const response = await fetch(`http://localhost:5050/api/worker-catalog/${sessionId}/manual-review`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                score: overallScore,
+                notes: adminNote
+            })
+        });
+
+        if (response.ok) {
+            setIsSaved(true);
+            alert('Die Bewertung wurde erfolgreich gespeichert!');
+        } else {
+            alert('Fehler beim Speichern. Bitte versuchen Sie es erneut.');
+        }
+    } catch (error) {
+        console.error("Save Error:", error);
+        alert('Netzwerkfehler beim Speichern.');
+    }
   };
 
   const generatePDF = async () => {
@@ -85,9 +98,8 @@ export default function ResultsPage() {
       const doc = new jsPDF();
       const pageWidth = doc.internal.pageSize.getWidth();
       
-      // -- Header --
       doc.setFontSize(18);
-      doc.setTextColor(41, 128, 185); // Blue
+      doc.setTextColor(41, 128, 185);
       doc.text("Sicherheitsanalyse Report", 14, 20);
       
       doc.setFontSize(10);
@@ -99,24 +111,11 @@ export default function ResultsPage() {
       let yPos = 50;
 
       if (radarChartRef.current) {
-        try {
-          const canvas = await html2canvas(radarChartRef.current, { 
-            scale: 2,
-            backgroundColor: '#ffffff' 
-          });
-          const imgData = canvas.toDataURL('image/png');
-          doc.addImage(imgData, 'PNG', 15, yPos, 80, 60); 
-          
-          doc.setFontSize(10);
-          doc.setTextColor(150);
-          doc.text("Ergebnis Visualisierung", 15, yPos - 2);
-          
-          yPos += 70; 
-        } catch (chartError) {
-          console.error("Chart capture failed:", chartError);
-        }
+        const canvas = await html2canvas(radarChartRef.current, { scale: 2, backgroundColor: '#ffffff' });
+        const imgData = canvas.toDataURL('image/png');
+        doc.addImage(imgData, 'PNG', 15, yPos, 80, 60);
+        yPos += 70;
       }
-
 
       if (adminNote) {
         doc.setFontSize(12);
@@ -134,28 +133,14 @@ export default function ResultsPage() {
       autoTable(doc, {
         startY: yPos,
         head: [['Kategorie', 'Frage', 'Antwort', 'Score']],
-        body: questions.map(q => [
-          q.category,
-          q.question,
-          q.answer,
-          q.score !== null ? `${q.score}` : 'Offen'
-        ]),
-        styles: { fontSize: 8, cellPadding: 3 },
+        body: questions.map(q => [q.category, q.question, q.answer, q.score !== null ? `${q.score}` : 'Offen']),
         headStyles: { fillColor: [41, 128, 185] },
-        columnStyles: { 
-          0: { cellWidth: 25 }, 
-          1: { cellWidth: 60 },
-          2: { cellWidth: 60 },
-          3: { cellWidth: 20, halign: 'center' }
-        },
+        columnStyles: { 0: { cellWidth: 25 }, 1: { cellWidth: 60 }, 2: { cellWidth: 60 }, 3: { cellWidth: 20, halign: 'center' }},
         margin: { top: 20 },
       });
 
-
       doc.save(`Report_${sessionId}.pdf`);
-      
     } catch (error) {
-      console.error("PDF generation failed:", error);
       alert("PDF Error");
     }
   };
@@ -163,7 +148,6 @@ export default function ResultsPage() {
   return (
     <AdminLayout>
       <div className="min-h-screen bg-gray-50 pb-20">
-        {/* Header Bar */}
         <div className="bg-white shadow border-b border-gray-200 sticky top-0 z-10">
           <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
             <div className="flex items-center gap-4">
@@ -187,9 +171,7 @@ export default function ResultsPage() {
         </div>
 
         <div className="max-w-7xl mx-auto px-6 py-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
-          
           <div className="lg:col-span-2 space-y-6">
-            
             <div className="bg-white rounded-lg shadow border border-yellow-200 overflow-hidden">
               <div className="bg-yellow-50 px-6 py-4 border-b border-yellow-200 flex justify-between items-center">
                 <h2 className="font-bold text-yellow-800 flex items-center gap-2">
@@ -211,9 +193,7 @@ export default function ResultsPage() {
                       )}
                     </div>
                     <p className="font-medium text-gray-900 mb-2">{q.question}</p>
-                    <div className="bg-gray-50 p-3 rounded mb-3 text-sm text-gray-700 italic border-l-4 border-gray-300">
-                      "{q.answer}"
-                    </div>
+                    <div className="bg-gray-50 p-3 rounded mb-3 text-sm text-gray-700 italic border-l-4 border-gray-300">"{q.answer}"</div>
                     <div className="flex items-center gap-3">
                       <label className="text-sm font-medium text-gray-700">Score vergeben (0-100):</label>
                       <input 
@@ -235,40 +215,14 @@ export default function ResultsPage() {
               </h2>
               <textarea 
                 className="w-full border border-gray-300 rounded-lg p-4 focus:ring-2 focus:ring-blue-500 outline-none h-32"
-                placeholder="Schreiben Sie hier eine Zusammenfassung oder empfohlene Maßnahmen für den PDF-Bericht..."
+                placeholder="Schreiben Sie hier eine Zusammenfassung oder empfohlene Maßnahmen..."
                 value={adminNote}
                 onChange={(e) => setAdminNote(e.target.value)}
               />
-              <p className="text-xs text-gray-500 mt-2 text-right">Dieser Text erscheint im PDF-Export.</p>
-            </div>
-
-
-            <div className="bg-white rounded-lg shadow p-6 opacity-70 hover:opacity-100 transition-opacity">
-               <h2 className="font-bold text-gray-600 mb-4">Bereits bewertet (Automatisch)</h2>
-               <table className="w-full text-sm text-left">
-                 <thead className="text-gray-500 border-b">
-                   <tr>
-                     <th className="pb-2">Frage</th>
-                     <th className="pb-2">Antwort</th>
-                     <th className="pb-2 text-right">Score</th>
-                   </tr>
-                 </thead>
-                 <tbody className="divide-y">
-                   {questions.filter(q => q.type === 'choice').map(q => (
-                     <tr key={q.id}>
-                       <td className="py-2 pr-2">{q.question}</td>
-                       <td className="py-2 font-medium">{q.answer}</td>
-                       <td className="py-2 text-right font-bold text-blue-600">{q.score}</td>
-                     </tr>
-                   ))}
-                 </tbody>
-               </table>
             </div>
           </div>
 
-
           <div className="space-y-6">
-            
             <div className="bg-white rounded-lg shadow p-6 text-center">
               <p className="text-gray-500 mb-1">Aktueller Gesamtscore</p>
               <div className="text-5xl font-bold text-blue-600 mb-2">{overallScore}</div>
@@ -276,10 +230,8 @@ export default function ResultsPage() {
                 <div className="bg-blue-600 h-2.5 rounded-full transition-all duration-500" style={{ width: `${overallScore}%` }}></div>
               </div>
             </div>
-
             <div className="bg-white rounded-lg shadow p-6">
               <h3 className="font-bold text-gray-700 mb-4 text-center">Visualisierung</h3>
-              
               <div ref={radarChartRef} className="bg-white p-2 flex justify-center">
                  <ResponsiveContainer width="100%" height={250}>
                     <RadarChart cx="50%" cy="50%" outerRadius="80%" data={chartData}>
@@ -290,15 +242,8 @@ export default function ResultsPage() {
                     </RadarChart>
                  </ResponsiveContainer>
               </div>
-              <p className="text-xs text-center text-gray-400 mt-2">Dieses Diagramm wird in das PDF übernommen.</p>
             </div>
-
-            <button className="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-3 rounded-lg shadow flex items-center justify-center gap-2 transition">
-              <Mail size={20} /> Ergebnis per E-Mail senden
-            </button>
-
           </div>
-
         </div>
       </div>
     </AdminLayout>
