@@ -1058,7 +1058,7 @@ export default function ConditionEditor() {
           <div className="flex items-start gap-3">
             {/* Grip */}
             <GripVertical
-              size={20}
+              size={20 }
               className={`cursor-grab mt-1 transition-all duration-150
                  ${draggingId === q.id
                   ? "text-green-500 scale-110"
