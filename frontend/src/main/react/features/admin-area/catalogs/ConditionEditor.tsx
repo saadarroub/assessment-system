@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useToast } from "@/shared/contexts/ToastContext";
 import PageHeader from "./PageHeader";
+import ConfirmModal from "@/shared/components/ConfirmModal";
 
 // Icons
 import AdminLayout from "@/apps/app/AdminLayout";
@@ -194,6 +195,28 @@ export default function ConditionEditor() {
     }
   }
 
+  useEffect(() => {
+  if (isModalOpen) {
+    // Scroll komplett blockieren
+    document.body.style.overflow = "hidden";
+    document.body.style.position = "fixed";
+    document.body.style.width = "100%";
+  } else {
+    // Scroll wieder freigeben
+    document.body.style.overflow = "";
+    document.body.style.position = "";
+    document.body.style.width = "";
+  }
+
+  return () => {
+    // Cleanup falls Component unmountet
+    document.body.style.overflow = "";
+    document.body.style.position = "";
+    document.body.style.width = "";
+  };
+}, [isModalOpen]);
+
+
   // 🔹 frage Requiredn
   useEffect(() => {
     if (editingQuestion) {
@@ -201,15 +224,15 @@ export default function ConditionEditor() {
       // Ansonsten Standard: true
       const requiredValue =
         editingQuestion.required !== undefined &&
-        editingQuestion.required !== null
+          editingQuestion.required !== null
           ? editingQuestion.required
           : true;
       setIsRequired(requiredValue);
-      
+
       // isScorable aus editingQuestion laden (default: true)
-      const scorableValue = 
-        editingQuestion.isScorable !== undefined && 
-        editingQuestion.isScorable !== null
+      const scorableValue =
+        editingQuestion.isScorable !== undefined &&
+          editingQuestion.isScorable !== null
           ? editingQuestion.isScorable
           : true;
       setIsScorable(scorableValue);
@@ -733,20 +756,20 @@ export default function ConditionEditor() {
         list.map((q) =>
           q.id === editingQuestion.id
             ? {
-                ...q,
-                text: questionText,
-                type: selectedType?.value || q.type,
-                options: hasOptions ? options : [],
-                scoringSchema: hasOptions
-                  ? Object.fromEntries(options.map((o) => [o.label, o.score]))
-                  : {},
-                required: isRequired, // ✅ isRequired auch in UI aktualisieren
-                isScorable: hasOptions ? true : isScorable, // ✅ isScorable auch in UI aktualisieren
-              }
+              ...q,
+              text: questionText,
+              type: selectedType?.value || q.type,
+              options: hasOptions ? options : [],
+              scoringSchema: hasOptions
+                ? Object.fromEntries(options.map((o) => [o.label, o.score]))
+                : {},
+              required: isRequired, // ✅ isRequired auch in UI aktualisieren
+              isScorable: hasOptions ? true : isScorable, // ✅ isScorable auch in UI aktualisieren
+            }
             : {
-                ...q,
-                children: q.children ? updateQuestionInTree(q.children) : [],
-              }
+              ...q,
+              children: q.children ? updateQuestionInTree(q.children) : [],
+            }
         );
 
       setQuestions((prev) => updateQuestionInTree(prev));
@@ -813,10 +836,10 @@ export default function ConditionEditor() {
                 child.id === id
                   ? !child.expanded
                     ? {
-                        ...child,
-                        expanded: true,
-                        children: await fetchChildrenRecursive(child.id),
-                      }
+                      ...child,
+                      expanded: true,
+                      children: await fetchChildrenRecursive(child.id),
+                    }
                     : { ...child, expanded: false }
                   : await toggleExpandInChild(child, id)
               )
@@ -973,51 +996,50 @@ export default function ConditionEditor() {
     return (
       <div ref={setNodeRef} style={style} className="mt-3">
         {/* Karten-Header */}
-<div
-  className={
-    "group relative flex items-center justify-between rounded-xl px-4 py-3 border transition-colors duration-300 " +
-    (isThisDragging ? "drag-active-highlight" : "border-[#e5dcc7]")
-  }
+        <div
+          className={
+            "group relative flex items-center justify-between rounded-xl px-4 py-3 border transition-colors duration-300 " +
+            (isThisDragging ? "drag-active-highlight" : "border-[#e5dcc7]")
+          }
 
-style={
-  isThisDragging
-    ? {}
-    : {
-        background:
-          "linear-gradient(135deg, #fffdf7ff 0%, #fdf9efff 100%)",
-        border: "1px solid #ddc691ff",
-        boxShadow: "0 3px 10px rgba(0,0,0,0.03)",
-      }
-}
+          style={
+            isThisDragging
+              ? {}
+              : {
+                background:
+                  "linear-gradient(135deg, #fffdf7ff 0%, #fdf9efff 100%)",
+                border: "1px solid #ddc691ff",
+                boxShadow: "0 3px 10px rgba(0,0,0,0.03)",
+              }
+          }
 
 
 
         >{/* Goldener Hover-Glow */}
-<div
-  className="
+          <div
+            className="
     pointer-events-none
     absolute inset-0 rounded-xl
     opacity-0 group-hover:opacity-100
     transition-opacity duration-300
   "
-  style={{
-    background: `
+            style={{
+              background: `
       radial-gradient(circle at top left, rgba(227,187,98,0.35), transparent 45%),
       radial-gradient(circle at top right, rgba(227,187,98,0.25), transparent 45%)
     `,
-  }}
-/>
+            }}
+          />
 
           <div className="flex items-start gap-3">
             {/* Grip */}
             <GripVertical
               size={20}
               className={`cursor-grab mt-1 transition-all duration-150
-                 ${
-                   draggingId === q.id
-                     ? "text-green-500 scale-110"
-                     : "text-gray-400"
-                 }
+                 ${draggingId === q.id
+                  ? "text-green-500 scale-110"
+                  : "text-gray-400"
+                }
                 `}
               {...attributes}
               onPointerDown={handleGripDown}
@@ -1091,10 +1113,10 @@ style={
             </div>
           </div>
 
-          
+
           {/* Rechts – Buttons nur bei Hover sichtbar */}
-<div
-  className="
+          <div
+            className="
     flex items-center gap-6
     opacity-0
     pointer-events-none
@@ -1102,7 +1124,7 @@ style={
     group-hover:opacity-100
     group-hover:pointer-events-auto
   "
->
+          >
 
             {/* Preview/Simulate */}
             <button
@@ -1293,10 +1315,10 @@ style={
       {/* Header */}
 
       {/* BACK BUTTON – oben links fixiert */}
-<div className="absolute left-10 top-10 z-20">
-  <button
-    onClick={() => navigate("/admin")}
-    className="
+      <div className="absolute left-10 top-10 z-20">
+        <button
+          onClick={() => navigate("/admin")}
+          className="
       group flex items-center gap-2 
       bg-white/70 backdrop-blur-xl 
       border border-gray-300 
@@ -1305,27 +1327,27 @@ style={
       hover:bg-white/90 
       transition-all
     "
-  >
-    <ArrowLeft
-      size={20}
-      className="text-[#264555] transition-all group-hover:-translate-x-1"
-    />
-    <span className="text-sm font-semibold text-[#264555]">
-      Zurück zur Übersicht
-    </span>
-  </button>
-</div>
+        >
+          <ArrowLeft
+            size={20}
+            className="text-[#264555] transition-all group-hover:-translate-x-1"
+          />
+          <span className="text-sm font-semibold text-[#264555]">
+            Zurück zur Übersicht
+          </span>
+        </button>
+      </div>
 
-    <PageHeader
-  title={thema?.name || "Lade Thema..."}
-  subtitle="Bearbeiten · Fragen verwalten · Struktur aufbauen"
-  icon={<Layers size={40} />}
-  gradient="navy"       // ⭐ Dein helles Sand-Design
-  height="250px"
-  center={true}
-  showPattern={true}
+      <PageHeader
+        title={thema?.name || "Lade Thema..."}
+        subtitle="Bearbeiten · Fragen verwalten · Struktur aufbauen"
+        icon={<Layers size={40} />}
+        gradient="navy"       // ⭐ Dein helles Sand-Design
+        height="250px"
+        center={true}
+        showPattern={true}
 
-/>
+      />
 
       {/* BODY - Grauer Hintergrund wie AdminDashboard */}
       <main
@@ -1490,215 +1512,216 @@ style={
           </div>
         </div>
 
-        {/* 🗑️ Lösch-Bestätigungs-Modal */}
-        {isDeleteModalOpen && (
-          <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-[9999]">
-            <div className="bg-white rounded-xl shadow-lg w-[420px] p-6">
-              <h2 className="text-lg font-semibold text-gray-800 mb-4">
-                Frage wirklich löschen?
-              </h2>
-              <p className="text-sm text-gray-600 mb-6">
-                Diese Aktion kann nicht rückgängig gemacht werden.
-                <br />
-                <span className="font-medium text-gray-900">
-                  „{questionToDelete?.text}“
-                </span>{" "}
-                wird dauerhaft entfernt.
-              </p>
+     
+       
 
-              <div className="flex justify-end gap-3">
-                <button
-                  onClick={() => setIsDeleteModalOpen(false)}
-                  className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100"
-                >
-                  Abbrechen
-                </button>
-                <button
-                  onClick={confirmDeleteQuestion}
-                  disabled={isDeleting}
-                  className={`px-4 py-2 rounded-lg bg-red-500 text-white font-medium hover:bg-red-600 transition-all ${
-                    isDeleting ? "opacity-60 cursor-not-allowed" : ""
-                  }`}
-                >
-                  {isDeleting ? "Lösche..." : "Ja, löschen"}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* 🗑️ Lösch-Bestätigungs-Modal */}
+        <ConfirmModal
+          open={isDeleteModalOpen}
+          title="Frage löschen?"
+          description={
+            <>
+              Willst du die Frage{" "}
+              <span className="font-semibold break-words overflow-wrap-anywhere">
+                {questionToDelete?.text}
+              </span>{" "}
+              wirklich löschen?
+            </>
+          }
+          hintTitle="Hinweis"
+          hintText={
+            <>
+              Diese Aktion kann{" "}
+              <span className="font-semibold text-red-700">
+                nicht rückgängig gemacht
+              </span>{" "}
+              werden.
+            </>
+          }
+          onConfirm={confirmDeleteQuestion}
+          onCancel={() => setIsDeleteModalOpen(false)}
+          confirmLabel={isDeleting ? "Lösche..." : "Löschen"}
+          cancelLabel="Abbrechen"
+          icon={<Trash2 className="text-red-500" />}
+        />
 
         {/* 🧱 Modal: Neue Frage hinzufügen */}
         {isModalOpen && (
-          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-[9999]">
-            <div className="bg-white rounded-xl shadow-lg w-[730px] max-h-[80vh] flex flex-col relative">
-              <div className="p-8 overflow-y-auto flex-1" ref={modalRef}>
-                {/* ❌ Schließen-Button */}
-                <button
-                  onClick={handleCancel}
-                  className="absolute top-3 right-3 text-gray-500 hover:text-gray-700"
-                >
-                  <X size={20} />
-                </button>
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/40 backdrop-blur-sm"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) handleCancel();
+            }}
+          >
+            <div
+              className="w-full max-w-2xl px-4 sm:px-0"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Karten-Block mit Glow */}
+              <div className="relative overflow-hidden rounded-3xl bg-white shadow-2xl border border-slate-200/80">
+                {/* Deko-Glows */}
+                <div
+                  className="pointer-events-none absolute -right-24 -top-24 h-52 w-52 rounded-full bg-gradient-to-br from-[#E3BB62]/40 via-amber-400/20 to-transparent opacity-60"
+                  aria-hidden="true"
+                />
+                <div
+                  className="pointer-events-none absolute -left-24 -bottom-24 h-52 w-52 rounded-full bg-gradient-to-tr from-sky-500/20 via-indigo-500/10 to-transparent opacity-60"
+                  aria-hidden="true"
+                />
 
-                {/* 🔹 Titelbereich */}
-                {editingQuestion ? (
-                  <h2 className="text-xl font-semibold text-gray-800 mb-6">
-                    Frage bearbeiten
-                  </h2>
-                ) : parentQuestion ? (
-                  <div className="mb-6">
-                    <h2 className="text-xl font-semibold text-gray-800 mt-2">
-                      Neue Unterfrage hinzufügen
-                    </h2>
+                {/* Inhalt / Formular */}
+                <div className="relative px-6 pt-6 pb-5 max-h-[calc(100vh-150px)] overflow-y-auto" ref={modalRef}>
 
-                    <p className="text-sm text-gray-500 mt-2">
-                      <span className="font-semibold text-gray-700">
-                        Vaterfrage:
-                      </span>{" "}
-                      {parentQuestion.text}
-                    </p>
-                  </div>
-                ) : (
-                  <h2 className="text-xl font-semibold text-gray-800 mb-6">
-                    Neue Hauptfrage hinzufügen
-                  </h2>
-                )}
-
-                {/* 🔸 Fragetext */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Frage<span className="text-red-500">*</span>
-                  </label>
-                  <textarea
-                    value={questionText}
-                    onChange={(e) => {
-                      setQuestionText(e.target.value);
-                      if (errorQuestionText) setErrorQuestionText(null); // 🔥 Roter Rand verschwindet sofort
-                    }}
-                    placeholder="Frage eingeben..."
-                    className={`w-full border rounded-lg p-2 focus:ring-2 focus:ring-brand-sand focus:outline-none ${
-                      errorQuestionText ? "border-red-500" : "border-gray-300"
-                    }`}
-                    rows={3}
-                  ></textarea>
-                  {errorQuestionText && (
-                    <p className="text-red-500 text-xs mt-1">
-                      {errorQuestionText}
-                    </p>
-                  )}
-                </div>
-
-                {/* 🔸 Fragetyp */}
-                <div className="mb-6 mt-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Fragetyp<span className="text-red-500">*</span>
-                  </label>
-                  <div className="grid grid-cols-2 gap-3">
-                    {questionTypes.map((type) => (
-                      <button
-                        key={type.id}
-                        onClick={() => {
-                          // Reihenfolge-Typ noch nicht verfügbar
-                          if (type.value === "order") {
-                            alert("Dieser Fragetyp ist noch nicht verfügbar.");
-                            return;
-                          }
-                         
-                          setSelectedType(type);
-                          if (errorType) setErrorType(null); // 🔥 Fehler zurücksetzen
-                          setErrorOptions(null);
-                          setHasSubmitted(false);
-
-                          if (type.hasOptions) {
-                            setTimeout(() => {
-                              optionsRef.current?.scrollIntoView({
-                                behavior: "smooth",
-                                block: "start",
-                              });
-                            }, 150);
-                          }
-                        }}
-                        className={`flex items-center justify-start gap-3 border rounded-lg py-3 px-4 text-left font-medium text-sm transition-all duration-150 ${
-                          selectedType?.id === type.id
-                            ? "bg-brand-sand border-brand-sand text-black shadow-md"
-                            : errorType
-                            ? "border-red-500 text-gray-800 hover:bg-gray-50"
-                            : "border-gray-300 text-gray-800 hover:bg-gray-50"
-                        }`}
-                      >
-                        {type.icon}
-                        {type.label}
-                      </button>
-                    ))}
-                  </div>
-                  {errorType && (
-                    <p className="text-red-500 text-xs mt-1">{errorType}</p>
-                  )}
-                </div>
-
-                {/* 🔸 Pflichtfeld */}
-                <div className="mt-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Antwort notwendig
-                  </label>
-
-                  <div className="flex items-center justify-between bg-gray-50 border border-gray-300 rounded-xl px-4 py-3">
-                    <div>
-                      <p className="text-sm text-black-500">
-                        Muss beantwortet werden Diese Frage ?
+                  {/* 🔹 Titelbereich */}
+                  {editingQuestion ? (
+                    <>
+                      <h3 className="text-lg sm:text-xl font-semibold text-slate-900 mb-1">
+                        Frage bearbeiten
+                      </h3>
+                      <p className="text-xs text-slate-500 mb-4">
+                        Felder mit <span className="text-red-500">*</span> sind Pflichtfelder.
                       </p>
-                    </div>
+                    </>
+                  ) : parentQuestion ? (
+                    <>
+                      <h3 className="text-lg sm:text-xl font-semibold text-slate-900 mb-1">
+                        Neue Unterfrage hinzufügen
+                      </h3>
+                      <p className="text-xs text-slate-500 mb-4">
+                        <span className="font-semibold text-slate-700">
+                          Vaterfrage:
+                        </span>{" "}
+                        {parentQuestion.text}
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <h3 className="text-lg sm:text-xl font-semibold text-slate-900 mb-1">
+                        Neue Hauptfrage hinzufügen
+                      </h3>
+                      <p className="text-xs text-slate-500 mb-4">
+                        Felder mit <span className="text-red-500">*</span> sind Pflichtfelder.
+                      </p>
+                    </>
+                  )}
 
-                    {/* TOGGLE SWITCH */}
-                    <button
-                      type="button"
-                      onClick={() => setIsRequired(!isRequired)}
-                      className={`w-12 h-7 flex items-center rounded-full transition-all ${
-                        isRequired ? "bg-[#d2c9b9]" : "bg-gray-300"
-                      }`}
+                  {/* 🔸 Fragetext */}
+                  <div>
+                    <label
+                      htmlFor="question-text"
+                      className="block text-sm font-medium text-slate-700 mb-1"
                     >
-                      <span
-                        className={`w-5 h-5 bg-white rounded-full shadow transform transition-all ${
-                          isRequired ? "translate-x-6" : "translate-x-1"
-                        }`}
-                      ></span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* 🔸 Bewertbar (nur für Textfelder ohne Optionen) */}
-                {selectedType && !selectedType.hasOptions && (
-                  <div className="mt-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Bewertung
+                      Frage <span className="text-red-500">*</span>
                     </label>
+                    <textarea
+                      id="question-text"
+                      value={questionText}
+                      onChange={(e) => {
+                        setQuestionText(e.target.value);
+                        if (errorQuestionText) setErrorQuestionText(null);
+                      }}
+                      placeholder="Frage eingeben..."
+                      rows={3}
+                      className={`
+                        w-full rounded-xl border px-3 py-2.5 text-sm
+                        bg-slate-50 border-slate-200
+                        outline-none
+                        focus:bg-white
+                        focus:border-[#E3BB62]
+                        focus:ring-2 focus:ring-[rgba(227,187,98,0.45)]
+                        transition
+                        resize-none
+                        ${errorQuestionText ? "border-red-500" : ""}
+                      `}
+                    />
+                    {errorQuestionText && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {errorQuestionText}
+                      </p>
+                    )}
+                  </div>
 
-                    <div className="flex items-center justify-between bg-gray-50 border border-gray-300 rounded-xl px-4 py-3">
+                  {/* 🔸 Fragetyp */}
+                  <div className="mt-6">
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      Fragetyp <span className="text-red-500">*</span>
+                    </label>
+                    <div className="grid grid-cols-2 gap-3">
+                      {questionTypes.map((type) => (
+                        <button
+                          key={type.id}
+                          onClick={() => {
+                            
+                            setSelectedType(type);
+                            if (errorType) setErrorType(null);
+                            setErrorOptions(null);
+                            setHasSubmitted(false);
+                            if (type.hasOptions) {
+                              setTimeout(() => {
+                                optionsRef.current?.scrollIntoView({
+                                  behavior: "smooth",
+                                  block: "start",
+                                });
+                              }, 150);
+                            }
+                          }}
+                          className={`flex items-center justify-start gap-3 border rounded-xl py-3 px-4 text-left font-medium text-sm transition-all duration-150 ${selectedType?.id === type.id ? "bg-[#E3BB62] border-[#E3BB62] text-[#264555] shadow-md" : errorType ? "border-red-500 text-slate-800 hover:bg-slate-50 bg-white" : "border-slate-200 text-slate-800 hover:bg-slate-50 bg-white"}`}
+                        >
+                          {type.icon}
+                          {type.label}
+                        </button>
+                      ))}
+                    </div>
+                    {errorType && (
+                      <p className="text-red-500 text-xs mt-2">{errorType}</p>
+                    )}
+                  </div>
+
+                  {/* 🔸 Pflichtfeld */}
+                  <div className="mt-6">
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      Antwort notwendig
+                    </label>
+                    <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">
                       <div>
-                        <p className="text-sm text-black-500">
-                          {isScorable 
-                            ? "Frage wird bewertet (manuelle Bewertung)" 
-                            : "Frage wird nicht bewertet"}
+                        <p className="text-sm text-slate-700">
+                          Diese Frage muss beantwortet werden
                         </p>
                       </div>
-
-                      {/* TOGGLE SWITCH */}
                       <button
                         type="button"
-                        onClick={() => setIsScorable(!isScorable)}
-                        className={`w-12 h-7 flex items-center rounded-full transition-all ${
-                          isScorable ? "bg-[#d2c9b9]" : "bg-gray-300"
-                        }`}
+                        onClick={() => setIsRequired(!isRequired)}
+                        className={`w-12 h-7 flex items-center rounded-full transition-all ${isRequired ? "bg-[#E3BB62]" : "bg-slate-300"}`}
                       >
-                        <span
-                          className={`w-5 h-5 bg-white rounded-full shadow transform transition-all ${
-                            isScorable ? "translate-x-6" : "translate-x-1"
-                          }`}
-                        ></span>
+                        <span className={`w-5 h-5 bg-white rounded-full shadow transform transition-all ${isRequired ? "translate-x-6" : "translate-x-1"}`}></span>
                       </button>
                     </div>
                   </div>
-                )}
+
+                  {/* 🔸 Bewertbar */}
+                  {selectedType && !selectedType.hasOptions && (
+                    <div className="mt-4">
+                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                        Bewertung
+                      </label>
+                      <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">
+                        <div>
+                          <p className="text-sm text-slate-700">
+                            {isScorable ? "Frage wird bewertet (manuelle Bewertung)" : "Frage wird nicht bewertet"}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setIsScorable(!isScorable)}
+                          className={`w-12 h-7 flex items-center rounded-full transition-all ${isScorable ? "bg-[#E3BB62]" : "bg-slate-300"}`}
+                        >
+                          <span className={`w-5 h-5 bg-white rounded-full shadow transform transition-all ${isScorable ? "translate-x-6" : "translate-x-1"}`}></span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
                 {/* 🔸 Antwortoptionen */}
                 {showOptions && (
@@ -1727,11 +1750,10 @@ style={
                             );
                             if (errorOptions) setErrorOptions(null); // 🔥 hier hinzufügen
                           }}
-                          className={`flex-1 border rounded-md px-2 py-1 focus:ring-1 focus:ring-brand-sand focus:outline-none ${
-                            hasSubmitted && !opt.label.trim()
+                          className={`flex-1 border rounded-md px-2 py-1 focus:ring-1 focus:ring-brand-sand focus:outline-none ${hasSubmitted && !opt.label.trim()
                               ? "border-red-500"
                               : "border-gray-300"
-                          }`}
+                            }`}
                         />
 
                         {/* Score */}
@@ -1881,23 +1903,51 @@ style={
                     </button>
                   </div>
                 )}
+                </div>
               </div>
 
-              {/* 🔹 Footer mit aktualisiertem Button */}
-              <div className="flex justify-end gap-3 px-8 py-4 border-t bg-white sticky bottom-0 rounded-b-xl">
+              {/* kleiner Abstand wie bei User-Modals */}
+              <div className="h-3" />
+
+              {/* Footer-Buttons – gleich wie Users (Abbrechen / Speichern) */}
+              <div className="mt-1 flex gap-2">
                 <button
+                  type="button"
                   onClick={handleCancel}
-                  className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100"
+                  className="
+                    flex-1
+                    h-12
+                    text-sm font-medium
+                    text-slate-800
+                    bg-[#f3f3f3]
+                    hover:bg-[#e5e5e5]
+                    border border-slate-200
+                    rounded-xl
+                    transition
+                  "
                 >
                   Abbrechen
                 </button>
+
                 <button
+                  type="button"
                   onClick={
                     editingQuestion
                       ? handleUpdateQuestion
                       : handleCreateQuestion
                   }
-                  className="px-4 py-2 rounded-lg bg-brand-sand text-white font-medium hover:opacity-90"
+                  className="
+                    flex-1
+                    h-12
+                    text-sm font-semibold
+                    rounded-xl
+                    bg-[#E3BB62]
+                    text-[#264555]
+                    hover:bg-[#d8ac55]
+                    shadow-[0_10px_30px_rgba(0,0,0,0.18)]
+                    transition
+                    hover:-translate-y-[1px]
+                  "
                 >
                   {editingQuestion ? "Speichern" : "Hinzufügen"}
                 </button>
@@ -2109,8 +2159,8 @@ style={
 
                 {/* Order (Sortierung) - Interaktiv mit Drag & Drop */}
                 {previewQuestion.type === "order" && (
-                  <PreviewOrderQuestion 
-                    options={(previewQuestion.options || []).map((opt: any) => 
+                  <PreviewOrderQuestion
+                    options={(previewQuestion.options || []).map((opt: any) =>
                       typeof opt === "string" ? opt : opt.label
                     )}
                   />
@@ -2154,13 +2204,13 @@ style={
             </div>
           </div>
         )}
-      {" "}
-      {/* End of gray background container */}
+        {" "}
+        {/* End of gray background container */}
       </main>
     </AdminLayout>
-    
+
   );
-  
+
 }
 
 // 👁️ Hilfsfunktion für Preview Order Items (Drag & Drop)
