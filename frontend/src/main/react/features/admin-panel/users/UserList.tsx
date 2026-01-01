@@ -5,6 +5,11 @@ import { Search, ArrowUpDown, Eye, Plus, Trash2, Pencil, Users } from "lucide-re
 import ConfirmModal from "@/shared/components/ConfirmModal";
 import UserLogo from "@/assets/blue-user-icon-transparent.png";
 import { getUserProfile, buildAvatarUrl } from "@/features/service/profilePageService";
+import { useScrollLock } from "@/shared/hooks/useScrollLock";
+import { useHasPermission } from "@/shared/hooks/useHasPermission";
+import { PermissionButton } from "@/shared/components/permission/PermissionButton";
+
+
 import {
   getUsers,
   createUser,
@@ -86,6 +91,13 @@ const BRAND = {
 
 export default function UsersPage() {
   const { showSuccess, showError } = useToast();
+  const { has } = useHasPermission();
+
+  const canViewUsers = has("users.view");
+  const canCreateUser = has("users.create");
+  const canEditUser = has("users.edit");
+  const canDeleteUser = has("users.delete");
+
 
   const [items, setItems] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -302,7 +314,17 @@ export default function UsersPage() {
         roleId: selectedRoleId,
       });
 
-      const row = mapApiToUser(created);
+      const base = mapApiToUser(created);
+      const roleFromSelect = availableRoles.find(r => String(r.id) === String(selectedRoleId));
+      const row = (base.roles?.length)
+        ? base
+        : {
+          ...base,
+          roles: roleFromSelect
+            ? [{ id: String(roleFromSelect.id), name: String(roleFromSelect.name) }]
+            : [{ id: String(selectedRoleId), name: String(selectedRoleId) }],
+        };
+
       setItems((prev) => [row, ...prev]);
       setHighlightedId(row.id);
       setTimeout(() => {
@@ -435,7 +457,7 @@ export default function UsersPage() {
 
 
 
-  // === Pagination ===
+  //Pagination 
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10); // Start mit 10 Zeilen pro Seite
   const PAGE_SIZE_OPTIONS = [5, 10, 25, 50];
@@ -452,6 +474,14 @@ export default function UsersPage() {
     if (page > totalPages) setPage(totalPages);
   }, [totalPages, page]);
 
+  // Scroll sperren, sobald irgendein Modal offen ist
+  const isAnyModalOpen =
+    openCreate ||
+    (openEdit && !!editUser) ||
+    (openDelete && !!targetUser);
+
+  useScrollLock(isAnyModalOpen);
+
 
   return (
     <AdminLayout>
@@ -467,7 +497,7 @@ export default function UsersPage() {
         center={false}
       />
 
-      {/* ===== Außenbereich unter dem Hero ===== */}
+      {/*  Außenbereich unter dem Hero  */}
       <main
         className="min-h-[calc(100vh-64px)] mt-0 px-6 pb-8 pt-20"
         style={{
@@ -530,9 +560,11 @@ export default function UsersPage() {
             </div>
           </nav>
 
-          {/* Add User rechts – bleibt wie vorher */}
-          <button
+          {/* Add User rechts */}
+          <PermissionButton
             type="button"
+            allowed={canCreateUser}
+            tooltip="Du brauchst die Berechtigung: users.create"
             onClick={() => setOpenCreate(true)}
             aria-label="Add User"
             className="
@@ -545,7 +577,7 @@ export default function UsersPage() {
     hover:-translate-y-[1px]
   "
             style={{
-              background: "hsl(40,60%,63%)",        // gleiches Cap-Gold
+              background: "hsl(40,60%,63%)",
               color: "hsl(200,32%,22%)",
               boxShadow: "0 6px 14px rgba(0,0,0,0.12)",
               borderRadius: "999px",
@@ -554,7 +586,8 @@ export default function UsersPage() {
           >
             <Plus size={16} />
             <span>Add User</span>
-          </button>
+          </PermissionButton>
+
 
         </div>
 
@@ -753,8 +786,10 @@ export default function UsersPage() {
                             )}
 
                             {!q.trim() && (
-                              <button
+                              <PermissionButton
                                 type="button"
+                                allowed={canCreateUser}
+                                tooltip="Du brauchst die Berechtigung: users.create"
                                 onClick={() => setOpenCreate(true)}
                                 className="inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-semibold shadow hover:[filter:brightness(1.05)]"
                                 style={{
@@ -765,7 +800,8 @@ export default function UsersPage() {
                               >
                                 <Plus size={14} />
                                 Benutzer anlegen
-                              </button>
+                              </PermissionButton>
+
                             )}
                           </div>
                         </div>
@@ -889,8 +925,10 @@ export default function UsersPage() {
 
 
                             {/* Edit Icon-Button (öffnet Edit-Modal) */}
-                            <button
+                            <PermissionButton
                               type="button"
+                              allowed={canEditUser}
+                              tooltip="Du brauchst: users.edit"
                               aria-label="Edit user"
                               onClick={() => openEditFor(u)}
                               title="Edit"
@@ -904,18 +942,20 @@ export default function UsersPage() {
     hover:bg-[#f5f0e4]
   "
                               style={{
-                                borderColor: "#d2c9b9",          // sand
-                                color: "#264555",                // navy
+                                borderColor: "#d2c9b9",
+                                color: "#264555",
                                 background: "#ffffff",
                               }}
                             >
                               <Pencil size={13} />
-                            </button>
+                            </PermissionButton>
 
 
                             {/* Delete (wie bisher) */}
-                            <button
+                            <PermissionButton
                               type="button"
+                              allowed={canDeleteUser}
+                              tooltip="Du brauchst: users.delete"
                               aria-label="Delete user"
                               onClick={() => askDelete(u)}
                               title="Löschen"
@@ -929,13 +969,14 @@ export default function UsersPage() {
     hover:bg-[#fff1f1]
   "
                               style={{
-                                borderColor: "rgba(248,113,113,0.8)",   // rot
-                                color: "rgb(185,28,28)",                // dunkler rot Text/Icon
+                                borderColor: "rgba(248,113,113,0.8)",
+                                color: "rgb(185,28,28)",
                                 background: "#ffffff",
                               }}
                             >
                               <Trash2 size={13} />
-                            </button>
+                            </PermissionButton>
+
 
                           </div>
                         </td>
@@ -1082,15 +1123,12 @@ export default function UsersPage() {
         </div>
       </main>
 
-      {/* ===== Create User Modal (gleicher Style wie Edit/Confirm) ===== */}
+      {/* ===== Create User Modal ===== */}
       {openCreate && (
         <div
           role="dialog"
           aria-modal="true"
           className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/40 backdrop-blur-sm"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setOpenCreate(false);
-          }}
         >
           <div
             className="w-full max-w-xl px-4 sm:px-0"
@@ -1348,7 +1386,7 @@ export default function UsersPage() {
           role="dialog"
           aria-modal="true"
           className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/40 backdrop-blur-sm"
-          onClick={(e) => { if (e.target === e.currentTarget) cancelEdit(); }}
+
         >
           <div
             className="w-full max-w-xl px-4 sm:px-0"

@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import AdminLayout from "@/apps/app/AdminLayout";
+import { useHasPermission } from "@/shared/hooks/useHasPermission";
+import { PermissionButton } from "@/shared/components/permission/PermissionButton";
+import { useScrollLock } from "@/shared/hooks/useScrollLock";
+
 import {
   getCompany,
   getWorkersByCompany,
@@ -97,6 +101,13 @@ export default function CompanyDetails() {
   const [tab, setTab] = useState<TabKey>("users");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { has } = useHasPermission();
+
+  const canChangeCompany = has("companies.change"); // Status toggle
+  const canCreateWorker = has("workers.create");    // Invite Worker
+  const canEditWorker = has("workers.edit");      // Edit Worker
+  const canDeleteWorker = has("workers.delete");    // Delete Worker
+
 
   // Workers
   const [workers, setWorkers] = useState<WorkerApi[]>([]);
@@ -133,13 +144,16 @@ export default function CompanyDetails() {
   const [pendingStatus, setPendingStatus] = useState<"active" | "inactive" | null>(null);
   const [changingStatus, setChangingStatus] = useState(false);
   const [statusError, setStatusError] = useState<string | null>(null);
-  function onStatusClick() {
-    if (!company) return;
-    const next: "active" | "inactive" = company.status === "active" ? "inactive" : "active";
-    setPendingStatus(next);
-    setStatusError(null);
-    setConfirmStatusOpen(true);
-  }
+function onStatusClick() {
+  if (!company) return;
+  if (!canChangeCompany || changingStatus) return; // <-- neu
+
+  const next: "active" | "inactive" = company.status === "active" ? "inactive" : "active";
+  setPendingStatus(next);
+  setStatusError(null);
+  setConfirmStatusOpen(true);
+}
+
 
 
 
@@ -222,56 +236,73 @@ export default function CompanyDetails() {
     };
   }, [id]);
 
-  function StatusToggle({
-    value,
-    disabled,
-    onToggle,
-  }: {
-    value: "active" | "inactive";
-    disabled?: boolean;
-    onToggle: () => void;
-  }) {
-    const isActive = value === "active";
+function StatusToggle({
+  value,
+  disabled,
+  disabledReason,
+  onToggle,
+}: {
+  value: "active" | "inactive";
+  disabled?: boolean;
+  disabledReason?: string;
+  onToggle: () => void;
+}) {
+  const isActive = value === "active";
+  const anyModalOpen = openInvite || !!editing || !!toDelete || confirmStatusOpen;
+useScrollLock(anyModalOpen);
 
-    return (
-      <button
-        type="button"
-        onClick={onToggle}
-        disabled={disabled}
-        className={[
-          "inline-flex items-center gap-2 rounded-full px-3 py-1.5",
-          "transition-all select-none",
-          disabled ? "opacity-60 cursor-not-allowed" : "hover:brightness-[1.03]",
-        ].join(" ")}
+
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        if (disabled) {
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
+        onToggle();
+      }}
+      disabled={disabled}
+      className={[
+        "inline-flex items-center gap-2 rounded-full px-3 py-1.5",
+        "transition-all select-none",
+        disabled ? "opacity-60 cursor-not-allowed" : "hover:brightness-[1.03]",
+      ].join(" ")}
+      style={{
+        background: isActive ? "rgba(34,197,94,0.18)" : "rgba(148,163,184,0.22)",
+        color: isActive ? "#16a34a" : "#64748b",
+      }}
+      title={
+        disabled
+          ? (disabledReason ?? "Du hast keine Berechtigung.")
+          : (isActive ? "Firma ist aktiv" : "Firma ist inaktiv")
+      }
+    >
+      <span className="text-[12px] font-semibold">
+        {isActive ? "aktiv" : "inaktiv"}
+      </span>
+
+      <span
+        className="relative h-5 w-9 rounded-full border"
         style={{
-          background: isActive ? "rgba(34,197,94,0.18)" : "rgba(148,163,184,0.22)",
-          color: isActive ? "#16a34a" : "#64748b",
+          background: isActive ? "#22c55e" : "#94a3b8",
+          borderColor: "rgba(0,0,0,0.10)",
         }}
-        title={isActive ? "Firma ist aktiv" : "Firma ist inaktiv"}
+        aria-hidden
       >
-        <span className="text-[12px] font-semibold">
-          {isActive ? "aktiv" : "inaktiv"}
-        </span>
-
         <span
-          className="relative h-5 w-9 rounded-full border"
-          style={{
-            background: isActive ? "#22c55e" : "#94a3b8",
-            borderColor: "rgba(0,0,0,0.10)",
-          }}
-          aria-hidden
-        >
-          <span
-            className={[
-              "absolute top-1/2 -translate-y-1/2 h-4 w-4 rounded-full bg-white",
-              "transition-all shadow",
-            ].join(" ")}
-            style={{ left: isActive ? "calc(100% - 18px)" : "2px" }}
-          />
-        </span>
-      </button>
-    );
-  }
+          className={[
+            "absolute top-1/2 -translate-y-1/2 h-4 w-4 rounded-full bg-white",
+            "transition-all shadow",
+          ].join(" ")}
+          style={{ left: isActive ? "calc(100% - 18px)" : "2px" }}
+        />
+      </span>
+    </button>
+  );
+}
+
 
 
 
@@ -468,7 +499,7 @@ export default function CompanyDetails() {
         style={{
           background:
             "radial-gradient(circle at 0 0, rgba(227,187,98,0.13) 0, transparent 40%)," +
-          
+
             "linear-gradient(to bottom, #f3f4f7 0, #e6e9ef 240px, #f4f5f8 100%)",
         }}
       >
@@ -962,31 +993,32 @@ export default function CompanyDetails() {
                                     }}
                                   >
                                     <div className="flex items-center gap-2">
-                                      <button
+                                      <PermissionButton
                                         type="button"
+                                        allowed={canEditWorker}
+                                        tooltip="Du brauchst: workers.edit"
                                         onClick={() => openEdit(w)}
                                         className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-sm font-semibold hover:bg-slate-50"
-                                        style={{
-                                          borderColor: CSS.border,
-                                          color: CSS.fg,
-                                        }}
+                                        style={{ borderColor: CSS.border, color: CSS.fg }}
                                         title="Bearbeiten"
                                       >
                                         <Pencil size={14} />
                                         Edit
-                                      </button>
-                                      <button
+                                      </PermissionButton>
+
+                                      <PermissionButton
                                         type="button"
+                                        allowed={canDeleteWorker}
+                                        tooltip="Du brauchst: workers.delete"
                                         onClick={() => askDelete(w)}
                                         className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-sm font-semibold text-red-600 hover:bg-red-50"
-                                        style={{
-                                          borderColor: "rgb(254 202 202)",
-                                        }}
+                                        style={{ borderColor: "rgb(254 202 202)" }}
                                         title="Löschen"
                                       >
                                         <Trash2 size={14} />
                                         Delete
-                                      </button>
+                                      </PermissionButton>
+
                                     </div>
                                   </td>
                                 </tr>
@@ -1219,12 +1251,12 @@ export default function CompanyDetails() {
                   </div>
 
                   {/* Status Pill */}
-                  <StatusToggle
-                    value={company.status}
-                    onToggle={onStatusClick}
-                    disabled={changingStatus}
-                  />
-
+                 <StatusToggle
+  value={company.status}
+  onToggle={onStatusClick}
+  disabled={changingStatus || !canChangeCompany}
+  disabledReason={!canChangeCompany ? "Du brauchst: companies.change" : undefined}
+/>
 
                 </div>
 
@@ -1304,8 +1336,10 @@ export default function CompanyDetails() {
                   Actions
                 </h3>
                 <div className="flex flex-col gap-3">
-                  <button
+                  <PermissionButton
                     type="button"
+                    allowed={canCreateWorker}
+                    tooltip="Du brauchst: workers.create"
                     onClick={openInviteModal}
                     className="inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold shadow hover:[filter:brightness(1.05)] focus:outline-none"
                     style={{
@@ -1316,7 +1350,8 @@ export default function CompanyDetails() {
                   >
                     <UserPlus size={16} />
                     Worker hinzufügen
-                  </button>
+                  </PermissionButton>
+
                 </div>
               </section>
             </aside>
@@ -1330,9 +1365,6 @@ export default function CompanyDetails() {
           role="dialog"
           aria-modal="true"
           className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/40 backdrop-blur-sm"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) cancelInvite();
-          }}
         >
           <div
             className="w-full max-w-xl px-4 sm:px-0"
@@ -1465,22 +1497,25 @@ export default function CompanyDetails() {
               >
                 Abbrechen
               </button>
-              <button
+              <PermissionButton
                 type="submit"
                 form="invite-worker-form"
-                className="
-                  flex-1 h-12 text-sm font-semibold
-                  rounded-xl
-                  bg-[#E3BB62] text-[#264555]
-                  hover:bg-[#d8ac55]
-                  shadow-[0_10px_30px_rgba(0,0,0,0.18)]
-                  transition hover:-translate-y-[1px]
-                  disabled:opacity-60
-                "
+                allowed={canCreateWorker}
+                tooltip="Du brauchst: workers.create"
                 disabled={creating}
+                className="
+    flex-1 h-12 text-sm font-semibold
+    rounded-xl
+    bg-[#E3BB62] text-[#264555]
+    hover:bg-[#d8ac55]
+    shadow-[0_10px_30px_rgba(0,0,0,0.18)]
+    transition hover:-translate-y-[1px]
+    disabled:opacity-60
+  "
               >
                 {creating ? "Erstelle…" : "Einladen"}
-              </button>
+              </PermissionButton>
+
             </div>
           </div>
         </div>
@@ -1492,9 +1527,6 @@ export default function CompanyDetails() {
           role="dialog"
           aria-modal="true"
           className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/40 backdrop-blur-sm"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) cancelEdit();
-          }}
         >
           <div
             className="w-full max-w-xl px-4 sm:px-0"
@@ -1621,22 +1653,25 @@ export default function CompanyDetails() {
               >
                 Abbrechen
               </button>
-              <button
+              <PermissionButton
                 type="submit"
                 form="edit-worker-form"
-                className="
-                  flex-1 h-12 text-sm font-semibold
-                  rounded-xl
-                  bg-[#E3BB62] text-[#264555]
-                  hover:bg-[#d8ac55]
-                  shadow-[0_10px_30px_rgba(0,0,0,0.18)]
-                  transition hover:-translate-y-[1px]
-                  disabled:opacity-60
-                "
+                allowed={canEditWorker}
+                tooltip="Du brauchst: workers.edit"
                 disabled={saving}
+                className="
+    flex-1 h-12 text-sm font-semibold
+    rounded-xl
+    bg-[#E3BB62] text-[#264555]
+    hover:bg-[#d8ac55]
+    shadow-[0_10px_30px_rgba(0,0,0,0.18)]
+    transition hover:-translate-y-[1px]
+    disabled:opacity-60
+  "
               >
                 {saving ? "Speichere…" : "Speichern"}
-              </button>
+              </PermissionButton>
+
             </div>
           </div>
         </div>
@@ -1676,10 +1711,11 @@ export default function CompanyDetails() {
         confirmLabel={deleting ? "Lösche…" : "Ja, löschen"}
         onCancel={cancelDelete}
         onConfirm={() => {
-          if (!deleting) {
-            void confirmDelete();
-          }
+          if (deleting) return;
+          if (!canDeleteWorker) return; // block
+          void confirmDelete();
         }}
+
         icon={<Trash2 className="text-red-500" />}
       />
 
@@ -1714,7 +1750,6 @@ export default function CompanyDetails() {
         onConfirm={async () => {
           if (!id || !pendingStatus || changingStatus) return;
 
-          // ✅ optimistic update
           const snapshot = company;
           setCompany({ ...company, status: pendingStatus });
 

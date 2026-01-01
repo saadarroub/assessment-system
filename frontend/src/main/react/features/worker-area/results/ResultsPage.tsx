@@ -210,7 +210,7 @@ export default function ResultsPage() {
           q.score !== null ? `${q.score}` : "Offen",
         ]),
         styles: { fontSize: 8, cellPadding: 3 },
-        headStyles: { fillColor: [38, 69, 85] }, 
+        headStyles: { fillColor: [38, 69, 85] },
         columnStyles: {
           0: { cellWidth: 25 },
           1: { cellWidth: 60 },
@@ -233,9 +233,8 @@ export default function ResultsPage() {
       {/* HERO Header  */}
       <PageHeader
         title="Manuelle Bewertung & Report"
-        subtitle={`Bewerte offene Antworten, ergänze Maßnahmen und exportiere den Bericht als PDF — Session: ${
-          sessionId ?? "-"
-        }`}
+        subtitle={`Bewerte offene Antworten, ergänze Maßnahmen und exportiere den Bericht als PDF — Session: ${sessionId ?? "-"
+          }`}
         icon={<Network size={40} />}
         gradient="navy"
         height="280px"
@@ -582,10 +581,10 @@ export default function ResultsPage() {
             {/* Bereits bewertet Table */}
             <section
               className="
-                rounded-[12px] border
-                shadow-[0_4px_6px_-1px_rgba(38,69,85,.08)]
-                overflow-hidden
-              "
+    rounded-[12px] border
+    shadow-[0_4px_6px_-1px_rgba(38,69,85,.08)]
+    overflow-hidden
+  "
               style={{ borderColor: CSS.border, background: BRAND.fog }}
             >
               <div
@@ -596,74 +595,114 @@ export default function ResultsPage() {
                 }}
               >
                 <h2 className="font-semibold" style={{ color: BRAND.navy }}>
-                  Bereits bewertet (Automatisch)
+                  Bereits bewertet <span className="opacity-60">(Automatisch)</span>
                 </h2>
               </div>
 
-              <div className="overflow-x-auto bg-white">
-                <table className="w-full border-collapse">
-                  <thead
-                    className="text-left text-xs font-semibold uppercase tracking-[0.04em]"
-                    style={{
-                      background: "linear-gradient(to right, #ebebec, #ffffff)",
-                      borderBottom: `2px solid ${BRAND.sand}`,
-                      color: BRAND.navy,
-                    }}
-                  >
-                    <tr>
-                      <th className="px-4 py-3 text-[0.85rem] font-semibold" style={{ color: CSS.fg }}>
-                        Frage
-                      </th>
-                      <th className="px-4 py-3 text-[0.85rem] font-semibold" style={{ color: CSS.fg }}>
-                        Antwort
-                      </th>
-                      <th
-                        className="px-4 py-3 text-[0.85rem] font-semibold text-right"
-                        style={{ color: CSS.fg }}
+              {/* ✅ NEU: Innen-Wrapper, damit die Tabelle NICHT full width ist */}
+              <div className="bg-white px-4 sm:px-6 py-6">
+                <div
+                  className="
+        mx-auto
+        w-full
+        max-w-[980px]
+        rounded-2xl
+        border
+        overflow-hidden
+        shadow-[0_10px_24px_rgba(0,0,0,0.06)]
+      "
+                  style={{ borderColor: BRAND.sand, background: "linear-gradient(to bottom, #ffffff, #fbfbfb)" }}
+                >
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse">
+                      <thead
+                        className="text-left text-xs font-semibold uppercase tracking-[0.04em]"
+                        style={{
+                          background: "linear-gradient(to right, #f1f2f4, #ffffff)",
+                          borderBottom: `1px solid ${CSS.border}`,
+                          color: BRAND.navy,
+                        }}
                       >
-                        Score
-                      </th>
-                    </tr>
-                  </thead>
-
-                  <tbody>
-                    {questions
-                      .filter((q) => q.type === "choice")
-                      .map((q) => (
-                        <tr
-                          key={q.id}
-                          className="
-                            bg-white transition border-l-[4px] border-transparent
-                            hover:border-[#E3BB62]
-                            hover:bg-[#fff9ec]
-                            hover:shadow-[0_4px_10px_rgba(0,0,0,0.04)]
-                          "
-                        >
-                          <td className="px-4 py-4" style={{ borderBottom: `1px solid ${CSS.border}` }}>
-                            <span className="font-semibold" style={{ color: CSS.fg }}>
-                              {q.question}
-                            </span>
-                            <div className="text-xs mt-1" style={{ color: CSS.mutedFg }}>
-                              {q.category}
-                            </div>
-                          </td>
-
-                          <td className="px-4 py-4" style={{ borderBottom: `1px solid ${CSS.border}`, color: CSS.fg }}>
-                            {q.answer}
-                          </td>
-
-                          <td
-                            className="px-4 py-4 text-right font-bold"
-                            style={{ borderBottom: `1px solid ${CSS.border}`, color: BRAND.navy }}
-                          >
-                            {q.score}
-                          </td>
+                        <tr>
+                          <th className="px-5 py-3 text-[0.82rem]" style={{ color: CSS.fg }}>
+                            Frage
+                          </th>
+                          <th className="px-5 py-3 text-[0.82rem]" style={{ color: CSS.fg }}>
+                            Antwort
+                          </th>
+                          <th className="px-5 py-3 text-[0.82rem] text-right" style={{ color: CSS.fg }}>
+                            Score
+                          </th>
                         </tr>
-                      ))}
-                  </tbody>
-                </table>
+                      </thead>
+
+                      <tbody>
+                        {questions
+                          .filter((q) => q.type === "choice")
+                          .map((q) => {
+                            const isYes =
+                              (q.answer ?? "").trim().toLowerCase() === "ja" ||
+                              (q.answer ?? "").trim().toLowerCase() === "yes";
+                            const scoreVal = q.score ?? 0;
+
+                            return (
+                              <tr
+                                key={q.id}
+                                className="
+                      bg-white transition
+                      hover:bg-[#fff9ec]
+                    "
+                              >
+                                <td className="px-5 py-4 align-top" style={{ borderBottom: `1px solid ${CSS.border}` }}>
+                                  <div className="font-semibold" style={{ color: CSS.fg }}>
+                                    {q.question}
+                                  </div>
+                                  <div className="text-xs mt-1" style={{ color: CSS.mutedFg }}>
+                                    {q.category}
+                                  </div>
+                                </td>
+
+                                <td className="px-5 py-4 align-top" style={{ borderBottom: `1px solid ${CSS.border}` }}>
+                                  {/* hübscher “Pill”-Look wie im Screenshot */}
+                                  <span
+                                    className="inline-flex items-center rounded-full px-3 py-1 text-sm font-semibold"
+                                    style={{
+                                      background: isYes ? "rgba(34,197,94,0.12)" : "rgba(239,68,68,0.12)",
+                                      color: isYes ? "rgb(22,101,52)" : "rgb(185,28,28)",
+                                      border: `1px solid ${isYes ? "rgba(34,197,94,0.25)" : "rgba(239,68,68,0.25)"}`,
+                                    }}
+                                  >
+                                    {q.answer}
+                                  </span>
+                                </td>
+
+                                <td
+                                  className="px-5 py-4 text-right align-top"
+                                  style={{ borderBottom: `1px solid ${CSS.border}` }}
+                                >
+                                  <span
+                                    className="inline-flex items-center justify-center rounded-full px-4 py-1.5 text-sm font-extrabold"
+                                    style={{
+                                      background: scoreVal >= 70 ? "rgba(227,187,98,0.22)" : "rgba(38,69,85,0.06)",
+                                      color: BRAND.navy,
+                                      border: `1px solid ${scoreVal >= 70 ? "rgba(227,187,98,0.35)" : "rgba(38,69,85,0.10)"}`,
+                                      minWidth: 70,
+                                    }}
+                                  >
+                                    {q.score}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               </div>
             </section>
+
+
           </div>
 
           {/* RIGHT / SIDEBAR */}

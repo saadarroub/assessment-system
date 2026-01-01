@@ -27,6 +27,7 @@ import { useToast } from "@/shared/contexts/ToastContext";
 import ConfirmModal from "@/shared/components/ConfirmModal";
 import { jsPDF } from "jspdf";
 import capConsultingTemplate from "@/assets/cap-template-a4.png"
+import { useScrollLock } from "@/shared/hooks/useScrollLock";
 
 type SortKey =
   | "worker"
@@ -881,6 +882,15 @@ export default function Zuweisungen() {
       setExtending(false);
     }
   }
+ const isAnyModalOpen =
+  !!inviteFor ||
+  !!emailModalFor ||
+  (openDelete && !!deleteFor) ||
+  !!extendFor;
+
+useScrollLock(isAnyModalOpen);
+
+
 
   return (
     <AdminLayout>
@@ -1608,9 +1618,6 @@ export default function Zuweisungen() {
           className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/40 backdrop-blur-sm px-4"
           role="dialog"
           aria-modal="true"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setInviteFor(null);
-          }}
         >
           <div
             className="w-full max-w-xl"
@@ -2087,17 +2094,12 @@ export default function Zuweisungen() {
         }}
         icon={<Trash2 className="text-red-500" />}
       />
-
-      {/* Verlängerung – im Edit-Layout-Stil */}
-      {/* Verlängerung – im Edit-Layout-Stil */}
+      {/* Verlängerung */}
       {extendFor && (
         <div
           className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/40 backdrop-blur-sm px-4"
           role="dialog"
           aria-modal="true"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setExtendFor(null);
-          }}
         >
           <div
             className="w-full max-w-md"
