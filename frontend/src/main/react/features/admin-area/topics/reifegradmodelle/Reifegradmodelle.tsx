@@ -1,12 +1,16 @@
-import React, { useMemo, useState } from "react";
-import { Plus, Trash2, Save, Network } from "lucide-react";
+import React, { useEffect, useMemo, useState } from "react";
+import { Plus, Trash2, Save, Network, Loader2 } from "lucide-react";
 import AdminLayout from "@/apps/app/AdminLayout";
 import PageHeader from "../../catalogs/PageHeader";
 import ConfirmModal from "@/shared/components/ConfirmModal";
 import { useToast } from "@/shared/contexts/ToastContext";
-import { useScrollLock } from "@/shared/hooks/useScrollLock"; 
-
-
+import { useScrollLock } from "@/shared/hooks/useScrollLock";
+import {
+  getAllReifegradModels,
+  createReifegradModel,
+  updateReifegradModel,
+  deleteReifegradModel,
+} from "@/api/reifegradModelApi";
 
 // ====== Style Tokens  ======
 const CSS = {
@@ -27,13 +31,16 @@ const BRAND = {
 };
 
 // ====== Types ======
-type Interval = { id: number | string; start: number; end: number; name: string };
+type Interval = { id: number | string; start: number; end: number; name: string; color: string };
 type MaturityModel = {
   id: string;
   name: string;
   description: string;
   intervals: Interval[];
 };
+
+// Default-Farben für neue Intervalle
+const DEFAULT_COLORS = ["#ef4444", "#fbbf24", "#22c55e", "#3b82f6", "#a855f7", "#f472b6", "#14b8a6"];
 
 // ====== Reusable Modal Shell ======
 function GlowModalShell({
@@ -100,28 +107,30 @@ function ModelUpsertModal({
   onClose,
   onSave,
   initialData,
+  isLoading,
 }: {
   open: boolean;
   onClose: () => void;
   onSave: (model: { id?: string; name: string; description: string; intervals: Interval[] }) => void;
   initialData: MaturityModel | null;
+  isLoading: boolean;
 }) {
   const isEdit = !!initialData;
 
-  const { showSuccess, showError } = useToast();
+  const { showError } = useToast();
 
   // Local form state 
   const [name, setName] = useState(initialData?.name || "");
   const [description, setDescription] = useState(initialData?.description || "");
   const [intervals, setIntervals] = useState<Interval[]>(
-    initialData?.intervals || [{ id: 1, start: 0, end: 100, name: "Initial Level" }]
+    initialData?.intervals || [{ id: 1, start: 0, end: 100, name: "Initial Level", color: DEFAULT_COLORS[0] }]
   );
 
   // Wenn initialData wechselt (Edit anderer Eintrag / Create), State aktualisieren
   React.useEffect(() => {
     setName(initialData?.name || "");
     setDescription(initialData?.description || "");
-    setIntervals(initialData?.intervals || [{ id: 1, start: 0, end: 100, name: "Initial Level" }]);
+    setIntervals(initialData?.intervals || [{ id: 1, start: 0, end: 100, name: "Initial Level", color: DEFAULT_COLORS[0] }]);
   }, [initialData, open]);
 
   const handleIntervalChange = (index: number, newEnd: string) => {
@@ -148,13 +157,14 @@ function ModelUpsertModal({
   const addInterval = () => {
     const last = intervals[intervals.length - 1];
     if (last.end >= 100) {
-     showError("Der letzte Bereich endet bereits bei 100%. Bitte kürzen Sie diesen zuerst.");
+      showError("Der letzte Bereich endet bereits bei 100%. Bitte kürzen Sie diesen zuerst.");
       return;
     }
     const newStart = last.end + 1;
+    const newColor = DEFAULT_COLORS[intervals.length % DEFAULT_COLORS.length];
     setIntervals([
       ...intervals,
-      { id: Date.now(), start: newStart, end: 100, name: `Level ${intervals.length + 1}` },
+      { id: Date.now(), start: newStart, end: 100, name: `Level ${intervals.length + 1}`, color: newColor },
     ]);
   };
 
@@ -181,7 +191,7 @@ function ModelUpsertModal({
     e.preventDefault();
 
     if (intervals[intervals.length - 1].end !== 100) {
-      alert("Das Modell muss 100% abdecken.");
+      showError("Das Modell muss 100% abdecken.");
       return;
     }
 
@@ -191,7 +201,6 @@ function ModelUpsertModal({
       description: description.trim(),
       intervals,
     });
-    onClose();
   };
 
   return (
@@ -204,6 +213,7 @@ function ModelUpsertModal({
           <button
             type="button"
             onClick={onClose}
+            disabled={isLoading}
             className="
               flex-1 h-12
               text-sm font-medium
@@ -212,6 +222,7 @@ function ModelUpsertModal({
               hover:bg-[#e5e5e5]
               border border-slate-200
               rounded-xl
+              disabled:opacity-60
             "
           >
             Abbrechen
@@ -220,7 +231,7 @@ function ModelUpsertModal({
           <button
             type="submit"
             form="model-upsert-form"
-            disabled={!canSubmit}
+            disabled={!canSubmit || isLoading}
             className="
               flex-1 h-12
               text-sm font-semibold
@@ -234,7 +245,11 @@ function ModelUpsertModal({
               disabled:opacity-60 disabled:cursor-not-allowed
             "
           >
-            {isEdit ? (
+            {isLoading ? (
+              <span className="inline-flex items-center justify-center gap-2">
+                <Loader2 size={16} className="animate-spin" /> Speichern...
+              </span>
+            ) : isEdit ? (
               <span className="inline-flex items-center justify-center gap-2">
                 <Save size={16} /> Speichern
               </span>
@@ -380,6 +395,33 @@ function ModelUpsertModal({
                   />
                 </div>
 
+                {/* Farbe */}
+                <div className="min-w-[80px]">
+                  <div className="text-[11px] text-slate-500">Farbe</div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={interval.color || DEFAULT_COLORS[idx % DEFAULT_COLORS.length]}
+                      onChange={(e) => {
+                        const next = [...intervals];
+                        next[idx].color = e.target.value;
+                        setIntervals(next);
+                      }}
+                      className="
+                        w-10 h-10 rounded-lg border cursor-pointer
+                        bg-white border-slate-200
+                        hover:border-[#E3BB62]
+                        transition
+                      "
+                      style={{ padding: 2 }}
+                    />
+                    <div 
+                      className="w-6 h-6 rounded-full border-2 border-white shadow-md"
+                      style={{ backgroundColor: interval.color || DEFAULT_COLORS[idx % DEFAULT_COLORS.length] }}
+                    />
+                  </div>
+                </div>
+
                 {/* Delete Interval */}
                 {intervals.length > 1 && (
                   <button
@@ -403,7 +445,7 @@ function ModelUpsertModal({
           </div>
 
           <p className="mt-2 text-[11px] text-slate-500">
-            * Ändern Sie den „Bis“-Wert, um einen neuen Bereich zu ermöglichen. Der nächste Bereich startet automatisch bei (Wert + 1).
+            * Ändern Sie den „Bis"-Wert, um einen neuen Bereich zu ermöglichen. Der nächste Bereich startet automatisch bei (Wert + 1).
           </p>
         </div>
       </form>
@@ -412,27 +454,51 @@ function ModelUpsertModal({
 }
 
 export default function MaturityModelPage() {
-  // Mock Data
-  const [models, setModels] = useState<MaturityModel[]>([
-    {
-      id: "m1",
-      name: "IT Security Standard",
-      description: "Standardmodell für IT-Sicherheit nach ISO 27001",
-      intervals: [
-        { id: 1, start: 0, end: 30, name: "Initial" },
-        { id: 2, start: 31, end: 70, name: "Verwaltet" },
-        { id: 3, start: 71, end: 100, name: "Optimiert" },
-      ],
-    },
-  ]);
+  const { showSuccess, showError } = useToast();
+
+  // State
+  const [models, setModels] = useState<MaturityModel[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Create/Edit modal state
   const [openUpsert, setOpenUpsert] = useState(false);
   const [editingModel, setEditingModel] = useState<MaturityModel | null>(null);
 
-  // Delete confirm state (UserList-Pattern)
+  // Delete confirm state
   const [openDelete, setOpenDelete] = useState(false);
   const [target, setTarget] = useState<MaturityModel | null>(null);
+
+  // Load models on mount
+  useEffect(() => {
+    loadModels();
+  }, []);
+
+  const loadModels = async () => {
+    try {
+      setIsLoading(true);
+      const data = await getAllReifegradModels();
+      // Convert API response to local format with interval IDs
+      const converted: MaturityModel[] = data.map((m) => ({
+        id: m.id,
+        name: m.name,
+        description: m.description || "",
+        intervals: m.intervals.map((interval, idx) => ({
+          id: idx + 1,
+          name: interval.name,
+          start: interval.start,
+          end: interval.end,
+          color: interval.color || DEFAULT_COLORS[idx % DEFAULT_COLORS.length],
+        })),
+      }));
+      setModels(converted);
+    } catch (error) {
+      console.error("Fehler beim Laden der Reifegradmodelle:", error);
+      showError("Fehler beim Laden der Reifegradmodelle");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const openCreate = () => {
     setEditingModel(null);
@@ -449,22 +515,97 @@ export default function MaturityModelPage() {
     setOpenDelete(true);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (!target) return;
-    setModels((prev) => prev.filter((x) => x.id !== target.id));
-    setOpenDelete(false);
-    setTarget(null);
-  };
-
-  const handleSaveModel = (data: { id?: string; name: string; description: string; intervals: Interval[] }) => {
-    if (data.id) {
-      setModels((prev) => prev.map((m) => (m.id === data.id ? ({ ...m, ...data } as MaturityModel) : m)));
-    } else {
-      setModels((prev) => [{ ...(data as any), id: Date.now().toString() }, ...prev]);
+    try {
+      setIsSaving(true);
+      await deleteReifegradModel(target.id);
+      setModels((prev) => prev.filter((x) => x.id !== target.id));
+      showSuccess(`Modell "${target.name}" wurde gelöscht`);
+    } catch (error) {
+      console.error("Fehler beim Löschen:", error);
+      showError("Fehler beim Löschen des Modells");
+    } finally {
+      setIsSaving(false);
+      setOpenDelete(false);
+      setTarget(null);
     }
   };
-  useScrollLock(openUpsert || (openDelete && !!target));
 
+  const handleSaveModel = async (data: { id?: string; name: string; description: string; intervals: Interval[] }) => {
+    try {
+      setIsSaving(true);
+
+      // Convert intervals to API format (without local IDs)
+      const apiIntervals = data.intervals.map((i) => ({
+        name: i.name,
+        start: i.start,
+        end: i.end,
+        color: i.color,
+      }));
+
+      if (data.id) {
+        // Update existing
+        const updated = await updateReifegradModel(data.id, {
+          name: data.name,
+          description: data.description,
+          intervals: apiIntervals,
+        });
+
+        setModels((prev) =>
+          prev.map((m) =>
+            m.id === data.id
+              ? {
+                  id: updated.id,
+                  name: updated.name,
+                  description: updated.description || "",
+                  intervals: updated.intervals.map((interval, idx) => ({
+                    id: idx + 1,
+                    name: interval.name,
+                    start: interval.start,
+                    end: interval.end,
+                    color: interval.color || DEFAULT_COLORS[idx % DEFAULT_COLORS.length],
+                  })),
+                }
+              : m
+          )
+        );
+        showSuccess(`Modell "${updated.name}" wurde aktualisiert`);
+      } else {
+        // Create new
+        const created = await createReifegradModel({
+          name: data.name,
+          description: data.description,
+          intervals: apiIntervals,
+        });
+
+        const newModel: MaturityModel = {
+          id: created.id,
+          name: created.name,
+          description: created.description || "",
+          intervals: created.intervals.map((interval, idx) => ({
+            id: idx + 1,
+            name: interval.name,
+            start: interval.start,
+            end: interval.end,
+            color: interval.color || DEFAULT_COLORS[idx % DEFAULT_COLORS.length],
+          })),
+        };
+
+        setModels((prev) => [newModel, ...prev]);
+        showSuccess(`Modell "${created.name}" wurde erstellt`);
+      }
+
+      setOpenUpsert(false);
+    } catch (error) {
+      console.error("Fehler beim Speichern:", error);
+      showError("Fehler beim Speichern des Modells");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  useScrollLock(openUpsert || (openDelete && !!target));
 
   return (
     <AdminLayout>
@@ -560,7 +701,16 @@ export default function MaturityModelPage() {
               </thead>
 
               <tbody>
-                {models.length === 0 ? (
+                {isLoading ? (
+                  <tr>
+                    <td colSpan={4} className="px-4 py-10 bg-white text-center text-slate-500">
+                      <div className="flex items-center justify-center gap-2">
+                        <Loader2 size={20} className="animate-spin" />
+                        Lade Reifegradmodelle...
+                      </div>
+                    </td>
+                  </tr>
+                ) : models.length === 0 ? (
                   <tr>
                     <td colSpan={4} className="px-4 py-10 bg-white text-center text-slate-500">
                       Keine Modelle gefunden. Erstellen Sie ein neues Modell.
@@ -588,9 +738,13 @@ export default function MaturityModelPage() {
                           {m.intervals.map((it) => (
                             <span
                               key={it.id}
-                              className="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold bg-[#e5ebf0] text-[#264555]"
+                              className="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold text-white"
+                              style={{ 
+                                backgroundColor: it.color || DEFAULT_COLORS[0],
+                                textShadow: "0 1px 2px rgba(0,0,0,0.2)"
+                              }}
                             >
-                              {it.name} ({it.end}%)
+                              {it.name} ({it.start}–{it.end}%)
                             </span>
                           ))}
                         </div>
@@ -656,6 +810,7 @@ export default function MaturityModelPage() {
         onClose={() => setOpenUpsert(false)}
         onSave={handleSaveModel}
         initialData={editingModel}
+        isLoading={isSaving}
       />
 
       {/* Delete Confirm */}
@@ -669,9 +824,10 @@ export default function MaturityModelPage() {
             wirklich löschen?
           </>
         }
-        hintTitle="Hinweis"
+        hintTitle="Wichtiger Hinweis"
         hintText={
           <>
+            <span className="font-semibold text-red-700">Dieses Modell wird von allen Katalogen entfernt</span>, die es verwenden.{" "}
             Diese Aktion kann{" "}
             <span className="font-semibold text-red-700">nicht rückgängig gemacht</span>{" "}
             werden.

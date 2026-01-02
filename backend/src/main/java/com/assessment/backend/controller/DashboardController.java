@@ -66,6 +66,16 @@ public class DashboardController {
         return ResponseEntity.ok(dashboardService.getCompanyHierarchy());
     }
 
+    /**
+     * Get completed sessions with maturity model information
+     */
+    @GetMapping("/stats/completed-with-maturity")
+    public ResponseEntity<List<CompletedCatalogMaturityDto>> getCompletedSessionsWithMaturity(
+            @RequestParam(defaultValue = "10") int limit
+    ) {
+        return ResponseEntity.ok(dashboardService.getCompletedSessionsWithMaturity(limit));
+    }
+
     // ==================== Session Analytics Endpoints ====================
 
     /**
