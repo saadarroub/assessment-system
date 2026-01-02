@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import React from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import FancyDatePicker from "@/shared/components/FancyDatePicker";
 import NumberField from "@/shared/components/NumberField";
@@ -53,6 +54,7 @@ type PublicAssessmentSession = {
   workerName: string;
   accessCode?: string;
 };
+
 
 function readStore(): any {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); }
@@ -1045,6 +1047,8 @@ export default function AssessmentPage() {
         return val === undefined || val === null || val === "";
     }
   }
+ 
+  
 
   /* -------- Render -------- */
   return (
@@ -1317,304 +1321,316 @@ export default function AssessmentPage() {
         "
         />
       </div>
-      <div
-        className="
+      <div className="
     relative z-[1]
     flex flex-col items-center
-    pt-16 pb-16 px-5
+    pt-28 md:pt-32 pb-16 px-5
   "
       >
-        {/* Logo-Badge */}
-        <div className="relative z-20 flex justify-center mb-6 sm:mb-2 -mt-4">
-          <div className="relative">
-            <div className="absolute inset-0 rounded-full blur-2xl bg-[radial-gradient(circle,rgba(227,187,98,0.22),transparent_60%)]" />
 
-            {/* Ring + Kreis */}
-            <div className="p-[3px] rounded-full bg-white shadow-[0_18px_60px_rgba(15,23,42,0.18)]">
-              <div
-                className="
-          h-24 w-24 sm:h-28 sm:w-28 md:h-32 md:w-32
-          rounded-full overflow-hidden
-          bg-white/92 backdrop-blur
-          border border-white/70
-          ring-1 ring-black/5
-          flex items-center justify-center
-        "
-              >
-                <img
-                  src={aa}
-                  alt="ICA³"
-                  className="
-    h-full w-full
-    object-cover
-    scale-[1.2]
-    translate-y-[2px]
-    drop-shadow-[0_10px_18px_rgba(15,23,42,0.18)]
+        {/* weißer Haupt-Container */}
+        <div className="relative w-full max-w-[980px]">
+
+          {/* Trapez + Kreis (sitzt direkt an der oberen Kante der Card) */}
+          <div className="pointer-events-none absolute left-1/2 top-0 -translate-x-1/2 z-30">
+            {/* Trapez: Bottom ist bündig mit Card-Top */}
+            <svg
+              className="
+    absolute left-1/2 top-0 -translate-x-1/2
+    -translate-y-[98%]
+    h-14
+    w-[280px] sm:w-[320px] md:w-[360px]
+    drop-shadow-[0_10px_30px_rgba(15,23,42,0.10)]
   "
-                />
+              viewBox="0 0 100 40"
+              preserveAspectRatio="none"
+            >
+              <defs>
+                <linearGradient id="trapGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#ffffff" />
+                  <stop offset="100%" stopColor="#f5f5f7" />
+                </linearGradient>
+              </defs>
 
+              {/* Füllung wie Card (white -> #f5f5f7) */}
+              <polygon points="18,0 82,0 100,40 0,40" fill="url(#trapGrad)" />
+
+              {/* Border wie Card (border-white/80) */}
+              <polygon
+                points="18,0 82,0 100,40 0,40"
+                fill="none"
+                stroke="rgba(255,255,255,0.8)"
+                strokeWidth="1"
+              />
+            </svg>
+
+
+
+            {/* Kreis-Logo */}
+            <div className="absolute left-1/2 top-[-88px] sm:top-[-100px] md:top-[-108px] -translate-x-1/2">
+
+              <div className="relative">
+                <div className="absolute inset-0 rounded-full blur-2xl bg-[radial-gradient(circle,rgba(227,187,98,0.22),transparent_60%)]" />
+                <div className="p-[3px] rounded-full bg-white shadow-[0_18px_60px_rgba(15,23,42,0.18)]">
+                  <div className="h-24 w-24 sm:h-28 sm:w-28 md:h-32 md:w-32 rounded-full overflow-hidden bg-white/92 backdrop-blur border border-white/70 ring-1 ring-black/5 flex items-center justify-center">
+                    <img
+                      src={aa}
+                      alt="ICA³"
+                      className="h-full w-full object-cover scale-[1.2] translate-y-[2px] drop-shadow-[0_10px_18px_rgba(15,23,42,0.18)]"
+                    />
+                  </div>
+                </div>
               </div>
             </div>
           </div>
-        </div>
+
+          {/* weißer Haupt-Container  */}
+          <div className="relative z-10 w-full max-w-[980px] rounded-3xl bg-gradient-to-b from-white to-[#f5f5f7] border border-white/80 shadow-[0_24px_80px_rgba(15,23,42,0.16)] overflow-hidden">
+            {/* ab hier bleibt bei dir alles exakt gleich */}
 
 
-
-
-        {/* weißer Haupt-Container */}
-        <div
-          className="
-      w-full max-w-[980px]
-      rounded-3xl
-      bg-gradient-to-b from-white to-[#f5f5f7]
-      border border-white/80
-      shadow-[0_24px_80px_rgba(15,23,42,0.16)]
-      overflow-hidden
-    "
-        >
-
-          {/* Header */}
-          <div className=" p-6
+            {/* Header */}
+            <div className=" p-6
     bg-white/95
     backdrop-blur-sm
     border-b border-[#e4e4e7]
     shadow-[0_1px_0_rgba(15,23,42,0.04)]">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div>
-                <div className="text-xl sm:text-2xl font-extrabold text-[#1a1a1a] tracking-tight">{headerTitle}</div>
-                {headerSubtitle && <div className="text-sm text-[#666] mt-1">{headerSubtitle}</div>}
-              </div>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div>
+                  <div className="text-xl sm:text-2xl font-extrabold text-[#1a1a1a] tracking-tight">{headerTitle}</div>
+                  {headerSubtitle && <div className="text-sm text-[#666] mt-1">{headerSubtitle}</div>}
+                </div>
 
-              <button
-                type="button"
-                onClick={goBackToTopics}
-                className=" group inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold
+                <button
+                  type="button"
+                  onClick={goBackToTopics}
+                  className=" group inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold
   bg-white text-slate-800 border border-[#ddd]
   shadow-sm
   transition-all duration-150 ease-out transform
   hover:bg-[#d4af37] hover:border-[#d4af37] hover:text-[#1f2a37]
   hover:-translate-y-[1px] hover:shadow-md
   active:translate-y-[0px] active:shadow-sm"
-              >
-                <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M3 11l9-7 9 7" />
-                  <path d="M9 22V12h6v10" />
-                </svg>
-                Zur Übersicht
-              </button>
+                >
+                  <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M3 11l9-7 9 7" />
+                    <path d="M9 22V12h6v10" />
+                  </svg>
+                  Zur Übersicht
+                </button>
+              </div>
             </div>
-          </div>
 
-          {/* Progress */}
-          {!completed && (
-            <div className="px-6 py-4 bg-[#f8f9fa] border-b border-[#e5e7eb]">
-              <div className="flex items-center justify-between mb-3">
-                <div className="text-[18px] font-semibold text-[#1a1a1a]">Assessment läuft</div>
-                <div className="flex items-center gap-3">
-                  <span className="text-sm text-[#0f172a] bg-[#f8fafc] px-3.5 py-1.5 rounded-full border border-gray-200">
-                    {`Frage ${Math.max(1, step)}${progress.total ? ` von ${progress.total}` : ""}`}
-                  </span>
+            {/* Progress */}
+            {!completed && (
+              <div className="px-6 py-4 bg-[#f8f9fa] border-b border-[#e5e7eb]">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-[18px] font-semibold text-[#1a1a1a]">Assessment läuft</div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm text-[#0f172a] bg-[#f8fafc] px-3.5 py-1.5 rounded-full border border-gray-200">
+                      {`Frage ${Math.max(1, step)}${progress.total ? ` von ${progress.total}` : ""}`}
+                    </span>
+                  </div>
                 </div>
-              </div>
-              <div className="w-full h-2.5 bg-[#ebebec] rounded-[10px] overflow-hidden mb-2">
-                <div
-                  className="h-full transition-[width] duration-300 ease-out rounded-[10px]
+                <div className="w-full h-2.5 bg-[#ebebec] rounded-[10px] overflow-hidden mb-2">
+                  <div
+                    className="h-full transition-[width] duration-300 ease-out rounded-[10px]
                bg-[linear-gradient(90deg,#E3BB62_0%,#d2c9b9_100%)]"
-                  style={{ width: `${pct}%` }}
-                />
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+
+                <div className="text-sm text-[#666]">{pct}% abgeschlossen</div>
               </div>
+            )}
 
-              <div className="text-sm text-[#666]">{pct}% abgeschlossen</div>
-            </div>
-          )}
-
-          {/* Inhalt !completed*/}
-          {q && (
-            <>
-              <div className=" px-6 pt-6 pb-6
+            {/* Inhalt !completed*/}
+            {q && (
+              <>
+                <div className=" px-6 pt-6 pb-6
     bg-white/98
     shadow-[0_16px_45px_rgba(15,23,42,0.10)]">
-                <div className="text-[18px] font-semibold text-[#1a1a1a] mb-6 leading-relaxed">{q.text}</div>
+                  <div className="text-[18px] font-semibold text-[#1a1a1a] mb-6 leading-relaxed">{q.text}</div>
 
-                {/* Eingabetypen */}
-                {q.type === "radio" && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {q.options.map((opt: string) => {
-                      const checked = answers[q.id] === opt;
-                      return (
-                        <label
-                          key={opt}
-                          className={`flex items-center p-5 border-2 rounded-lg cursor-pointer transition bg-white
+                  {/* Eingabetypen */}
+                  {q.type === "radio" && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {q.options.map((opt: string) => {
+                        const checked = answers[q.id] === opt;
+                        return (
+                          <label
+                            key={opt}
+                            className={`flex items-center p-5 border-2 rounded-lg cursor-pointer transition bg-white
                           ${checked
-                              ? "border-[#E3BB62] bg-[#FFFAEB]"                         // ausgewählt: Gold-Rahmen + hellgoldener Hintergrund
-                              : "border-gray-200 hover:border-[#264555] hover:bg-[#f8fafc]" // Hover: Navy-Rand
-                            }`}
-                        >
-                          <input
-                            type="radio"
-                            name={`q-${q.id}`}
-                            className="mr-3 w-[18px] h-[18px] cursor-pointer accent-[#56768f]"  // Kreis in CAP-Navy
-                            checked={checked}
-                            onChange={() => setAnswer(q.id, opt, "radio")}
-                          />
+                                ? "border-[#E3BB62] bg-[#FFFAEB]"                         // ausgewählt: Gold-Rahmen + hellgoldener Hintergrund
+                                : "border-gray-200 hover:border-[#264555] hover:bg-[#f8fafc]" // Hover: Navy-Rand
+                              }`}
+                          >
+                            <input
+                              type="radio"
+                              name={`q-${q.id}`}
+                              className="mr-3 w-[18px] h-[18px] cursor-pointer accent-[#56768f]"  // Kreis in CAP-Navy
+                              checked={checked}
+                              onChange={() => setAnswer(q.id, opt, "radio")}
+                            />
 
-                          <span className="text-[15px] text-[#333]">{opt}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                )}
+                            <span className="text-[15px] text-[#333]">{opt}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
 
-                {q.type === "checkbox" && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {q.options.map((opt: string) => {
-                      const list: string[] = answers[q.id] || [];
-                      const checked = list.includes(opt);
-                      return (
-                        <label
-                          key={opt}
-                          className={`flex items-center p-5 border-2 rounded-lg cursor-pointer transition bg-white
+                  {q.type === "checkbox" && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {q.options.map((opt: string) => {
+                        const list: string[] = answers[q.id] || [];
+                        const checked = list.includes(opt);
+                        return (
+                          <label
+                            key={opt}
+                            className={`flex items-center p-5 border-2 rounded-lg cursor-pointer transition bg-white
                           ${checked
-                              ? "border-[#E3BB62] bg-[#FFFAEB]"
-                              : "border-gray-200 hover:border-[#264555] hover:bg-[#f8fafc]"
-                            }`}
-                        >
-                          <input
-                            type="checkbox"
-                            className="mr-3 w-[18px] h-[18px] cursor-pointer accent-[#56768f]"
-                            checked={checked}
-                            onChange={() => setAnswer(q.id, opt, "checkbox")}
-                          />
-                          <span className="text-[15px] text-[#333]">{opt}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                )}
+                                ? "border-[#E3BB62] bg-[#FFFAEB]"
+                                : "border-gray-200 hover:border-[#264555] hover:bg-[#f8fafc]"
+                              }`}
+                          >
+                            <input
+                              type="checkbox"
+                              className="mr-3 w-[18px] h-[18px] cursor-pointer accent-[#56768f]"
+                              checked={checked}
+                              onChange={() => setAnswer(q.id, opt, "checkbox")}
+                            />
+                            <span className="text-[15px] text-[#333]">{opt}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
 
-                {q.type === "slider" && (
-                  <div className="py-5">
-                    <input
-                      type="range"
-                      min={(q as any).min ?? 0}
-                      max={(q as any).max ?? 6}
-                      value={answers[q.id] ?? Math.floor((((q as any).min ?? 0) + ((q as any).max ?? 6)) / 2)}
-                      onChange={(e) => setAnswer(q.id, Number(e.target.value), "slider")}
-                      className=" w-full h-2 rounded bg-[#ebebec] outline-none
+                  {q.type === "slider" && (
+                    <div className="py-5">
+                      <input
+                        type="range"
+                        min={(q as any).min ?? 0}
+                        max={(q as any).max ?? 6}
+                        value={answers[q.id] ?? Math.floor((((q as any).min ?? 0) + ((q as any).max ?? 6)) / 2)}
+                        onChange={(e) => setAnswer(q.id, Number(e.target.value), "slider")}
+                        className=" w-full h-2 rounded bg-[#ebebec] outline-none
     [accent-color:#56768f]
     [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:h-6
     [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[#56768f]
     [&::-moz-range-thumb]:w-6 [&::-moz-range-thumb]:h-6 [&::-moz-range-thumb]:rounded-full
     [&::-moz-range-thumb]:bg-[#56768f] [&::-moz-range-thumb]:border-0"
-                    />
-                    <div className="text-center text-[18px] font-semibold text-[#56768f] mt-2">
-                      {answers[q.id] ?? Math.floor((((q as any).min ?? 0) + ((q as any).max ?? 6)) / 2)}
-                    </div>
-                    {(q as any).labels && (
-                      <div className="flex justify-between mt-2 text-sm text-[#666]">
-                        <span>{(q as any).labels[0]}</span>
-                        <span>{(q as any).labels[1]}</span>
+                      />
+                      <div className="text-center text-[18px] font-semibold text-[#56768f] mt-2">
+                        {answers[q.id] ?? Math.floor((((q as any).min ?? 0) + ((q as any).max ?? 6)) / 2)}
                       </div>
-                    )}
-                  </div>
-                )}
+                      {(q as any).labels && (
+                        <div className="flex justify-between mt-2 text-sm text-[#666]">
+                          <span>{(q as any).labels[0]}</span>
+                          <span>{(q as any).labels[1]}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
-                {q.type === "textarea" && (
-                  <textarea
-                    className="w-full min-h-[120px] p-4 border-2 border-gray-200 rounded-lg text-[15px] resize-y outline-none focus:border-blue-500"
-                    placeholder={(q as any).placeholder || ""}
-                    value={answers[q.id] || ""}
-                    onChange={(e) => setAnswer(q.id, e.target.value, "textarea")}
-                  />
-                )}
-
-                {q.type === "text" && (
-                  <input
-                    type="text"
-                    className="w-full p-4 border-2 border-gray-200 rounded-lg text-[15px] outline-none focus:border-blue-500"
-                    placeholder={(q as any).placeholder || ""}
-                    value={answers[q.id] || ""}
-                    onChange={(e) => setAnswer(q.id, e.target.value, "text")}
-                  />
-                )}
-
-                {q.type === "select" && (
-                  <select
-                    className="w-full p-4 border-2 border-gray-200 rounded-lg text-[15px] outline-none focus:border-blue-500 bg-white"
-                    value={answers[q.id] ?? ""}
-                    onChange={(e) => setAnswer(q.id, e.target.value, "select")}
-                  >
-                    <option value="" disabled>Bitte auswählen …</option>
-                    {q.options.map((opt: string) => (
-                      <option key={opt} value={opt}>{opt}</option>
-                    ))}
-                  </select>
-                )}
-
-                {q.type === "number" && (
-                  <NumberField
-                    value={answers[q.id] ?? ""}
-                    min={(q as any).min}
-                    max={(q as any).max}
-                    step={(q as any).step ?? 1}
-                    placeholder="z.B. 1980"
-                    onChange={(v) => setAnswer(q.id, v, "number")}
-                  />
-
-                )}
-
-                {q.type === "date" && (() => {
-                  const raw = answers[q.id] ?? ""; // "YYYY-MM-DD"
-
-                  // sicherer Parse (kein Zeitzonen-Shift)
-                  const dateValue = raw
-                    ? new Date(Number(raw.slice(0, 4)), Number(raw.slice(5, 7)) - 1, Number(raw.slice(8, 10)))
-                    : undefined;
-
-                  return (
-                    <FancyDatePicker
-                      minYear={1850}
-                      maxYear={new Date().getFullYear()}
-                      value={dateValue}
-                      onChange={(d) => {
-                        const toYMD = (date: Date) => {
-                          const y = date.getFullYear();
-                          const m = String(date.getMonth() + 1).padStart(2, "0");
-                          const day = String(date.getDate()).padStart(2, "0");
-                          return `${y}-${m}-${day}`; // "YYYY-MM-DD"
-                        };
-
-                        const iso = d ? toYMD(d) : "";
-                        setAnswer(q.id, iso, "date");
-
-                      }}
+                  {q.type === "textarea" && (
+                    <textarea
+                      className="w-full min-h-[120px] p-4 border-2 border-gray-200 rounded-lg text-[15px] resize-y outline-none focus:border-blue-500"
+                      placeholder={(q as any).placeholder || ""}
+                      value={answers[q.id] || ""}
+                      onChange={(e) => setAnswer(q.id, e.target.value, "textarea")}
                     />
-                  );
-                })()}
+                  )}
+
+                  {q.type === "text" && (
+                    <input
+                      type="text"
+                      className="w-full p-4 border-2 border-gray-200 rounded-lg text-[15px] outline-none focus:border-blue-500"
+                      placeholder={(q as any).placeholder || ""}
+                      value={answers[q.id] || ""}
+                      onChange={(e) => setAnswer(q.id, e.target.value, "text")}
+                    />
+                  )}
+
+                  {q.type === "select" && (
+                    <select
+                      className="w-full p-4 border-2 border-gray-200 rounded-lg text-[15px] outline-none focus:border-blue-500 bg-white"
+                      value={answers[q.id] ?? ""}
+                      onChange={(e) => setAnswer(q.id, e.target.value, "select")}
+                    >
+                      <option value="" disabled>Bitte auswählen …</option>
+                      {q.options.map((opt: string) => (
+                        <option key={opt} value={opt}>{opt}</option>
+                      ))}
+                    </select>
+                  )}
+
+                  {q.type === "number" && (
+                    <NumberField
+                      value={answers[q.id] ?? ""}
+                      min={(q as any).min}
+                      max={(q as any).max}
+                      step={(q as any).step ?? 1}
+                      placeholder="z.B. 1980"
+                      onChange={(v) => setAnswer(q.id, v, "number")}
+                    />
+
+                  )}
+
+                  {q.type === "date" && (() => {
+                    const raw = answers[q.id] ?? ""; // "YYYY-MM-DD"
+
+                    // sicherer Parse (kein Zeitzonen-Shift)
+                    const dateValue = raw
+                      ? new Date(Number(raw.slice(0, 4)), Number(raw.slice(5, 7)) - 1, Number(raw.slice(8, 10)))
+                      : undefined;
+
+                    return (
+                      <FancyDatePicker
+                        minYear={1850}
+                        maxYear={new Date().getFullYear()}
+                        value={dateValue}
+                        onChange={(d) => {
+                          const toYMD = (date: Date) => {
+                            const y = date.getFullYear();
+                            const m = String(date.getMonth() + 1).padStart(2, "0");
+                            const day = String(date.getDate()).padStart(2, "0");
+                            return `${y}-${m}-${day}`; // "YYYY-MM-DD"
+                          };
+
+                          const iso = d ? toYMD(d) : "";
+                          setAnswer(q.id, iso, "date");
+
+                        }}
+                      />
+                    );
+                  })()}
 
 
 
-                {q.type === "order" && (
-                  <OrderQuestion
-                    q={q}
-                    value={answers[q.id] ?? []}
-                    onChange={(arr) => setAnswer(q.id, arr, "order")}
-                  />
-                )}
+                  {q.type === "order" && (
+                    <OrderQuestion
+                      q={q}
+                      value={answers[q.id] ?? []}
+                      onChange={(arr) => setAnswer(q.id, arr, "order")}
+                    />
+                  )}
 
 
-                {/* Navigation */}
-                <div className="pb-6 pt-6 flex items-center justify-between gap-3">
-                  <button
-                    className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold bg-white text-[#666] border border-[#ddd] hover:bg-[#f5f5f5] transition disabled:opacity-50 disabled:cursor-not-allowed"
-                    onClick={prev}
-                    disabled={!sessionId || !q || !canGoBack}   // nur deaktivieren, wenn wir gar nichts haben
-                  >
-                    ← Zurück
-                  </button>
+                  {/* Navigation */}
+                  <div className="pb-6 pt-6 flex items-center justify-between gap-3">
+                    <button
+                      className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold bg-white text-[#666] border border-[#ddd] hover:bg-[#f5f5f5] transition disabled:opacity-50 disabled:cursor-not-allowed"
+                      onClick={prev}
+                      disabled={!sessionId || !q || !canGoBack}   // nur deaktivieren, wenn wir gar nichts haben
+                    >
+                      ← Zurück
+                    </button>
 
-                  <button
-                    className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold
+                    <button
+                      className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold
     bg-[#E3BB62] text-[#264555]
     shadow-sm border border-transparent
     transition-all duration-150 ease-out transform
@@ -1622,23 +1638,26 @@ export default function AssessmentPage() {
     hover:-translate-y-[1px] hover:shadow-md
     active:translate-y-[0px] active:shadow-sm
     disabled:opacity-60 disabled:cursor-not-allowed"
-                    onClick={next}
-                    disabled={!sessionId || !q || isCurrentRequiredUnanswered}
-                  >
-                    {status === "completed" || (progress.total && progress.answered + 1 >= progress.total && pos >= trail.length - 1)
-                      ? "Abschließen ✓"
-                      : "Weiter →"}
-                  </button>
+                      onClick={next}
+                      disabled={!sessionId || !q || isCurrentRequiredUnanswered}
+                    >
+                      {status === "completed" || (progress.total && progress.answered + 1 >= progress.total && pos >= trail.length - 1)
+                        ? "Abschließen ✓"
+                        : "Weiter →"}
+                    </button>
 
+                  </div>
                 </div>
-              </div>
-            </>
-          )}
+              </>
+            )}
 
+          </div>
         </div>
+
 
       </div>
     </div>
+
 
   );
 
