@@ -1058,7 +1058,7 @@ export default function ConditionEditor() {
           <div className="flex items-start gap-3">
             {/* Grip */}
             <GripVertical
-              size={20 }
+              size={20}
               className={`cursor-grab mt-1 transition-all duration-150
                  ${draggingId === q.id
                   ? "text-green-500 scale-110"
@@ -1696,7 +1696,6 @@ export default function ConditionEditor() {
                   className="pointer-events-none absolute -right-24 -top-24 h-52 w-52 rounded-full bg-gradient-to-br from-[#E3BB62]/40 via-amber-400/20 to-transparent opacity-60"
                   aria-hidden="true"
                 />
-
 
                 {/* Inhalt / Formular */}
                 <div className="relative px-6 pt-6 pb-5 max-h-[calc(100vh-150px)] overflow-y-auto" ref={modalRef}>
