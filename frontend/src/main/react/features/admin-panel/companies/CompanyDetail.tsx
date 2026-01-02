@@ -1459,7 +1459,7 @@ useScrollLock(anyModalOpen);
                       htmlFor="cw-ws"
                       className="block text-sm font-medium text-slate-700 mb-1"
                     >
-                      Workspace (optional)
+                      Workspace <span className="text-red-500">*</span>
                     </label>
                     <input
                       id="cw-ws"

@@ -62,6 +62,7 @@ type NavId =
   | "catalog"
   | "Admin-Panel"
   | "Ergebnis Analysieren"
+  | "Reifegradmodelle"
   | "users"
   | "companies"
   | "roles"
@@ -76,22 +77,16 @@ const NAV_PRIMARY: Array<{
   to: string;
 }> = [
     {
-      id: "dashboard",
-      label: "Dashboard",
-      Icon: LayoutDashboard,
-      to: "/admin/dashboard",
+      id: "dashboard", label: "Dashboard", Icon: LayoutDashboard, to: "/admin/dashboard",
     },
     {
-      id: "Themen Verwalten",
-      label: "Themen Verwalten",
-      Icon: Settings,
-      to: "/admin",
+      id: "Themen Verwalten", label: "Themen ", Icon: Settings, to: "/admin",
     },
     {
-      id: "catalog",
-      label: "Kataloge",
-      Icon: FileText,
-      to: "/admin/katalogzuweisen",
+      id: "catalog", label: "Kataloge", Icon: FileText, to: "/admin/katalogzuweisen",
+    },
+    {
+       id: "Reifegradmodelle", label: "Reifegradmodelle", Icon: ShoppingCart, to: "/admin/reifegradmodelle",
     },
   ];
 
@@ -101,19 +96,17 @@ const NAV_Panel: Array<{
   Icon: React.FC<any>;
   to: string;
 }> = [
-    { id: "users", label: "Users", Icon: ShoppingCart, to: "/admin/adminPanel/users" },
     {
-      id: "companies",
-      label: "Firmen",
-      Icon: Building2,
-      to: "/admin/adminPanel/companies",
+      id: "users", label: "Users", Icon: ShoppingCart, to: "/admin/adminPanel/users"
     },
-    { id: "roles", label: "Rollen", Icon: Shield, to: "/admin/adminPanel/roles" },
     {
-      id: "Zuweisungen",
-      label: "Zuweisungen",
-      Icon: FileText,
-      to: "/admin/adminPanel/zuweisungen",
+      id: "companies", label: "Firmen", Icon: Building2, to: "/admin/adminPanel/companies",
+    },
+    {
+      id: "roles", label: "Rollen", Icon: Shield, to: "/admin/adminPanel/roles",
+    },
+    {
+      id: "Zuweisungen", label: "Zuweisungen", Icon: FileText, to: "/admin/adminPanel/zuweisungen",
     },
   ];
 
@@ -124,10 +117,7 @@ const NAV_Analyse: Array<{
   to: string;
 }> = [
     {
-      id: "Ergebnis Analysieren",
-      label: "Ergebnisse Analysieren",
-      Icon: ShoppingCart,
-      to: "/app/companylist",
+      id: "Ergebnis Analysieren", label: "Ergebnisse Analysieren", Icon: ShoppingCart, to: "/app/companylist",
     },
   ];
 
@@ -774,7 +764,6 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                         {initials}
                       </div>
                     )}
-                    <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-400 border border-slate-900" />
                   </div>
                 </button>
               ) : (
@@ -818,7 +807,6 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                         {initials}
                       </div>
                     )}
-                    <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-400 border border-slate-900" />
                   </div>
 
 

@@ -8,6 +8,7 @@ import { getUserProfile, buildAvatarUrl } from "@/features/service/profilePageSe
 import { useScrollLock } from "@/shared/hooks/useScrollLock";
 import { useHasPermission } from "@/shared/hooks/useHasPermission";
 import { PermissionButton } from "@/shared/components/permission/PermissionButton";
+import { SoftSquaresBackground } from "@/shared/components/SoftSquaresBackground";
 
 
 import {

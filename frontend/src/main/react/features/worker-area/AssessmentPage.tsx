@@ -20,7 +20,7 @@ import {
   summaryRowToUiQuestion,
   type ApiSummaryResponse,
 } from "@/features/service/publicAssessmentService";
-import aa from '@/assets/ICA3_Logo.jpg';
+import aa from '@/assets/ChatGPT Image 2. Jan. 2026, 00_29_48.png';
 import {
   DndContext,
   closestCorners,
@@ -1324,30 +1324,42 @@ export default function AssessmentPage() {
     pt-16 pb-16 px-5
   "
       >
-        {/* Logo-Badge – groß & sichtbar */}
-        <div
-          className="
-      relative
-      -mb-10
-      inline-flex items-center justify-center
-      h-24 sm:h-28 md:h-32          /* etwas höher = mehr Platz fürs GIF */
-      w-[210px] sm:w-[240px] md:w-[270px]
-      rounded-[32px]
-      bg-white/98
-      border border-[#e4e4e7]
-      shadow-[0_26px_70px_rgba(15,23,42,0.30)]
-      overflow-hidden
-    "
-        >
-          <img
-            src={aa}
-            alt="ICA³ – Integrated Customer Assessments &amp; Advanced Analytics"
-            className="
-        max-h-full w-auto            /* GANZES GIF sichtbar */
-        object-contain
-      "
-          />
+        {/* Logo-Badge */}
+        <div className="relative z-20 flex justify-center mb-6 sm:mb-2 -mt-4">
+          <div className="relative">
+            <div className="absolute inset-0 rounded-full blur-2xl bg-[radial-gradient(circle,rgba(227,187,98,0.22),transparent_60%)]" />
+
+            {/* Ring + Kreis */}
+            <div className="p-[3px] rounded-full bg-white shadow-[0_18px_60px_rgba(15,23,42,0.18)]">
+              <div
+                className="
+          h-24 w-24 sm:h-28 sm:w-28 md:h-32 md:w-32
+          rounded-full overflow-hidden
+          bg-white/92 backdrop-blur
+          border border-white/70
+          ring-1 ring-black/5
+          flex items-center justify-center
+        "
+              >
+                <img
+                  src={aa}
+                  alt="ICA³"
+                  className="
+    h-full w-full
+    object-cover
+    scale-[1.2]
+    translate-y-[2px]
+    drop-shadow-[0_10px_18px_rgba(15,23,42,0.18)]
+  "
+                />
+
+              </div>
+            </div>
+          </div>
         </div>
+
+
+
 
         {/* weißer Haupt-Container */}
         <div

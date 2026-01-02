@@ -380,15 +380,15 @@ export default function AdminDashboard() {
       />
 
       {/* BODY */}
-      <main
-        className="min-h-[calc(100vh-64px)] mt-0 px-6 pb-8 pt-20"
-        style={{
-          background:
-            "radial-gradient(circle at 0 0, rgba(227,187,98,0.13) 0, transparent 40%)," +
-            "radial-gradient(circle at 100% 0, rgba(56,189,248,0.10) 0, transparent 42%)," +
-            "linear-gradient(to bottom, #f3f4f7 0, #e6e9ef 240px, #f4f5f8 100%)",
-        }}
-      >
+    <main
+          className="min-h-[calc(100vh-64px)] mt-0 px-6 pb-8 pt-20"
+          style={{
+            background:
+              "radial-gradient(circle at 0 0, rgba(227,187,98,0.13) 0, transparent 40%)," +
+              
+              "linear-gradient(to bottom, #f3f4f7 0, #e6e9ef 240px, #f4f5f8 100%)",
+          }}
+        >
         {/* Top-Bar: Admin-Panel Button links + Neues Thema Button rechts */}
         <div className="max-w-[1400px] xl:max-w-[1600px] mx-auto mb-3 flex items-center justify-between">
           {/* Admin-Panel Button links (wie Breadcrumb in UserList) */}
@@ -579,12 +579,12 @@ export default function AdminDashboard() {
 
           <div className="max-w-[1400px] xl:max-w-[1600px] mx-auto">
             <div
-  className="
+              className="
     rounded-3xl bg-[hsl(45_40%_96%)] p-5
     shadow-[0_4px_20px_rgba(0,0,0,0.05)]
     border border-gray-300/30
   "
->
+            >
 
               <div
                 className="grid grid-cols-4 gap-5"
@@ -615,8 +615,8 @@ export default function AdminDashboard() {
                           "relative",
                           isHighlight
                             ? [
-                            "ring-2 ring-green-400 ring-offset-2",
-"[animation:glowRing_0.8s_ease-in-out_infinite]",
+                              "ring-2 ring-green-400 ring-offset-2",
+                              "[animation:glowRing_0.8s_ease-in-out_infinite]",
                             ].join(" ")
                             : "",
                           "transition-transform duration-300 ease-out rounded-xl",
@@ -680,20 +680,20 @@ export default function AdminDashboard() {
                     >
                       Titel <span className="text-red-500">*</span>
                     </label>
-                <textarea
-  id="add-title"
-  rows={1}
-  maxLength={70}
-  value={newThemaName}
-  onChange={(e) => {
-    setNewThemaName(e.target.value);
+                    <textarea
+                      id="add-title"
+                      rows={1}
+                      maxLength={70}
+                      value={newThemaName}
+                      onChange={(e) => {
+                        setNewThemaName(e.target.value);
 
-    // ⭐ Auto-Resize
-    e.currentTarget.style.height = "auto";
-    e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
-  }}
-  placeholder="Titel eingeben..."
-  className="
+                        // ⭐ Auto-Resize
+                        e.currentTarget.style.height = "auto";
+                        e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
+                      }}
+                      placeholder="Titel eingeben..."
+                      className="
     w-full
     rounded-xl
     border
@@ -712,7 +712,7 @@ export default function AdminDashboard() {
     focus:ring-2 focus:ring-[rgba(227,187,98,0.45)]
     transition
   "
-/>
+                    />
 
                   </div>
 
@@ -827,6 +827,6 @@ export default function AdminDashboard() {
         </div>
       )}
 
-</AdminLayout>
+    </AdminLayout>
   );
 }

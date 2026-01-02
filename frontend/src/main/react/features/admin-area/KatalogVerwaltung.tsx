@@ -1,7 +1,7 @@
 
 import AdminLayout from "@/apps/app/AdminLayout";
 import { useEffect, useState, useRef } from "react";
-import { Building2 } from "lucide-react";
+import { Building2, Layers } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { getThemen, type ThemaApi } from "../service/themaService";
 import { getCatalogs, type CatalogApi } from "../service/catalogService";
@@ -44,6 +44,7 @@ export default function KatalogVerwaltung({ }: Props) {
     const [topics, setTopics] = useState<Topic[]>([]);
     const [loadingTopics, setLoadingTopics] = useState(false);
     const [topicError, setTopicError] = useState<string | null>(null);
+    const [topicSearch, setTopicSearch] = useState("");
 
     /* ---------- Kataloge (links) ---------- */
     const [catalogs, setCatalogs] = useState<CatalogItem[]>([]);
@@ -108,7 +109,8 @@ export default function KatalogVerwaltung({ }: Props) {
             try {
                 setLoadingCatalogs(true);
                 setCatalogError(null);
-                const apiList = await getCatalogs(); // GET /api/catalogs
+                const res = await getCatalogs(); // GET /api/catalogs
+                const apiList = Array.isArray(res) ? res : [];
                 const ui: CatalogItem[] = apiList.map((c: CatalogApi) => ({
                     id: c.id,
                     name: c.title,
@@ -194,9 +196,8 @@ export default function KatalogVerwaltung({ }: Props) {
                             const rect = logoSpan.getBoundingClientRect();
                             const tooltipWidth = 288; // w-72 = 18rem = 288px
                             tooltipEl.style.top = `${rect.bottom + 8}px`;
-                            tooltipEl.style.left = `${
-                                rect.left + rect.width / 2 - tooltipWidth / 2 
-                            }px`;
+                            tooltipEl.style.left = `${rect.left + rect.width / 2 - tooltipWidth / 2
+                                }px`;
                         }
                     }
                 }
@@ -225,6 +226,18 @@ export default function KatalogVerwaltung({ }: Props) {
         );
     });
 
+    // Gefilterte Themen
+    const filteredTopics = topics.filter((t: Topic) => {
+        const q = topicSearch.trim().toLowerCase();
+        if (!q) return true;
+        return (
+            t.name.toLowerCase().includes(q) ||
+            (t.subtitle && t.subtitle.toLowerCase().includes(q))
+        );
+    });
+
+    /* ------------------------------- RENDER -------------------------------- */
+
     /* ------------------------------- RENDER -------------------------------- */
 
     return (
@@ -241,16 +254,16 @@ export default function KatalogVerwaltung({ }: Props) {
             />
 
             {/* BODY */}
-            <main
-                className="min-h-[calc(100vh-64px)] mt-0 px-6 pb-8 pt-20"
-                style={{
-                    background:
-                        "radial-gradient(circle at 0 0, rgba(227,187,98,0.13) 0, transparent 40%)," +
-                        "radial-gradient(circle at 100% 0, rgba(56,189,248,0.10) 0, transparent 42%)," +
-                        "linear-gradient(to bottom, #f3f4f7 0, #e6e9ef 240px, #f4f5f8 100%)",
-                }}
-            >
-                <div className="flex flex-col lg:flex-row gap-5 max-w-full mx-auto">
+         <main
+          className="min-h-[calc(100vh-64px)] mt-0 px-6 pb-8 pt-20"
+          style={{
+            background:
+              "radial-gradient(circle at 0 0, rgba(227,187,98,0.13) 0, transparent 40%)," +
+              
+              "linear-gradient(to bottom, #f3f4f7 0, #e6e9ef 240px, #f4f5f8 100%)",
+          }}
+        >
+                <div className="flex flex-col lg:flex-row gap-5 max-w-[1400px] xl:max-w-[1600px] mx-auto">
                     {/* Left: Katalog-Auswahl - FESTE BREITE */}
                     <div className="w-full lg:w-[520px] flex-shrink-0">
                         <div
@@ -361,15 +374,15 @@ export default function KatalogVerwaltung({ }: Props) {
                                                     </div>
                                                 ) : (
                                                     filteredCatalogs.map((c: CatalogItem) => (
-                                                   <button
-  key={c.id}
-  type="button"
-  onClick={() => {
-    setSelectedCatalogId(c.id);
-    setOpenCatalogDropdown(false);
-    setCatalogSearch("");
-  }}
-  className="
+                                                        <button
+                                                            key={c.id}
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setSelectedCatalogId(c.id);
+                                                                setOpenCatalogDropdown(false);
+                                                                setCatalogSearch("");
+                                                            }}
+                                                            className="
     w-full px-4 py-3 text-left text-sm
     transition-colors
     hover:bg-[#fff6db]
@@ -377,7 +390,7 @@ export default function KatalogVerwaltung({ }: Props) {
     border-b border-[rgba(227,187,98,0.35)]
     last:border-b-0
   "
->
+                                                        >
 
                                                             <div className="font-medium text-slate-800">{c.name}</div>
                                                             {c.subtitle && (
@@ -467,156 +480,144 @@ export default function KatalogVerwaltung({ }: Props) {
                                 </h2>
                             </div>
 
+
+
+                            {/* Such-Feld für Themen */}
+                            <div className="mb-4">
+                                <div className="relative">
+                                    <input
+                                        type="text"
+                                        placeholder="Themen durchsuchen..."
+                                        value={topicSearch}
+                                        onChange={(e) => setTopicSearch(e.target.value)}
+                                        className="
+                                          h-11 w-full rounded-xl
+                                          border border-[#D4AF37]/40
+                                          bg-white
+                                          pl-11 pr-4 text-sm
+                                          placeholder:text-[#9b8f75]
+                                          text-[#3D3225]
+                                          focus:border-[#B8962E]
+                                          focus:outline-none
+                                          focus:ring-3 focus:ring-[rgba(193, 159, 59, 0.25)]
+                                          transition
+                                        "
+                                    />
+                                    <svg
+                                        className="absolute left-4 top-1/2 h-5 w-4 -translate-y-1/2 text-[#B8962E]"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                    >
+                                        <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth={3}
+                                            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                                        />
+                                    </svg>
+                                </div>
+                            </div>
+
                             <div className="mb-4">
                                 <span className="text-sm text-[#6b5a3c]">
                                     {loadingTopics
                                         ? "Themen werden geladen…"
-                                        : "Wählen Sie die Themen aus, die Sie zuweisen möchten"}
+                                        : topicSearch
+                                            ? `${filteredTopics.length} ${filteredTopics.length === 1 ? "Ergebnis" : "Ergebnisse"} gefunden`
+                                            : "Wählen Sie die Themen aus, die Sie zuweisen möchten"}
                                 </span>
                             </div>
 
                             {/* Grid: Themen-Cards */}
                             <div className="max-h-[520px] overflow-y-auto pr-2">
-                                <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(240px,1fr))]">
-                                    {topics.map((t) => {
-                                        const Icon = t.icon ?? Building2;
-                                        const selected = selectedTopicIds.has(t.id);
-                                        const count = qCountByThema[t.id];
-                                        const questionsLabel =
-                                            count === undefined
-                                                ? "– Fragen"
-                                                : count === 1
-                                                    ? "1 Frage"
-                                                    : `${count} Fragen`;
+                                <div className="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(260px,1fr))]">
+                                    {loadingTopics ? (
+                                        // Optional: Skeleton oder einfach leer lassen, da Header "Laden..." anzeigt
+                                        null
+                                    ) : topicError ? (
+                                        <div className="col-span-full text-center py-12">
+                                            <p className="text-sm text-red-600">{topicError}</p>
+                                        </div>
+                                    ) : filteredTopics.length === 0 ? (
+                                        <div className="col-span-full flex flex-col items-center justify-center py-12 text-slate-500">
+                                            <Layers size={48} className="opacity-40 mb-3" />
+                                            <p className="text-sm font-medium">
+                                                {topicSearch
+                                                    ? `Keine Themen gefunden für "${topicSearch}"`
+                                                    : "Keine Themen vorhanden"}
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        filteredTopics.map((t) => {
+                                            const Icon = t.icon ?? Building2;
+                                            const selected = selectedTopicIds.has(t.id);
+                                            const count = qCountByThema[t.id];
+                                            const questionsLabel =
+                                                count === undefined
+                                                    ? "– Fragen"
+                                                    : count === 1
+                                                        ? "1 Frage"
+                                                        : `${count} Fragen`;
 
-                                        return (
-                                            <div
-                                                key={t.id}
-                                                className={[
-                                                    "group relative w-full text-left rounded-2xl p-1 min-h-[160px] cursor-pointer",
-                                                    "transition-all duration-300 ease-out",
-                                                    "overflow-visible",
-                                                    selected
-                                                        ? "border border-[#D4AF37] bg-gradient-to-br from-[#FFFAE8] via-[#F6E7B8] to-[#EDD98A] ring-0 ring-[#E3BB62]/50 shadow-[0_10px_30px_rgba(212,175,55,0.28)]"
-                                                        : "border border-[#D4AF37]/30 bg-white hover:shadow-[0_14px_36px_rgba(212,175,55,0.22)]",
-                                                ].join(" ")}
-                                                onClick={() => toggleTopic(t.id)}
-                                            >
-                                                {/* Auswahl-Kreis oben rechts */}
-                                                <span className="
-                                                  absolute right-3 top-3
-                                                  inline-flex h-5 w-5 items-center justify-center
-                                                  rounded-full border-2
-                                                  border-[#56768f]
-                                                  transition-colors duration-200
-                                                  group-hover:border-[#E3BB62]
-                                                  group-hover:bg-[#FFF9E6]
-                                                ">
-                                                    {selected && (
-                                                        <span className="h-3.5 w-3.5 rounded-full bg-[#E3BB62]" />
-                                                    )}
-                                                </span>
-
-                                                <div className="relative flex flex-col gap-2 px-3">
-                                                    <span
-                                                        className={[
-                                                            "absolute top-2 left-2 z-10",
-                                                            "flex items-center justify-center",
-                                                            "w-[70px] h-[32px] rounded-[10px]",
-                                                            "transition-all duration-300",
-                                                            "cursor-pointer",
-                                                            selected
-                                                                ? "bg-gradient-to-r from-[#E3BB62] to-[#D4AF37] shadow-[0_6px_18px_rgba(212,175,55,0.45)]"
-                                                                : "bg-gradient-to-r from-[#F6E7B8] to-[#EDD98A] shadow-[0_2px_8px_rgba(212,175,55,0.25)] group-hover:from-[#F2E3A2] group-hover:to-[#E3BB62] group-hover:shadow-[0_4px_12px_rgba(212,175,55,0.35)]",
-                                                        ].join(" ")}
-                                                        onMouseEnter={(e) => {
-                                                            e.stopPropagation();
-                                                            const timeout = setTimeout(() => {
-                                                                setShowTooltipFull((prev) => {
-                                                                    const next = new Map(prev);
-                                                                    next.set(t.id, true);
-                                                                    return next;
-                                                                });
-                                                            }, 350);
-                                                            hoverTimeouts.current.set(t.id, timeout);
-                                                        }}
-                                                        onMouseLeave={(e) => {
-                                                            e.stopPropagation();
-                                                            const timeout = hoverTimeouts.current.get(t.id);
-                                                            if (timeout) {
-                                                                clearTimeout(timeout);
-                                                                hoverTimeouts.current.delete(t.id);
-                                                            }
-                                                            setShowTooltipFull((prev) => {
-                                                                const next = new Map(prev);
-                                                                next.set(t.id, false);
-                                                                return next;
-                                                            });
-                                                        }}
-                                                    >
-                                                        <Icon
-                                                            size={18}
-                                                            className={[
-                                                                "transition-colors duration-300",
-                                                                selected
-                                                                    ? "text-[#264555]"
-                                                                    : "text-[#264555]/80",
-                                                            ].join(" ")}
-                                                        />
+                                            return (
+                                                <div
+                                                    key={t.id}
+                                                    className={[
+                                                        "group relative w-full text-left rounded-2xl p-1 min-h-[160px] cursor-pointer",
+                                                        "transition-all duration-300 ease-out",
+                                                        "overflow-visible",
+                                                        selected
+                                                            ? "border border-[#D4AF37] bg-gradient-to-br from-[#FFFAE8] via-[#F6E7B8] to-[#EDD98A] ring-0 ring-[#E3BB62]/50 shadow-[0_10px_30px_rgba(212,175,55,0.28)]"
+                                                            : "border border-[#D4AF37]/30 bg-white hover:shadow-[0_14px_36px_rgba(212,175,55,0.22)]",
+                                                    ].join(" ")}
+                                                    onClick={() => toggleTopic(t.id)}
+                                                >
+                                                    {/* Auswahl-Kreis oben rechts */}
+                                                    <span className="
+                                                      absolute right-3 top-3
+                                                      inline-flex h-5 w-5 items-center justify-center
+                                                      rounded-full border-2
+                                                      border-[#56768f]
+                                                      transition-colors duration-200
+                                                      group-hover:border-[#E3BB62]
+                                                      group-hover:bg-[#FFF9E6]
+                                                    ">
+                                                        {selected && (
+                                                            <span className="h-3.5 w-3.5 rounded-full bg-[#E3BB62]" />
+                                                        )}
                                                     </span>
-                                                    
-                                                    {/* Tooltip - außerhalb des Logo-Spans für höheren z-index */}
-                                                    {showTooltipFull.get(t.id) && (
-                                                        <div
-                                                            className={`
-                                                              ${
-                                                                  showTooltipFull.get(t.id)
-                                                                      ? "opacity-100 visible"
-                                                                      : "opacity-0 invisible"
-                                                              }
-                                                              fixed w-72
-                                                              rounded-xl p-3 text-xs
-                                                              transition-all duration-200 z-[99999]
 
-                                                              bg-[#fffaf0]
-                                                              text-[#264555]
-                                                              border border-[#e6dcc8]
-                                                              shadow-[0_10px_30px_rgba(38,69,85,0.18)]
-
-                                                              break-words
-                                                              overflow-wrap-anywhere
-                                                              whitespace-normal
-                                                            `}
-                                                            ref={(el) => {
-                                                                if (el) {
-                                                                    tooltipRefs.current.set(t.id, el);
-                                                                    const cardElement = el.closest(".group");
-                                                                    if (cardElement) {
-                                                                        const logoSpan =
-                                                                            cardElement.querySelector(
-                                                                                'span[class*="absolute top-2 left-2"]'
-                                                                            ) as HTMLElement;
-                                                                        if (logoSpan) {
-                                                                            const rect =
-                                                                                logoSpan.getBoundingClientRect();
-                                                                            const tooltipWidth = 288; // w-72 = 18rem = 288px
-                                                                            el.style.top = `${rect.bottom + 8}px`;
-                                                                            el.style.left = `${
-                                                                                rect.left +
-                                                                                rect.width / 2 -
-                                                                                tooltipWidth / 2 + 100
-                                                                            }px`;
-                                                                        }
-                                                                    }
-                                                                } else {
-                                                                    tooltipRefs.current.delete(t.id);
-                                                                }
-                                                            }}
+                                                    <div className="relative flex flex-col gap-2 px-3">
+                                                        <span
+                                                            className={[
+                                                                "absolute top-2 left-2 z-10",
+                                                                "flex items-center justify-center",
+                                                                "w-[70px] h-[32px] rounded-[10px]",
+                                                                "transition-all duration-300",
+                                                                "cursor-pointer",
+                                                                selected
+                                                                    ? "bg-gradient-to-r from-[#E3BB62] to-[#D4AF37] shadow-[0_6px_18px_rgba(212,175,55,0.45)]"
+                                                                    : "bg-gradient-to-r from-[#F6E7B8] to-[#EDD98A] shadow-[0_2px_8px_rgba(212,175,55,0.25)] group-hover:from-[#F2E3A2] group-hover:to-[#E3BB62] group-hover:shadow-[0_4px_12px_rgba(212,175,55,0.35)]",
+                                                            ].join(" ")}
                                                             onMouseEnter={(e) => {
                                                                 e.stopPropagation();
+                                                                const timeout = setTimeout(() => {
+                                                                    setShowTooltipFull((prev) => {
+                                                                        const next = new Map(prev);
+                                                                        next.set(t.id, true);
+                                                                        return next;
+                                                                    });
+                                                                }, 350);
+                                                                hoverTimeouts.current.set(t.id, timeout);
                                                             }}
                                                             onMouseLeave={(e) => {
                                                                 e.stopPropagation();
+                                                                const timeout = hoverTimeouts.current.get(t.id);
+                                                                if (timeout) {
+                                                                    clearTimeout(timeout);
+                                                                    hoverTimeouts.current.delete(t.id);
+                                                                }
                                                                 setShowTooltipFull((prev) => {
                                                                     const next = new Map(prev);
                                                                     next.set(t.id, false);
@@ -624,37 +625,100 @@ export default function KatalogVerwaltung({ }: Props) {
                                                                 });
                                                             }}
                                                         >
-                                                            <b>{t.name}</b>
-                                                            <br />
-                                                            {t.subtitle || "Keine Beschreibung vorhanden"}
-                                                        </div>
-                                                    )}
-                                                    <div className="min-w-0 pt-[52px] text-left">
-                                                        <div className="text-[15px] font-semibold text-[#264555] leading-5 line-clamp-1 break-words overflow-wrap-anywhere">
-                                                            {t.name}
-                                                        </div>
+                                                            <Icon
+                                                                size={18}
+                                                                className={[
+                                                                    "transition-colors duration-300",
+                                                                    selected
+                                                                        ? "text-[#264555]"
+                                                                        : "text-[#264555]/80",
+                                                                ].join(" ")}
+                                                            />
+                                                        </span>
 
-                                                        {t.subtitle && (
-                                                            <div className="mt-0 mb-2 text-[13px] text-slate-600 leading-1 line-clamp-2 min-h-[2.5rem] break-words overflow-wrap-anywhere">
-                                                                {t.subtitle}
+                                                        {/* Tooltip - außerhalb des Logo-Spans für höheren z-index */}
+                                                        {showTooltipFull.get(t.id) && (
+                                                            <div
+                                                                className={`
+                                                                  ${showTooltipFull.get(t.id)
+                                                                        ? "opacity-100 visible"
+                                                                        : "opacity-0 invisible"
+                                                                    }
+                                                                  fixed w-72
+                                                                  rounded-xl p-3 text-xs
+                                                                  transition-all duration-200 z-[99999]
+
+                                                                  bg-[#fffaf0]
+                                                                  text-[#264555]
+                                                                  border border-[#e6dcc8]
+                                                                  shadow-[0_10px_30px_rgba(38,69,85,0.18)]
+
+                                                                  break-words
+                                                                  overflow-wrap-anywhere
+                                                                  whitespace-normal
+                                                                `}
+                                                                ref={(el) => {
+                                                                    if (el) {
+                                                                        tooltipRefs.current.set(t.id, el);
+                                                                        const cardElement = el.closest(".group");
+                                                                        if (cardElement) {
+                                                                            const logoSpan =
+                                                                                cardElement.querySelector(
+                                                                                    'span[class*="absolute top-2 left-2"]'
+                                                                                ) as HTMLElement;
+                                                                            if (logoSpan) {
+                                                                                const rect =
+                                                                                    logoSpan.getBoundingClientRect();
+                                                                                const tooltipWidth = 288; // w-72 = 18rem = 288px
+                                                                                el.style.top = `${rect.bottom + 8}px`;
+                                                                                el.style.left = `${rect.left +
+                                                                                    rect.width / 2 -
+                                                                                    tooltipWidth / 2 + 100
+                                                                                    }px`;
+                                                                            }
+                                                                        }
+                                                                    } else {
+                                                                        tooltipRefs.current.delete(t.id);
+                                                                    }
+                                                                }}
+                                                                onMouseEnter={(e) => {
+                                                                    e.stopPropagation();
+                                                                }}
+                                                                onMouseLeave={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setShowTooltipFull((prev) => {
+                                                                        const next = new Map(prev);
+                                                                        next.set(t.id, false);
+                                                                        return next;
+                                                                    });
+                                                                }}
+                                                            >
+                                                                <b>{t.name}</b>
+                                                                <br />
+                                                                {t.subtitle || "Keine Beschreibung vorhanden"}
                                                             </div>
                                                         )}
+                                                        <div className="min-w-0 pt-[52px] text-left">
+                                                            <div className="text-[15px] font-semibold text-[#264555] leading-5 line-clamp-1 break-words overflow-wrap-anywhere">
+                                                                {t.name}
+                                                            </div>
 
-                                                        <div className="mt-2 flex items-center justify-between">
-                                                            <span className="text-sm font-medium text-[#D4AF37]">
-                                                                {questionsLabel}
-                                                            </span>
+                                                            {t.subtitle && (
+                                                                <div className="mt-0 mb-2 text-[13px] text-slate-600 leading-1 line-clamp-2 min-h-[2.5rem] break-words overflow-wrap-anywhere">
+                                                                    {t.subtitle}
+                                                                </div>
+                                                            )}
+
+                                                            <div className="mt-2 flex items-center justify-between">
+                                                                <span className="text-sm font-medium text-[#D4AF37]">
+                                                                    {questionsLabel}
+                                                                </span>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 </div>
-                                            </div>
-                                        );
-                                    })}
-
-                                    {topicError && (
-                                        <div className="col-span-full text-center py-12">
-                                            <p className="text-sm text-red-600">{topicError}</p>
-                                        </div>
+                                            );
+                                        })
                                     )}
                                 </div>
                             </div>
@@ -672,6 +736,6 @@ export default function KatalogVerwaltung({ }: Props) {
                     </div>
                 </div>
             </main>
-        </AdminLayout>
+        </AdminLayout >
     );
 }

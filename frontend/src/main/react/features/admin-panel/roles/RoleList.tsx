@@ -2,7 +2,6 @@ import { useEffect, useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import AdminLayout from "@/apps/app/AdminLayout";
 import { Search, ArrowUpDown, Shield, Plus, Trash2, Pencil, Eye, X } from "lucide-react";
-import { SoftSquaresBackground } from "@/shared/components/SoftSquaresBackground";
 import { useHasPermission } from "@/shared/hooks/useHasPermission";
 import { PermissionButton } from "@/shared/components/permission/PermissionButton";
 import {
@@ -543,8 +542,6 @@ const canViewPerms = has("permissions.view"); // oder roles.view je nachdem was 
       {/* HEADER  */}
 
       <div className="relative min-h-screen">
-        {/* 2. Unser neues Pattern */}
-        <SoftSquaresBackground />
         <PageHeader
           title="Rollen Verwaltung"
           subtitle="Verwalte Benutzerrollen und deren Berechtigungen"
