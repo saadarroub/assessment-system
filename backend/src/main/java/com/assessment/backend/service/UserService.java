@@ -25,6 +25,9 @@ public class UserService {
     @Autowired
     private UserRoleRepository userRoleRepository;
 
+    @Autowired
+    private AuditLogService auditLogService;
+
     // Encoder pour les mots de passe
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
@@ -52,6 +55,9 @@ public class UserService {
             UserRole userRole = new UserRole(savedUser.getId(), request.roleId);
             userRoleRepository.save(userRole);
         }
+        // Audit log for user creation
+        String details = String.format("Name: %s, Email: %s", savedUser.getName(), savedUser.getEmail());
+        auditLogService.log("CREATE_USER", "users", savedUser.getId(), details, null);
         return savedUser;
     }
     
@@ -73,6 +79,10 @@ public class UserService {
     }
 
     public void deleteUser(UUID id) {
+        // Get user info before deletion for audit
+        User user = userRepository.findById(id).orElse(null);
+        String details = user != null ? String.format("Deleted user: %s (%s)", user.getName(), user.getEmail()) : "User ID: " + id;
+        auditLogService.log("DELETE_USER", "users", id, details, null);
         userRepository.deleteById(id);
     }
 

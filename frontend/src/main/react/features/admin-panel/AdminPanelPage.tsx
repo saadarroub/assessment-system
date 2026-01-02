@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import AdminLayout from "@/apps/app/AdminLayout";
-import { Users, Building2, ClipboardList, Shield, ArrowRight } from "lucide-react";
+import { Users, Building2, ClipboardList, Shield, ArrowRight, FileText } from "lucide-react";
 import PageHeader from "@/features/admin-area/catalogs/PageHeader";
 
 /* ===== Farb-Tokens wie bei CompaniesList ===== */
@@ -58,6 +58,13 @@ const PANELS: Panel[] = [
     count: 5,
     to: "/admin/adminPanel/zuweisungen",
     icon: ClipboardList,
+  },
+  {
+    title: "Audit Logs",
+    desc: "Monitor system activities and changes",
+    count: "–",
+    to: "/admin/adminPanel/audit",
+    icon: FileText,
   },
 ];
 

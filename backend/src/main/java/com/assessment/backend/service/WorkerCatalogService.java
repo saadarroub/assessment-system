@@ -37,6 +37,9 @@ public class WorkerCatalogService {
     private CompanyRepository companyRepository;
 
     @Autowired
+    private AuditLogService auditLogService;
+
+    @Autowired
     private com.assessment.backend.repository.AssessmentSessionRepository assessmentSessionRepository;
 
     @Autowired
@@ -100,7 +103,9 @@ public class WorkerCatalogService {
         // }
 
         // 7. Speichern
-        return repository.save(assignment);
+        WorkerCatalog saved = repository.save(assignment);
+        auditLogService.log("ASSIGN_CATALOG", "worker_catalog", saved.getId(), null);
+        return saved;
     }
 
     /**
@@ -234,6 +239,7 @@ public class WorkerCatalogService {
     }
 
     public void deleteAssignment(UUID id) {
+        auditLogService.log("DELETE", "worker_catalog", id, null);
         repository.deleteById(id);
     }
 

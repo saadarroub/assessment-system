@@ -16,9 +16,15 @@ public class CatalogService {
     @Autowired
     private CatalogRepository catalogRepository;
 
+    @Autowired
+    private AuditLogService auditLogService;
+
     // Create
     public Catalog createCatalog(Catalog catalog) {
-        return catalogRepository.save(catalog);
+        Catalog saved = catalogRepository.save(catalog);
+        String details = String.format("Title: %s", saved.getTitle());
+        auditLogService.log("CREATE", "catalog", saved.getId(), details, null);
+        return saved;
     }
 
     // Read - All
@@ -45,7 +51,10 @@ public class CatalogService {
         catalog.setTitle(catalogDetails.getTitle());
         catalog.setDescription(catalogDetails.getDescription());
         
-        return catalogRepository.save(catalog);
+        Catalog updated = catalogRepository.save(catalog);
+        String details = String.format("Title: %s", updated.getTitle());
+        auditLogService.log("UPDATE", "catalog", updated.getId(), details, null);
+        return updated;
     }
 
     //Update
@@ -89,6 +98,8 @@ public class CatalogService {
         Catalog catalog = catalogRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Catalog not found with id: " + id));
         
+        String details = String.format("Deleted catalog: %s", catalog.getTitle());
+        auditLogService.log("DELETE", "catalog", id, details, null);
         catalogRepository.delete(catalog);
     }
 

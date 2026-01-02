@@ -23,6 +23,9 @@ public class ThemaService {
     private ThemaRepository themaRepository;
 
     @Autowired
+    private AuditLogService auditLogService;
+
+    @Autowired
     private QuestionRepository questionRepository;
 
     @Autowired
@@ -30,7 +33,10 @@ public class ThemaService {
 
     // Create
     public Thema createThema(Thema thema) {
-        return themaRepository.save(thema);
+        Thema saved = themaRepository.save(thema);
+        String details = String.format("Name: %s", saved.getName());
+        auditLogService.log("CREATE", "thema", saved.getId(), details, null);
+        return saved;
     }
 
     // Read - All
@@ -67,7 +73,10 @@ public class ThemaService {
         thema.setName(themaDetails.getName());
         thema.setDescription(themaDetails.getDescription());
         
-        return themaRepository.save(thema);
+        Thema updated = themaRepository.save(thema);
+        String details = String.format("Name: %s", updated.getName());
+        auditLogService.log("UPDATE", "thema", updated.getId(), details, null);
+        return updated;
     }
 
     //Update
@@ -111,6 +120,8 @@ public class ThemaService {
         Thema thema = themaRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Thema not found with id: " + id));
         
+        String details = String.format("Deleted thema: %s (ID: %s)", thema.getName(), thema.getId());
+        auditLogService.log("DELETE", "thema", id, details, null);
         themaRepository.delete(thema);
     }
 
@@ -215,6 +226,12 @@ public class ThemaService {
                 }
             }
         }
+
+        String details = String.format("Duplicated from: %s (ID: %s) -> New: %s (ID: %s), Questions: %d, Nodes: %d",
+                originalThema.getName(), originalThema.getId(), 
+                newThema.getName(), newThema.getId(),
+                oldToNewQuestionId.size(), oldToNewNodeId.size());
+        auditLogService.log("DUPLICATE", "thema", newThema.getId(), details, null);
 
         return newThema;
     }

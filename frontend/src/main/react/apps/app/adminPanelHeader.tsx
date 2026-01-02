@@ -3,7 +3,7 @@ import React, { useState, useMemo, type ReactNode } from "react";
 import { NavLink } from "react-router-dom";
 import {
   ChevronRight, ChevronLeft,
-  LayoutDashboard, Users, Building2, ClipboardList, Settings, ChevronRight as Caret
+  LayoutDashboard, Users, Building2, ClipboardList, Settings, ChevronRight as Caret, FileText
 } from "lucide-react";
 import capLogo from "@/assets/Logo_cap_consulting_RGB_Darkblue.svg";
 
@@ -34,7 +34,7 @@ const MENU = [
   { to: "/admin/adminPanel", label: "Übersicht", icon: LayoutDashboard, exact: true },
   { to: "/admin/adminPanel/users", label: "Users", icon: Users },
   { to: "/admin/adminPanel/companies", label: "Companies", icon: Building2 },
-  { to: "/admin/adminPanel/audit", label: "Audit", icon: ClipboardList },
+  { to: "/admin/adminPanel/audit", label: "Audit Logs", icon: FileText },
 ]; 
 
 export default function AdminPanelLayout({ children }: AdminLayoutProps) {

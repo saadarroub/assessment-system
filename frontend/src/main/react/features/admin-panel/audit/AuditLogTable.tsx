@@ -1,16 +1,12 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import AdminLayout from "@/apps/app/AdminLayout";
 import { Search, Filter, ArrowUpDown } from "lucide-react";
+import { apiClient } from "@/api/client";
 import "@/styles/adminPanel.css";   // Grundlayout & Tokens inkl. Hero
 import "@/styles/AdminAudit.css";   // Seite/Toolbar/Tabelle
 
-type ActionKey =
-  | "login"
-  | "invite"
-  | "assign_role"
-  | "create_catalog"
-  | "update_company";
+type ActionKey = string;  // Dynamic from backend
 
 type OutcomeKey = "success" | "error";
 
@@ -19,75 +15,50 @@ type AuditRow = {
   ts: string;             // ISO
   actorName: string;
   actorEmail: string;
-  action: ActionKey;
-  resource: string;       // z.B. "user:u2"
+  action: string;
+  resource: string;       // z.B. "users:uuid"
   outcome: OutcomeKey;
-  details: string;
+  details?: string;       // Additional info about the action
 };
 
-const DATA: AuditRow[] = [
-  {
-    id: "a2",
-    ts: "2025-08-29T12:30:00Z",
-    actorName: "Jane Doe",
-    actorEmail: "jane@acme.com",
-    action: "login",
-    resource: "portal",
-    outcome: "success",
-    details: "-",
-  },
-  {
-    id: "a1",
-    ts: "2025-08-29T11:10:00Z",
-    actorName: "Max Mustermann",
-    actorEmail: "max@acme.com",
-    action: "invite",
-    resource: "user:u2",
-    outcome: "success",
-    details: "Invited new user to company ACME GmbH",
-  },
-  {
-    id: "a3",
-    ts: "2025-08-28T18:45:00Z",
-    actorName: "Max Mustermann",
-    actorEmail: "max@acme.com",
-    action: "assign_role",
-    resource: "user:u3",
-    outcome: "success",
-    details: "Assigned editor role to Alice Schmidt",
-  },
-  {
-    id: "a4",
-    ts: "2025-08-28T16:20:00Z",
-    actorName: "Alice Schmidt",
-    actorEmail: "alice@globex.com",
-    action: "create_catalog",
-    resource: "catalog:cat123",
-    outcome: "success",
-    details: "Created new assessment catalog",
-  },
-  {
-    id: "a5",
-    ts: "2025-08-27T13:15:00Z",
-    actorName: "Max Mustermann",
-    actorEmail: "max@acme.com",
-    action: "update_company",
-    resource: "company:c1",
-    outcome: "error",
-    details: "Failed to update company settings - validation error",
-  },
-];
+export default function AuditPage() {
+  const [data, setData] = useState<AuditRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  
+  const [q, setQ] = useState("");
+  const [action, setAction] = useState<"all" | string>("all");
+  const [outcome, setOutcome] = useState<"all" | OutcomeKey>("all");
 
-type SortKey = "ts" | "actor" | "action" | "outcome";
+  const [sortKey, setSortKey] = useState<"ts" | "actor" | "action" | "outcome">("ts");
+  const [asc, setAsc] = useState(false);
 
-const ACTION_OPTIONS: { value: "all" | ActionKey; label: string }[] = [
-  { value: "all", label: "All Actions" },
-  { value: "login", label: "login" },
-  { value: "invite", label: "invite" },
-  { value: "assign_role", label: "assign role" },
-  { value: "create_catalog", label: "create catalog" },
-  { value: "update_company", label: "update company" },
-];
+  // Fetch audit logs from API
+  useEffect(() => {
+    const fetchLogs = async () => {
+      try {
+        setLoading(true);
+        const response = await apiClient.get<AuditRow[]>("/audit-logs");
+        setData(response.data);
+        setError(null);
+      } catch (err: any) {
+        console.error("Failed to fetch audit logs:", err);
+        setError(err.response?.status === 403 
+          ? "Keine Berechtigung für Audit-Logs" 
+          : "Fehler beim Laden der Audit-Logs");
+        setData([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchLogs();
+  }, []);
+
+  // Get unique actions for filter dropdown
+  const actionOptions = useMemo(() => {
+    const actions = [...new Set(data.map(r => r.action))];
+    return [{ value: "all", label: "All Actions" }, ...actions.map(a => ({ value: a, label: a }))];
+  }, [data]);
 
 const OUTCOME_OPTIONS: { value: "all" | OutcomeKey; label: string }[] = [
   { value: "all", label: "All Outcomes" },
@@ -95,25 +66,16 @@ const OUTCOME_OPTIONS: { value: "all" | OutcomeKey; label: string }[] = [
   { value: "error", label: "error" },
 ];
 
-export default function AuditPage() {
-  const [q, setQ] = useState("");
-  const [action, setAction] = useState<"all" | ActionKey>("all");
-  const [outcome, setOutcome] = useState<"all" | OutcomeKey>("all");
-
-  const [sortKey, setSortKey] = useState<SortKey>("ts");
-  const [asc, setAsc] = useState(false);
-
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
 
-    let rows = DATA.filter((r) => {
+    let rows = data.filter((r) => {
       const matchesSearch =
         term.length === 0 ||
         r.actorName.toLowerCase().includes(term) ||
         r.actorEmail.toLowerCase().includes(term) ||
-        actionLabel(r.action).includes(term) ||
-        r.resource.toLowerCase().includes(term) ||
-        r.details.toLowerCase().includes(term);
+        r.action.toLowerCase().includes(term) ||
+        r.resource.toLowerCase().includes(term);
 
     const matchesAction = action === "all" || r.action === action;
     const matchesOutcome = outcome === "all" || r.outcome === outcome;
@@ -126,7 +88,7 @@ export default function AuditPage() {
         switch (sortKey) {
           case "ts":      return new Date(r.ts).getTime();
           case "actor":   return r.actorName.toLowerCase();
-          case "action":  return actionLabel(r.action);
+          case "action":  return r.action;
           case "outcome": return r.outcome;
         }
       };
@@ -136,8 +98,10 @@ export default function AuditPage() {
     });
 
     return rows;
-  }, [q, action, outcome, sortKey, asc]);
+  }, [q, action, outcome, sortKey, asc, data]);
 
+  type SortKey = "ts" | "actor" | "action" | "outcome";
+  
   const setSort = (key: SortKey) => {
     if (key === sortKey) setAsc(v => !v);
     else {
@@ -182,7 +146,21 @@ export default function AuditPage() {
           </p>
         </header>
 
+        {/* Loading / Error States */}
+        {loading && (
+          <div className="admin-card" style={{ padding: "2rem", textAlign: "center" }}>
+            Lade Audit-Logs...
+          </div>
+        )}
+        
+        {error && (
+          <div className="admin-card" style={{ padding: "2rem", textAlign: "center", color: "var(--destructive)" }}>
+            {error}
+          </div>
+        )}
+
         {/* Card mit Controls + Tabelle */}
+        {!loading && !error && (
         <section className="admin-card">
           {/* Toolbar */}
           <div className="audit-controls">
@@ -204,7 +182,7 @@ export default function AuditPage() {
                 onChange={(e) => setAction(e.target.value as any)}
                 aria-label="Filter by action"
               >
-                {ACTION_OPTIONS.map((o) => (
+                {actionOptions.map((o) => (
                   <option key={o.value} value={o.value}>{o.label}</option>
                 ))}
               </select>
@@ -275,7 +253,7 @@ export default function AuditPage() {
                         <div className="cell-subtle">{row.actorEmail}</div>
                       </td>
                       <td>
-                        <span className={`badge ${actionClass(row.action)}`}>{actionLabel(row.action)}</span>
+                        <span className={`badge action-${row.action.toLowerCase().replace('_', '-')}`}>{row.action}</span>
                       </td>
                       <td className="cell-mono">{row.resource}</td>
                       <td>
@@ -283,7 +261,7 @@ export default function AuditPage() {
                           {row.outcome}
                         </span>
                       </td>
-                      <td className="cell-clip">{row.details}</td>
+                      <td className="cell-clip" title={row.details || "-"}>{row.details || "-"}</td>
                     </tr>
                   );
                 })}
@@ -291,28 +269,8 @@ export default function AuditPage() {
             </table>
           </div>
         </section>
+        )}
       </main>
     </AdminLayout>
   );
-}
-
-/* Helpers */
-function actionLabel(a: ActionKey): string {
-  switch (a) {
-    case "assign_role":     return "assign role";
-    case "create_catalog":  return "create catalog";
-    case "update_company":  return "update company";
-    default:                return a; // login / invite
-  }
-}
-
-function actionClass(a: ActionKey) {
-  switch (a) {
-    case "login":           return "action-login";
-    case "invite":          return "action-invite";
-    case "assign_role":     return "action-assign";
-    case "create_catalog":  return "action-create";
-    case "update_company":  return "action-update";
-    default:                return "";
-  }
 }

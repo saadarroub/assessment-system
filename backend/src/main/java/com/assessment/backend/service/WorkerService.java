@@ -15,6 +15,9 @@ public class WorkerService {
     @Autowired
     private WorkerRepository workerRepository;
 
+    @Autowired
+    private AuditLogService auditLogService;
+
     public List<Worker> getAllWorkers() {
         return workerRepository.findAll();
     }
@@ -36,7 +39,10 @@ public class WorkerService {
     }
 
     public Worker createWorker(Worker worker) {
-        return workerRepository.save(worker);
+        Worker saved = workerRepository.save(worker);
+        String details = String.format("Name: %s, Email: %s", saved.getName(), saved.getEmail());
+        auditLogService.log("CREATE", "worker", saved.getId(), details, null);
+        return saved;
     }
 
     public Worker updateWorker(UUID id, Worker workerDetails) {
@@ -48,10 +54,16 @@ public class WorkerService {
         worker.setCompanyId(workerDetails.getCompanyId());
         worker.setEmail(workerDetails.getEmail());
         
-        return workerRepository.save(worker);
+        Worker updated = workerRepository.save(worker);
+        String details = String.format("Name: %s, Email: %s", updated.getName(), updated.getEmail());
+        auditLogService.log("UPDATE", "worker", updated.getId(), details, null);
+        return updated;
     }
 
     public void deleteWorker(UUID id) {
+        Worker worker = workerRepository.findById(id).orElse(null);
+        String details = worker != null ? String.format("Deleted worker: %s (%s)", worker.getName(), worker.getEmail()) : "Worker ID: " + id;
+        auditLogService.log("DELETE", "worker", id, details, null);
         workerRepository.deleteById(id);
     }
 }

@@ -108,6 +108,12 @@ const NAV_Panel: Array<{
     {
       id: "Zuweisungen", label: "Zuweisungen", Icon: FileText, to: "/admin/adminPanel/zuweisungen",
     },
+    {
+      id: "Audit-log",
+      label: "Audit Logs",
+      Icon: FileText,
+      to: "/admin/adminPanel/audit",
+    },
   ];
 
 const NAV_Analyse: Array<{

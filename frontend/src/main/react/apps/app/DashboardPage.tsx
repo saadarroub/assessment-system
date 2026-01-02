@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import AdminLayout from "./AdminLayout";
 import {
   getDashboardStats,
@@ -16,6 +16,7 @@ import type {
 } from "@/features/service/dashboardService";
 import { StatusDistributionChart } from "@/shared/components/StatusDistributionChart";
 import { TopCompaniesChart } from "@/shared/components/TopCompaniesChart";
+import { SessionAnalyticsSection } from "@/shared/components/SessionAnalyticsSection";
 import {
   Building2,
   Folder,
@@ -27,6 +28,8 @@ import {
   TrendingUp,
   Clock,
   Award,
+  BarChart2,
+  ArrowRight,
 } from "lucide-react";
 import { formatDistanceToNow } from "@/shared/utils/dateUtils";
 import { Network } from "lucide-react";
@@ -155,6 +158,32 @@ export function DashboardPage() {
     useState<CompanyActivity[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Lazy loading states - show 4 initially, load more on scroll
+  const [visibleAssignments, setVisibleAssignments] = useState(4);
+  const [visibleSessions, setVisibleSessions] = useState(4);
+  const assignmentsRef = useRef<HTMLDivElement>(null);
+  const sessionsRef = useRef<HTMLDivElement>(null);
+
+  // Scroll handler for lazy loading
+  const handleAssignmentsScroll = useCallback(() => {
+    const el = assignmentsRef.current;
+    if (!el) return;
+    const { scrollTop, scrollHeight, clientHeight } = el;
+    // Load more when scrolled near bottom (within 50px)
+    if (scrollTop + clientHeight >= scrollHeight - 50) {
+      setVisibleAssignments(prev => Math.min(prev + 3, recentAssignments.length));
+    }
+  }, [recentAssignments.length]);
+
+  const handleSessionsScroll = useCallback(() => {
+    const el = sessionsRef.current;
+    if (!el) return;
+    const { scrollTop, scrollHeight, clientHeight } = el;
+    if (scrollTop + clientHeight >= scrollHeight - 50) {
+      setVisibleSessions(prev => Math.min(prev + 3, recentSessions.length));
+    }
+  }, [recentSessions.length]);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -421,15 +450,19 @@ export function DashboardPage() {
           )}
         </section>
 
+        {/* ===== Session Analytics (Area Chart) ===== */}
+        <SessionAnalyticsSection />
+
         {/* ===== Recent Activity ===== */}
-        <section className="grid gap-5 lg:grid-cols-2">
-          {/* Letzte Zuweisungen */}
+        <section className="grid gap-5" style={{ gridTemplateColumns: "1fr 3fr" }}>
+          {/* Letzte Zuweisungen - 25% */}
           <div
             className="
                 rounded-2xl border
                 p-5
                 shadow-[0_10px_26px_rgba(0,0,0,0.06)]
                 bg-white
+                overflow-hidden
               "
             style={{ borderColor: CSS.border }}
           >
@@ -440,10 +473,10 @@ export function DashboardPage() {
               Letzte Zuweisungen
             </h3>
             <p
-              className="mb-4 text-xs md:text-sm"
+              className="mb-4 text-sm"
               style={{ color: CSS.mutedFg }}
             >
-              Kürzlich zugewiesene Kataloge im System.
+              Kürzlich zugewiesene Kataloge.
             </p>
 
             {loading ? (
@@ -460,73 +493,105 @@ export function DashboardPage() {
                 Keine Daten vorhanden.
               </div>
             ) : (
-              <div className="flex flex-col gap-3">
-                {recentAssignments.slice(0, 5).map((a) => (
+              <div 
+                ref={assignmentsRef}
+                onScroll={handleAssignmentsScroll}
+                className="flex flex-col gap-3 overflow-y-auto overflow-x-hidden custom-scrollbar"
+                style={{ maxHeight: "350px" }}
+              >
+                {recentAssignments.slice(0, visibleAssignments).map((a) => (
                   <div
                     key={a.id}
                     className="
-                        rounded-xl border px-3 py-3
-                        bg-slate-50
+                        rounded-xl border px-4 py-3
+                        bg-white
+                        transition-all duration-200
+                        hover:shadow-md hover:border-amber-300
+                        hover:bg-amber-50/30
                       "
                     style={{ borderColor: "#e5e7eb" }}
                   >
-                    <div className="mb-1 flex items-center gap-2 text-sm">
-                      <Users size={14} className="text-slate-500" />
-                      <span className="font-semibold text-slate-800">
-                        {a.workerName}
-                      </span>
-                      <span className="ml-auto">
-                        <span
-                          className="rounded-full px-2 py-[2px] text-[11px] font-semibold"
-                          style={{
-                            background:
-                              a.status === "completed"
-                                ? "#d1fae5"
-                                : a.status === "in_progress"
-                                  ? "#dbeafe"
-                                  : "#e5e7eb",
-                            color:
-                              a.status === "completed"
-                                ? "#065f46"
-                                : a.status === "in_progress"
-                                  ? "#1e40af"
-                                  : "#374151",
-                          }}
-                        >
-                          {a.status === "completed"
-                            ? "Abgeschlossen"
-                            : a.status === "in_progress"
-                              ? "In Bearbeitung"
-                              : "Zugewiesen"}
+                    {/* Header: Name + Status */}
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <Users size={14} className="text-slate-500" />
+                        <span className="font-semibold text-slate-800 text-sm">
+                          {a.workerName}
                         </span>
+                      </div>
+                      <span
+                        className="rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                        style={{
+                          background:
+                            a.status === "completed"
+                              ? "#d1fae5"
+                              : a.status === "in_progress"
+                                ? "#dbeafe"
+                                : a.status === "expired"
+                                  ? "#fee2e2"
+                                  : a.status === "revoked"
+                                    ? "#fecaca"
+                                    : "#fef3c7",
+                          color:
+                            a.status === "completed"
+                              ? "#065f46"
+                              : a.status === "in_progress"
+                                ? "#1e40af"
+                                : a.status === "expired"
+                                  ? "#991b1b"
+                                  : a.status === "revoked"
+                                    ? "#7f1d1d"
+                                    : "#92400e",
+                        }}
+                      >
+                        {a.status === "completed"
+                          ? "Abgeschlossen"
+                          : a.status === "in_progress"
+                            ? "In Bearbeitung"
+                            : a.status === "expired"
+                              ? "Abgelaufen"
+                              : a.status === "revoked"
+                                ? "Widerrufen"
+                                : "Zugewiesen"}
                       </span>
+                    </div>
+                    
+                    {/* Catalog + Company */}
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500 mb-2">
+                      <div className="flex items-center gap-1">
+                        <Folder size={12} />
+                        <span className="truncate max-w-[120px]">{a.catalogTitle}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Building2 size={12} />
+                        <span className="truncate max-w-[100px]">{a.companyName}</span>
+                      </div>
                     </div>
 
-                    <div className="flex items-center gap-2 text-[12px] text-slate-600">
-                      <Folder size={12} />
-                      <span>{a.catalogTitle}</span>
-                    </div>
-                    <div className="mt-[2px] flex items-center gap-2 text-[12px] text-slate-600">
-                      <Building2 size={12} />
-                      <span>{a.companyName}</span>
-                    </div>
-                    <div className="mt-2 flex items-center gap-2 text-[11px] text-slate-400">
-                      <Clock size={11} />
+                    {/* Time */}
+                    <div className="flex items-center gap-1 text-[10px] text-slate-400">
+                      <Clock size={10} />
                       <span>{formatDistanceToNow(a.assignedAt)}</span>
                     </div>
                   </div>
                 ))}
+                {visibleAssignments < recentAssignments.length && (
+                  <div className="py-2 text-center text-xs text-slate-400">
+                    ↓ Mehr laden
+                  </div>
+                )}
               </div>
             )}
           </div>
 
-          {/* Abgeschlossene Sessions */}
+          {/* Abgeschlossene Sessions - 75% */}
           <div
             className="
                 rounded-2xl border
                 p-5
                 shadow-[0_10px_26px_rgba(0,0,0,0.06)]
                 bg-white
+                overflow-hidden
               "
             style={{ borderColor: CSS.border }}
           >
@@ -537,7 +602,7 @@ export function DashboardPage() {
               Abgeschlossene Sessions
             </h3>
             <p
-              className="mb-4 text-xs md:text-sm"
+              className="mb-4 text-sm"
               style={{ color: CSS.mutedFg }}
             >
               Kürzlich abgeschlossene Assessments der Mitarbeiter.
@@ -548,7 +613,7 @@ export function DashboardPage() {
                 {[1, 2, 3].map((i) => (
                   <div
                     key={i}
-                    className="h-20 rounded-xl bg-slate-100 animate-pulse"
+                    className="h-24 rounded-xl bg-slate-100 animate-pulse"
                   />
                 ))}
               </div>
@@ -557,8 +622,13 @@ export function DashboardPage() {
                 Keine Daten vorhanden.
               </div>
             ) : (
-              <div className="flex flex-col gap-3">
-                {recentSessions.slice(0, 5).map((s) => {
+              <div 
+                ref={sessionsRef}
+                onScroll={handleSessionsScroll}
+                className="flex flex-col gap-3 overflow-y-auto overflow-x-hidden custom-scrollbar"
+                style={{ maxHeight: "380px" }}
+              >
+                {recentSessions.slice(0, visibleSessions).map((s) => {
                   const pct =
                     s.maxPossibleScore > 0
                       ? (s.totalScore / s.maxPossibleScore) * 100
@@ -566,66 +636,81 @@ export function DashboardPage() {
                   return (
                     <div
                       key={s.id}
+                      onClick={() => window.location.href = `/app/results/${s.id}`}
                       className="
-                          rounded-xl border px-3 py-3
-                          bg-slate-50
+                          rounded-xl border px-4 py-3
+                          bg-white
+                          cursor-pointer
+                          transition-all duration-200
+                          hover:shadow-md hover:border-blue-300
+                          hover:bg-blue-50/30
+                          group
                         "
                       style={{ borderColor: "#e5e7eb" }}
                     >
-                      <div className="mb-1 flex items-center gap-2 text-sm">
-                        <Users size={14} className="text-slate-500" />
-                        <span className="font-semibold text-slate-800">
-                          {s.workerName}
-                        </span>
+                      {/* Header: Name + Company */}
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <Users size={14} className="text-slate-500" />
+                          <span className="font-semibold text-slate-800 text-sm">
+                            {s.workerName}
+                          </span>
+                        </div>
+                        <ArrowRight size={14} className="text-slate-400 group-hover:text-blue-500 transition-colors" />
                       </div>
-                      <div className="flex items-center gap-2 text-[12px] text-slate-600">
-                        <BookOpen size={12} />
-                        <span>{s.themeName}</span>
-                      </div>
-                      <div className="mt-[2px] flex items-center gap-2 text-[12px] text-slate-600">
-                        <Building2 size={12} />
-                        <span>{s.companyName}</span>
+                      
+                      {/* Theme + Company */}
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500 mb-3">
+                        <div className="flex items-center gap-1">
+                          <BookOpen size={12} />
+                          <span className="truncate max-w-[150px]">{s.themeName}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Building2 size={12} />
+                          <span className="truncate max-w-[100px]">{s.companyName}</span>
+                        </div>
                       </div>
 
                       {/* Score-Bar */}
-                      <div className="mt-3">
-                        <div className="mb-1 flex items-center justify-between text-[11px] text-slate-600">
+                      <div>
+                        <div className="flex items-center justify-between text-xs text-slate-600 mb-1">
                           <div className="flex items-center gap-1">
-                            <Award
-                              size={12}
-                              className="text-amber-500"
-                            />
-                            <span>
-                              {s.totalScore} / {s.maxPossibleScore} Punkte
-                            </span>
+                            <Award size={12} className="text-amber-500" />
+                            <span>{s.totalScore} / {s.maxPossibleScore}</span>
                           </div>
-                          <span className="font-semibold text-slate-700">
+                          <span className="font-bold text-slate-700">
                             {pct.toFixed(0)}%
                           </span>
                         </div>
-                        <div className="h-1.5 overflow-hidden rounded-full bg-slate-200">
+                        <div className="h-2 overflow-hidden rounded-full bg-slate-200">
                           <div
-                            className="h-full rounded-full transition-[width] duration-500"
+                            className="h-full rounded-full transition-all duration-300"
                             style={{
                               width: `${Math.min(pct, 100)}%`,
-                              background:
-                                "linear-gradient(90deg,#fbbf24,#f59e0b)",
+                              background: pct >= 70 
+                                ? "linear-gradient(90deg,#22c55e,#16a34a)" 
+                                : pct >= 40 
+                                  ? "linear-gradient(90deg,#fbbf24,#f59e0b)"
+                                  : "linear-gradient(90deg,#ef4444,#dc2626)",
                             }}
                           />
                         </div>
                       </div>
 
                       {s.completedAt && (
-                        <div className="mt-2 flex items-center gap-2 text-[11px] text-slate-400">
-                          <Clock size={11} />
-                          <span>
-                            {formatDistanceToNow(s.completedAt)}
-                          </span>
+                        <div className="mt-2 flex items-center gap-1 text-[10px] text-slate-400">
+                          <Clock size={10} />
+                          <span>{formatDistanceToNow(s.completedAt)}</span>
                         </div>
                       )}
                     </div>
                   );
                 })}
+                {visibleSessions < recentSessions.length && (
+                  <div className="py-2 text-center text-xs text-slate-400">
+                    ↓ Scrollen für mehr
+                  </div>
+                )}
               </div>
             )}
           </div>
