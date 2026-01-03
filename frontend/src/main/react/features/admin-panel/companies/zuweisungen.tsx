@@ -95,8 +95,12 @@ function Badge({ status }: { status?: string | null }) {
 
 export default function Zuweisungen() {
   const { showSuccess, showError } = useToast();
-  const location = useLocation() as { state?: { assignments?: AssignmentApi[] } };
-  const initial = location?.state?.assignments ?? [];
+type AssignmentsLocationState = { assignments?: AssignmentApi[] };
+
+const location = useLocation();
+const navState = location.state as AssignmentsLocationState | null;
+
+const initial = navState?.assignments ?? [];
 
   const [rows, setRows] = useState<AssignmentApi[]>(initial);
   const [loading, setLoading] = useState(!initial.length);
