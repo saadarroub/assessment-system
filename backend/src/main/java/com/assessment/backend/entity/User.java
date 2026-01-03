@@ -55,6 +55,10 @@ public class User {
     @Column(name = "profile_image_path")
     private String profileImagePath = "default-avatar.jpg";
 
+    // Status Field
+    @Column(length = 20, nullable = false)
+    private String status = "active";
+
     // Constructors
     public User() {
     }
@@ -168,6 +172,14 @@ public class User {
 
     public void setProfileImagePath(String profileImagePath) {
         this.profileImagePath = profileImagePath;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
     }
 }
 
