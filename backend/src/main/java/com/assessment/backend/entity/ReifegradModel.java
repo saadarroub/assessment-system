@@ -1,17 +1,25 @@
 package com.assessment.backend.entity;
 
+import com.assessment.backend.util.JsonbType;
 import jakarta.persistence.*;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.Type;
+import org.hibernate.annotations.UpdateTimestamp;
+
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.UUID;
 
+/**
+ * Reifegradmodell-Entity.
+ * Die Intervalle werden als JSONB-Array gespeichert (flexibel, beliebig viele Intervalle).
+ * Format: [{"name":"Initial","start":0,"end":30},{"name":"Optimiert","start":31,"end":100}]
+ */
 @Entity
 @Table(name = "reifegrad_models")
 public class ReifegradModel {
 
     @Id
-    @GeneratedValue
+    @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
     @Column(nullable = false)
@@ -20,60 +28,61 @@ public class ReifegradModel {
     @Column(length = 2000)
     private String description;
 
-    @OneToMany(
-            mappedBy = "model",
-            cascade = CascadeType.ALL,
-            orphanRemoval = true
-    )
-    @OrderBy("sortOrder ASC")
-    private List<ReifegradInterval> intervals = new ArrayList<>();
+    /**
+     * Intervalle als JSONB-Array.
+     * Jedes Intervall hat: name (String), start (int), end (int).
+     */
+    @Type(JsonbType.class)
+    @Column(name = "intervals_json", columnDefinition = "jsonb")
+    private String intervalsJson;
 
-    @Column(nullable = false)
-    private LocalDateTime createdAt = LocalDateTime.now();
+    @CreationTimestamp
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt;
 
-    @Column(nullable = false)
-    private LocalDateTime updatedAt = LocalDateTime.now();
+    @UpdateTimestamp
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
 
     public ReifegradModel() {}
 
-    public UUID getId() { return id; }
+    public UUID getId() {
+        return id;
+    }
 
-    public void setId(UUID id) { this.id = id; }
+    public void setId(UUID id) {
+        this.id = id;
+    }
 
-    public String getName() { return name; }
+    public String getName() {
+        return name;
+    }
 
     public void setName(String name) {
         this.name = name;
-        this.updatedAt = LocalDateTime.now();
     }
 
-    public String getDescription() { return description; }
+    public String getDescription() {
+        return description;
+    }
 
     public void setDescription(String description) {
         this.description = description;
-        this.updatedAt = LocalDateTime.now();
     }
 
-    public List<ReifegradInterval> getIntervals() { return intervals; }
-
-    public void setIntervals(List<ReifegradInterval> intervals) {
-        this.intervals = intervals;
-        this.updatedAt = LocalDateTime.now();
+    public String getIntervalsJson() {
+        return intervalsJson;
     }
 
-    public LocalDateTime getCreatedAt() { return createdAt; }
-
-    public LocalDateTime getUpdatedAt() { return updatedAt; }
-
-    public void addInterval(ReifegradInterval interval) {
-        intervals.add(interval);
-        interval.setModel(this);
-        this.updatedAt = LocalDateTime.now();
+    public void setIntervalsJson(String intervalsJson) {
+        this.intervalsJson = intervalsJson;
     }
 
-    public void removeInterval(ReifegradInterval interval) {
-        intervals.remove(interval);
-        interval.setModel(null);
-        this.updatedAt = LocalDateTime.now();
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
     }
 }

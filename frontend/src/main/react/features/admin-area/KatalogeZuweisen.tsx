@@ -10,6 +10,7 @@ import {
   Users,
   User,
   Layers,
+  ChevronDown,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -28,7 +29,11 @@ import {
 import {
   getCatalogs,
   createCatalog,
+  createCatalogWithModel,
+  getCatalogsWithModels,
+  setCatalogReifegradModel,
   type CatalogApi,
+  type CatalogWithModelApi,
   updateCatalog,
   deleteCatalog,
 } from "../service/catalogService";
@@ -36,6 +41,7 @@ import { assignWorkerCatalogBulk } from "../service/assignmentService";
 import { Network } from "lucide-react";
 import PageHeader from "@/features/admin-area/catalogs/PageHeader";
 import ConfirmModal from "@/shared/components/ConfirmModal";
+import { getAllReifegradModels, type ReifegradModel } from "@/api/reifegradModelApi";
 
 /* ----------------------------- Types & Models ----------------------------- */
 
@@ -56,6 +62,8 @@ export type KatalogItem = {
   icon?: LucideIcon;
   color?: string;
   topicCount?: number;
+  reifegradModelId?: string | null;
+  reifegradModelName?: string | null;
 };
 
 export type AssignPayload = {
@@ -127,6 +135,11 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
   const [formTitle, setFormTitle] = useState("");
   const [formDesc, setFormDesc] = useState("");
 
+  // Reifegradmodelle für Katalog-Erstellung
+  const [reifegradModels, setReifegradModels] = useState<ReifegradModel[]>([]);
+  const [selectedReifegradModelId, setSelectedReifegradModelId] = useState<string | null>(null);
+  const [loadingReifegradModels, setLoadingReifegradModels] = useState(false);
+
   const DEFAULT_ICON: LucideIcon = Building2;
   const DEFAULT_COLOR = "#094c79ff";
 
@@ -157,15 +170,17 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
     try {
       setLoadingCatalogs(true);
       setCatalogError(null);
-      const res = await getCatalogs();
+      const res = await getCatalogsWithModels();
       const apiList = Array.isArray(res) ? res : [];
 
-      const ui: KatalogItem[] = apiList.map((c: CatalogApi) => ({
+      const ui: KatalogItem[] = apiList.map((c: CatalogWithModelApi) => ({
         id: c.id,
         name: c.title,
         subtitle: c.description ?? undefined,
         icon: DEFAULT_ICON,
         color: DEFAULT_COLOR,
+        reifegradModelId: c.reifegradModelId ?? null,
+        reifegradModelName: c.reifegradModelName ?? null,
       }));
       // setCatalogs(ui.reverse());
       // Counts parallel laden (Promise.all)
@@ -206,6 +221,23 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
 
   useEffect(() => {
     void loadCatalogs();
+  }, []);
+
+  /* ---------- Reifegradmodelle laden ---------- */
+  async function loadReifegradModels() {
+    try {
+      setLoadingReifegradModels(true);
+      const models = await getAllReifegradModels();
+      setReifegradModels(models);
+    } catch (e) {
+      console.error("Fehler beim Laden der Reifegradmodelle:", e);
+    } finally {
+      setLoadingReifegradModels(false);
+    }
+  }
+
+  useEffect(() => {
+    void loadReifegradModels();
   }, []);
 
   /* ---------- Firmen laden ---------- */
@@ -505,6 +537,7 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
     setDialogCatalog(null); // kein bestehender Katalog
     setFormTitle(""); // leeres Formular
     setFormDesc("");
+    setSelectedReifegradModelId(null); // Reifegradmodell zurücksetzen
     setDialogOpen(true);
   }
 
@@ -513,6 +546,7 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
     setDialogCatalog(k);
     setFormTitle(k.name ?? "");
     setFormDesc(k.subtitle ?? "");
+    setSelectedReifegradModelId(k.reifegradModelId ?? null);
     setDialogOpen(true);
   }
   function openDeleteDialog(k: KatalogItem) {
@@ -534,6 +568,12 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
         title: formTitle.trim() || dialogCatalog.name,
         description: formDesc.trim() ? formDesc.trim() : null,
       });
+
+      // Update Reifegradmodell if it changed
+      const currentModelId = dialogCatalog.reifegradModelId ?? null;
+      if (selectedReifegradModelId !== currentModelId) {
+        await setCatalogReifegradModel(dialogCatalog.id, selectedReifegradModelId);
+      }
 
       await loadCatalogs();
       closeDialog();
@@ -562,9 +602,11 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
       // IDs VOR dem Anlegen merken
       const before = new Set(catalogs.map((c) => c.id));
 
-      await createCatalog({
+      // Neuer Aufruf mit optionalem Reifegradmodell
+      await createCatalogWithModel({
         title: formTitle.trim(),
         description: formDesc.trim() ? formDesc.trim() : undefined,
+        reifegradModelId: selectedReifegradModelId || undefined,
       });
 
       // Neu laden und NEUE IDs ermitteln
@@ -1687,6 +1729,56 @@ hover:bg-[#fff6db] transition-colors"
                           onChange={(e) => setFormDesc(e.target.value)}
                           placeholder="Optional…"
                         />
+                      </div>
+
+                      {/* Reifegradmodell */}
+                      <div>
+                        <label
+                          htmlFor="catalog-reifegrad"
+                          className="block text-sm font-medium text-slate-700 mb-1"
+                        >
+                          Reifegradmodell
+                        </label>
+                        <div className="relative">
+                          <select
+                            id="catalog-reifegrad"
+                            className={`
+                              w-full rounded-xl border px-3 py-2.5 text-sm
+                              bg-slate-50 border-slate-200
+                              outline-none appearance-none
+                              focus:bg-white
+                              focus:border-[#E3BB62]
+                              focus:ring-2 focus:ring-[rgba(227,187,98,0.45)]
+                              transition
+                              pr-10
+                            `}
+                            value={selectedReifegradModelId || ""}
+                            onChange={(e) =>
+                              setSelectedReifegradModelId(e.target.value || null)
+                            }
+                          >
+                            <option value="">Kein Modell auswählen</option>
+                            {loadingReifegradModels ? (
+                              <option disabled>Lade Modelle…</option>
+                            ) : (
+                              reifegradModels.map((model) => (
+                                <option key={model.id} value={model.id}>
+                                  {model.name}
+                                  {model.intervals?.length
+                                    ? ` (${model.intervals.length} Intervalle)`
+                                    : ""}
+                                </option>
+                              ))
+                            )}
+                          </select>
+                          <ChevronDown
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+                            size={16}
+                          />
+                        </div>
+                        <p className="mt-1 text-xs text-slate-500">
+                          Optional: Weisen Sie diesem Katalog ein Reifegradmodell zu.
+                        </p>
                       </div>
                     </form>
                   </div>

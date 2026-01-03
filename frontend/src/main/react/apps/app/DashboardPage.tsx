@@ -6,6 +6,7 @@ import {
   getRecentSessions,
   getStatusDistribution,
   getTopCompanies,
+  getCompletedWithMaturity,
 } from "@/features/service/dashboardService";
 import type {
   DashboardStats,
@@ -13,6 +14,7 @@ import type {
   SessionSummary,
   StatusDistribution,
   CompanyActivity,
+  CompletedCatalogMaturity,
 } from "@/features/service/dashboardService";
 import { StatusDistributionChart } from "@/shared/components/StatusDistributionChart";
 import { TopCompaniesChart } from "@/shared/components/TopCompaniesChart";
@@ -152,6 +154,7 @@ export function DashboardPage() {
     AssignmentSummary[]
   >([]);
   const [recentSessions, setRecentSessions] = useState<SessionSummary[]>([]);
+  const [completedWithMaturity, setCompletedWithMaturity] = useState<CompletedCatalogMaturity[]>([]);
   const [statusDistribution, setStatusDistribution] =
     useState<StatusDistribution | null>(null);
   const [topCompanies, setTopCompanies] =
@@ -162,8 +165,10 @@ export function DashboardPage() {
   // Lazy loading states - show 4 initially, load more on scroll
   const [visibleAssignments, setVisibleAssignments] = useState(4);
   const [visibleSessions, setVisibleSessions] = useState(4);
+  const [visibleMaturity, setVisibleMaturity] = useState(4);
   const assignmentsRef = useRef<HTMLDivElement>(null);
   const sessionsRef = useRef<HTMLDivElement>(null);
+  const maturityRef = useRef<HTMLDivElement>(null);
 
   // Scroll handler for lazy loading
   const handleAssignmentsScroll = useCallback(() => {
@@ -185,6 +190,15 @@ export function DashboardPage() {
     }
   }, [recentSessions.length]);
 
+  const handleMaturityScroll = useCallback(() => {
+    const el = maturityRef.current;
+    if (!el) return;
+    const { scrollTop, scrollHeight, clientHeight } = el;
+    if (scrollTop + clientHeight >= scrollHeight - 50) {
+      setVisibleMaturity(prev => Math.min(prev + 3, completedWithMaturity.length));
+    }
+  }, [completedWithMaturity.length]);
+
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
@@ -197,12 +211,14 @@ export function DashboardPage() {
           sessionsData,
           distributionData,
           companiesData,
+          maturityData,
         ] = await Promise.all([
           getDashboardStats(),
           getRecentAssignments(10),
           getRecentSessions(10),
           getStatusDistribution(),
           getTopCompanies(5),
+          getCompletedWithMaturity(10),
         ]);
 
         setStats(statsData);
@@ -210,6 +226,7 @@ export function DashboardPage() {
         setRecentSessions(sessionsData);
         setStatusDistribution(distributionData);
         setTopCompanies(companiesData);
+        setCompletedWithMaturity(maturityData);
       } catch (err: any) {
         console.error("❌ Dashboard error:", err);
         setError(`Fehler: ${err?.message || "Unbekannt"}`);
@@ -454,7 +471,7 @@ export function DashboardPage() {
         <SessionAnalyticsSection />
 
         {/* ===== Recent Activity ===== */}
-        <section className="grid gap-5" style={{ gridTemplateColumns: "1fr 3fr" }}>
+        <section className="grid gap-5 grid-cols-3">
           {/* Letzte Zuweisungen - 25% */}
           <div
             className="
@@ -707,6 +724,201 @@ export function DashboardPage() {
                   );
                 })}
                 {visibleSessions < recentSessions.length && (
+                  <div className="py-2 text-center text-xs text-slate-400">
+                    ↓ Scrollen für mehr
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Reifegrad-Analyse - 33% */}
+          <div
+            className="
+                rounded-2xl border
+                p-5
+                shadow-[0_10px_26px_rgba(0,0,0,0.06)]
+                bg-white
+                overflow-hidden
+              "
+            style={{ borderColor: CSS.border }}
+          >
+            <h3
+              className="mb-1 text-lg font-semibold"
+              style={{ color: BRAND.navy }}
+            >
+              Reifegrad-Analyse
+            </h3>
+            <p
+              className="mb-4 text-sm"
+              style={{ color: CSS.mutedFg }}
+            >
+              Abgeschlossene Kataloge mit Reifegradmodell-Bewertung.
+            </p>
+
+            {loading ? (
+              <div className="space-y-3">
+                {[1, 2, 3].map((i) => (
+                  <div
+                    key={i}
+                    className="h-32 rounded-xl bg-slate-100 animate-pulse"
+                  />
+                ))}
+              </div>
+            ) : completedWithMaturity.length === 0 ? (
+              <div className="py-8 text-center text-sm text-slate-400">
+                Keine Daten vorhanden.
+              </div>
+            ) : (
+              <div 
+                ref={maturityRef}
+                onScroll={handleMaturityScroll}
+                className="flex flex-col gap-3 overflow-y-auto overflow-x-hidden custom-scrollbar"
+                style={{ maxHeight: "380px" }}
+              >
+                {completedWithMaturity.slice(0, visibleMaturity).map((item) => (
+                  <div
+                    key={item.assignmentId}
+                    className="
+                        rounded-xl border px-4 py-3
+                        bg-white
+                        transition-all duration-200
+                        hover:shadow-md hover:border-amber-300
+                        hover:bg-amber-50/30
+                      "
+                    style={{ borderColor: "#e5e7eb" }}
+                  >
+                    {/* Header: Worker + Aktuelles Intervall Badge */}
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <Users size={14} className="text-slate-500" />
+                        <span className="font-semibold text-slate-800 text-sm truncate max-w-[120px]">
+                          {item.workerName}
+                        </span>
+                      </div>
+                      {item.currentIntervalName && (
+                        <span
+                          className="rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                          style={{
+                            background: item.currentIntervalColor || "#E3BB62",
+                            color: "#fff",
+                            textShadow: "0 1px 2px rgba(0,0,0,0.2)",
+                          }}
+                        >
+                          {item.currentIntervalName}
+                        </span>
+                      )}
+                    </div>
+                    
+                    {/* Catalog + Company */}
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500 mb-2">
+                      <div className="flex items-center gap-1">
+                        <Folder size={12} />
+                        <span className="truncate max-w-[100px]">{item.catalogTitle}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Building2 size={12} />
+                        <span className="truncate max-w-[80px]">{item.companyName}</span>
+                      </div>
+                    </div>
+
+                    {/* Score Info */}
+                    <div className="flex items-center justify-between text-xs text-slate-600 mb-2">
+                      <div className="flex items-center gap-1">
+                        <Award size={12} className="text-amber-500" />
+                        <span>{item.avgScore} / {item.totalMaxScore}</span>
+                        {item.sessionCount > 0 && (
+                          <span className="text-slate-400 ml-1">({item.sessionCount} Sessions)</span>
+                        )}
+                      </div>
+                      <span className="font-bold text-slate-700">
+                        {item.percentage?.toFixed(0) || 0}%
+                      </span>
+                    </div>
+
+                    {/* Maturity Progress Bar - nur wenn Modell vorhanden */}
+                    {item.intervals && item.intervals.length > 0 ? (
+                      <div className="mb-2">
+                        {/* Dicke Progress Bar mit Intervall-Segmenten */}
+                        <div className="relative h-5 rounded-full bg-slate-100 overflow-hidden">
+                          {/* Intervall-Segmente als Hintergrund */}
+                          <div className="absolute inset-0 flex">
+                            {item.intervals.map((interval, idx) => {
+                              const width = interval.end - interval.start;
+                              const isCurrentInterval = idx === item.currentIntervalIndex;
+                              // Farbe aus dem Modell verwenden, Fallback auf Index-basierte Farben
+                              const fallbackColors = ["#ef4444", "#fbbf24", "#22c55e", "#3b82f6", "#a855f7"];
+                              const intervalColor = interval.color || fallbackColors[idx % fallbackColors.length];
+                              
+                              // Hex zu RGB konvertieren für Opacity
+                              const hexToRgba = (hex: string, alpha: number) => {
+                                const r = parseInt(hex.slice(1, 3), 16);
+                                const g = parseInt(hex.slice(3, 5), 16);
+                                const b = parseInt(hex.slice(5, 7), 16);
+                                return `rgba(${r},${g},${b},${alpha})`;
+                              };
+                              
+                              return (
+                                <div 
+                                  key={idx}
+                                  className="h-full border-r border-white/60 last:border-r-0 flex items-center justify-center"
+                                  style={{ 
+                                    width: `${width}%`,
+                                    background: isCurrentInterval 
+                                      ? hexToRgba(intervalColor, 0.85) 
+                                      : hexToRgba(intervalColor, 0.2)
+                                  }}
+                                >
+                                  {/* Intervall-Name im Segment */}
+                                  <span 
+                                    className="text-[8px] font-medium truncate px-1"
+                                    style={{ 
+                                      color: isCurrentInterval ? "#fff" : "#64748b",
+                                      textShadow: isCurrentInterval ? "0 1px 2px rgba(0,0,0,0.2)" : "none"
+                                    }}
+                                  >
+                                    {interval.name}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Prozent-Skala */}
+                        <div className="flex justify-between text-[8px] text-slate-400 mt-0.5">
+                          <span>0%</span>
+                          <span>50%</span>
+                          <span>100%</span>
+                        </div>
+                      </div>
+                    ) : (
+                      /* Kein Progress Bar ohne Modell - nur Text */
+                      <div className="mb-2">
+                        <p className="text-[10px] text-slate-400 italic">
+                          Kein Reifegradmodell zugewiesen
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Model Name + Time */}
+                    <div className="flex items-center justify-between mt-1">
+                      {item.reifegradModelName && (
+                        <div className="flex items-center gap-1 text-[10px] text-amber-600">
+                          <BarChart2 size={10} />
+                          <span className="truncate max-w-[100px]">{item.reifegradModelName}</span>
+                        </div>
+                      )}
+                      {item.completedAt && (
+                        <div className="flex items-center gap-1 text-[10px] text-slate-400 ml-auto">
+                          <Clock size={10} />
+                          <span>{formatDistanceToNow(item.completedAt)}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {visibleMaturity < completedWithMaturity.length && (
                   <div className="py-2 text-center text-xs text-slate-400">
                     ↓ Scrollen für mehr
                   </div>

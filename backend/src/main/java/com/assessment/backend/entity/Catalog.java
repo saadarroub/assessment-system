@@ -25,6 +25,15 @@ public class Catalog {
     @Column(length = 20, nullable = false)
     private String status = "active";
 
+    /**
+     * Optionales Reifegradmodell für diesen Katalog.
+     * Ein Modell kann von mehreren Katalogen genutzt werden,
+     * aber jeder Katalog hat maximal ein Modell (oder keines).
+     */
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "reifegrad_model_id")
+    private ReifegradModel reifegradModel;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -89,6 +98,14 @@ public class Catalog {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public ReifegradModel getReifegradModel() {
+        return reifegradModel;
+    }
+
+    public void setReifegradModel(ReifegradModel reifegradModel) {
+        this.reifegradModel = reifegradModel;
     }
 
 }

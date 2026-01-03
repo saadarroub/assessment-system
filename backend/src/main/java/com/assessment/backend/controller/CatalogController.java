@@ -1,8 +1,11 @@
 package com.assessment.backend.controller;
 
+import com.assessment.backend.dto.CatalogResponseDTO;
+import com.assessment.backend.dto.CreateCatalogDTO;
 import com.assessment.backend.entity.Catalog;
 import com.assessment.backend.entity.Thema;
 import com.assessment.backend.service.CatalogService;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
 
@@ -22,7 +25,7 @@ public class CatalogController {
     @Autowired
     private CatalogService catalogService;
 
-    // Create - POST /api/catalogs
+    // Create - POST /api/catalogs (Legacy)
     @PostMapping
     @PreAuthorize("hasAuthority('catalogs.create')")
     public ResponseEntity<Catalog> createCatalog(@RequestBody Catalog catalog) {
@@ -34,11 +37,61 @@ public class CatalogController {
         }
     }
 
+    /**
+     * Neuer Katalog mit optionalem Reifegradmodell erstellen (DTO-basiert)
+     */
+    @PostMapping("/with-model")
+    @PreAuthorize("hasAuthority('catalogs.create')")
+    public ResponseEntity<CatalogResponseDTO> createCatalogWithModel(@Valid @RequestBody CreateCatalogDTO dto) {
+        try {
+            CatalogResponseDTO created = catalogService.createCatalogWithModel(dto);
+            return new ResponseEntity<>(created, HttpStatus.CREATED);
+        } catch (RuntimeException e) {
+            return new ResponseEntity<>(null, HttpStatus.BAD_REQUEST);
+        } catch (Exception e) {
+            return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Reifegradmodell für einen Katalog setzen oder entfernen
+     */
+    @PatchMapping("/{id}/reifegrad-model")
+    @PreAuthorize("hasAuthority('catalogs.edit')")
+    public ResponseEntity<CatalogResponseDTO> setReifegradModel(
+            @PathVariable("id") UUID id,
+            @RequestParam(required = false) UUID reifegradModelId) {
+        try {
+            CatalogResponseDTO updated = catalogService.setReifegradModel(id, reifegradModelId);
+            return new ResponseEntity<>(updated, HttpStatus.OK);
+        } catch (RuntimeException e) {
+            return new ResponseEntity<>(null, HttpStatus.NOT_FOUND);
+        } catch (Exception e) {
+            return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
     // Read All - GET /api/catalogs
     @GetMapping
     public ResponseEntity<List<Catalog>> getAllCatalogs() {
         try {
             List<Catalog> catalogs = catalogService.getAllCatalogs();
+            if (catalogs.isEmpty()) {
+                return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+            }
+            return new ResponseEntity<>(catalogs, HttpStatus.OK);
+        } catch (Exception e) {
+            return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Alle Kataloge als DTOs mit Reifegradmodell-Info
+     */
+    @GetMapping("/with-models")
+    public ResponseEntity<List<CatalogResponseDTO>> getAllCatalogsWithModels() {
+        try {
+            List<CatalogResponseDTO> catalogs = catalogService.getAllCatalogsAsDTO();
             if (catalogs.isEmpty()) {
                 return new ResponseEntity<>(HttpStatus.NO_CONTENT);
             }

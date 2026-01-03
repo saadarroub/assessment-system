@@ -46,6 +46,32 @@ export type CompanyActivity = {
   count: number;
 };
 
+// Neue Typen für Reifegradmodell-Anzeige
+export type MaturityInterval = {
+  name: string;
+  start: number;
+  end: number;
+  color: string | null; // Hex-Farbe aus dem Modell
+};
+
+export type CompletedCatalogMaturity = {
+  assignmentId: string;
+  workerName: string;
+  companyName: string;
+  catalogTitle: string;
+  avgScore: number;
+  totalMaxScore: number;
+  percentage: number;
+  completedAt: string | null;
+  sessionCount: number;
+  reifegradModelId: string | null;
+  reifegradModelName: string | null;
+  intervals: MaturityInterval[] | null;
+  currentIntervalName: string | null;
+  currentIntervalIndex: number | null;
+  currentIntervalColor: string | null; // Farbe des aktuellen Intervalls
+};
+
 export async function getDashboardStats(): Promise<DashboardStats> {
   const { data } = await apiClient.get<DashboardStats>("/dashboard/stats/overview");
   return data;
@@ -74,5 +100,12 @@ export async function getRecentSessions(limit: number = 10): Promise<SessionSumm
 
 export async function getStatusDistribution(): Promise<StatusDistribution> {
   const { data } = await apiClient.get<StatusDistribution>("/dashboard/stats/status-distribution");
+  return data;
+}
+
+export async function getCompletedWithMaturity(limit: number = 10): Promise<CompletedCatalogMaturity[]> {
+  const { data } = await apiClient.get<CompletedCatalogMaturity[]>(
+    `/dashboard/stats/completed-with-maturity?limit=${limit}`
+  );
   return data;
 }
