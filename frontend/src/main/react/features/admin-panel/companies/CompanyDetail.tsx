@@ -16,6 +16,8 @@ import {
   type AssignmentApi,
   type CompanyApi,
   changeCompanyStatus,
+  changeWorkerStatus,
+  getWorkerAssignmentCount,
 } from "@/features/service/companyService";
 import {
   Pencil,
@@ -144,6 +146,15 @@ export default function CompanyDetails() {
   const [pendingStatus, setPendingStatus] = useState<"active" | "inactive" | null>(null);
   const [changingStatus, setChangingStatus] = useState(false);
   const [statusError, setStatusError] = useState<string | null>(null);
+
+  // Worker Status Toggle
+  const [confirmWorkerStatusOpen, setConfirmWorkerStatusOpen] = useState(false);
+  const [targetWorker, setTargetWorker] = useState<WorkerApi | null>(null);
+  const [pendingWorkerStatus, setPendingWorkerStatus] = useState<"active" | "inactive" | null>(null);
+  const [changingWorkerStatus, setChangingWorkerStatus] = useState(false);
+  const [workerStatusError, setWorkerStatusError] = useState<string | null>(null);
+  const [workerAssignmentCount, setWorkerAssignmentCount] = useState<number>(0);
+
 function onStatusClick() {
   if (!company) return;
   if (!canChangeCompany || changingStatus) return; // <-- neu
@@ -167,6 +178,8 @@ function onStatusClick() {
       return "bg-[rgb(254,243,199)] text-[rgb(146,64,14)]";
     if (s === "expired")
       return "bg-[rgb(254,226,226)] text-[rgb(153,27,27)]";
+    if (s === "blocked")
+      return "bg-[rgb(226,232,240)] text-[rgb(71,85,105)]"; // slate colors
     return "bg-[rgb(229,231,235)] text-[rgb(55,65,81)]"; // assigned
   };
 
@@ -248,7 +261,7 @@ function StatusToggle({
   onToggle: () => void;
 }) {
   const isActive = value === "active";
-  const anyModalOpen = openInvite || !!editing || !!toDelete || confirmStatusOpen;
+  const anyModalOpen = openInvite || !!editing || !!toDelete || confirmStatusOpen || confirmWorkerStatusOpen;
 useScrollLock(anyModalOpen);
 
 
@@ -476,6 +489,62 @@ useScrollLock(anyModalOpen);
       setDeleteError(err?.message ?? String(err));
     } finally {
       setDeleting(false);
+    }
+  }
+
+  /* ---------- Worker Status Toggle ---------- */
+  async function onWorkerStatusClick(worker: WorkerApi) {
+    if (!worker || changingWorkerStatus) return;
+    
+    const nextStatus: "active" | "inactive" = 
+      (worker.status === "active" || !worker.status) ? "inactive" : "active";
+    
+    setTargetWorker(worker);
+    setPendingWorkerStatus(nextStatus);
+    setWorkerStatusError(null);
+    
+    // Fetch assignment count
+    try {
+      const count = await getWorkerAssignmentCount(worker.id);
+      setWorkerAssignmentCount(count);
+    } catch (err) {
+      setWorkerAssignmentCount(0);
+    }
+    
+    setConfirmWorkerStatusOpen(true);
+  }
+
+  async function confirmWorkerStatusChange() {
+    if (!targetWorker) return;
+    
+    setChangingWorkerStatus(true);
+    setWorkerStatusError(null);
+    
+    try {
+      const updated = await changeWorkerStatus(targetWorker.id);
+      
+      // Update workers list
+      setWorkers((prev) => 
+        prev.map((w) => w.id === updated.id ? updated : w)
+      );
+      
+      setConfirmWorkerStatusOpen(false);
+      setTargetWorker(null);
+      setPendingWorkerStatus(null);
+    } catch (err: any) {
+      setWorkerStatusError(err?.message ?? String(err));
+    } finally {
+      setChangingWorkerStatus(false);
+    }
+  }
+
+  function cancelWorkerStatusChange() {
+    if (!changingWorkerStatus) {
+      setConfirmWorkerStatusOpen(false);
+      setTargetWorker(null);
+      setPendingWorkerStatus(null);
+      setWorkerStatusError(null);
+      setWorkerAssignmentCount(0);
     }
   }
 
@@ -926,6 +995,9 @@ useScrollLock(anyModalOpen);
                                   Workspace
                                 </th>
                                 <th className="px-4 py-3 text-[0.85rem] font-semibold text-left">
+                                  Status
+                                </th>
+                                <th className="px-4 py-3 text-[0.85rem] font-semibold text-left">
                                   Created
                                 </th>
                                 <th className="px-4 py-3 text-[0.85rem] font-semibold text-left">
@@ -972,6 +1044,18 @@ useScrollLock(anyModalOpen);
                                     }}
                                   >
                                     {w.workSpaceRef || "—"}
+                                  </td>
+                                  <td
+                                    className="px-4 py-4 text-sm"
+                                    style={{
+                                      borderBottom: `1px solid ${CSS.border}`,
+                                    }}
+                                  >
+                                    <StatusToggle
+                                      value={(w.status as "active" | "inactive") || "active"}
+                                      onToggle={() => onWorkerStatusClick(w)}
+                                      disabled={changingWorkerStatus}
+                                    />
                                   </td>
                                   <td
                                     className="px-4 py-4 text-sm"
@@ -1768,6 +1852,41 @@ useScrollLock(anyModalOpen);
             setChangingStatus(false);
           }
         }}
+      />
+
+      <ConfirmModal
+        open={confirmWorkerStatusOpen}
+        title={
+          pendingWorkerStatus === "inactive" 
+            ? "Worker deaktivieren?" 
+            : "Worker aktivieren?"
+        }
+        description={
+          pendingWorkerStatus === "inactive"
+            ? `Bist du sicher, dass du "${targetWorker?.name}" deaktivieren willst?`
+            : `Bist du sicher, dass du "${targetWorker?.name}" aktivieren willst?`
+        }
+        hintTitle="Hinweis"
+        hintText={
+          pendingWorkerStatus === "inactive"
+            ? workerAssignmentCount > 0
+              ? `${workerAssignmentCount} aktive Zuweisungen werden blockiert. Der Worker kann nicht mehr auf Kataloge und Assessments zugreifen.`
+              : "Der Worker kann nicht mehr auf Kataloge und Assessments zugreifen und kann nicht mehr zu neuen Katalogen eingeladen werden."
+            : workerAssignmentCount > 0
+              ? `${workerAssignmentCount} blockierte Zuweisungen werden wiederhergestellt.`
+              : "Der Worker kann wieder zu Katalogen eingeladen werden."
+        }
+        cancelLabel="Abbrechen"
+        confirmLabel={
+          changingWorkerStatus
+            ? "Ändere…"
+            : pendingWorkerStatus === "inactive"
+              ? "Ja, deaktivieren"
+              : "Ja, aktivieren"
+        }
+        onCancel={cancelWorkerStatusChange}
+        onConfirm={confirmWorkerStatusChange}
+        error={workerStatusError}
       />
 
 

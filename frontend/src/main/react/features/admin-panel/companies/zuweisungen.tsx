@@ -81,7 +81,9 @@ function Badge({ status }: { status?: string | null }) {
       ? "bg-[rgb(220,252,231)] text-[rgb(22,101,52)]"
       : s === "expired"
         ? "bg-[rgb(254,226,226)] text-[rgb(153,27,27)]"
-        : "bg-[rgb(219,234,254)] text-[rgb(30,64,175)]";
+        : s === "blocked"
+          ? "bg-[rgb(226,232,240)] text-[rgb(71,85,105)]"
+          : "bg-[rgb(219,234,254)] text-[rgb(30,64,175)]";
   return (
     <span
       className={`inline-flex items-center rounded-full px-2.5 py-1 text-[12px] font-semibold ${cls}`}
@@ -679,7 +681,7 @@ export default function Zuweisungen() {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [location.pathname]); // Reload when navigating to this page
 
   useEffect(() => {
     if (loading) return;

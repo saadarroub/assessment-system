@@ -11,16 +11,25 @@ import {
   User,
   Layers,
   ChevronDown,
+  AlertTriangle,
+  ChevronRight,
+  Save,
+  X,
+  RotateCcw,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
+import { useToast } from "@/shared/contexts/ToastContext";
 
 import {
   getTopicCountForCatalog,
   fetchThemenByCatalog,
+  removeThemaFromCatalog,
+  createThemaCatalog,
   type ThemaDto,
 } from "../service/themaCatalogService";
+import { getAllThemas } from "@/api/questionApi";
 import {
   getActiveCompanies,
   getWorkersByCompany,
@@ -37,7 +46,7 @@ import {
   updateCatalog,
   deleteCatalog,
 } from "../service/catalogService";
-import { assignWorkerCatalogBulk } from "../service/assignmentService";
+import { assignWorkerCatalogBulk, listAssignments, deleteAssignment } from "../service/assignmentService";
 import { Network } from "lucide-react";
 import PageHeader from "@/features/admin-area/catalogs/PageHeader";
 import ConfirmModal from "@/shared/components/ConfirmModal";
@@ -82,6 +91,9 @@ export type KatalogeZuweisenProps = {
 /* --------------------------------- UI ------------------------------------ */
 
 export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
+  const navigate = useNavigate();
+  const { showSuccess, showError, showWarning } = useToast();
+  
   // Kataloge
   const [catalogs, setCatalogs] = useState<KatalogItem[]>([]);
   const [loadingCatalogs, setLoadingCatalogs] = useState(false);
@@ -92,6 +104,7 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
   const [recipients, setRecipients] = useState<Recipient[]>([]);
   const [loadingRecipients, setLoadingRecipients] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [inactiveWorkerCount, setInactiveWorkerCount] = useState(0);
 
   // Form
   const [companyId, setCompanyId] = useState("");
@@ -123,9 +136,6 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
   const [highlightIds, setHighlightIds] = useState<Set<string>>(new Set());
   // „Neu“-Badge (z. B. 60 s)
   const [badgeIds, setBadgeIds] = useState<Set<string>>(new Set());
-
-  // navigation
-  const navigate = useNavigate();
 
   // Modals
   type DialogMode = "create" | "edit" | "delete";
@@ -159,6 +169,41 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
   const [openCompanies, setOpenCompanies] = useState(false);
   const [companySearch, setCompanySearch] = useState("");
   const topicsRef = useRef<HTMLDivElement | null>(null);
+  
+  // Theme detail view states
+  const [viewMode, setViewMode] = useState<"grid" | "detail">("grid");
+  const [detailCatalogId, setDetailCatalogId] = useState<string | null>(null);
+  const [allThemes, setAllThemes] = useState<ThemaDto[]>([]);
+  const [loadingAllThemes, setLoadingAllThemes] = useState(false);
+  const [assignedThemeIds, setAssignedThemeIds] = useState<Set<string>>(new Set());
+  const [selectedThemeIds, setSelectedThemeIds] = useState<Set<string>>(new Set());
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  
+  // Undo system states
+  type UndoState = {
+    catalogId: string;
+    addedThemes: Array<{ id: string; name: string }>;
+    removedThemes: Array<{ id: string; name: string }>;
+    timestamp: number;
+  };
+  const [undoState, setUndoState] = useState<UndoState | null>(null);
+  const [undoCountdown, setUndoCountdown] = useState(5);
+  const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [showConfirmSave, setShowConfirmSave] = useState(false);
+  const [showConfirmDiscard, setShowConfirmDiscard] = useState(false);
+  const [showConfirmReassign, setShowConfirmReassign] = useState(false);
+  const [duplicateWorkerCount, setDuplicateWorkerCount] = useState(0);
+  
+  // Delete undo states
+  type DeletedCatalogState = {
+    catalog: KatalogItem;
+    themes: ThemaDto[];
+  };
+  const [deletedCatalog, setDeletedCatalog] = useState<DeletedCatalogState | null>(null);
+  const [deleteUndoCountdown, setDeleteUndoCountdown] = useState(5);
+  const deleteUndoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  
   const filteredCompanies = useMemo(() => {
     const q = companySearch.trim().toLowerCase();
     if (!q) return companies;
@@ -222,6 +267,366 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
   useEffect(() => {
     void loadCatalogs();
   }, []);
+  
+  /* ---------- Theme detail view functions ---------- */
+  async function loadAllThemes(): Promise<ThemaDto[]> {
+    try {
+      setLoadingAllThemes(true);
+      const themes = await getAllThemas();
+      setAllThemes(themes);
+      return themes;
+    } catch (e) {
+      console.error("Error loading all themes:", e);
+      showError("Fehler beim Laden der Themen");
+      return [];
+    } finally {
+      setLoadingAllThemes(false);
+    }
+  }
+  
+  async function openThemeDetailView(catalogId: string) {
+    setDetailCatalogId(catalogId);
+    setViewMode("detail");
+    
+    // Load all available themes
+    await loadAllThemes();
+    
+    // Load currently assigned themes for this catalog
+    try {
+      const assigned = await fetchThemenByCatalog(catalogId);
+      const assignedIds = new Set(assigned.map(t => t.id));
+      setAssignedThemeIds(assignedIds);
+      setSelectedThemeIds(new Set(assignedIds));
+      setHasUnsavedChanges(false);
+    } catch (e) {
+      console.error("Error loading assigned themes:", e);
+      showError("Fehler beim Laden der zugewiesenen Themen");
+    }
+  }
+  
+  function closeThemeDetailView(skipConfirmation = false) {
+    if (hasUnsavedChanges && !skipConfirmation) {
+      setShowConfirmDiscard(true);
+      return;
+    }
+    
+    performCloseThemeDetailView();
+  }
+  
+  function performCloseThemeDetailView() {
+    // Cancel any active undo timer
+    if (undoTimerRef.current) {
+      clearTimeout(undoTimerRef.current);
+      undoTimerRef.current = null;
+    }
+    
+    setViewMode("grid");
+    setDetailCatalogId(null);
+    setAllThemes([]);
+    setAssignedThemeIds(new Set());
+    setSelectedThemeIds(new Set());
+    setHasUnsavedChanges(false);
+    setUndoState(null);
+    setUndoCountdown(5);
+    setShowConfirmDiscard(false);
+    sessionStorage.removeItem("catalog_undo_state");
+  }
+  
+  function toggleThemeSelection(themeId: string) {
+    setSelectedThemeIds(prev => {
+      const next = new Set(prev);
+      if (next.has(themeId)) {
+        next.delete(themeId);
+      } else {
+        next.add(themeId);
+      }
+      
+      // Check if there are unsaved changes
+      const hasChanges = !areSetsEqual(next, assignedThemeIds);
+      setHasUnsavedChanges(hasChanges);
+      
+      return next;
+    });
+  }
+  
+  function areSetsEqual(a: Set<string>, b: Set<string>): boolean {
+    if (a.size !== b.size) return false;
+    for (const item of a) {
+      if (!b.has(item)) return false;
+    }
+    return true;
+  }
+  
+  const addedThemes = useMemo(() => {
+    return Array.from(selectedThemeIds)
+      .filter(id => !assignedThemeIds.has(id))
+      .map(id => allThemes.find(t => t.id === id))
+      .filter(Boolean) as ThemaDto[];
+  }, [selectedThemeIds, assignedThemeIds, allThemes]);
+  
+  const removedThemes = useMemo(() => {
+    return Array.from(assignedThemeIds)
+      .filter(id => !selectedThemeIds.has(id))
+      .map(id => allThemes.find(t => t.id === id))
+      .filter(Boolean) as ThemaDto[];
+  }, [selectedThemeIds, assignedThemeIds, allThemes]);
+  
+  /* ---------- Save with retry logic ---------- */
+  async function executeWithRetry<T>(
+    fn: () => Promise<T>,
+    maxRetries = 3,
+    delay = 1000
+  ): Promise<T> {
+    let lastError: any;
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        return await fn();
+      } catch (error) {
+        lastError = error;
+        if (attempt < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, delay * attempt));
+        }
+      }
+    }
+    
+    throw lastError;
+  }
+  
+  async function saveThemeChanges() {
+    if (!detailCatalogId || !hasUnsavedChanges) return;
+    
+    setShowConfirmSave(false);
+    setIsSaving(true);
+    
+    const catalogId = detailCatalogId;
+    const themesToAdd = addedThemes.map(t => ({ id: t.id, name: t.name }));
+    const themesToRemove = removedThemes.map(t => ({ id: t.id, name: t.name }));
+    
+    try {
+      // Execute all API calls with retry logic
+      await executeWithRetry(async () => {
+        const promises = [
+          ...themesToAdd.map(t => createThemaCatalog({ 
+            themaId: t.id, 
+            catalogId, 
+            orderIndex: 0 
+          })),
+          ...themesToRemove.map(t => removeThemaFromCatalog(t.id, catalogId))
+        ];
+        await Promise.all(promises);
+      });
+      
+      // Store undo state
+      const undo: UndoState = {
+        catalogId,
+        addedThemes: themesToAdd,
+        removedThemes: themesToRemove,
+        timestamp: Date.now(),
+      };
+      
+      setUndoState(undo);
+      sessionStorage.setItem("catalog_undo_state", JSON.stringify(undo));
+      
+      // Update local state
+      setAssignedThemeIds(new Set(selectedThemeIds));
+      setHasUnsavedChanges(false);
+      
+      // Reload catalogs to update theme counts
+      await loadCatalogs();
+      
+      // Start undo countdown
+      startUndoCountdown();
+      
+    } catch (error) {
+      console.error("Error saving theme changes:", error);
+      showError("Fehler beim Speichern. Bitte erneut versuchen.");
+      // Note: In a future enhancement, we could add a retry button to the error toast
+    } finally {
+      setIsSaving(false);
+    }
+  }
+  
+  /* ---------- Undo countdown system ---------- */
+  function startUndoCountdown() {
+    setUndoCountdown(5);
+    
+    const countdownInterval = setInterval(() => {
+      setUndoCountdown(prev => {
+        if (prev <= 1) {
+          clearInterval(countdownInterval);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    
+    undoTimerRef.current = setTimeout(() => {
+      clearInterval(countdownInterval);
+      finalizeChanges();
+    }, 5000);
+  }
+  
+  async function performUndo() {
+    if (!undoState) return;
+    
+    if (undoTimerRef.current) {
+      clearTimeout(undoTimerRef.current);
+      undoTimerRef.current = null;
+    }
+    
+    const { catalogId, addedThemes, removedThemes } = undoState;
+    
+    try {
+      // Reverse the operations with retry logic
+      await executeWithRetry(async () => {
+        const promises = [
+          ...addedThemes.map(t => removeThemaFromCatalog(t.id, catalogId)),
+          ...removedThemes.map(t => createThemaCatalog({ 
+            themaId: t.id, 
+            catalogId, 
+            orderIndex: 0 
+          }))
+        ];
+        await Promise.all(promises);
+      });
+      
+      // Restore UI state
+      const restoredIds = new Set([
+        ...Array.from(assignedThemeIds).filter(id => 
+          !addedThemes.find(t => t.id === id)
+        ),
+        ...removedThemes.map(t => t.id)
+      ]);
+      
+      setSelectedThemeIds(restoredIds);
+      setAssignedThemeIds(restoredIds);
+      setHasUnsavedChanges(false);
+      setUndoState(null);
+      setUndoCountdown(5);
+      sessionStorage.removeItem("catalog_undo_state");
+      
+      // Reload catalogs to update theme counts
+      await loadCatalogs();
+      
+      showSuccess("Änderungen rückgängig gemacht");
+      
+    } catch (error) {
+      console.error("Error during undo:", error);
+      showError("Fehler beim Rückgängigmachen. Bitte erneut versuchen.");
+      // Note: In a future enhancement, we could add a retry button to the error toast
+    }
+  }
+  
+  async function finalizeChanges() {
+    setUndoState(null);
+    setUndoCountdown(5);
+    sessionStorage.removeItem("catalog_undo_state");
+    
+    // Reload catalogs to update theme counts
+    await loadCatalogs();
+    
+    showSuccess("Änderungen erfolgreich gespeichert");
+    
+    // Navigate back to grid
+    setTimeout(() => {
+      closeThemeDetailView(true);
+    }, 500);
+  }
+  
+  /* ---------- Delete undo system ---------- */
+  function startDeleteUndoCountdown() {
+    setDeleteUndoCountdown(5);
+    
+    const countdownInterval = setInterval(() => {
+      setDeleteUndoCountdown(prev => {
+        if (prev <= 1) {
+          clearInterval(countdownInterval);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    
+    deleteUndoTimerRef.current = setTimeout(() => {
+      clearInterval(countdownInterval);
+      finalizeDelete();
+    }, 5000);
+  }
+  
+  async function performDeleteUndo() {
+    if (!deletedCatalog) return;
+    
+    if (deleteUndoTimerRef.current) {
+      clearTimeout(deleteUndoTimerRef.current);
+      deleteUndoTimerRef.current = null;
+    }
+    
+    try {
+      // Re-create the catalog
+      const response = await createCatalogWithModel({
+        title: deletedCatalog.catalog.name,
+        description: deletedCatalog.catalog.subtitle || undefined,
+        reifegradModelId: deletedCatalog.catalog.reifegradModelId || undefined,
+      });
+      
+      // Reload catalogs to get the new catalog ID
+      const updatedCatalogs = await loadCatalogs();
+      
+      // Find the newly created catalog by name (it should be the most recent one with this name)
+      const restoredCatalog = updatedCatalogs.find(c => c.name === deletedCatalog.catalog.name);
+      
+      if (restoredCatalog && deletedCatalog.themes.length > 0) {
+        // Re-assign all themes to the restored catalog
+        await Promise.all(
+          deletedCatalog.themes.map((theme, index) =>
+            createThemaCatalog({
+              themaId: theme.id,
+              catalogId: restoredCatalog.id,
+              orderIndex: index,
+            })
+          )
+        );
+      }
+      
+      setDeletedCatalog(null);
+      setDeleteUndoCountdown(5);
+      
+      // Reload catalogs again to update theme counts
+      await loadCatalogs();
+      
+      showSuccess("Katalog mit allen Themen wiederhergestellt");
+      
+    } catch (error) {
+      console.error("Error during delete undo:", error);
+      showError("Fehler beim Wiederherstellen des Katalogs");
+    }
+  }
+  
+  function finalizeDelete() {
+    setDeletedCatalog(null);
+    setDeleteUndoCountdown(5);
+    showSuccess("Katalog gelöscht");
+  }
+  
+  /* ---------- Resume undo on mount ---------- */
+  useEffect(() => {
+    const storedUndo = sessionStorage.getItem("catalog_undo_state");
+    if (storedUndo) {
+      try {
+        const parsed: UndoState = JSON.parse(storedUndo);
+        setUndoState(parsed);
+        setUndoCountdown(5);
+        startUndoCountdown();
+      } catch (e) {
+        sessionStorage.removeItem("catalog_undo_state");
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadCatalogs();
+  }, []);
 
   /* ---------- Reifegradmodelle laden ---------- */
   async function loadReifegradModels() {
@@ -270,6 +675,7 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
     setOpenRecipients(false);
     setRecipientSearch("");
     setRecipients([]);
+    setInactiveWorkerCount(0);
     if (!companyId) return;
 
     (async () => {
@@ -277,7 +683,17 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
         setLoadingRecipients(true);
         setErrorMsg(null);
         const workers = await getWorkersByCompany(companyId);
-        setRecipients(adaptWorkersToRecipients(workers));
+        
+        // Filter out inactive workers
+        const activeWorkers = workers.filter((w: WorkerApi) => 
+          !w.status || w.status === "active"
+        );
+        
+        setRecipients(adaptWorkersToRecipients(activeWorkers));
+        
+        // Track count of filtered inactive workers
+        const inactiveCount = workers.length - activeWorkers.length;
+        setInactiveWorkerCount(inactiveCount);
       } catch (e) {
         console.error(e);
         setErrorMsg("Empfänger konnten nicht geladen werden.");
@@ -490,7 +906,7 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
 
     const assignedById = getAssignedByIdFromSession();
     if (!assignedById) {
-      alert("Fehler: Kein Benutzer gefunden. Bitte erneut anmelden.");
+      showError("Fehler: Kein Benutzer gefunden. Bitte erneut anmelden.");
       return;
     }
 
@@ -498,24 +914,66 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
     if (!catalogId) return;
 
     if (!dueDate) {
-      alert("Bitte ein Fälligkeitsdatum wählen.");
+      showError("Bitte ein Fälligkeitsdatum wählen.");
       return;
     }
 
+    // Check for existing assignments
+    try {
+      const existingAssignments = await listAssignments();
+      const assignments = Array.isArray(existingAssignments) ? existingAssignments : [];
+      const duplicates = recipientIds.filter(workerId => 
+        assignments.some(a => 
+          a.worker?.id === workerId && a.catalog?.id === catalogId
+        )
+      );
+      
+      if (duplicates.length > 0) {
+        setDuplicateWorkerCount(duplicates.length);
+        setShowConfirmReassign(true);
+        return;
+      }
+      
+      // No duplicates, proceed with assignment
+      await performAssignment();
+    } catch (error) {
+      console.error("Error checking assignments:", error);
+      // If check fails, proceed anyway
+      await performAssignment();
+    }
+  }
+  
+  async function performAssignment() {
+    const assignedById = getAssignedByIdFromSession();
+    const catalogId = selectedCatalogId;
+    if (!catalogId || !assignedById) return;
+
     const expiresAt = `${dueDate}T00:00:00.000`;
 
-    const payload = {
-      workerIds: recipientIds,
-      catalogId,
-      expiresAt,
-      assignedById,
-      notes: note || description || undefined,
-    };
-
     try {
+      // Zuerst alte Zuweisungen für diese Worker löschen, um komplett frische Kataloge zu erstellen
+      const existingAssignments = await listAssignments();
+      const assignments = Array.isArray(existingAssignments) ? existingAssignments : [];
+      const toDelete = assignments.filter(a => 
+        a.worker?.id && recipientIds.includes(a.worker.id) && a.catalog?.id === catalogId
+      );
+      
+      if (toDelete.length > 0) {
+        await Promise.all(toDelete.map(a => deleteAssignment(a.id)));
+      }
+
+      // Jetzt neue Zuweisungen erstellen
+      const payload = {
+        workerIds: recipientIds,
+        catalogId,
+        expiresAt,
+        assignedById,
+        notes: note || description || undefined,
+      };
+
       const res = await assignWorkerCatalogBulk(payload);
 
-      alert(`Zuweisung erfolgreich: ${res.success}/${res.total}`);
+      showSuccess(`Zuweisung erfolgreich: ${res.success}/${res.total}`);
       sessionStorage.setItem(
         "flash_assignments",
         JSON.stringify({
@@ -527,7 +985,7 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
       );
       navigate("/admin/adminPanel/zuweisungen", { replace: true });
     } catch (e: any) {
-      alert(`Zuweisung fehlgeschlagen: ${e?.message ?? e}`);
+      showError(`Zuweisung fehlgeschlagen: ${e?.message ?? e}`);
     }
   }
 
@@ -581,14 +1039,32 @@ export default function KatalogeZuweisen({ }: KatalogeZuweisenProps) {
     }
 
     if (dialogMode === "delete" && dialogCatalog) {
-      await deleteCatalog(dialogCatalog.id);
+      // Store catalog info and themes before deleting
+      const catalogToDelete = { ...dialogCatalog };
+      
+      try {
+        // Fetch all themes assigned to this catalog before deletion
+        const assignedThemes = await fetchThemenByCatalog(dialogCatalog.id);
+        
+        await deleteCatalog(dialogCatalog.id);
 
-      // Optimistic Update: Sofort aus der Liste entfernen
-      setCatalogs((prev) => prev.filter((c) => c.id !== dialogCatalog.id));
-      setSelectedCatalogId((prev) => (prev === dialogCatalog.id ? null : prev));
+        // Optimistic Update: Sofort aus der Liste entfernen
+        setCatalogs((prev) => prev.filter((c) => c.id !== dialogCatalog.id));
+        setSelectedCatalogId((prev) => (prev === dialogCatalog.id ? null : prev));
 
-      await loadCatalogs();
-      closeDialog();
+        closeDialog();
+        
+        // Show undo toast with catalog and themes
+        setDeletedCatalog({
+          catalog: catalogToDelete,
+          themes: assignedThemes,
+        });
+        startDeleteUndoCountdown();
+      } catch (error) {
+        console.error("Error deleting catalog:", error);
+        showError("Fehler beim Löschen des Katalogs");
+      }
+      
       return;
     }
 
@@ -965,6 +1441,15 @@ hover:bg-[#fff6db] transition-colors"
                             })
                           )}
                         </div>
+                        
+                        {/* Inactive worker count message */}
+                        {inactiveWorkerCount > 0 && !loadingRecipients && (
+                          <div className="px-4 py-2 text-xs text-slate-500 border-t border-[rgba(227,187,98,0.35)] bg-slate-50">
+                            {inactiveWorkerCount} inaktive{" "}
+                            {inactiveWorkerCount === 1 ? "Mitarbeiter" : "Mitarbeiter"}{" "}
+                            ausgeblendet
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
@@ -1170,6 +1655,160 @@ hover:bg-[#fff6db] transition-colors"
                 zIndex: 1,
               }}
             >
+              {/* Breadcrumb Navigation - only in detail view */}
+              {viewMode === "detail" && detailCatalogId && (
+                <nav className="mb-6 flex items-center">
+                  <div
+                    className="inline-flex items-center gap-2 rounded-full border px-4 py-2 shadow-[0_4px_10px_rgba(0,0,0,0.06)] text-sm bg-white/80 backdrop-blur-[2px]"
+                    style={{ borderColor: "#d2c9b9" }}
+                  >
+                    <button
+                      onClick={() => closeThemeDetailView()}
+                      className="flex items-center gap-2 hover:underline text-[#264555] font-medium transition-colors"
+                    >
+                      Katalogverwaltung
+                    </button>
+                    <ChevronRight size={14} className="text-[#264555] opacity-60" />
+                    <span className="font-semibold text-[#264555]">
+                      {catalogs.find(c => c.id === detailCatalogId)?.name || "Katalog Details"}
+                    </span>
+                  </div>
+                </nav>
+              )}
+              
+              {/* Theme Detail View */}
+              {viewMode === "detail" && detailCatalogId ? (
+                <div className="space-y-6">
+                  {/* Catalog Header */}
+                  <div className="rounded-xl border border-[#E3BB62]/30 bg-gradient-to-b from-[#FFFCF2] to-[#FFF9E6] p-5 shadow-sm">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-xl font-bold text-[#264555] mb-1">
+                          {catalogs.find(c => c.id === detailCatalogId)?.name}
+                        </h3>
+                        <p className="text-sm text-slate-600">
+                          {catalogs.find(c => c.id === detailCatalogId)?.subtitle || "Keine Beschreibung"}
+                        </p>
+                        {catalogs.find(c => c.id === detailCatalogId)?.reifegradModelName && (
+                          <p className="text-xs text-[#8a7a52] mt-2">
+                            Reifegradmodell: {catalogs.find(c => c.id === detailCatalogId)?.reifegradModelName}
+                          </p>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => closeThemeDetailView()}
+                        className="ml-4 p-2 rounded-lg hover:bg-white/50 transition-colors"
+                        title="Schließen"
+                      >
+                        <X size={20} className="text-slate-600" />
+                      </button>
+                    </div>
+                    
+                    {/* Pending changes indicator */}
+                    {hasUnsavedChanges && (
+                      <div className="mt-3 pt-3 border-t border-[#E3BB62]/20">
+                        <div className="flex items-center gap-2 text-sm">
+                          <AlertTriangle size={16} className="text-amber-600" />
+                          <span className="font-medium text-amber-700">
+                            {addedThemes.length > 0 && `${addedThemes.length} ${addedThemes.length === 1 ? 'Thema hinzugefügt' : 'Themen hinzugefügt'}`}
+                            {addedThemes.length > 0 && removedThemes.length > 0 && ', '}
+                            {removedThemes.length > 0 && `${removedThemes.length} ${removedThemes.length === 1 ? 'Thema entfernt' : 'Themen entfernt'}`}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Theme Grid */}
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <h4 className="text-lg font-semibold text-slate-900">
+                        Verfügbare Themen
+                      </h4>
+                      <span className="text-sm text-slate-600">
+                        {selectedThemeIds.size} von {allThemes.length} ausgewählt
+                      </span>
+                    </div>
+                    
+                    {loadingAllThemes ? (
+                      <div className="text-center py-12 text-slate-500">
+                        Lade Themen...
+                      </div>
+                    ) : allThemes.length === 0 ? (
+                      <div className="text-center py-12 text-slate-500">
+                        Keine Themen verfügbar
+                      </div>
+                    ) : (
+                      <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                        {allThemes.map(theme => {
+                          const isSelected = selectedThemeIds.has(theme.id);
+                          const wasOriginallyAssigned = assignedThemeIds.has(theme.id);
+                          const isDisabled = isSaving;
+                          
+                          return (
+                            <label
+                              key={theme.id}
+                              className={`
+                                relative flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all
+                                ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}
+                                ${isSelected 
+                                  ? 'border-[#E3BB62] bg-gradient-to-br from-[#FFFAE8] to-[#FFF6DB] shadow-md' 
+                                  : 'border-slate-200 bg-white hover:border-[#E3BB62]/50 hover:shadow-sm'
+                                }
+                              `}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => !isDisabled && toggleThemeSelection(theme.id)}
+                                disabled={isDisabled}
+                                className="mt-0.5 h-5 w-5 rounded border-slate-300 text-[#E3BB62] focus:ring-2 focus:ring-[#E3BB62]/50"
+                              />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium text-slate-900 text-sm">
+                                    {theme.name}
+                                  </span>
+                                  {wasOriginallyAssigned && (
+                                    <span className="text-xs text-[#8a7a52] bg-[#FFF6DB] px-2 py-0.5 rounded-full">
+                                      Zugewiesen
+                                    </span>
+                                  )}
+                                </div>
+                                {theme.description && (
+                                  <p className="text-xs text-slate-600 mt-1 line-clamp-2">
+                                    {theme.description}
+                                  </p>
+                                )}
+                              </div>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Save Button */}
+                  <div className="flex items-center justify-between pt-4 border-t border-slate-200">
+                    <button
+                      onClick={() => closeThemeDetailView()}
+                      className="px-6 py-3 rounded-xl border border-slate-300 bg-white text-slate-700 font-medium hover:bg-slate-50 transition-colors"
+                    >
+                      Abbrechen
+                    </button>
+                    <button
+                      onClick={() => setShowConfirmSave(true)}
+                      disabled={!hasUnsavedChanges || isSaving}
+                      className="px-6 py-3 rounded-xl bg-[#E3BB62] text-[#264555] font-semibold shadow-lg hover:bg-[#d8ac55] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    >
+                      <Save size={18} />
+                      {isSaving ? 'Speichern...' : 'Änderungen speichern'}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                /* Catalog Grid View */
+                <>
               {/* Header mit Verwaltungs-Link */}
               <div
                 className="mb-4 flex items-center justify-between relative"
@@ -1181,26 +1820,7 @@ hover:bg-[#fff6db] transition-colors"
                 </h2>
 
                 <div className="flex items-center gap-3">
-                  <Link
-                    to="/admin/kataloge/verwaltung"
-                    className="
-      inline-flex items-center gap-2
-      rounded-xl
-      border border-[#E3BB62]/60
-      bg-gradient-to-r from-[#FFF6DB] to-[#F2E3A2]
-      px-4 py-2
-      text-sm font-semibold
-      text-[#264555]
-      shadow-[0_4px_12px_rgba(227,187,98,0.35)]
-      transition-all duration-200
-      hover:from-[#F2E3A2] hover:to-[#E3BB62]
-      hover:shadow-[0_6px_18px_rgba(227,187,98,0.45)]
-      
-    "
-                  >
-                    <Settings size={16} className="text-[#264555]" />
-                    Themen zuordnen
-                  </Link>
+                  {/* Removed Themen zuordnen link - now available on hover per catalog */}
                 </div>
               </div>
 
@@ -1578,6 +2198,29 @@ hover:bg-[#fff6db] transition-colors"
                                       type="button"
                                       onClick={(e) => {
                                         e.stopPropagation();
+                                        openThemeDetailView(k.id);
+                                      }}
+                                      className="
+                                              inline-flex h-8 items-center gap-1.5 px-2.5
+                                              rounded-lg
+                                              bg-gradient-to-r from-[#FFF6DB] to-[#F2E3A2]
+                                              text-[#264555]
+                                              text-xs font-semibold
+                                              transition-all duration-200
+                                              hover:from-[#F2E3A2] hover:to-[#E3BB62]
+                                              border border-[#E3BB62]/40
+                                            "
+                                      title="Themen zuordnen"
+                                      aria-label="Themen zuordnen"
+                                    >
+                                      <Settings size={13} />
+                                      <span>Themen</span>
+                                    </button>
+                                    
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
                                         openEditDialog(k);
                                       }}
                                       className="
@@ -1626,9 +2269,212 @@ hover:bg-[#fff6db] transition-colors"
                   )}
                 </div>{" "}
               </div>
+            </>
+          )}
             </div>
           </div>
         </div>
+
+        {/* Confirmation Modal for Save */}
+        <ConfirmModal
+          open={showConfirmSave}
+          title="Änderungen speichern?"
+          description={
+            <>
+              Sie sind dabei, die Themenzuordnung für diesen Katalog zu ändern.
+            </>
+          }
+          hintTitle="Achtung"
+          hintText={
+            <>
+              <span className="font-semibold text-amber-700">
+                Änderungen können bestehende Assessments beeinflussen.
+              </span>{" "}
+              Möchten Sie fortfahren?
+            </>
+          }
+          cancelLabel="Abbrechen"
+          confirmLabel="Ja, speichern"
+          onCancel={() => setShowConfirmSave(false)}
+          onConfirm={() => void saveThemeChanges()}
+          icon={<AlertTriangle className="text-amber-500" />}
+        />
+        
+        {/* Confirmation Modal for Discard Changes */}
+        <ConfirmModal
+          open={showConfirmDiscard}
+          title="Ungespeicherte Änderungen verwerfen?"
+          description={
+            <>
+              Sie haben ungespeicherte Änderungen an der Themenzuordnung.
+            </>
+          }
+          hintTitle="Achtung"
+          hintText={
+            <>
+              <span className="font-semibold text-red-700">
+                Alle nicht gespeicherten Änderungen gehen verloren.
+              </span>{" "}
+              Möchten Sie wirklich fortfahren?
+            </>
+          }
+          cancelLabel="Abbrechen"
+          confirmLabel="Ja, verwerfen"
+          onCancel={() => setShowConfirmDiscard(false)}
+          onConfirm={() => performCloseThemeDetailView()}
+          icon={<AlertTriangle className="text-red-500" />}
+        />
+        
+        {/* Confirmation Modal for Reassignment */}
+        <ConfirmModal
+          open={showConfirmReassign}
+          title="Katalog bereits zugewiesen"
+          description={
+            <>
+              {duplicateWorkerCount === 1 ? (
+                <>Ein Mitarbeiter hat diesen Katalog bereits zugewiesen.</>
+              ) : (
+                <>{duplicateWorkerCount} Mitarbeiter haben diesen Katalog bereits zugewiesen.</>
+              )}
+            </>
+          }
+          hintTitle="Hinweis"
+          hintText={
+            <>
+              Wenn Sie fortfahren, wird{" "}
+              <span className="font-semibold text-red-600">
+                die vorherige Zuweisung gelöscht
+              </span>
+              {" "}und der Katalog{" "}
+              <span className="font-semibold text-blue-700">
+                komplett neu zugewiesen (wie ein frischer Katalog)
+              </span>
+              . Der bisherige Fortschritt geht verloren.
+            </>
+          }
+          cancelLabel="Abbrechen"
+          confirmLabel="Ja, neu zuweisen"
+          onCancel={() => setShowConfirmReassign(false)}
+          onConfirm={() => {
+            setShowConfirmReassign(false);
+            void performAssignment();
+          }}
+          icon={<AlertTriangle className="text-blue-500" />}
+        />
+        
+        {/* Undo Toast Countdown */}
+        {undoState && undoCountdown > 0 && (
+          <div
+            className="fixed top-4 left-1/2 -translate-x-1/2 z-[9999]"
+            style={{
+              animation: "slideDown 0.3s ease-out",
+            }}
+          >
+            <div className="rounded-xl border-2 border-[#E3BB62] bg-white shadow-2xl p-4 min-w-[400px]">
+              <div className="flex items-center gap-3">
+                <div className="flex-shrink-0">
+                  <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center">
+                    <RotateCcw className="h-5 w-5 text-green-600" />
+                  </div>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-slate-900">
+                    Änderungen gespeichert
+                  </p>
+                  <p className="text-xs text-slate-600">
+                    Rückgängig machen in {undoCountdown} Sekunden
+                  </p>
+                </div>
+                <button
+                  onClick={() => void performUndo()}
+                  className="px-4 py-2 rounded-lg bg-[#E3BB62] text-[#264555] text-sm font-semibold hover:bg-[#d8ac55] transition-colors"
+                >
+                  Undo
+                </button>
+                <button
+                  onClick={finalizeChanges}
+                  className="p-2 rounded-lg hover:bg-slate-100 transition-colors"
+                  title="Schließen"
+                >
+                  <X size={18} className="text-slate-600" />
+                </button>
+              </div>
+              {/* Progress bar */}
+              <div className="mt-3 h-1 bg-slate-200 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-[#E3BB62] transition-all duration-1000 ease-linear"
+                  style={{
+                    width: `${(undoCountdown / 5) * 100}%`,
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Delete Undo Toast Countdown */}
+        {deletedCatalog && deleteUndoCountdown > 0 && (
+          <div
+            className="fixed top-4 left-1/2 -translate-x-1/2 z-[9999]"
+            style={{
+              animation: "slideDown 0.3s ease-out",
+            }}
+          >
+            <div className="rounded-xl border-2 border-red-400 bg-white shadow-2xl p-4 min-w-[400px]">
+              <div className="flex items-center gap-3">
+                <div className="flex-shrink-0">
+                  <div className="h-10 w-10 rounded-full bg-red-100 flex items-center justify-center">
+                    <Trash2 className="h-5 w-5 text-red-600" />
+                  </div>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-slate-900">
+                    Katalog "{deletedCatalog.catalog.name}" gelöscht
+                  </p>
+                  <p className="text-xs text-slate-600">
+                    {deletedCatalog.themes.length > 0 && `${deletedCatalog.themes.length} ${deletedCatalog.themes.length === 1 ? 'Thema' : 'Themen'} • `}
+                    Rückgängig machen in {deleteUndoCountdown} Sekunden
+                  </p>
+                </div>
+                <button
+                  onClick={() => void performDeleteUndo()}
+                  className="px-4 py-2 rounded-lg bg-red-500 text-white text-sm font-semibold hover:bg-red-600 transition-colors"
+                >
+                  Undo
+                </button>
+                <button
+                  onClick={finalizeDelete}
+                  className="p-2 rounded-lg hover:bg-slate-100 transition-colors"
+                  title="Schließen"
+                >
+                  <X size={18} className="text-slate-600" />
+                </button>
+              </div>
+              {/* Progress bar */}
+              <div className="mt-3 h-1 bg-slate-200 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-red-500 transition-all duration-1000 ease-linear"
+                  style={{
+                    width: `${(deleteUndoCountdown / 5) * 100}%`,
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+        
+        <style>{`
+          @keyframes slideDown {
+            from {
+              opacity: 0;
+              transform: translate(-50%, -20px);
+            }
+            to {
+              opacity: 1;
+              transform: translate(-50%, 0);
+            }
+          }
+        `}</style>
 
         {/* ---------- Zentrierte Modals für Edit ---------- */}
         {

@@ -31,6 +31,9 @@ public class Worker {
     @Column
     private String email;
 
+    @Column(length = 20, nullable = false)
+    private String status = "active";
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -41,6 +44,7 @@ public class Worker {
 
     // Constructors
     public Worker() {
+        this.status = "active";
     }
 
     public Worker(String name, String workSpaceRef, UUID companyId, String email) {
@@ -48,6 +52,7 @@ public class Worker {
         this.workSpaceRef = workSpaceRef;
         this.companyId = companyId;
         this.email = email;
+        this.status = "active";
     }
 
     // Getters and Setters
@@ -113,6 +118,14 @@ public class Worker {
 
     public void setUpdatedAt(LocalDateTime updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
     }
 }
 

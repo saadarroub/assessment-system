@@ -62,6 +62,11 @@ public class WorkerCatalogService {
         Worker worker = workerRepository.findById(workerId)
                 .orElseThrow(() -> new RuntimeException("Worker not found with id: " + workerId));
 
+        // Check if worker is active
+        if (worker.getStatus() != null && "inactive".equals(worker.getStatus())) {
+            throw new RuntimeException("Worker ist inaktiv und kann nicht zugewiesen werden");
+        }
+
         Catalog catalog = catalogRepository.findById(catalogId)
                 .orElseThrow(() -> new RuntimeException("Catalog not found with id: " + catalogId));
 
