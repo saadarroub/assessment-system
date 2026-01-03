@@ -8,8 +8,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.access.prepost.PreAuthorize;
 
-
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -61,6 +61,22 @@ public class WorkerController {
     public ResponseEntity<Void> deleteWorker(@PathVariable UUID id) {
         workerService.deleteWorker(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @PatchMapping("/{id}/status/change")
+    public ResponseEntity<Worker> toggleWorkerStatus(@PathVariable UUID id) {
+        try {
+            Worker updated = workerService.toggleWorkerStatus(id);
+            return ResponseEntity.ok(updated);
+        } catch (RuntimeException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    @GetMapping("/{id}/assignment-count")
+    public ResponseEntity<Map<String, Integer>> getWorkerAssignmentCount(@PathVariable UUID id) {
+        int count = workerService.getWorkerAssignmentCount(id);
+        return ResponseEntity.ok(Map.of("count", count));
     }
 }
 

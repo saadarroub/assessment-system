@@ -62,6 +62,18 @@ export async function assignTopicsToCatalog(catalogId: string, topicIds: string[
     )
   );
 }
+
+/**
+ * Remove a theme from a catalog
+ * DELETE /api/thema-catalogs
+ */
+export async function removeThemaFromCatalog(themaId: string, catalogId: string): Promise<void> {
+  await apiClient.delete("/thema-catalogs", {
+    data: { themaId, catalogId },
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
 // themaCatalogService.ts
 export async function getTopicCountForCatalog(catalogId: string): Promise<number> {
   const resp = await apiClient.get(

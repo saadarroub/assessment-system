@@ -31,12 +31,13 @@ public class UserSummaryDTO {
     private String city;
     private String country;
     private String profileImagePath;
+    private String status;
 
     public UserSummaryDTO() {}
 
     public UserSummaryDTO(UUID id, String name, String email, LocalDateTime createdAt, LocalDateTime updatedAt, 
                           List<RoleSummaryDTO> roles, String phone, String street, String postalCode, 
-                          String city, String country, String profileImagePath) {
+                          String city, String country, String profileImagePath, String status) {
         this.id = id;
         this.name = name;
         this.email = email;
@@ -49,6 +50,7 @@ public class UserSummaryDTO {
         this.city = city;
         this.country = country;
         this.profileImagePath = profileImagePath;
+        this.status = status;
     }
 
     public static UserSummaryDTO fromEntity(User user, RolePermissionService rolePermissionService) {
@@ -85,7 +87,8 @@ public class UserSummaryDTO {
             user.getPostalCode(),
             user.getCity(),
             user.getCountry(),
-            user.getProfileImagePath()
+            user.getProfileImagePath(),
+            user.getStatus()
         );
     }
 
@@ -113,4 +116,6 @@ public class UserSummaryDTO {
     public void setCountry(String country) { this.country = country; }
     public String getProfileImagePath() { return profileImagePath; }
     public void setProfileImagePath(String profileImagePath) { this.profileImagePath = profileImagePath; }
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
 }

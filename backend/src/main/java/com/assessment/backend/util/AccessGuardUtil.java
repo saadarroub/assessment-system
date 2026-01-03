@@ -17,9 +17,20 @@ public final class AccessGuardUtil {
 
     public static ResponseEntity<?> guardAssignment(WorkerCatalog a) {
         if (a == null) return new ResponseEntity<>(Map.of("error", "Access denied"), HttpStatus.FORBIDDEN);
+        
+        // Check if worker is inactive
+        if (a.getWorker() != null && 
+            a.getWorker().getStatus() != null && 
+            "inactive".equals(a.getWorker().getStatus())) {
+            return new ResponseEntity<>(Map.of("error", "Worker-Konto ist inaktiv"), HttpStatus.FORBIDDEN);
+        }
+        
         String status = a.getStatus() != null ? a.getStatus().toLowerCase() : "";
         if ("assigned".equals(status)) {
             return new ResponseEntity<>(Map.of("error", "Access code not verified yet"), HttpStatus.UNAUTHORIZED);
+        }
+        if ("blocked".equals(status)) {
+            return new ResponseEntity<>(Map.of("error", "Zugriff wurde blockiert"), HttpStatus.FORBIDDEN);
         }
         if ("revoked".equals(status) || "expired".equals(status)) {
             return new ResponseEntity<>(Map.of("error", "Access has been revoked"), HttpStatus.FORBIDDEN);

@@ -29,6 +29,10 @@ public class AuthService {
          
         if (userOpt.isPresent()) {
             User user = userOpt.get();
+            // Check if user is active
+            if ("inactive".equals(user.getStatus())) {
+                return Optional.empty(); // Inactive users cannot login
+            }
             if (user.getPassword() != null && passwordEncoder.matches(password, user.getPassword()))  {
                 return Optional.of(user);
             }

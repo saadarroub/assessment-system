@@ -172,6 +172,32 @@ public class UserService {
         user.setPassword(passwordEncoder.encode(passwordDTO.getNewPassword()));
         userRepository.save(user);
     }
+
+    /**
+     * Toggle user status between active and inactive.
+     * 
+     * @param id the user ID
+     * @return the updated user
+     */
+    @Transactional
+    public User changeStatus(UUID id) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("User not found with id: " + id));
+
+        String currentStatus = user.getStatus();
+        
+        if ("active".equals(currentStatus)) {
+            user.setStatus("inactive");
+        } else {
+            user.setStatus("active");
+        }
+
+        User updatedUser = userRepository.save(user);
+        
+        // Audit log for status change
+        String details = String.format("User status changed to: %s", user.getStatus());
+        auditLogService.log("USER_STATUS_CHANGE", "users", id, details, null);
+        
+        return updatedUser;
+    }
 }
-
-

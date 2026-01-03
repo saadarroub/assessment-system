@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import AdminLayout from "@/apps/app/AdminLayout";
+import { useAuthCtx } from "@/core/auth/AuthContext";
 import { Search, ArrowUpDown, Eye, Plus, Trash2, Pencil, Users } from "lucide-react";
 import ConfirmModal from "@/shared/components/ConfirmModal";
 import UserLogo from "@/assets/blue-user-icon-transparent.png";
@@ -63,7 +64,7 @@ function mapApiToUser(u: UserApi): UserRow {
     name: String(u.name ?? "Unbenannter User"),
     email: String(u.email ?? ""),
     roles,
-    status: "active",
+    status: (u.status as "active" | "invited" | "disabled") ?? "active",
   };
 }
 
@@ -229,13 +230,20 @@ export default function UsersPage() {
   }
 
 
+  // Get current user
+  const { user: currentUser } = useAuthCtx();
+
   // Users
   useEffect(() => {
     let alive = true;
     (async () => {
       try {
         const raw = await getUsers();
-        const mapped = (raw.reverse() ?? []).map(mapApiToUser);
+        // Filter out the currently logged-in user
+        const filtered = currentUser 
+          ? raw.filter(u => u.id !== currentUser.id)
+          : raw;
+        const mapped = (filtered.reverse() ?? []).map(mapApiToUser);
         if (alive) setItems(mapped);
       } catch (e: any) {
         if (alive) setError(e); // Error-Objekt direkt setzen, nicht nur message
@@ -244,7 +252,7 @@ export default function UsersPage() {
       }
     })();
     return () => { alive = false; };
-  }, []);
+  }, [currentUser]);
 
   // Load available roles
   useEffect(() => {
