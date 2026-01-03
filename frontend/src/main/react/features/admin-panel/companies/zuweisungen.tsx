@@ -1615,14 +1615,23 @@ useScrollLock(isAnyModalOpen);
       {/* Invite Modal  */}
       {inviteFor && (
         <div
-          className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/40 backdrop-blur-sm px-4"
-          role="dialog"
-          aria-modal="true"
-        >
-          <div
-            className="w-full max-w-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
+    className="fixed -inset-px z-[1100] px-4"
+    role="dialog"
+    aria-modal="true"
+    onClick={() => setInviteFor(null)} // Klick außerhalb schließt
+  >
+    {/* Overlay als eigenes Layer (verhindert die schwarze Linie/Naht) */}
+    <div
+      className="absolute inset-0 bg-black/40 backdrop-blur-sm [transform:translateZ(0)]"
+      aria-hidden="true"
+    />
+
+    {/* Zentrierung */}
+    <div className="relative flex min-h-screen items-center justify-center">
+      <div
+        className="w-full max-w-xl"
+        onClick={(e) => e.stopPropagation()} // Klick im Modal nicht schließen
+      >
             <div className="relative overflow-hidden rounded-3xl bg-white shadow-2xl border border-slate-200/80">
               {/* Glows */}
               <div
@@ -1876,6 +1885,7 @@ useScrollLock(isAnyModalOpen);
               </button>
             </div>
           </div>
+        </div>
         </div>
       )}
 
