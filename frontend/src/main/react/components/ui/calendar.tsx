@@ -9,6 +9,12 @@ import { DayButton, DayPicker, getDefaultClassNames } from "react-day-picker"
 import { cn } from "@/lib/utils"
 import { Button, buttonVariants } from "@/components/ui/button"
 
+// ✅ Gold-Farben (anpassbar)
+const GOLD = "#D4AF37" // klassisches Gold
+const GOLD_BG = `bg-[${GOLD}]/25` // Range-Fläche (soft)
+const GOLD_BG_SOLID = `bg-[${GOLD}]` // Start/End Tag (solid)
+const GOLD_RING = `ring-[${GOLD}]/40 border-[${GOLD}]` // Fokus-Ring (statt blau)
+
 function Calendar({
   className,
   classNames,
@@ -97,20 +103,24 @@ function Calendar({
           "text-muted-foreground select-none text-[0.8rem]",
           defaultClassNames.week_number
         ),
+
+        // ✅ wichtig: das td-Cell Styling bleibt gleich, nur Range-Hintergrund kommt aus range_* unten
         day: cn(
           "group/day relative aspect-square h-full w-full select-none p-0 text-center [&:first-child[data-selected=true]_button]:rounded-l-md [&:last-child[data-selected=true]_button]:rounded-r-md",
           defaultClassNames.day
         ),
-        range_start: cn(
-          "bg-accent rounded-l-md",
-          defaultClassNames.range_start
-        ),
-        range_middle: cn("rounded-none", defaultClassNames.range_middle),
-        range_end: cn("bg-accent rounded-r-md", defaultClassNames.range_end),
+
+        // ✅ Range-HINTERGRUND (die Fläche/„Balken“ zwischen den Tagen) -> GOLD statt blau
+        range_start: cn(`${GOLD_BG} rounded-l-md`, defaultClassNames.range_start),
+        range_middle: cn(`${GOLD_BG} rounded-none`, defaultClassNames.range_middle),
+        range_end: cn(`${GOLD_BG} rounded-r-md`, defaultClassNames.range_end),
+
+        // today kannst du lassen – ich mach’s neutral (kein blau)
         today: cn(
-          "bg-accent text-accent-foreground rounded-md data-[selected=true]:rounded-none",
+          "bg-transparent rounded-md data-[selected=true]:rounded-none",
           defaultClassNames.today
         ),
+
         outside: cn(
           "text-muted-foreground aria-selected:text-muted-foreground",
           defaultClassNames.outside
@@ -199,7 +209,21 @@ function CalendarDayButton({
       data-range-end={modifiers.range_end}
       data-range-middle={modifiers.range_middle}
       className={cn(
-        "data-[selected-single=true]:bg-primary data-[selected-single=true]:text-primary-foreground data-[range-middle=true]:bg-accent data-[range-middle=true]:text-accent-foreground data-[range-start=true]:bg-primary data-[range-start=true]:text-primary-foreground data-[range-end=true]:bg-primary data-[range-end=true]:text-primary-foreground group-data-[focused=true]/day:border-ring group-data-[focused=true]/day:ring-ring/50 flex aspect-square h-auto w-full min-w-[--cell-size] flex-col gap-1 font-normal leading-none data-[range-end=true]:rounded-md data-[range-middle=true]:rounded-none data-[range-start=true]:rounded-md group-data-[focused=true]/day:relative group-data-[focused=true]/day:z-10 group-data-[focused=true]/day:ring-[3px] [&>span]:text-xs [&>span]:opacity-70",
+        // ✅ 1) Single selected -> GOLD
+        `data-[selected-single=true]:${GOLD_BG_SOLID} data-[selected-single=true]:text-black`,
+
+        // ✅ 2) Range middle -> gold (soft)
+        `data-[range-middle=true]:${GOLD_BG} data-[range-middle=true]:text-foreground`,
+
+        // ✅ 3) Range start/end -> gold (solid) + schwarzer Text
+        `data-[range-start=true]:${GOLD_BG_SOLID} data-[range-start=true]:text-black`,
+        `data-[range-end=true]:${GOLD_BG_SOLID} data-[range-end=true]:text-black`,
+
+        // ✅ 4) Focus-Ring („blaue Ecke“) -> GOLD statt ring-ring/border-ring
+        `group-data-[focused=true]/day:relative group-data-[focused=true]/day:z-10 group-data-[focused=true]/day:ring-[3px] group-data-[focused=true]/day:${GOLD_RING}`,
+
+        // rest unverändert
+        "flex aspect-square h-auto w-full min-w-[--cell-size] flex-col gap-1 font-normal leading-none data-[range-end=true]:rounded-md data-[range-middle=true]:rounded-none data-[range-start=true]:rounded-md [&>span]:text-xs [&>span]:opacity-70",
         defaultClassNames.day,
         className
       )}

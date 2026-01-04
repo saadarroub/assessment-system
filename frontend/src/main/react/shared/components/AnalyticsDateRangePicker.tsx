@@ -248,7 +248,8 @@ export function AnalyticsDateRangePicker({
                     size="sm"
                     onClick={handleApply}
                     disabled={!tempStart || !tempEnd}
-                    className="bg-sky-500 hover:bg-sky-600 text-white"
+                    className="bg-[#E3BB62] hover:bg-[#d9ad45] text-[#264555]"
+
                   >
                     Anwenden
                   </Button>
@@ -268,9 +269,10 @@ export function AnalyticsDateRangePicker({
             disabled={disabled}
             className={cn(
               "rounded-md px-3 py-1.5 text-sm font-medium transition",
-              timeBucket === bucket.value
-                ? "bg-sky-500 text-white shadow-sm"
-                : "text-slate-600 hover:bg-slate-100"
+             timeBucket === bucket.value
+  ? "bg-[#E3BB62] text-[#264555] shadow-sm"
+  : "text-slate-600 hover:bg-amber-50"
+
             )}
           >
             {bucket.label}

@@ -240,9 +240,10 @@ export default function UsersPage() {
       try {
         const raw = await getUsers();
         // Filter out the currently logged-in user
-        const filtered = currentUser 
-          ? raw.filter(u => u.id !== currentUser.id)
-          : raw;
+      const filtered = currentUser
+  ? raw.filter(u => String(u.id) !== String(currentUser.id))
+  : raw;
+
         const mapped = (filtered.reverse() ?? []).map(mapApiToUser);
         if (alive) setItems(mapped);
       } catch (e: any) {

@@ -158,7 +158,7 @@ export default function CompaniesList() {
     (async () => {
       try {
         const raw = await getCompanies();
-        const list = Array.isArray(raw) ? raw : (raw as any)?.content ?? [];
+        const list = Array.isArray(raw.reverse()) ? raw : (raw as any)?.content ?? [];
         const mapped = (list as CompanyApi[]).map(mapApiToCompany);
         if (alive) setItems(mapped);
       } catch (e: any) {

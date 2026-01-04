@@ -76,11 +76,12 @@ export function ThemeSelector({
               selectedThemes.map((t) => (
                 <span
                   key={t.id}
-                  className="inline-flex items-center gap-1 rounded-md bg-sky-100 px-2 py-1 text-xs font-medium text-sky-800"
+className="inline-flex items-center gap-1 rounded-md bg-[#E3BB62]/20 px-2 py-1 text-xs font-medium text-[#264555]"
                 >
                   {t.name}
                   <X
-                    className="h-3 w-3 cursor-pointer hover:text-sky-600"
+                  className="h-3 w-3 cursor-pointer hover:text-[#E3BB62]"
+
                     onClick={(e) => handleRemove(t.id, e)}
                   />
                 </span>
@@ -122,7 +123,8 @@ export function ThemeSelector({
                   key={theme.id}
                   className={cn(
                     "flex cursor-pointer items-start gap-3 border-b border-slate-100 px-3 py-3 transition",
-                    isSelected && "bg-sky-50",
+                   isSelected,
+
                     isDisabled && "cursor-not-allowed opacity-50",
                     !isDisabled && !isSelected && "hover:bg-slate-50"
                   )}
@@ -131,9 +133,10 @@ export function ThemeSelector({
                   <div
                     className={cn(
                       "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border",
-                      isSelected
-                        ? "border-sky-500 bg-sky-500 text-white"
-                        : "border-slate-300 bg-white"
+                     isSelected
+  ? "border-[#E3BB62] bg-[#E3BB62] text-white"
+  : "border-slate-300 bg-white"
+
                     )}
                   >
                     {isSelected && <Check className="h-3.5 w-3.5" />}
