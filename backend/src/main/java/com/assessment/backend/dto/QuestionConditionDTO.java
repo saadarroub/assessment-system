@@ -10,20 +10,20 @@ public class QuestionConditionDTO {
   private UUID targetNodeId;
   private String operator;
   private String expectedValue;
-  private Integer orderIndex;
+  private UUID sessionId;
   private LocalDateTime createdAt;
 
   // Konstruktoren
   public QuestionConditionDTO() {}
 
   public QuestionConditionDTO(UUID id, UUID sourceQuestionId, UUID targetNodeId, String operator,
-                              String expectedValue, Integer orderIndex, LocalDateTime createdAt) {
+                              String expectedValue, UUID sessionId, LocalDateTime createdAt) {
     this.id = id;
     this.sourceQuestionId = sourceQuestionId;
     this.targetNodeId = targetNodeId;
     this.operator = operator;
     this.expectedValue = expectedValue;
-    this.orderIndex = orderIndex;
+    this.sessionId = sessionId;
     this.createdAt = createdAt;
   }
 
@@ -68,12 +68,12 @@ public class QuestionConditionDTO {
     this.expectedValue = expectedValue;
   }
 
-  public Integer getOrderIndex() {
-    return orderIndex;
+  public UUID getSessionId() {
+    return sessionId;
   }
 
-  public void setOrderIndex(Integer orderIndex) {
-    this.orderIndex = orderIndex;
+  public void setSessionId(UUID sessionId) {
+    this.sessionId = sessionId;
   }
 
   public LocalDateTime getCreatedAt() {
