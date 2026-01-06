@@ -29,13 +29,15 @@ public class QuestionConditionService {
 
 
   //Create or Load QuestionCondition
-  public QuestionCondition createOrLoadQuestionCondition(UUID sourceQuestionId) {
+  public QuestionCondition createOrLoadQuestionCondition(UUID sourceQuestionId, UUID sessionId) {
 
-    QuestionCondition qc = questionConditionRepository.findBySourceQuestionId(sourceQuestionId);
+    QuestionCondition qc =
+        questionConditionRepository.findBySourceQuestionIdAndSessionId(sourceQuestionId, sessionId);
 
     if (qc == null) {
       qc = new QuestionCondition();
       qc.setSourceQuestionId(sourceQuestionId);
+      qc.setSessionId(sessionId);
     }
 
     return qc;
@@ -43,13 +45,13 @@ public class QuestionConditionService {
   }
 
   //Read - Decide by QuestionType which method will be started
-  public void handleQuestionByType(UUID sourceQuestionId, String expectedValue,
+  public void handleQuestionByType(UUID sourceQuestionId,UUID sessionId, String expectedValue,
                                    Map<String, UUID> target) {
 
-    QuestionCondition qc = createOrLoadQuestionCondition(sourceQuestionId);
+    QuestionCondition qc = createOrLoadQuestionCondition(sourceQuestionId, sessionId);
     if (qc == null) {
       throw new IllegalStateException("QuestionCondition konnte nicht erstellt oder gefunden " +
-          "werden für Id: " + sourceQuestionId);
+          "werden für Question Id: " + sourceQuestionId + "und die Session Id:" + sessionId);
     }
     qc.setExpectedValue(expectedValue);
 
@@ -120,10 +122,10 @@ public class QuestionConditionService {
   public void handleQuestion(QuestionCondition qc, Map<String, UUID> targetNodeId) {
 
 
-    String jsonB = questionConditionRepository.findValueByQuestionId(qc.getSourceQuestionId());
+    String jsonB = questionConditionRepository.findValueByQuestionIdAndSessionId(qc.getSourceQuestionId(), qc.getSessionId());
 
     if (jsonB == null || jsonB.isBlank()) {
-      throw new IllegalStateException("Antwortwert ist null oder leer für QuestionId: " + qc.getSourceQuestionId());
+      throw new IllegalStateException("Antwortwert ist null oder leer für QuestionId: " + qc.getSourceQuestionId() + "und Session Id:" + qc.getSessionId());
     }
 
     String answer = parseString(jsonB);
@@ -152,7 +154,8 @@ public class QuestionConditionService {
   //Multiple Select
   public void handleMultipleSelectQuestion(QuestionCondition qc, Map<String, UUID> targetNodeId) {
 
-    String jsonB = questionConditionRepository.findValueByQuestionId(qc.getSourceQuestionId());
+    String jsonB = questionConditionRepository.findValueByQuestionIdAndSessionId(qc.getSourceQuestionId(), qc.getSessionId());
+
     Set<String> answers =   parseStringSet(jsonB).stream().map(String::trim).map(String::toLowerCase).collect(Collectors.toSet());
     if (answers == null) {
       answers = new HashSet<>();
@@ -176,9 +179,10 @@ public class QuestionConditionService {
   //Number Input + Rating Scale
   public void handleNumberQuestion(QuestionCondition qc, Map<String, UUID> targetNodeId) {
 
-    String jsonB = questionConditionRepository.findValueByQuestionId(qc.getSourceQuestionId());
+    String jsonB =
+        questionConditionRepository.findValueByQuestionIdAndSessionId(qc.getSourceQuestionId(), qc.getSessionId());
     if (jsonB == null || jsonB.isBlank()) {
-      throw new IllegalStateException("Antwortwert ist null oder leer für QuestionId: " + qc.getSourceQuestionId());
+      throw new IllegalStateException("Antwortwert ist null oder leer für QuestionId: " + qc.getSourceQuestionId() + "und Session Id:" + qc.getSessionId());
     }
 
     long answer;
@@ -214,9 +218,10 @@ public class QuestionConditionService {
   //Date Input
   public void handleDateQuestion(QuestionCondition qc, Map<String, UUID> targetNodeId) {
 
-    String jsonB = questionConditionRepository.findValueByQuestionId(qc.getSourceQuestionId());
+    String jsonB =
+        questionConditionRepository.findValueByQuestionIdAndSessionId(qc.getSourceQuestionId(), qc.getSessionId());
     if (jsonB == null || jsonB.isBlank()) {
-      throw new IllegalStateException("Antwortwert ist null oder leer für QuestionId: " + qc.getSourceQuestionId());
+      throw new IllegalStateException("Antwortwert ist null oder leer für QuestionId: " + qc.getSourceQuestionId() + "und Session Id:" + qc.getSessionId());
     }
 
     LocalDate date;
