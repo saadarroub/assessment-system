@@ -15,7 +15,7 @@ public interface QuestionRepository extends JpaRepository<Question, UUID> {
     // Find all with QuestionType loaded
     @Query("SELECT q FROM Question q LEFT JOIN FETCH q.questionType")
     List<Question> findAllWithQuestionType();
-    
+
     // Find by Question Type
     List<Question> findByQuestionType(QuestionType questionType);
     

@@ -35,8 +35,8 @@ public class QuestionCondition {
   @Column(nullable = false, columnDefinition = "TEXT")
   private String expectedValue;
 
-  @Column(name = "order_index", nullable = false)
-  private Integer orderIndex = 0;
+  @Column(name = "session_id")
+  private UUID sessionId;
 
   @CreationTimestamp
   @Column(name = "created_at", nullable = false, updatable = false)
@@ -66,8 +66,8 @@ public class QuestionCondition {
     return expectedValue;
   }
 
-  public int getOrderIndex() {
-    return orderIndex;
+  public UUID getSessionId() {
+    return sessionId;
   }
 
   public LocalDateTime getCreatedAt() {
@@ -88,8 +88,8 @@ public class QuestionCondition {
     this.expectedValue = expectedValue;
   }
 
-  public void setOrderIndex(int orderIndex) {
-    this.orderIndex = orderIndex;
+  public void setSessionId(UUID sessionId) {
+    this.sessionId = sessionId;
   }
 
   public void setQuestion(Question question) {
