@@ -52,7 +52,7 @@ export default function AppHeader() {
 
   function getActiveAssignment(): CatalogLinkMeta | null {
     try {
-      const raw = localStorage.getItem("activeAssignmentMeta");
+const raw = sessionStorage.getItem("publicAssessmentSession");
       return raw ? (JSON.parse(raw) as CatalogLinkMeta) : null;
     } catch {
       return null;

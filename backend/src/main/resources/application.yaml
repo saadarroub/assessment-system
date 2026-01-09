@@ -1,6 +1,9 @@
 spring:
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:local}
+  
+  flyway:
+    enabled: false
   jpa:
     hibernate:
       ddl-auto: none
@@ -38,3 +41,10 @@ spring:
     url: jdbc:postgresql://db:5432/assessment_system
     username: devuser
     password: devpass123
+
+---
+twilio:
+  accountSid: ${TWILIO_ACCOUNT_SID}
+  authToken: ${TWILIO_AUTH_TOKEN}
+  whatsapp:
+    from: ${TWILIO_WHATSAPP_FROM}
