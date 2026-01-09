@@ -395,34 +395,29 @@ public class PublicQueryUtil {
      * Helper: Berechnet max Score für eine einzelne Frage basierend auf inputType und scoringSchema
      */
     private java.math.BigDecimal calculateMaxForSingleQuestion(String inputType, String scoringSchemaJson) {
-        // Für rating_scale: max = 6
-        if ("rating_scale".equalsIgnoreCase(inputType) || "rating".equalsIgnoreCase(inputType)) {
+        // inputType normalisieren (z. B. "multi" -> "multiple_select")
+        String normalized = normalizeInputType(inputType);
+
+        // Für rating_scale: derzeit fester Max-Score 6
+        if ("rating_scale".equals(normalized)) {
             return java.math.BigDecimal.valueOf(6);
         }
-        
+
         // Fallback wenn kein scoringSchema vorhanden
         if (scoringSchemaJson == null || scoringSchemaJson.isBlank()) {
             return java.math.BigDecimal.valueOf(6);
         }
-        
-        // Parse scoringSchema JSON und finde Maximum
+
         try {
-            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-            com.fasterxml.jackson.databind.JsonNode root = mapper.readTree(scoringSchemaJson);
-            
-            double maxValue = 0.0;
-            var iter = root.fields();
-            while (iter.hasNext()) {
-                var entry = iter.next();
-                if (entry.getValue().isNumber()) {
-                    double val = entry.getValue().asDouble(0.0);
-                    if (val > maxValue) {
-                        maxValue = val;
-                    }
-                }
+            // Multiple Select: Summe aller positiven Werte (wie im PublicAccessController)
+            if ("multiple_select".equals(normalized)) {
+                return extractSumScore(scoringSchemaJson);
             }
-            return java.math.BigDecimal.valueOf(maxValue > 0 ? maxValue : 6.0);
+
+            // Single Choice / Dropdown / andere Auto-Scoring-Typen: Maximalwert
+            return extractMaxScore(scoringSchemaJson);
         } catch (Exception e) {
+            // Fallback bei Problemen mit dem Schema
             return java.math.BigDecimal.valueOf(6);
         }
     }

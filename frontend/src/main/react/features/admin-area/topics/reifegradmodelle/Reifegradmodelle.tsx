@@ -5,6 +5,8 @@ import PageHeader from "../../catalogs/PageHeader";
 import ConfirmModal from "@/shared/components/ConfirmModal";
 import { useToast } from "@/shared/contexts/ToastContext";
 import { useScrollLock } from "@/shared/hooks/useScrollLock";
+import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   getAllReifegradModels,
   createReifegradModel,
@@ -29,6 +31,15 @@ const BRAND = {
   fog: "#ebebec",
   gold: "#E3BB62",
 };
+
+// Empfohlene Interval-Farben aus dem Grunddesign
+const RECOMMENDED_INTERVAL_COLORS = [
+  { value: BRAND.navy, label: "Navy" },
+  { value: BRAND.steel, label: "Steel" },
+  { value: BRAND.gold, label: "Gold" },
+  { value: BRAND.sand, label: "Sand" },
+  { value: BRAND.fog, label: "Fog" },
+];
 
 // ====== Types ======
 type Interval = { id: number | string; start: number; end: number; name: string; color: string };
@@ -396,30 +407,88 @@ function ModelUpsertModal({
                 </div>
 
                 {/* Farbe */}
-                <div className="min-w-[80px]">
-                  <div className="text-[11px] text-slate-500">Farbe</div>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="color"
-                      value={interval.color || DEFAULT_COLORS[idx % DEFAULT_COLORS.length]}
-                      onChange={(e) => {
-                        const next = [...intervals];
-                        next[idx].color = e.target.value;
-                        setIntervals(next);
-                      }}
-                      className="
-                        w-10 h-10 rounded-lg border cursor-pointer
-                        bg-white border-slate-200
-                        hover:border-[#E3BB62]
-                        transition
-                      "
-                      style={{ padding: 2 }}
-                    />
-                    <div 
-                      className="w-6 h-6 rounded-full border-2 border-white shadow-md"
-                      style={{ backgroundColor: interval.color || DEFAULT_COLORS[idx % DEFAULT_COLORS.length] }}
-                    />
-                  </div>
+                <div className="min-w-[120px]">
+                  <div className="text-[11px] text-slate-500 mb-1">Farbe</div>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="flex items-center gap-2 w-full justify-start px-2 py-1.5 text-xs"
+                      >
+                        <span
+                          className="inline-block w-5 h-5 rounded-full border border-white shadow-sm"
+                          style={{
+                            backgroundColor: interval.color || DEFAULT_COLORS[idx % DEFAULT_COLORS.length],
+                          }}
+                        />
+                        <span className="font-mono text-[11px] text-slate-700">
+                          {interval.color || DEFAULT_COLORS[idx % DEFAULT_COLORS.length]}
+                        </span>
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-64 z-[1200]" align="start">
+                      <div className="space-y-3">
+                        <div>
+                          <p className="text-[11px] font-medium text-slate-600 mb-2">
+                            Empfohlene Farben (Grunddesign)
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {RECOMMENDED_INTERVAL_COLORS.map((c) => (
+                              <button
+                                key={c.value}
+                                type="button"
+                                onClick={() => {
+                                  const next = [...intervals];
+                                  next[idx].color = c.value;
+                                  setIntervals(next);
+                                }}
+                                className="w-7 h-7 rounded-full border-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-ring"
+                                style={{
+                                  backgroundColor: c.value,
+                                  borderColor:
+                                    (interval.color || DEFAULT_COLORS[idx % DEFAULT_COLORS.length]) === c.value
+                                      ? "#00000066"
+                                      : "#ffffff",
+                                }}
+                                aria-label={c.label}
+                              />
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="pt-2 border-t border-slate-100">
+                          <p className="text-[11px] font-medium text-slate-600 mb-1">Benutzerdefinierte Farbe</p>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="color"
+                              value={interval.color || DEFAULT_COLORS[idx % DEFAULT_COLORS.length]}
+                              onChange={(e) => {
+                                const next = [...intervals];
+                                next[idx].color = e.target.value;
+                                setIntervals(next);
+                              }}
+                              className="w-9 h-9 rounded-md border border-slate-200 bg-white cursor-pointer"
+                              style={{ padding: 0 }}
+                            />
+                            <input
+                              type="text"
+                              value={interval.color || DEFAULT_COLORS[idx % DEFAULT_COLORS.length]}
+                              onChange={(e) => {
+                                const value = e.target.value;
+                                const next = [...intervals];
+                                next[idx].color = value;
+                                setIntervals(next);
+                              }}
+                              className="flex-1 rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-mono outline-none focus:bg-white focus:border-[#E3BB62] focus:ring-1 focus:ring-[rgba(227,187,98,0.5)]"
+                              placeholder="#264555"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
                 </div>
 
                 {/* Delete Interval */}
