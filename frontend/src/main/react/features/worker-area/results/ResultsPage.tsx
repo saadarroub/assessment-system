@@ -1,153 +1,112 @@
 // src/main/react/features/worker-area/results/ResultsPage.tsx
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import {
-  Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
-  ResponsiveContainer
-} from 'recharts';
+import { ArrowLeft, Check, Clock, List, Save, AlertCircle } from 'lucide-react';
 import AdminLayout from "@/apps/app/AdminLayout";
-import { ArrowLeft, CheckSquare, FileText, Mail, Save, AlertTriangle } from 'lucide-react';
-import html2canvas from 'html2canvas';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable'; 
 
-interface Question {
-  id: number;
-  type: 'choice' | 'text' | 'date';
-  question: string;
-  answer: string;
-  score: number | null; 
+import { getQuestionsTimeline, getManualScoring, updateAnswerScore } from '@/api/scoringApi'; 
+
+// import { getWorkerById } from '@/features/service/userService'; 
+
+interface TimelineItem {
+  questionId: string;
+  questionText: string;
+  answerText: string;
+  timestamp: string;
+
+}
+
+interface ScoringItem {
+  questionId: string;
   category: string;
+  questionText: string;
+  answerText: string;
+  score: number | null;
+  maxScore?: number;
+}
+
+interface ScoringCategory {
+  categoryName: string;
+  items: ScoringItem[];
 }
 
 export default function ResultsPage() {
-  const { sessionId } = useParams();
+  const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
-   
-  const radarChartRef = useRef<HTMLDivElement>(null);
-  const [questions, setQuestions] = useState<Question[]>([]); 
-  const [loading, setLoading] = useState(true); 
-  const [adminNote, setAdminNote] = useState(''); 
-  const [isSaved, setIsSaved] = useState(false);
+
+
+  const [activeTab, setActiveTab] = useState<'timeline' | 'scoring'>('timeline');
+  const [timelineData, setTimelineData] = useState<TimelineItem[]>([]);
+  const [scoringData, setScoringData] = useState<ScoringCategory[]>([]); 
+  const [loading, setLoading] = useState(true);
+
 
   useEffect(() => {
-    const fetchResults = async () => {
+    if (!sessionId) return;
+
+    const fetchData = async () => {
+      setLoading(true);
       try {
-        const response = await fetch(`/api/worker-catalogs/${sessionId}/score`); 
-        if (response.ok) {
-          const data = await response.json();
-          setQuestions(data);
+        if (activeTab === 'timeline') {
+          const data = await getQuestionsTimeline(sessionId);
+          setTimelineData(Array.isArray(data) ? data : []); 
         } else {
-           // Fallback Mock data if API fails
-           setQuestions([
-             { id: 1, type: 'choice', category: 'Security', question: 'Do you use 2FA?', answer: 'Yes', score: 100 },
-             { id: 2, type: 'text', category: 'Policy', question: 'Describe policy', answer: 'I follow ISO.', score: null }
-           ]);
+          const data = await getManualScoring(sessionId);
+          
+          setScoringData(transformToCategories(data)); 
         }
       } catch (error) {
-        console.error("Error:", error);
+        console.error("Failed to load data", error);
       } finally {
         setLoading(false);
       }
     };
 
-    if (sessionId) fetchResults();
-  }, [sessionId]);
+    fetchData();
+  }, [sessionId, activeTab]);
 
-  const handleScoreChange = (id: number, val: string) => {
-    const numVal = val === '' ? null : Math.min(100, Math.max(0, Number(val)));
-    setQuestions(prev => prev.map(q => q.id === id ? { ...q, score: numVal } : q));
-    setIsSaved(false);
+
+  const transformToCategories = (data: any[]): ScoringCategory[] => {
+
+    if (data.length > 0 && 'categoryName' in data[0]) return data;
+    
+
+    const grouped: Record<string, ScoringItem[]> = {};
+    data.forEach((item) => {
+      const cat = item.category || 'Uncategorized';
+      if (!grouped[cat]) grouped[cat] = [];
+      grouped[cat].push(item);
+    });
+    return Object.entries(grouped).map(([name, items]) => ({ categoryName: name, items }));
   };
 
-  const categories = Array.from(new Set(questions.map(q => q.category)));
-  const chartData = categories.map(cat => {
-    const list = questions.filter(q => q.category === cat && q.score !== null);
-    const avg = list.length ? Math.round(list.reduce((a, b) => a + (b.score || 0), 0) / list.length) : 0;
-    return { subject: cat, score: avg };
-  });
-  const overallScore = Math.round(chartData.reduce((a, b) => a + b.score, 0) / (chartData.length || 1));
 
+  const handleScoreUpdate = async (questionId: string, newScore: string) => {
+    if (!sessionId) return;
+    const scoreNum = parseFloat(newScore);
+    if (isNaN(scoreNum)) return;
 
-  const handleSave = async () => {
     try {
-        const response = await fetch(`http://localhost:5050/api/worker-catalog/${sessionId}/manual-review`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                score: overallScore,
-                notes: adminNote
-            })
-        });
+      await updateAnswerScore(sessionId, questionId, scoreNum);
 
-        if (response.ok) {
-            setIsSaved(true);
-            alert('Die Bewertung wurde erfolgreich gespeichert!');
-        } else {
-            alert('Fehler beim Speichern. Bitte versuchen Sie es erneut.');
-        }
+      setScoringData(prev => prev.map(cat => ({
+        ...cat,
+        items: cat.items.map(item => 
+          item.questionId === questionId ? { ...item, score: scoreNum } : item
+        )
+      })));
+
     } catch (error) {
-        console.error("Save Error:", error);
-        alert('Netzwerkfehler beim Speichern.');
-    }
-  };
-
-  const generatePDF = async () => {
-    try {
-      const doc = new jsPDF();
-      const pageWidth = doc.internal.pageSize.getWidth();
-      
-      doc.setFontSize(18);
-      doc.setTextColor(41, 128, 185);
-      doc.text("Sicherheitsanalyse Report", 14, 20);
-      
-      doc.setFontSize(10);
-      doc.setTextColor(100);
-      doc.text(`Session ID: ${sessionId}`, 14, 28);
-      doc.text(`Datum: ${new Date().toLocaleDateString('de-DE')}`, 14, 33);
-      doc.text(`Gesamtscore: ${overallScore}/100`, 14, 38);
-
-      let yPos = 50;
-
-      if (radarChartRef.current) {
-        const canvas = await html2canvas(radarChartRef.current, { scale: 2, backgroundColor: '#ffffff' });
-        const imgData = canvas.toDataURL('image/png');
-        doc.addImage(imgData, 'PNG', 15, yPos, 80, 60);
-        yPos += 70;
-      }
-
-      if (adminNote) {
-        doc.setFontSize(12);
-        doc.setTextColor(0);
-        doc.text("Zusammenfassung & Maßnahmen:", 14, yPos);
-        yPos += 7;
-        
-        doc.setFontSize(10);
-        doc.setFont("helvetica", "italic");
-        const splitNote = doc.splitTextToSize(adminNote, pageWidth - 28);
-        doc.text(splitNote, 14, yPos);
-        yPos += (splitNote.length * 5) + 10;
-      }
-
-      autoTable(doc, {
-        startY: yPos,
-        head: [['Kategorie', 'Frage', 'Antwort', 'Score']],
-        body: questions.map(q => [q.category, q.question, q.answer, q.score !== null ? `${q.score}` : 'Offen']),
-        headStyles: { fillColor: [41, 128, 185] },
-        columnStyles: { 0: { cellWidth: 25 }, 1: { cellWidth: 60 }, 2: { cellWidth: 60 }, 3: { cellWidth: 20, halign: 'center' }},
-        margin: { top: 20 },
-      });
-
-      doc.save(`Report_${sessionId}.pdf`);
-    } catch (error) {
-      alert("PDF Error");
+      alert("Fehler beim Speichern des Scores.");
+      console.error(error);
     }
   };
 
   return (
     <AdminLayout>
-      <div className="min-h-screen bg-gray-50 pb-20">
+      <div className="min-h-screen bg-gray-50">
+        {/* Header */}
         <div className="bg-white shadow border-b border-gray-200 sticky top-0 z-10">
           <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
             <div className="flex items-center gap-4">
@@ -155,95 +114,109 @@ export default function ResultsPage() {
                 <ArrowLeft />
               </button>
               <div>
-                <h1 className="text-xl font-bold text-gray-900">Manuelle Bewertung & Report</h1>
-                <p className="text-xs text-gray-500">Session: {sessionId}</p>
+                <h1 className="text-xl font-bold text-gray-900">Ergebnisse & Bewertung</h1>
+                <p className="text-xs text-gray-500">Session ID: {sessionId}</p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
-              <button onClick={handleSave} className="flex items-center gap-2 bg-white border border-blue-600 text-blue-600 px-4 py-2 rounded hover:bg-blue-50 transition">
-                <Save size={18} /> Speichern
+            
+            {/* View Toggle Tabs */}
+            <div className="flex bg-gray-100 p-1 rounded-lg">
+              <button
+                onClick={() => setActiveTab('timeline')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                  activeTab === 'timeline' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <Clock size={16} /> Timeline
               </button>
-              <button onClick={generatePDF} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition shadow-sm">
-                <FileText size={18} /> PDF Export
+              <button
+                onClick={() => setActiveTab('scoring')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                  activeTab === 'scoring' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <List size={16} /> Manual Scoring
               </button>
             </div>
           </div>
         </div>
 
-        <div className="max-w-7xl mx-auto px-6 py-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-6">
-            <div className="bg-white rounded-lg shadow border border-yellow-200 overflow-hidden">
-              <div className="bg-yellow-50 px-6 py-4 border-b border-yellow-200 flex justify-between items-center">
-                <h2 className="font-bold text-yellow-800 flex items-center gap-2">
-                  <AlertTriangle size={20} /> Manuelle Bewertung erforderlich
-                </h2>
-                <span className="text-xs bg-yellow-200 text-yellow-800 px-2 py-1 rounded-full">
-                  {questions.filter(q => q.score === null).length} Offen
-                </span>
-              </div>
-              <div className="p-6 space-y-6">
-                {questions.filter(q => q.type !== 'choice').map(q => (
-                  <div key={q.id} className="border-b border-gray-100 last:border-0 pb-6 last:pb-0">
-                    <div className="flex justify-between mb-2">
-                      <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">{q.category}</span>
-                      {q.score !== null ? (
-                        <span className="text-xs font-bold text-green-600 flex items-center gap-1"><CheckSquare size={12}/> Bewertet</span>
-                      ) : (
-                        <span className="text-xs font-bold text-red-500">Nicht bewertet</span>
-                      )}
-                    </div>
-                    <p className="font-medium text-gray-900 mb-2">{q.question}</p>
-                    <div className="bg-gray-50 p-3 rounded mb-3 text-sm text-gray-700 italic border-l-4 border-gray-300">"{q.answer}"</div>
-                    <div className="flex items-center gap-3">
-                      <label className="text-sm font-medium text-gray-700">Score vergeben (0-100):</label>
-                      <input 
-                        type="number" 
-                        className="w-24 border border-gray-300 rounded p-1 text-center font-bold text-blue-600 focus:ring-2 focus:ring-blue-500 outline-none"
-                        value={q.score === null ? '' : q.score}
-                        placeholder="-"
-                        onChange={(e) => handleScoreChange(q.id, e.target.value)}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+        {/* Content Area */}
+        <div className="max-w-7xl mx-auto px-6 py-8">
+          {loading ? (
+            <div className="text-center py-10">Laden...</div>
+          ) : (
+            <>
+              {/* === TIMELINE VIEW === */}
+              {activeTab === 'timeline' && (
+                <div className="space-y-6">
+                   <h2 className="text-lg font-semibold text-gray-700 mb-4">Antworten-Verlauf</h2>
+                   <div className="relative border-l-2 border-gray-200 ml-3 space-y-8">
+                      {timelineData.map((item, idx) => (
+                        <div key={idx} className="mb-8 ml-6 relative">
+                          <span className="absolute -left-9 top-0 bg-blue-100 text-blue-600 rounded-full p-1.5 border-2 border-white">
+                            <Clock size={14} />
+                          </span>
+                          <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                            <p className="text-xs text-gray-500 mb-1">{item.timestamp}</p>
+                            <h3 className="font-medium text-gray-900">{item.questionText}</h3>
+                            <p className="mt-2 text-gray-600 bg-gray-50 p-3 rounded">{item.answerText}</p>
+                          </div>
+                        </div>
+                      ))}
+                      {timelineData.length === 0 && <div className="ml-6 text-gray-500">Keine Daten verfügbar.</div>}
+                   </div>
+                </div>
+              )}
 
-            <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
-                <FileText size={20} className="text-blue-500"/> Report Notizen & Maßnahmen
-              </h2>
-              <textarea 
-                className="w-full border border-gray-300 rounded-lg p-4 focus:ring-2 focus:ring-blue-500 outline-none h-32"
-                placeholder="Schreiben Sie hier eine Zusammenfassung oder empfohlene Maßnahmen..."
-                value={adminNote}
-                onChange={(e) => setAdminNote(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <div className="space-y-6">
-            <div className="bg-white rounded-lg shadow p-6 text-center">
-              <p className="text-gray-500 mb-1">Aktueller Gesamtscore</p>
-              <div className="text-5xl font-bold text-blue-600 mb-2">{overallScore}</div>
-              <div className="w-full bg-gray-200 rounded-full h-2.5">
-                <div className="bg-blue-600 h-2.5 rounded-full transition-all duration-500" style={{ width: `${overallScore}%` }}></div>
-              </div>
-            </div>
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="font-bold text-gray-700 mb-4 text-center">Visualisierung</h3>
-              <div ref={radarChartRef} className="bg-white p-2 flex justify-center">
-                 <ResponsiveContainer width="100%" height={250}>
-                    <RadarChart cx="50%" cy="50%" outerRadius="80%" data={chartData}>
-                      <PolarGrid />
-                      <PolarAngleAxis dataKey="subject" tick={{fontSize: 10}} />
-                      <PolarRadiusAxis angle={30} domain={[0, 100]} />
-                      <Radar name="Score" dataKey="score" stroke="#2563EB" fill="#3B82F6" fillOpacity={0.5} />
-                    </RadarChart>
-                 </ResponsiveContainer>
-              </div>
-            </div>
-          </div>
+              {/* === MANUAL SCORING VIEW === */}
+              {activeTab === 'scoring' && (
+                <div className="space-y-8">
+                  {scoringData.map((category, cIdx) => (
+                    <div key={cIdx} className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
+                      <div className="bg-gray-50 px-6 py-3 border-b border-gray-200">
+                        <h3 className="font-bold text-gray-800">{category.categoryName}</h3>
+                      </div>
+                      <div className="divide-y divide-gray-100">
+                        {category.items.map((item) => (
+                          <div key={item.questionId} className="p-6 flex flex-col md:flex-row gap-6">
+                            <div className="flex-1">
+                              <p className="font-medium text-gray-900 mb-2">{item.questionText}</p>
+                              <div className="text-sm text-gray-600 bg-gray-50 p-3 rounded border border-gray-100">
+                                {item.answerText || <span className="text-gray-400 italic">Keine Antwort</span>}
+                              </div>
+                            </div>
+                            
+                            {/* Scoring Input Area */}
+                            <div className="w-full md:w-48 flex flex-col gap-2">
+                              <label className="text-xs font-semibold text-gray-500 uppercase">Score (0-10)</label>
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="number"
+                                  step="0.5"
+                                  defaultValue={item.score ?? ''}
+                                  onBlur={(e) => handleScoreUpdate(item.questionId, e.target.value)}
+                                  className={`w-full border rounded px-3 py-2 text-center font-bold outline-none focus:ring-2 focus:ring-blue-500 ${
+                                    item.score === null ? 'border-orange-300 bg-orange-50' : 'border-gray-300'
+                                  }`}
+                                  placeholder="-"
+                                />
+                                {item.score === null && (
+                                  <AlertCircle size={20} className="text-orange-500" title="Bewertung ausstehend" />
+                                )}
+                              </div>
+                              <p className="text-xs text-gray-400 text-center">Automatisch gespeichert</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                  {scoringData.length === 0 && <div className="text-center text-gray-500">Keine Kategorien gefunden.</div>}
+                </div>
+              )}
+            </>
+          )}
         </div>
       </div>
     </AdminLayout>
