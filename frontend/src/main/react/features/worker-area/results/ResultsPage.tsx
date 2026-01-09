@@ -5,7 +5,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Check, Clock, List, Save, AlertCircle } from 'lucide-react';
 import AdminLayout from "@/apps/app/AdminLayout";
 
-import { getQuestionsTimeline, getManualScoring, updateAnswerScore } from '@/api/scoringApi'; 
+import { getQuestionsTimeline, getManualScoring, updateAnswerScore } from '@/features/service/scoringService';
 
 // import { getWorkerById } from '@/features/service/userService'; 
 
