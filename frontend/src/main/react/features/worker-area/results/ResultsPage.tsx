@@ -1,15 +1,18 @@
 import React, { useMemo, useRef, useState, useEffect } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import AdminLayout from "@/apps/app/AdminLayout";
 import PageHeader from "@/features/admin-area/catalogs/PageHeader";
 
 import {
-  AlertTriangle,
   ArrowLeft,
-  CheckSquare,
   FileText,
   Network,
   Save,
+  BarChart3,
+  Users,
+  CheckCircle,
+  Clock,
+  AlertCircle
 } from "lucide-react";
 
 import html2canvas from "html2canvas";
@@ -27,27 +30,6 @@ interface Question {
   answer: string;
   score: number | null;
 }
-
-// CSS & Brand
-const CSS = {
-  adminBg: "hsl(var(--admin-bg,0 0% 92%))",
-  card: "hsl(var(--card,0 0% 98%))",
-  border: "hsl(var(--border,30 15% 85%))",
-  fg: "hsl(var(--foreground,205 35% 24%))",
-  mutedFg: "hsl(var(--muted-foreground,0 0% 50%))",
-  primary: "hsl(var(--primary,205 35% 24%))",
-  primaryFg: "hsl(var(--primary-foreground,0 0% 98%))",
-  muted: "hsl(var(--muted,210 40% 97%))",
-};
-
-const BRAND = {
-  navy: "#264555",
-  steel: "#56768f",
-  gray: "#808080",
-  sand: "#d2c9b9",
-  fog: "#ebebec",
-  gold: "#E3BB62",
-};
 
 export default function ResultsPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
@@ -99,6 +81,11 @@ export default function ResultsPage() {
     () => questions.filter((q) => q.score === null).length,
     [questions]
   );
+  
+  const completedCount = useMemo(
+    () => questions.length - openCount,
+    [questions, openCount]
+  );
 
   const overallScore = useMemo(() => {
       const scoredQuestions = questions.filter(q => q.score !== null);
@@ -113,7 +100,6 @@ export default function ResultsPage() {
     setQuestions((prev) => prev.map((q) => (q.id === id ? { ...q, score: numVal } : q)));
     setIsSaved(false);
 
-    // API 호출
     if (sessionId && numVal !== null) {
         try {
             await updateAnswerScore(sessionId, String(id), numVal);
@@ -176,90 +162,155 @@ export default function ResultsPage() {
     }
   };
 
-  if (loading) return <div className="p-10 text-center">Laden...</div>;
+  if (loading) return <div className="p-10 text-center text-gray-500">Daten werden geladen...</div>;
 
   return (
     <AdminLayout>
       <PageHeader
         title="Manuelle Bewertung & Report"
-        subtitle={`Session: ${sessionId ?? "-"}`}
+        subtitle={`Session ID: ${sessionId ?? "-"}`}
         icon={<Network size={40} />}
         gradient="navy"
-        height="280px"
+        height="220px"
         showPattern={true}
         center={false}
       />
 
-      <main className="min-h-[calc(100vh-64px)] mt-0 px-6 pb-10 pt-20" style={{ background: "radial-gradient(circle at 0 0, rgba(227,187,98,0.13) 0, transparent 40%), linear-gradient(to bottom, #f3f4f7 0, #e6e9ef 240px, #f4f5f8 100%)" }}>
-        <div className="max-w-[1400px] mx-auto mb-3 flex items-center justify-between gap-3">
-          <button onClick={() => navigate(-1)} className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 bg-white/80">
-            <ArrowLeft size={14} /> Zurück
-          </button>
-          
-          <div className="flex items-center gap-2">
-            <button onClick={onSave} className="inline-flex items-center gap-2 rounded-full px-4 py-2 bg-white border border-[#d2c9b9] text-[#264555]">
-              <Save size={16} /> {isSaved ? "Gespeichert" : "Speichern"}
-            </button>
-            <button onClick={() => void generatePDF()} className="inline-flex items-center gap-2 rounded-full px-4 py-2 bg-[#E3BB62] text-[#264555]">
-              <FileText size={16} /> PDF
-            </button>
-          </div>
-        </div>
-
-        <div className="max-w-[1400px] mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-6">
-            <section className="rounded-[12px] border bg-[#ebebec] shadow-sm overflow-hidden">
-              <div className="px-6 py-4 border-b flex justify-between items-center bg-white">
-                <h2 className="font-semibold flex items-center gap-2 text-[#264555]">
-                  <AlertTriangle size={18} /> Manuelle Bewertung
-                </h2>
-                <span className="text-xs px-2 py-1 rounded-full bg-orange-100 text-orange-800">{openCount} Offen</span>
-              </div>
-              <div className="p-6 bg-white space-y-6">
-                {questions.map((q) => (
-                  <div key={q.id} className="border-b pb-6 last:border-0 last:pb-0">
-                    <div className="flex justify-between mb-2">
-                      <span className="text-xs font-bold uppercase text-gray-500">{q.category}</span>
-                      {q.score !== null ? <span className="text-green-700 text-xs flex gap-1"><CheckSquare size={12}/>Bewertet</span> : <span className="text-red-600 text-xs">Nicht bewertet</span>}
-                    </div>
-                    <p className="font-semibold mb-2">{q.question}</p>
-                    <div className="p-3 bg-gray-50 border-l-4 border-[#d2c9b9] italic text-sm mb-3">„{q.answer}“</div>
-                    <div className="flex items-center gap-3">
-                        <span className="text-sm font-medium">Score (0-100):</span>
-                        <input 
-                            type="number" 
-                            className="w-24 h-10 rounded-full border text-center font-bold"
-                            value={q.score === null ? "" : q.score}
-                            placeholder="-"
-                            onChange={(e) => handleScoreChange(q.id, e.target.value)}
-                        />
-                    </div>
-                  </div>
-                ))}
-                {questions.length === 0 && <div className="text-center text-gray-500">Keine Daten.</div>}
-              </div>
-            </section>
+      <main className="min-h-[calc(100vh-64px)] -mt-20 px-6 pb-20 relative z-10">
+        <div className="max-w-[1400px] mx-auto">
             
-            <section className="rounded-[12px] border bg-white shadow-sm p-6">
-                <h2 className="font-semibold flex items-center gap-2 mb-2 text-[#264555]"><FileText size={18} /> Notizen</h2>
-                <textarea 
-                    className="w-full border rounded-xl p-4 min-h-[100px]" 
-                    placeholder="Zusammenfassung für den Report..."
-                    value={adminNote}
-                    onChange={(e) => setAdminNote(e.target.value)}
-                />
-            </section>
+          <div className="flex justify-between items-center mb-6">
+            <button onClick={() => navigate(-1)} className="inline-flex items-center gap-2 rounded-full border border-gray-200 px-4 py-2 bg-white text-sm font-medium hover:bg-gray-50 transition-colors shadow-sm text-[#264555]">
+              <ArrowLeft size={16} /> Zurück
+            </button>
+            
+            <div className="flex items-center gap-3">
+              <button onClick={onSave} className={`inline-flex items-center gap-2 rounded-full px-5 py-2 bg-white border transition-all shadow-sm font-medium ${isSaved ? 'text-green-600 border-green-200' : 'text-[#264555] border-gray-200 hover:bg-gray-50'}`}>
+                <Save size={18} /> {isSaved ? "Gespeichert" : "Speichern"}
+              </button>
+              <button onClick={() => void generatePDF()} className="inline-flex items-center gap-2 rounded-full px-5 py-2 bg-[#E3BB62] text-[#264555] font-bold shadow-md hover:bg-[#dcae4e] transition-colors">
+                <FileText size={18} /> PDF Export
+              </button>
+            </div>
           </div>
 
-          <aside>
-            <section className="rounded-[18px] border bg-white p-5 shadow-sm">
-                <p className="text-sm text-gray-500">Gesamtscore</p>
-                <div className="mt-2 text-5xl font-extrabold text-[#264555]">{overallScore}</div>
-                <div className="mt-4 w-full h-2.5 bg-gray-100 rounded-full">
-                    <div className="h-2.5 bg-[#E3BB62] rounded-full transition-all" style={{ width: `${overallScore}%` }}></div>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+
+            <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 flex flex-col justify-between h-32 relative overflow-hidden">
+                <div className="flex justify-between items-start z-10">
+                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Durchschnittsscore</span>
+                    <BarChart3 className="text-[#E3BB62]" size={20} />
                 </div>
-            </section>
-          </aside>
+                <div className="text-4xl font-extrabold text-[#264555] z-10">{overallScore}%</div>
+                <div className="absolute bottom-0 left-0 w-full h-1 bg-gray-100">
+                    <div className="h-full bg-[#E3BB62]" style={{ width: `${overallScore}%` }}></div>
+                </div>
+            </div>
+
+            <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 flex flex-col justify-between h-32">
+                <div className="flex justify-between items-start">
+                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Fragen Gesamt</span>
+                    <Users className="text-blue-400" size={20} />
+                </div>
+                <div className="text-4xl font-extrabold text-[#264555]">{questions.length}</div>
+            </div>
+
+            <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 flex flex-col justify-between h-32">
+                <div className="flex justify-between items-start">
+                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Abgeschlossen</span>
+                    <CheckCircle className="text-green-500" size={20} />
+                </div>
+                <div className="text-4xl font-extrabold text-[#264555]">{completedCount}</div>
+            </div>
+
+            <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 flex flex-col justify-between h-32">
+                <div className="flex justify-between items-start">
+                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">In Bearbeitung</span>
+                    <Clock className="text-orange-400" size={20} />
+                </div>
+                <div className="text-4xl font-extrabold text-[#264555]">{openCount}</div>
+            </div>
+          </div>
+
+          <div className="rounded-xl border bg-white shadow-sm overflow-hidden mb-8">
+            <div className="px-6 py-4 border-b bg-gray-50/50 flex justify-between items-center">
+                <h3 className="font-bold text-[#264555] flex items-center gap-2">
+                    <AlertCircle size={18} /> Detaillierte Bewertung
+                </h3>
+            </div>
+            
+            <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                    <thead className="bg-gray-50 border-b">
+                    <tr>
+                        <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider w-[40%]">Name / Frage</th>
+                        <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Kategorie</th>
+                        <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
+                        <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Score (0-100)</th>
+                    </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                    {questions.map((q) => (
+                        <tr key={q.id} className="hover:bg-gray-50 transition-colors group">
+                        <td className="px-6 py-4">
+                            <div className="font-semibold text-[#264555] mb-1">{q.question}</div>
+                            <div className="text-sm text-gray-500 bg-gray-50 p-2 rounded-lg border border-gray-100 italic">
+                                „{q.answer}“
+                            </div>
+                        </td>
+
+                        <td className="px-6 py-4 text-sm font-medium text-gray-600">
+                            {q.category}
+                        </td>
+
+                        <td className="px-6 py-4">
+                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold ${
+                            q.score !== null 
+                                ? 'bg-green-100 text-green-700 border border-green-200' 
+                                : 'bg-orange-50 text-orange-700 border border-orange-200'
+                            }`}>
+                            {q.score !== null ? 'Fertig' : 'In Bearbeitung'}
+                            </span>
+                        </td>
+
+                        <td className="px-6 py-4 text-right">
+                            <div className="flex justify-end">
+                                <input 
+                                type="number" 
+                                className="w-20 border border-gray-300 rounded-lg py-2 px-1 text-center font-bold text-[#264555] focus:ring-2 focus:ring-[#E3BB62] focus:border-[#E3BB62] outline-none transition-all shadow-sm" 
+                                value={q.score ?? ''} 
+                                placeholder="-"
+                                onChange={(e) => handleScoreChange(q.id, e.target.value)}
+                                />
+                            </div>
+                        </td>
+                        </tr>
+                    ))}
+                    {questions.length === 0 && (
+                        <tr>
+                            <td colSpan={4} className="px-6 py-12 text-center text-gray-400">
+                                Keine Fragen gefunden.
+                            </td>
+                        </tr>
+                    )}
+                    </tbody>
+                </table>
+            </div>
+          </div>
+
+          <section className="rounded-xl border bg-white shadow-sm p-6">
+            <h2 className="font-bold flex items-center gap-2 mb-4 text-[#264555]">
+                <FileText size={20} className="text-[#E3BB62]" /> 
+                Zusammenfassung & Maßnahmen
+            </h2>
+            <textarea 
+                className="w-full border border-gray-200 rounded-xl p-4 min-h-[120px] focus:ring-2 focus:ring-[#E3BB62] focus:border-transparent outline-none transition-all resize-y" 
+                placeholder="Schreiben Sie hier eine Zusammenfassung oder empfohlene Maßnahmen für den PDF-Bericht..."
+                value={adminNote}
+                onChange={(e) => setAdminNote(e.target.value)}
+            />
+          </section>
+
         </div>
       </main>
     </AdminLayout>
