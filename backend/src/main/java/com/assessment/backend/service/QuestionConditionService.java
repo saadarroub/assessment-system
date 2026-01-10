@@ -1,9 +1,12 @@
 package com.assessment.backend.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import static com.assessment.backend.util.JsonbParser.parseDate;
 import static com.assessment.backend.util.JsonbParser.parseLong;
 import static com.assessment.backend.util.JsonbParser.parseStringSet;
 import static com.assessment.backend.util.JsonbParser.parseString;
+import static com.assessment.backend.util.JsonbParser.readTargetFromDbJson;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
@@ -27,33 +30,82 @@ public class QuestionConditionService {
   @Autowired
   private QuestionConditionRepository questionConditionRepository;
 
+  private final ObjectMapper objectMapper;
 
-  //Create or Load QuestionCondition
-  public QuestionCondition createOrLoadQuestionCondition(UUID sourceQuestionId, UUID sessionId) {
+  public QuestionConditionService(ObjectMapper objectMapper) {
+    this.objectMapper = objectMapper;
+  }
+
+
+  //Create a Question Object
+  public QuestionCondition createQuestionCondition(UUID sourceQuestionId, UUID temporarySessionId,Map<String, UUID> target, String expectedValue){
+
+    QuestionCondition qc = new QuestionCondition();
+
+    qc.setSourceQuestionId(sourceQuestionId);
+    qc.setSessionId(temporarySessionId);
+    qc.setExpectedValue(expectedValue);
+
+    try {
+      String targetJson = objectMapper.writeValueAsString(target); // Map -> JSON
+      qc.setTarget(targetJson);
+    } catch (JsonProcessingException e) {
+      throw new IllegalArgumentException("target konnte nicht als JSON gespeichert werden", e);
+    }
+
+    Question question = questionConditionRepository.findQuestionBySourceQuestionId(sourceQuestionId);
+    if (question == null) {
+      throw new IllegalStateException("Zugehörige Question nicht gefunden für Id: " + sourceQuestionId);
+    }
+    QuestionType questionType = question.getQuestionType();
+
+    String questionTypeName = questionType.getName();
+
+    if ("Multiple Choice".equals(questionTypeName)||"Multiple Select".equals(questionTypeName)) {
+
+      qc.setOperator("==,!=");
+
+    } else if ("Number Input".equals(questionTypeName)||"Date Input".equals(questionTypeName)||"Rating Scale".equals(questionTypeName)) {
+
+      qc.setOperator("==,<,>");
+
+    } else { // Fallback, falls kein bekannter Typ
+      throw new IllegalArgumentException("Unknown question type: " + questionTypeName);
+    }
+
+    return questionConditionRepository.save(qc);
+
+  }
+
+  //Load QuestionCondition for Getter
+  public QuestionCondition getterLoaderQuestionCondition(UUID sourceQuestionId, UUID sessionId) {
 
     QuestionCondition qc =
         questionConditionRepository.findBySourceQuestionIdAndSessionId(sourceQuestionId, sessionId);
 
-    if (qc == null) {
-      qc = new QuestionCondition();
-      qc.setSourceQuestionId(sourceQuestionId);
-      qc.setSessionId(sessionId);
-    }
+    return qc;
+
+  }
+
+    //Load QuestionCondition
+  public QuestionCondition loadQuestionCondition(UUID sourceQuestionId, UUID sessionId, UUID temporarySessionId) {
+
+    QuestionCondition qc = questionConditionRepository.findBySourceQuestionIdAndSessionId(sourceQuestionId, temporarySessionId);
+
+    qc.setSessionId(sessionId);
 
     return qc;
 
   }
 
   //Read - Decide by QuestionType which method will be started
-  public void handleQuestionByType(UUID sourceQuestionId,UUID sessionId, String expectedValue,
-                                   Map<String, UUID> target) {
+  public void handleQuestionByType(UUID sourceQuestionId,UUID sessionId,UUID temporarySessionId) {
 
-    QuestionCondition qc = createOrLoadQuestionCondition(sourceQuestionId, sessionId);
+    QuestionCondition qc = loadQuestionCondition(sourceQuestionId, sessionId, temporarySessionId);
     if (qc == null) {
       throw new IllegalStateException("QuestionCondition konnte nicht erstellt oder gefunden " +
           "werden für Question Id: " + sourceQuestionId + "und die Session Id:" + sessionId);
     }
-    qc.setExpectedValue(expectedValue);
 
 
     Question question = questionConditionRepository.findQuestionBySourceQuestionId(sourceQuestionId);
@@ -62,29 +114,27 @@ public class QuestionConditionService {
     }
     QuestionType questionType = question.getQuestionType();
 
+    String questionTypeName = questionType.getName();
+
     Map<String, UUID> targetNodeId = new HashMap<>();
 
-    if ("Multiple Choice".equals(questionType.getName())) {
+    Map<String, UUID> target = readTargetFromDbJson(qc.getTarget());
 
-      qc.setOperator("==,!=");
+    if ("Multiple Choice".equals(questionTypeName)) {
 
       targetNodeId.put("==", target.get("=="));
       targetNodeId.put("!=", target.get("!="));
 
       handleQuestion(qc, targetNodeId);
 
-    } else if ("Multiple Select".equals(questionType.getName())) {
-
-      qc.setOperator("==,!=");
+    } else if ("Multiple Select".equals(questionTypeName)) {
 
       targetNodeId.put("==", target.get("=="));
       targetNodeId.put("!=", target.get("!="));
 
       handleMultipleSelectQuestion(qc, targetNodeId);
 
-    } else if ("Number Input".equals(questionType.getName())) {
-
-      qc.setOperator("==,<,>");
+    } else if ("Number Input".equals(questionTypeName)||"Rating Scale".equals(questionTypeName)) {
 
       targetNodeId.put("==", target.get("=="));
       targetNodeId.put("<", target.get("<"));
@@ -92,9 +142,7 @@ public class QuestionConditionService {
 
       handleNumberQuestion(qc, targetNodeId);
 
-    } else if ("Date Input".equals(questionType.getName())) {
-
-      qc.setOperator("==,<,>");
+    } else if ("Date Input".equals(questionTypeName)) {
 
       targetNodeId.put("==", target.get("=="));
       targetNodeId.put("<", target.get("<"));
@@ -102,25 +150,14 @@ public class QuestionConditionService {
 
       handleDateQuestion(qc, targetNodeId);
 
-    } else if ("Rating Scale".equals(questionType.getName())) {
-
-      qc.setOperator("==,!=");
-
-      targetNodeId.put("==", target.get("=="));
-      targetNodeId.put("<", target.get("<"));
-      targetNodeId.put(">", target.get(">"));
-
-      handleNumberQuestion(qc, targetNodeId);
-
     } else { // Fallback, falls kein bekannter Typ
-      throw new IllegalArgumentException("Unknown question type: " + questionType.getName());
+      throw new IllegalArgumentException("Unknown question type: " + questionTypeName);
     }
 
   }
 
   //Multiple Choice
   public void handleQuestion(QuestionCondition qc, Map<String, UUID> targetNodeId) {
-
 
     String jsonB = questionConditionRepository.findValueByQuestionIdAndSessionId(qc.getSourceQuestionId(), qc.getSessionId());
 
