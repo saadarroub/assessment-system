@@ -37,7 +37,8 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 // Public Endpoints (kein Token erforderlich)
                 .requestMatchers("/api/auth/login", "/api/auth/refresh", "/api/auth/logout").permitAll()
-                
+                .requestMatchers("/auth/password-reset/**").permitAll()
+
                 // Public Access Routes - Alle HTTP-Methoden erlaubt (GET, POST, PUT für Assessment Session)
                 .requestMatchers("/public/access/**").permitAll()
                 

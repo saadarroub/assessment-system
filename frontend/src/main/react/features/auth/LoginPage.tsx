@@ -11,6 +11,7 @@ import { Eye, EyeOff } from "lucide-react";
 
 
 const API_URL = (import.meta as any)?.env?.VITE_API_URL ?? "/api";
+const RESET_BASE = "";
 
 
 //const BG_IMAGE_A = HereImage;
@@ -52,6 +53,16 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+
+  const [fpOpen, setFpOpen] = useState(false);
+  const [fpStep, setFpStep] = useState<"phone" | "code" | "newpw" | "done">("phone");
+  const [fpPhone, setFpPhone] = useState("");
+  const [fpCode, setFpCode] = useState("");
+  const [fpRequestId, setFpRequestId] = useState<string | null>(null);
+  const [fpNewPw, setFpNewPw] = useState("");
+  const [fpNewPw2, setFpNewPw2] = useState("");
+  const [fpLoading, setFpLoading] = useState(false);
+  const [fpError, setFpError] = useState<string | null>(null);
 
 
   const navigate = useNavigate();
@@ -284,7 +295,23 @@ export default function LoginPage() {
                     </label>
 
                     <div className="text-xs text-slate-500">
-                      Secure Session • Cookies
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFpOpen(true);
+                          setFpStep("phone");
+                          setFpError(null);
+                          setFpPhone("");
+                          setFpCode("");
+                          setFpRequestId(null);
+                          setFpNewPw("");
+                          setFpNewPw2("");
+                        }}
+                        className="text-sm text-[#56768f] hover:underline"
+                      >
+                        Passwort vergessen?
+                      </button>
+
                     </div>
                   </div>
 
@@ -318,7 +345,221 @@ export default function LoginPage() {
 
         </div>
       </div>
+      {fpOpen && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+    <div
+      className="absolute inset-0 bg-black/50"
+      onClick={() => !fpLoading && setFpOpen(false)}
+    />
+    <div className="relative w-full max-w-md rounded-2xl bg-white shadow-xl border border-slate-200">
+      <div className="p-5 border-b border-slate-200 flex items-center justify-between">
+        <div className="font-semibold text-[#264555]">Passwort zurücksetzen</div>
+        <button
+          type="button"
+          disabled={fpLoading}
+          onClick={() => setFpOpen(false)}
+          className="text-slate-500 hover:text-slate-700"
+        >
+          ✕
+        </button>
+      </div>
+
+      <div className="p-5 space-y-4">
+        {fpError && (
+          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {fpError}
+          </div>
+        )}
+
+        {fpStep === "phone" && (
+          <>
+            <p className="text-sm text-slate-600">
+              Gib deine Telefonnummer ein. Wir senden dir einen Code.
+            </p>
+
+            <input
+              value={fpPhone}
+              onChange={(e) => setFpPhone(e.target.value)}
+              placeholder="+4917..."
+              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3
+                         focus:outline-none focus:ring-2 focus:ring-[#E3BB62]/60 focus:border-[#E3BB62]"
+            />
+
+            <button
+              type="button"
+              disabled={fpLoading || !fpPhone.trim()}
+              onClick={async () => {
+                setFpLoading(true);
+                setFpError(null);
+                try {
+                  const res = await fetch(`${RESET_BASE}/auth/password-reset/sms/request`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ phone: fpPhone.trim() }),
+                  });
+                  // neutral response -> immer weiter
+                  if (!res.ok) {
+                    const d = await res.json().catch(() => ({}));
+                    throw new Error(d.details || d.error || `HTTP ${res.status}`);
+                  }
+                  setFpStep("code");
+                } catch (e: any) {
+                  setFpError(e?.message || "Fehler beim Senden des Codes.");
+                } finally {
+                  setFpLoading(false);
+                }
+              }}
+              className="w-full rounded-xl py-3 font-semibold text-[#264555]
+                         bg-[#E3BB62] disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {fpLoading ? "Sende..." : "Code senden"}
+            </button>
+          </>
+        )}
+
+        {fpStep === "code" && (
+          <>
+            <p className="text-sm text-slate-600">
+              Gib den Code ein, den du per SMS bekommen hast.
+            </p>
+
+            <input
+              value={fpCode}
+              onChange={(e) => setFpCode(e.target.value)}
+              placeholder="123456"
+              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3
+                         focus:outline-none focus:ring-2 focus:ring-[#E3BB62]/60 focus:border-[#E3BB62]"
+            />
+
+            <div className="flex gap-3">
+              <button
+                type="button"
+                disabled={fpLoading}
+                onClick={() => {
+                  setFpStep("phone");
+                  setFpError(null);
+                }}
+                className="flex-1 rounded-xl py-3 font-semibold border border-slate-200 text-slate-700"
+              >
+                Zurück
+              </button>
+
+              <button
+                type="button"
+                disabled={fpLoading || !fpCode.trim()}
+                onClick={async () => {
+                  setFpLoading(true);
+                  setFpError(null);
+                  try {
+                    const res = await fetch(`${RESET_BASE}/auth/password-reset/sms/verify`, {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ phone: fpPhone.trim(), code: fpCode.trim() }),
+                    });
+                    if (!res.ok) {
+                      const d = await res.json().catch(() => ({}));
+                      throw new Error(d.details || d.error || "Code ungültig.");
+                    }
+                    const data = await res.json();
+                    if (!data?.requestId) throw new Error("Keine requestId erhalten.");
+                    setFpRequestId(String(data.requestId));
+                    setFpStep("newpw");
+                  } catch (e: any) {
+                    setFpError(e?.message || "Code ungültig.");
+                  } finally {
+                    setFpLoading(false);
+                  }
+                }}
+                className="flex-1 rounded-xl py-3 font-semibold text-[#264555]
+                           bg-[#E3BB62] disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {fpLoading ? "Prüfe..." : "Bestätigen"}
+              </button>
+            </div>
+          </>
+        )}
+
+        {fpStep === "newpw" && (
+          <>
+            <p className="text-sm text-slate-600">
+              Setze jetzt ein neues Passwort.
+            </p>
+
+            <input
+              type="password"
+              value={fpNewPw}
+              onChange={(e) => setFpNewPw(e.target.value)}
+              placeholder="Neues Passwort"
+              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3
+                         focus:outline-none focus:ring-2 focus:ring-[#E3BB62]/60 focus:border-[#E3BB62]"
+            />
+
+            <input
+              type="password"
+              value={fpNewPw2}
+              onChange={(e) => setFpNewPw2(e.target.value)}
+              placeholder="Passwort wiederholen"
+              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3
+                         focus:outline-none focus:ring-2 focus:ring-[#E3BB62]/60 focus:border-[#E3BB62]"
+            />
+
+            <button
+              type="button"
+              disabled={fpLoading || !fpRequestId || fpNewPw.length < 8 || fpNewPw !== fpNewPw2}
+              onClick={async () => {
+                setFpLoading(true);
+                setFpError(null);
+                try {
+                  const res = await fetch(`${RESET_BASE}/auth/password-reset/sms/confirm`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ requestId: fpRequestId, newPassword: fpNewPw }),
+                  });
+                  if (!res.ok) {
+                    const d = await res.json().catch(() => ({}));
+                    throw new Error(d.details || d.error || `HTTP ${res.status}`);
+                  }
+                  setFpStep("done");
+                } catch (e: any) {
+                  setFpError(e?.message || "Fehler beim Setzen des Passworts.");
+                } finally {
+                  setFpLoading(false);
+                }
+              }}
+              className="w-full rounded-xl py-3 font-semibold text-[#264555]
+                         bg-[#E3BB62] disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {fpLoading ? "Speichere..." : "Passwort speichern"}
+            </button>
+
+            <div className="text-xs text-slate-500">
+              Hinweis: mindestens 8 Zeichen, beide Felder müssen übereinstimmen.
+            </div>
+          </>
+        )}
+
+        {fpStep === "done" && (
+          <>
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+              Passwort wurde geändert. Du kannst dich jetzt einloggen.
+            </div>
+            <button
+              type="button"
+              onClick={() => setFpOpen(false)}
+              className="w-full rounded-xl py-3 font-semibold border border-slate-200 text-slate-700"
+            >
+              Schließen
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  </div>
+)}
+
     </div>
 
+
   );
+  
 }

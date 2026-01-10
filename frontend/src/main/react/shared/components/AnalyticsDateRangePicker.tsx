@@ -150,17 +150,18 @@ export function AnalyticsDateRangePicker({
   const displayValue = `${format(value.start, "dd.MM.yyyy", { locale: de })} – ${format(value.end, "dd.MM.yyyy", { locale: de })}`;
 
   return (
-    <div className="flex flex-wrap items-center gap-3">
+<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:flex-nowrap">
       {/* Date Range Picker */}
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
             variant="outline"
             disabled={disabled}
-            className={cn(
-              "w-[280px] justify-start text-left font-normal",
-              "border-[#e5e7eb] bg-white hover:bg-slate-50"
-            )}
+           className={cn(
+  "w-full sm:w-[280px] justify-start text-left font-normal",
+  "border-[#e5e7eb] bg-white hover:bg-slate-50"
+)}
+
           >
             <CalendarIcon className="mr-2 h-4 w-4 text-slate-400" />
             <span style={{ color: BRAND.navy }}>{displayValue}</span>
@@ -261,7 +262,7 @@ export function AnalyticsDateRangePicker({
       </Popover>
 
       {/* Time Bucket Selector */}
-      <div className="flex rounded-lg border border-[#e5e7eb] bg-white p-1">
+      <div className="shrink-0 flex rounded-lg border border-[#e5e7eb] bg-white p-1">
         {TIME_BUCKETS.map((bucket) => (
           <button
             key={bucket.value}
