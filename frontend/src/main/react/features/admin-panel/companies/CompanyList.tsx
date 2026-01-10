@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import AdminLayout from "@/apps/app/AdminLayout";
 import companyLogo from "@/assets/comapy.png";
+import { useHasPermission } from "@/shared/hooks/useHasPermission";
+import { PermissionButton } from "@/shared/components/permission/PermissionButton";
 import {
   Search,
   ArrowUpDown,
@@ -29,6 +31,7 @@ import {
 
 import { Network } from "lucide-react";
 import PageHeader from "@/features/admin-area/catalogs/PageHeader";
+import { useScrollLock } from "@/shared/hooks/useScrollLock";
 
 /* ================= Types ================= */
 
@@ -93,6 +96,11 @@ const BRAND = {
 export default function CompaniesList() {
   const { showSuccess, showError } = useToast();
 
+  const { has } = useHasPermission();
+
+  const canCreateCompany = has("companies.create");
+  const canEditCompany = has("companies.edit");
+  const canDeleteCompany = has("companies.delete");
   /* ============== State ============== */
   const [items, setItems] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
@@ -150,7 +158,7 @@ export default function CompaniesList() {
     (async () => {
       try {
         const raw = await getCompanies();
-        const list = Array.isArray(raw) ? raw : (raw as any)?.content ?? [];
+        const list = Array.isArray(raw.reverse()) ? raw : (raw as any)?.content ?? [];
         const mapped = (list as CompanyApi[]).map(mapApiToCompany);
         if (alive) setItems(mapped);
       } catch (e: any) {
@@ -494,28 +502,31 @@ export default function CompaniesList() {
       setUpdating(false);
     }
   }
+  const anyModalOpen = openCreate || openEdit || openDelete;
+  useScrollLock(anyModalOpen);
+
 
   /* ============== Render ============== */
   return (
     <AdminLayout>
-      {/* ===== Hero (wie Users) ===== */}
+      {/* ===== Hero ===== */}
       <PageHeader
         title="Firmen Administration"
         subtitle="Verwalte Firmenkonten, Mitarbeiter und zugehörige Kataloge"
         icon={<Network size={40} />}
-        gradient="navy" 
+        gradient="navy"
         height="280px"
         showPattern={true}
         center={false}
       />
- 
+
       {/* ===== Außenbereich unter dem Hero ===== */}
       <main
         className="min-h-[calc(100vh-64px)] mt-0 px-6 pb-8 pt-20"
         style={{
           background:
             "radial-gradient(circle at 0 0, rgba(227,187,98,0.13) 0, transparent 40%)," +
-            "radial-gradient(circle at 100% 0, rgba(56,189,248,0.10) 0, transparent 42%)," +
+
             "linear-gradient(to bottom, #f3f4f7 0, #e6e9ef 240px, #f4f5f8 100%)",
         }}
       >
@@ -571,8 +582,10 @@ export default function CompaniesList() {
           </nav>
 
           {/* New Company Button – wie Add User */}
-          <button
+          <PermissionButton
             type="button"
+            allowed={canCreateCompany}
+            tooltip="Du brauchst die Berechtigung: companies.create"
             onClick={() => setOpenCreate(true)}
             className="
     inline-flex items-center gap-2
@@ -594,7 +607,8 @@ export default function CompaniesList() {
           >
             <Plus size={16} />
             New Company
-          </button>
+          </PermissionButton>
+
 
 
         </div>
@@ -806,20 +820,22 @@ export default function CompaniesList() {
                             )}
 
                             {!q.trim() && (
-                              <button
+                              <PermissionButton
                                 type="button"
+                                allowed={canCreateCompany}
+                                tooltip="Du brauchst die Berechtigung: companies.create"
                                 onClick={() => setOpenCreate(true)}
                                 className="inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-semibold shadow hover:[filter:brightness(1.05)]"
                                 style={{
                                   background: "hsl(40,60%,63%)",
                                   color: "hsl(200,32%,22%)",
-                                  boxShadow:
-                                    "0 1px 2px rgba(0,0,0,.05)",
+                                  boxShadow: "0 1px 2px rgba(0,0,0,.05)",
                                 }}
                               >
                                 <Plus size={14} />
                                 Firma anlegen
-                              </button>
+                              </PermissionButton>
+
                             )}
                           </div>
                         </div>
@@ -1026,20 +1042,22 @@ export default function CompaniesList() {
                               </Link>
 
                               {/* Edit */}
-                              <button
+                              <PermissionButton
                                 type="button"
+                                allowed={canEditCompany}
+                                tooltip="Du brauchst: companies.edit"
                                 aria-label="Edit company"
                                 onClick={() => openEditFor(c)}
                                 title="Edit"
                                 className="
-        inline-flex items-center justify-center
-        rounded-full
-        px-2.5 py-1.5
-        text-[11px] font-medium
-        border
-        transition
-        hover:bg-[#f5f0e4]
-      "
+    inline-flex items-center justify-center
+    rounded-full
+    px-2.5 py-1.5
+    text-[11px] font-medium
+    border
+    transition
+    hover:bg-[#f5f0e4]
+  "
                                 style={{
                                   borderColor: "#d2c9b9",
                                   color: "#264555",
@@ -1047,23 +1065,26 @@ export default function CompaniesList() {
                                 }}
                               >
                                 <Pencil size={13} />
-                              </button>
+                              </PermissionButton>
+
 
                               {/* Delete */}
-                              <button
+                              <PermissionButton
                                 type="button"
+                                allowed={canDeleteCompany}
+                                tooltip="Du brauchst: companies.delete"
                                 aria-label="Delete company"
                                 onClick={() => askDelete(c)}
                                 title="Löschen"
                                 className="
-        inline-flex items-center justify-center
-        rounded-full
-        px-2.5 py-1.5
-        text-[11px] font-medium
-        border
-        transition
-        hover:bg-[#fff1f1]
-      "
+    inline-flex items-center justify-center
+    rounded-full
+    px-2.5 py-1.5
+    text-[11px] font-medium
+    border
+    transition
+    hover:bg-[#fff1f1]
+  "
                                 style={{
                                   borderColor: "rgba(248,113,113,0.8)",
                                   color: "rgb(185,28,28)",
@@ -1071,7 +1092,8 @@ export default function CompaniesList() {
                                 }}
                               >
                                 <Trash2 size={13} />
-                              </button>
+                              </PermissionButton>
+
                             </div>
                           </td>
 
@@ -1308,9 +1330,7 @@ export default function CompaniesList() {
           role="dialog"
           aria-modal="true"
           className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/40 backdrop-blur-sm"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setOpenCreate(false);
-          }}
+
         >
           <div
             className="w-full max-w-xl px-4 sm:px-0"
@@ -1622,9 +1642,6 @@ export default function CompaniesList() {
           role="dialog"
           aria-modal="true"
           className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/40 backdrop-blur-sm"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) cancelEdit();
-          }}
         >
           <div
             className="w-full max-w-xl px-4 sm:px-0"

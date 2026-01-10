@@ -7,6 +7,7 @@ export type UserApi = {
   roles?: any;
   created_at?: string;
   updatedAt?: string;
+  status?: "active" | "inactive" | string;
 };
 
 export async function getUsers(): Promise<UserApi[]> {
@@ -111,4 +112,14 @@ export async function assignUserRole(userId: string, roleId: string): Promise<vo
   if (![200, 201, 204].includes(res.status)) {
     throw new Error(`Rolle konnte nicht zugewiesen werden (Status ${res.status})`);
   }
+}
+
+// Toggle Status (active <-> inactive)
+export async function changeUserStatus(id: string): Promise<UserApi> {
+  const { data } = await apiClient.patch<UserApi>(
+    `/users/status/change/${encodeURIComponent(id)}`,
+    null,
+    { headers: { Accept: "application/json" } }
+  );
+  return data;
 }

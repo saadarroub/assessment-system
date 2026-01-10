@@ -25,6 +25,7 @@ import com.assessment.backend.dto.TokenRefreshResponseDTO;
 import com.assessment.backend.entity.Permission;
 import com.assessment.backend.entity.User;
 import com.assessment.backend.security.JwtUtil;
+import com.assessment.backend.service.AuditLogService;
 import com.assessment.backend.service.AuthService;
 import com.assessment.backend.service.RolePermissionService;
 
@@ -44,6 +45,9 @@ public class AuthController {
 
     @Autowired
     private RolePermissionService rolePermissionService;
+
+    @Autowired
+    private AuditLogService auditLogService;
 
     @Value("${security.jwt.expiration-ms:900000}") // Default 15 minutes
     private long accessTokenExpirationMs;
@@ -108,6 +112,9 @@ public class AuthController {
                     .maxAge(refreshTokenExpirationMs / 1000) // Convert to seconds
                     .sameSite("Lax")
                     .build();
+
+            // Audit log for login
+            auditLogService.log(user, "LOGIN", "users", user.getId(), null);
 
             return ResponseEntity.ok()
                     .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())

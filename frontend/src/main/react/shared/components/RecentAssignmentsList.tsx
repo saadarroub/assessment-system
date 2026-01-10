@@ -12,6 +12,7 @@ const STATUS_BADGES: Record<string, { label: string; className: string }> = {
   in_progress: { label: "In Bearbeitung", className: "bg-blue-100 text-blue-800" },
   completed: { label: "Abgeschlossen", className: "bg-green-100 text-green-800" },
   expired: { label: "Abgelaufen", className: "bg-red-100 text-red-800" },
+  blocked: { label: "Blockiert", className: "bg-slate-100 text-slate-700" },
 };
 
 export function RecentAssignmentsList({ assignments }: RecentAssignmentsListProps) {

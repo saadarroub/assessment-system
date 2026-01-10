@@ -3,6 +3,7 @@ import { NavLink, useNavigate } from "react-router-dom";
 import { useAuthCtx } from "@/core/auth/AuthContext";
 import { AuthService } from "@/core/auth/AuthService";
 import { logoutApi } from "@/features/auth/logoutService";
+import { SessionEventBus } from "@/core/auth/SessionEventBus";
 import {
   getUserProfile,
   buildAvatarUrl,
@@ -61,6 +62,7 @@ type NavId =
   | "catalog"
   | "Admin-Panel"
   | "Ergebnis Analysieren"
+  | "Reifegradmodelle"
   | "users"
   | "companies"
   | "roles"
@@ -75,22 +77,16 @@ const NAV_PRIMARY: Array<{
   to: string;
 }> = [
     {
-      id: "dashboard",
-      label: "Dashboard",
-      Icon: LayoutDashboard,
-      to: "/admin/dashboard",
+      id: "dashboard", label: "Dashboard", Icon: LayoutDashboard, to: "/admin/dashboard",
     },
     {
-      id: "Themen Verwalten",
-      label: "Themen Verwalten",
-      Icon: Settings,
-      to: "/admin",
+      id: "Themen Verwalten", label: "Themen ", Icon: Settings, to: "/admin",
     },
     {
-      id: "catalog",
-      label: "Kataloge",
-      Icon: FileText,
-      to: "/admin/katalogzuweisen",
+      id: "catalog", label: "Kataloge", Icon: FileText, to: "/admin/katalogzuweisen",
+    },
+    {
+       id: "Reifegradmodelle", label: "Reifegradmodelle", Icon: ShoppingCart, to: "/admin/reifegradmodelle",
     },
   ];
 
@@ -100,19 +96,23 @@ const NAV_Panel: Array<{
   Icon: React.FC<any>;
   to: string;
 }> = [
-    { id: "users", label: "Users", Icon: ShoppingCart, to: "/admin/adminPanel/users" },
     {
-      id: "companies",
-      label: "Firmen",
-      Icon: Building2,
-      to: "/admin/adminPanel/companies",
+      id: "users", label: "Users", Icon: ShoppingCart, to: "/admin/adminPanel/users"
     },
-    { id: "roles", label: "Rollen", Icon: Shield, to: "/admin/adminPanel/roles" },
     {
-      id: "Zuweisungen",
-      label: "Zuweisungen",
+      id: "companies", label: "Firmen", Icon: Building2, to: "/admin/adminPanel/companies",
+    },
+    {
+      id: "roles", label: "Rollen", Icon: Shield, to: "/admin/adminPanel/roles",
+    },
+    {
+      id: "Zuweisungen", label: "Zuweisungen", Icon: FileText, to: "/admin/adminPanel/zuweisungen",
+    },
+    {
+      id: "Audit-log",
+      label: "Audit Logs",
       Icon: FileText,
-      to: "/admin/adminPanel/zuweisungen",
+      to: "/admin/adminPanel/audit",
     },
   ];
 
@@ -123,14 +123,19 @@ const NAV_Analyse: Array<{
   to: string;
 }> = [
     {
-      id: "Ergebnis Analysieren",
-      label: "Ergebnisse Analysieren",
-      Icon: ShoppingCart,
-      to: "/app/companylist",
+      id: "Ergebnis Analysieren", label: "Ergebnisse Analysieren", Icon: ShoppingCart, to: "/app/companylist",
     },
   ];
 
 export default function AdminLayout({ children }: AdminLayoutProps) {
+  const [sessionExpired, setSessionExpired] = useState(false);
+
+  useEffect(() => {
+    return SessionEventBus.subscribe(() => {
+      setSessionExpired(true);
+    });
+  }, []);
+
   const [collapsed, setCollapsed] = useState(false);
 
   const mainStyle = {
@@ -143,7 +148,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   // genaue Position/Ausrichtung des Toggle-Buttons im collapsed State
   // Toggle im collapsed-State etwas kleiner als die 48px-Kacheln,
   // damit er optisch gleich groß wirkt wie die Icons
-  const collapsedToggleSize = TOKENS.sizes.tile + 4; 
+  const collapsedToggleSize = TOKENS.sizes.tile + 4;
 
   const { isAuthenticated, logout } = useAuthCtx();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -162,26 +167,26 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
   useEffect(() => {
-  const handler = (event: Event) => {
-    const custom = event as CustomEvent<{ avatarUrl: string | null }>;
-    const url = custom.detail?.avatarUrl ?? null;
+    const handler = (event: Event) => {
+      const custom = event as CustomEvent<{ avatarUrl: string | null }>;
+      const url = custom.detail?.avatarUrl ?? null;
 
-    setAvatarUrl(url);
+      setAvatarUrl(url);
 
-    // Profil-Objekt optional mitziehen (nur wenn du es brauchst)
-    setProfile(prev =>
-      prev
-        ? {
+      // Profil-Objekt optional mitziehen (nur wenn du es brauchst)
+      setProfile(prev =>
+        prev
+          ? {
             ...prev,
             profileImagePath: url ? url.split("/").pop() ?? null : null,
           }
-        : prev
-    );
-  };
+          : prev
+      );
+    };
 
-  window.addEventListener("profile:avatar-updated", handler);
-  return () => window.removeEventListener("profile:avatar-updated", handler);
-}, []);
+    window.addEventListener("profile:avatar-updated", handler);
+    return () => window.removeEventListener("profile:avatar-updated", handler);
+  }, []);
   function readSessionUser(): any | null {
     try {
       const raw = window.sessionStorage.getItem("auth_session");
@@ -207,21 +212,21 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   }
 
   // Profil + Avatar laden, sobald wir eine userId haben
-useEffect(() => {
-  if (!sessionUser?.id) return;
+  useEffect(() => {
+    if (!sessionUser?.id) return;
 
-  const userId: string = sessionUser.id;
+    const userId: string = sessionUser.id;
 
-  (async () => {
-    try {
-      const p = await getUserProfile(userId);
-      setProfile(p);
-      setAvatarUrl(buildAvatarUrl(p.profileImagePath));
-    } catch (err) {
-      console.error("[AdminLayout] Konnte Profil nicht laden:", err);
-    }
-  })();
-}, [sessionUser?.id]);
+    (async () => {
+      try {
+        const p = await getUserProfile(userId);
+        setProfile(p);
+        setAvatarUrl(buildAvatarUrl(p.profileImagePath));
+      } catch (err) {
+        console.error("[AdminLayout] Konnte Profil nicht laden:", err);
+      }
+    })();
+  }, [sessionUser?.id]);
 
 
 
@@ -332,12 +337,12 @@ useEffect(() => {
           {/* Header */}
           <div className="relative px-3 pt-3">
             {collapsed ? (
-    <div className="flex items-center justify-center">
-      <button
-        type="button"
-        aria-label="Sidebar erweitern"
-        onClick={() => setCollapsed(false)}
-        className="
+              <div className="flex items-center justify-center">
+                <button
+                  type="button"
+                  aria-label="Sidebar erweitern"
+                  onClick={() => setCollapsed(false)}
+                  className="
           relative w-[48px] h-[48px]
           rounded-[14px]
           border border-transparent
@@ -347,21 +352,21 @@ useEffect(() => {
           hover:border-white/25
           hover:shadow-[0_8px_20px_rgba(0,0,0,0.45)]
         "
-      >
-        <span
-          className="grid place-items-center rounded-[12px] border shadow-[0_10px_22px_rgba(0,0,0,0.5)]"
-          style={{
-            width: TOKENS.sizes.collapsedTile,
-            height: TOKENS.sizes.collapsedTile,
-            background: "rgba(15,23,42,0.75)",
-            borderColor: "rgba(148,163,184,0.6)",
-            color: `hsl(${TOKENS.sidebarMuted})`,
-          }}
-        >
-          <ChevronRight className="w-[18px] h-[18px]" />
-        </span>
-      </button>
-    </div>
+                >
+                  <span
+                    className="grid place-items-center rounded-[12px] border shadow-[0_10px_22px_rgba(0,0,0,0.5)]"
+                    style={{
+                      width: TOKENS.sizes.collapsedTile,
+                      height: TOKENS.sizes.collapsedTile,
+                      background: "rgba(15,23,42,0.75)",
+                      borderColor: "rgba(148,163,184,0.6)",
+                      color: `hsl(${TOKENS.sidebarMuted})`,
+                    }}
+                  >
+                    <ChevronRight className="w-[18px] h-[18px]" />
+                  </span>
+                </button>
+              </div>
             ) : (
               <div
                 className="
@@ -730,10 +735,10 @@ useEffect(() => {
               {collapsed ? (
 
                 // Nur Avatar, wenn Sidebar zu ist
-            <button
-    type="button"
-    onClick={() => setMenuOpen((v) => !v)}
-    className="
+                <button
+                  type="button"
+                  onClick={() => setMenuOpen((v) => !v)}
+                  className="
       relative
       w-[48px] h-[48px]
       rounded-[16px]
@@ -744,30 +749,29 @@ useEffect(() => {
       hover:bg-white/10
       transition
     "
-    aria-label="Profilmenü öffnen"
-  >
-    <div className="relative">
-      {avatarUrl ? (
-        <img
-          src={avatarUrl}
-          alt={displayName}
-          className="h-9 w-9 rounded-full border border-white/40 shadow object-cover"
-        />
-      ) : (
-        <div
-          className="
+                  aria-label="Profilmenü öffnen"
+                >
+                  <div className="relative">
+                    {avatarUrl ? (
+                      <img
+                        src={avatarUrl}
+                        alt={displayName}
+                        className="h-9 w-9 rounded-full border border-white/40 shadow object-cover"
+                      />
+                    ) : (
+                      <div
+                        className="
             h-9 w-9 rounded-full border border-white/40 shadow
             bg-[rgba(15,23,42,0.8)]
             flex items-center justify-center
             text-sm font-semibold text-white
           "
-        >
-          {initials}
-        </div>
-      )}
-      <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-400 border border-slate-900" />
-    </div>
-  </button>
+                      >
+                        {initials}
+                      </div>
+                    )}
+                  </div>
+                </button>
               ) : (
                 <button
                   type="button"
@@ -809,7 +813,6 @@ useEffect(() => {
                         {initials}
                       </div>
                     )}
-                    <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-400 border border-slate-900" />
                   </div>
 
 
@@ -871,27 +874,27 @@ useEffect(() => {
           border-b border-black/5 dark:border-slate-700
         "
                     >
-                     {/* Avatar im Menü-Header */}
-<div className="relative">
-  {avatarUrl ? (
-    <img
-      src={avatarUrl}
-      alt={displayName}
-      className="h-9 w-9 rounded-full border border-white/70 shadow-sm object-cover"
-    />
-  ) : (
-    <div
-      className="
+                      {/* Avatar im Menü-Header */}
+                      <div className="relative">
+                        {avatarUrl ? (
+                          <img
+                            src={avatarUrl}
+                            alt={displayName}
+                            className="h-9 w-9 rounded-full border border-white/70 shadow-sm object-cover"
+                          />
+                        ) : (
+                          <div
+                            className="
         h-9 w-9 rounded-full border border-white/70 shadow-sm
         bg-[rgba(15,23,42,0.8)]
         flex items-center justify-center
         text-sm font-semibold text-white
       "
-    >
-      {initials}
-    </div>
-  )}
-</div>
+                          >
+                            {initials}
+                          </div>
+                        )}
+                      </div>
 
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-semibold text-slate-900 dark:text-slate-50 truncate">
@@ -1004,6 +1007,34 @@ useEffect(() => {
       >
         {children}
       </main>
+      {sessionExpired && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50">
+          <div className="w-[420px] rounded-2xl bg-white p-6 shadow-2xl">
+            <h2 className="text-lg font-semibold text-[#264555]">
+              Session abgelaufen
+            </h2>
+
+            <p className="mt-2 text-sm text-slate-600">
+              Deine Anmeldung ist nicht mehr gültig.
+              <br />
+              Bitte melde dich erneut an.
+            </p>
+
+            <div className="mt-5 flex justify-end">
+              <button
+                onClick={() => {
+                  setSessionExpired(false);
+                  navigate("/login", { replace: true });
+                }}
+                className="rounded-xl bg-[#E3BB62] px-4 py-2 text-sm font-medium text-[#264555]"
+              >
+                Neu einloggen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

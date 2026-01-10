@@ -4,10 +4,9 @@ import AdminLayout from "@/apps/app/AdminLayout";
 import "@/styles/admin.css";
 
 import {
-  ArrowLeft,
   Layers,
   Plus,
-  X,
+
   MessageSquare,
   List,
   BarChart3,
@@ -17,6 +16,8 @@ import {
   CircleDot,
   ListOrdered,
   Trash2,
+  ChevronUp,
+  ChevronDown,
 } from "lucide-react";
 
 import {
@@ -25,6 +26,8 @@ import {
   createQuestion,
   createQuestionNode,
 } from "@/api/questionApi";
+
+import PageHeader from "./PageHeader";
 
 export default function CatalogList() {
   const navigate = useNavigate();
@@ -56,6 +59,7 @@ export default function CatalogList() {
 
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [isRequired, setIsRequired] = useState(true); // Standard: true (Pflichtfrage)
+  const [isScorable, setIsScorable] = useState(true); // Standard: true (bewertbar)
   const isOrderType = selectedType?.value === "order";
   // 🔹 Frage speichern → anlegen + mit Thema verknüpfen
   const handleConfirm = async () => {
@@ -135,6 +139,7 @@ export default function CatalogList() {
         hasOptions && !isOrderType
           ? Object.fromEntries(options.map((o) => [o.label, Number(o.score)]))
           : null,
+      isScorable: hasOptions ? true : isScorable, // Nur für Textfelder relevant
     };
 
     try {
@@ -157,7 +162,9 @@ export default function CatalogList() {
     setQuestionText("");
     setSelectedType("");
     setOptions([]);
+    setOptions([]);
     setIsRequired(true); // Zurücksetzen auf Standard
+    setIsScorable(true); // Zurücksetzen auf Standard
     setIsModalOpen(false);
   };
 
@@ -287,340 +294,498 @@ export default function CatalogList() {
   return (
     <AdminLayout>
       {/* Header */}
-       <div className="relative bg-gradient-to-br from-[#d2c9b9] via-[#e8e2d7] to-[#ffffff] px-10 py-10 shadow-sm border-b border-gray-300/40">
-        {/* BACK BUTTON */}
-        <div
-          onClick={() => navigate("/admin")}
-          className="
-                  group w-fit flex items-center gap-3 cursor-pointer
-                  bg-white/60 backdrop-blur-xl 
-                  border border-gray-300/30 
-                  px-5 py-2.5 rounded-xl 
-                  shadow-[0_3px_10px_rgba(0,0,0,0.08)]
-                  transition-all duration-300
-                  hover:bg-white/80 hover:shadow-[0_6px_16px_rgba(0,0,0,0.12)]
-                  hover:-translate-y-0.5
-                "
-        >
-          <ArrowLeft
-            size={20}
-            className="text-[#264555] transition-all group-hover:-translate-x-1"
-          />
-          <span className="text-sm font-semibold text-[#264555]">
-            Zurück zur Übersicht
-          </span>
-        </div>
+      <PageHeader
+        title={thema?.name || "Lade..."}
+        subtitle="Verwalten Sie Ihre Themen und erstellen Sie finale Kataloge"
+        icon={<Layers size={40} />}
+        gradient="navy"
+        height="280px"
+        showPattern={true}
+        center={false}
+      />
 
-        {/* TITLE BLOCK */}
-        <div className="mt-8 text-center">
-          <div className="flex justify-center items-center gap-4">
-            <div
-              className="
-          p-4 rounded-2xl shadow-md 
-          bg-gradient-to-br from-[#264555] to-[#3f5568]
-          text-white
+      {/* BODY */}
+      <main
+        className="min-h-[calc(100vh-64px)] mt-0 px-6 pb-8 pt-20"
+        style={{
+          background:
+            "radial-gradient(circle at 0 0, rgba(227,187,98,0.13) 0, transparent 40%)," +
+            "radial-gradient(circle at 100% 0, rgba(56,189,248,0.10) 0, transparent 42%)," +
+            "linear-gradient(to bottom, #f3f4f7 0, #e6e9ef 240px, #f4f5f8 100%)",
+        }}
+      >
+        <div className="max-w-[1400px] xl:max-w-[1600px] mx-auto mt-6">
+  <div
+    className="
+      relative
+      overflow-hidden
+      rounded-2xl
+      border
+      px-10 py-14
+      text-center
+      shadow-[0_10px_30px_rgba(0,0,0,0.06)]
+    "
+    style={{
+      background:
+        "linear-gradient(180deg, #ffffff 0%, #fffdf7 100%)",
+      borderColor: "rgba(227,187,98,0.35)",
+    }}
+  >
+    {/* Goldener Deko-Glow */}
+    <div
+      className="pointer-events-none absolute -right-24 -top-24 h-56 w-56 rounded-full opacity-60"
+      style={{
+        background:
+          "radial-gradient(circle, rgba(227,187,98,0.35), transparent 70%)",
+      }}
+    />
+
+    {/* Icon */}
+    <div
+      className="
+        mx-auto mb-4
+        flex items-center justify-center
+        h-14 w-14
+        rounded-2xl
+        shadow
+      "
+      style={{
+        background:
+          "linear-gradient(135deg, #E3BB62 0%, #D4AF37 100%)",
+      }}
+    >
+      <MessageSquare size={26} className="text-[#264555]" />
+    </div>
+
+    {/* Titel */}
+    <h2 className="text-xl font-semibold text-[#264555]">
+      Noch keine Fragen vorhanden
+    </h2>
+
+    {/* Beschreibung */}
+    <p className="mt-2 text-sm text-slate-600 max-w-md mx-auto">
+      Beginnen Sie mit dem Erstellen der ersten Hauptfrage, um den
+      Fragenkatalog aufzubauen.
+    </p>
+
+    {/* Action Button */}
+    <div className="mt-6">
+      <button
+        onClick={() => setIsModalOpen(true)}
+        className="
+          inline-flex items-center gap-2
+          rounded-full
+          px-6 py-3
+          text-sm font-semibold
+          transition
+          hover:-translate-y-[1px]
         "
-            >
-              <Layers size={28} />
-            </div>
+        style={{
+          background: "#E3BB62",
+          color: "#264555",
+          boxShadow: "0 10px 30px rgba(0,0,0,0.18)",
+        }}
+      >
+        <Plus size={16} />
+        Erste Hauptfrage erstellen
+      </button>
+    </div>
+  </div>
+</div>
 
-            <h1 className="text-4xl md:text-5xl font-extrabold text-[#264555] tracking-tight">
-              {thema?.name || "Lade Thema..."}
-            </h1>
-          </div>
+      </main>
 
-          <p className="text-gray-700 mt-3 text-[15px]">
-            Bearbeiten · Fragen verwalten · Struktur aufbauen
-          </p>
-        </div>
-      </div>
-
-      {/* Body */}
-      <div className="bg-white mx-10 mt-12 p-10 rounded-xl shadow text-center">
-        <div className="flex flex-col items-center justify-center">
-          <MessageSquare size={36} className="text-gray-400 mb-3" />
-          <h2 className="text-lg font-semibold text-gray-800">
-            Noch keine Fragen
-          </h2>
-          <p className="text-gray-500 mt-1 mb-6">
-            Beginnen Sie mit dem Erstellen der ersten Hauptfrage.
-          </p>
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="bg-brand-sand text-black font-medium px-5 py-2 rounded-lg shadow hover:shadow-md hover:scale-105 transition-all duration-200"
-          >
-            Erste Frage erstellen
-          </button>
-        </div>
-      </div>
-
-      {/* 🧩 MODAL */}
+      {/* � Modal: Neue Frage hinzufügen */}
       {isModalOpen && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-[9999]">
-          <div className="bg-white rounded-xl shadow-lg w-[730px] max-h-[85vh] flex flex-col relative">
-            <div className="p-8 overflow-y-auto flex-1" ref={modalRef}>
-              <button
-                onClick={handleCancel}
-                className="absolute top-3 right-3 text-gray-500 hover:text-gray-700"
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/40 backdrop-blur-sm"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) handleCancel();
+          }}
+        >
+          <div
+            className="w-full max-w-2xl px-4 sm:px-0"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Karten-Block mit Glow */}
+            <div className="relative overflow-hidden rounded-3xl bg-white shadow-2xl border border-slate-200/80">
+              {/* Deko-Glows */}
+              <div
+                className="pointer-events-none absolute -right-24 -top-24 h-52 w-52 rounded-full bg-gradient-to-br from-[#E3BB62]/40 via-amber-400/20 to-transparent opacity-60"
+                aria-hidden="true"
+              />
+
+              {/* Inhalt / Formular */}
+              <div
+                className="relative px-6 pt-6 pb-5 max-h-[calc(100vh-150px)] overflow-y-auto"
+                ref={modalRef}
               >
-                <X size={20} />
-              </button>
-
-              <h2 className="text-xl font-semibold text-gray-800 mb-6">
-                Erste Hauptfrage erstellen
-              </h2>
-
-              {/* Frage */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Frage<span className="text-red-500">*</span>
-                </label>
-                <textarea
-                  value={questionText}
-                  onChange={(e) => {
-                    setQuestionText(e.target.value);
-                    if (errorQuestionText) setErrorQuestionText(null); // 💡 Roter Rand verschwindet sofort
-                  }}
-                  placeholder="Frage eingeben..."
-                  className={`w-full border rounded-lg p-2 focus:ring-2 focus:ring-brand-sand focus:outline-none ${
-                    errorQuestionText ? "border-red-500" : "border-gray-300"
-                  }`}
-                  rows={3}
-                ></textarea>
-                {errorQuestionText && (
-                  <p className="text-red-500 text-xs mt-1">
-                    {errorQuestionText}
-                  </p>
-                )}
-              </div>
-
-              {/* Fragetyp */}
-              <div className="mb-6 mt-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Fragetyp<span className="text-red-500">*</span>
-                </label>
-                <div className="grid grid-cols-2 gap-3">
-                  {questionTypes.map((type) => (
-                    <button
-                      key={type.id}
-                      onClick={() => {
-                        setSelectedType(type);
-                        if (errorType) setErrorType(null);
-
-                        // 💡 Wenn ein neuer Typ gewählt wird → alte Fehler zurücksetzen
-                        setErrorOptions(null);
-                        setHasSubmitted(false);
-                      }}
-                      className={`flex items-center justify-start gap-3 border rounded-lg py-3 px-4 text-left font-medium text-sm transition-all duration-150 ${
-                        selectedType?.id === type.id
-                          ? "bg-brand-sand border-brand-sand text-black shadow-md"
-                          : errorType
-                          ? "border-red-500 text-gray-800 hover:bg-gray-50"
-                          : "border-gray-300 text-gray-800 hover:bg-gray-50"
-                      }`}
-                    >
-                      {type.icon}
-                      {type.label}
-                    </button>
-                  ))}
-                </div>
-                {errorType && (
-                  <p className="text-red-500 text-xs mt-1">{errorType}</p>
-                )}
-              </div>
-
-              {/* Required Toggle */}
-              <div className="mt-6 mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Antwort notwendig
-                </label>
-
-                <div className="flex items-center justify-between bg-gray-50 border border-gray-300 rounded-xl px-4 py-3">
-                  <div>
-                    <p className="text-sm text-black-500">
-                      Diese Frage Muss beantwortet werden
-                    </p>
-                  </div>
-
-                  {/* TOGGLE SWITCH */}
-                  <button
-                    type="button"
-                    onClick={() => setIsRequired(!isRequired)}
-                    className={`w-12 h-7 flex items-center rounded-full transition-all ${
-                      isRequired ? "bg-[#d2c9b9]" : "bg-gray-300"
-                    }`}
-                  >
-                    <span
-                      className={`w-5 h-5 bg-white rounded-full shadow transform transition-all ${
-                        isRequired ? "translate-x-6" : "translate-x-1"
-                      }`}
-                    ></span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Antwortmöglichkeiten */}
-              {showOptions && (
-                <div
-                  ref={optionsRef}
-                  className="border-t border-gray-200 pt-4 mt-4"
-                >
-                  <h3 className="text-md font-semibold text-gray-800 mb-3">
-                    Antwortmöglichkeiten
+                {/* 🔹 Titelbereich */}
+                <>
+                  <h3 className="text-lg sm:text-xl font-semibold text-slate-900 mb-1">
+                    Erste Hauptfrage erstellen
                   </h3>
-                  {options.map((opt, i) => (
-                    <div
-                      key={i}
-                      className="flex items-center gap-3 mb-3 border border-gray-200 p-2 rounded-lg"
-                    >
-                      <input
-                        type="text"
-                        placeholder="Antworttext..."
-                        value={opt.label}
-                        onChange={(e) =>
-                          setOptions(
-                            options.map((o, j) =>
-                              j === i ? { ...o, label: e.target.value } : o
-                            )
-                          )
-                        }
-                        className={`flex-1 border rounded-md px-2 py-1 focus:ring-1 focus:ring-brand-sand focus:outline-none ${
-                          hasSubmitted && !opt.label.trim()
-                            ? "border-red-500"
-                            : "border-gray-300"
-                        }`}
-                      />
-                      {/* Score */}
+                  <p className="text-xs text-slate-500 mb-4">
+                    Felder mit <span className="text-red-500">*</span> sind
+                    Pflichtfelder.
+                  </p>
+                </>
 
-                      {!isOrderType && (
-                        <input
-                          type="number"
-                          placeholder="Score"
-                          min={0}
-                          max={6}
-                          step={1}
-                          value={
-                            opt.score == null || Number.isNaN(opt.score)
-                              ? ""
-                              : opt.score
-                          }
-                          onInput={(e: React.FormEvent<HTMLInputElement>) => {
-                            // ❗ Browser-Standard verhindern (1 bei ArrowUp)
-                            // Wenn ein Pfeil gedrückt wird, ignorieren wir onInput komplett
-                            if (
-                              (e.nativeEvent as any).inputType?.includes(
-                                "arrow"
-                              )
-                            ) {
-                              return;
-                            }
+                {/* 🔸 Fragetext */}
+                <div>
+                  <label
+                    htmlFor="question-text"
+                    className="block text-sm font-medium text-slate-700 mb-1"
+                  >
+                    Frage <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    id="question-text"
+                    value={questionText}
+                    onChange={(e) => {
+                      setQuestionText(e.target.value);
+                      if (errorQuestionText) setErrorQuestionText(null);
+                    }}
+                    placeholder="Frage eingeben..."
+                    rows={3}
+                    className={`
+                      w-full rounded-xl border px-3 py-2.5 text-sm
+                      bg-slate-50 border-slate-200
+                      outline-none
+                      focus:bg-white
+                      focus:border-[#E3BB62]
+                      focus:ring-2 focus:ring-[rgba(227,187,98,0.45)]
+                      transition
+                      resize-none
+                      ${errorQuestionText ? "border-red-500" : ""}
+                    `}
+                  />
+                  {errorQuestionText && (
+                    <p className="text-red-500 text-xs mt-1">
+                      {errorQuestionText}
+                    </p>
+                  )}
+                </div>
 
-                            let val = e.currentTarget.value;
-
-                            // Wenn leer → nichts setzen
-                            if (val === "") {
-                              setOptions(
-                                options.map((o, j) =>
-                                  j === i ? { ...o, score: null } : o
-                                )
-                              );
-                              return;
-                            }
-
-                            // Tastatureingabe (0–6)
-                            if (/^[0-6]$/.test(val)) {
-                              setOptions(
-                                options.map((o, j) =>
-                                  j === i ? { ...o, score: Number(val) } : o
-                                )
-                              );
-                            }
-                          }}
-                          onKeyDown={(e) => {
-                            const allowed = [
-                              "0",
-                              "1",
-                              "2",
-                              "3",
-                              "4",
-                              "5",
-                              "6",
-                              "Backspace",
-                              "Delete",
-                              "Tab",
-                              "ArrowLeft",
-                              "ArrowRight",
-                              "ArrowUp",
-                              "ArrowDown",
-                            ];
-
-                            if (!allowed.includes(e.key)) {
-                              e.preventDefault();
-                            }
-
-                            // ---- Pfeile steuern ----
-                            if (e.key === "ArrowUp" || e.key === "ArrowDown") {
-                              e.preventDefault(); // ❗ verhindert Browser-Auto-„1“
-
-                              let current = opt.score;
-
-                              // Erstes Pfeil-Klicken bei leerem Feld
-                              if (current == null) {
-                                current = e.key === "ArrowUp" ? 0 : 6; // ✅ GENAU DAS HIER
-                              } else {
-                                if (e.key === "ArrowUp")
-                                  current = Math.min(6, current + 1);
-                                if (e.key === "ArrowDown")
-                                  current = Math.max(0, current - 1);
-                              }
-
-                              setOptions(
-                                options.map((o, j) =>
-                                  j === i ? { ...o, score: current } : o
-                                )
-                              );
-                            }
-                          }}
-                          className="w-24 border rounded-md px-2 py-1 text-center"
-                        />
-                      )}
-
+                {/* 🔸 Fragetyp */}
+                <div className="mt-6">
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Fragetyp <span className="text-red-500">*</span>
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    {questionTypes.map((type) => (
                       <button
-                        onClick={() =>
-                          setOptions(options.filter((_, j) => j !== i))
-                        }
-                        className="text-gray-500 hover:text-red-500 transition-all"
+                        key={type.id}
+                        onClick={() => {
+                          setSelectedType(type);
+                          if (errorType) setErrorType(null);
+                          setErrorOptions(null);
+                          setHasSubmitted(false);
+                          if (type.hasOptions) {
+                            setTimeout(() => {
+                              optionsRef.current?.scrollIntoView({
+                                behavior: "smooth",
+                                block: "start",
+                              });
+                            }, 150);
+                          }
+                        }}
+                        className={`flex items-center justify-start gap-3 border rounded-xl py-3 px-4 text-left font-medium text-sm transition-all duration-150 ${selectedType?.id === type.id
+                          ? "bg-[#E3BB62] border-[#E3BB62] text-[#264555] shadow-md"
+                          : errorType
+                            ? "border-red-500 text-slate-800 hover:bg-slate-50 bg-white"
+                            : "border-slate-200 text-slate-800 hover:bg-slate-50 bg-white"
+                          }`}
                       >
-                        <Trash2 size={18} />
+                        {type.icon}
+                        {type.label}
+                      </button>
+                    ))}
+                  </div>
+                  {errorType && (
+                    <p className="text-red-500 text-xs mt-2">{errorType}</p>
+                  )}
+                </div>
+
+                {/* 🔸 Pflichtfeld */}
+                <div className="mt-6">
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Antwort notwendig
+                  </label>
+                  <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">
+                    <div>
+                      <p className="text-sm text-slate-700">
+                        Diese Frage muss beantwortet werden
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsRequired(!isRequired)}
+                      className={`w-12 h-7 flex items-center rounded-full transition-all ${isRequired ? "bg-[#E3BB62]" : "bg-slate-300"
+                        }`}
+                    >
+                      <span
+                        className={`w-5 h-5 bg-white rounded-full shadow transform transition-all ${isRequired ? "translate-x-6" : "translate-x-1"
+                          }`}
+                      ></span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* 🔸 Bewertbar */}
+                {selectedType && !selectedType.hasOptions && (
+                  <div className="mt-4">
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      Bewertung
+                    </label>
+                    <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">
+                      <div>
+                        <p className="text-sm text-slate-700">
+                          {isScorable
+                            ? "Frage wird bewertet (manuelle Bewertung)"
+                            : "Frage wird nicht bewertet"}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setIsScorable(!isScorable)}
+                        className={`w-12 h-7 flex items-center rounded-full transition-all ${isScorable ? "bg-[#E3BB62]" : "bg-slate-300"
+                          }`}
+                      >
+                        <span
+                          className={`w-5 h-5 bg-white rounded-full shadow transform transition-all ${isScorable ? "translate-x-6" : "translate-x-1"
+                            }`}
+                        ></span>
                       </button>
                     </div>
-                  ))}
-                  {errorOptions && (
-                    <p className="text-red-500 text-xs mt-1">{errorOptions}</p>
-                  )}
-                  <button
-                    onClick={() =>
-                      setOptions([...options, { label: "", score: null }])
-                    }
-                    className="flex items-center gap-2 text-sm text-brand-sand font-medium hover:underline mt-2"
+                  </div>
+                )}
+
+                {/* 🔸 Antwortoptionen */}
+                {showOptions && (
+                  <div
+                    ref={optionsRef}
+                    className="border-t border-gray-200 pt-4 mt-4"
                   >
-                    <Plus size={14} /> Neue Option hinzufügen
-                  </button>
-                </div>
-              )}
+                    <h3 className="text-md font-semibold text-gray-800 mb-3">
+                      Antwortmöglichkeiten
+                    </h3>
+                    {options.map((opt, i) => (
+                      <div
+                        key={i}
+                        className="flex items-center gap-3 mb-3 border border-gray-200 p-2 rounded-lg"
+                      >
+                        {/* Antworttext */}
+                        <input
+                          type="text"
+                          placeholder="Antworttext..."
+                          value={opt.label}
+                          onChange={(e) => {
+                            setOptions(
+                              options.map((o, j) =>
+                                j === i ? { ...o, label: e.target.value } : o
+                              )
+                            );
+                            if (errorOptions) setErrorOptions(null);
+                          }}
+                          className={`flex-1 border rounded-md px-2 py-1 focus:ring-1 focus:ring-brand-sand focus:outline-none ${hasSubmitted && !opt.label.trim()
+                            ? "border-red-500"
+                            : "border-gray-300"
+                            }`}
+                        />
+
+                        {/* Score */}
+                        {!isOrderType && (
+                          <div className="relative w-24">
+                            <input
+                              type="text"
+                              placeholder="Score"
+                              className="w-full border rounded-md px-2 py-1 text-center pr-6"
+                              value={opt.score ?? ""}
+                              onChange={(e) => {
+                                const val = e.target.value;
+
+                                if (val === "") {
+                                  setOptions(
+                                    options.map((o, j) =>
+                                      j === i ? { ...o, score: null } : o
+                                    )
+                                  );
+                                  return;
+                                }
+
+                                if (/^[0-6]$/.test(val)) {
+                                  setOptions(
+                                    options.map((o, j) =>
+                                      j === i ? { ...o, score: Number(val) } : o
+                                    )
+                                  );
+                                }
+                              }}
+                              onKeyDown={(e) => {
+                                if (
+                                  e.key === "ArrowUp" ||
+                                  e.key === "ArrowDown"
+                                ) {
+                                  e.preventDefault();
+
+                                  let current = opt.score;
+
+                                  if (current == null)
+                                    current = e.key === "ArrowUp" ? 0 : 6;
+                                  else {
+                                    if (e.key === "ArrowUp")
+                                      current = Math.min(6, current + 1);
+                                    if (e.key === "ArrowDown")
+                                      current = Math.max(0, current - 1);
+                                  }
+
+                                  setOptions(
+                                    options.map((o, j) =>
+                                      j === i ? { ...o, score: current } : o
+                                    )
+                                  );
+                                }
+                              }}
+                            />
+
+                            {/* CUSTOM ARROW BUTTONS */}
+                            <div
+                              className="
+                                absolute right-1 top-1/2 -translate-y-1/2 
+                                flex flex-col 
+                                bg-gray-100 border border-gray-300 
+                                rounded-md overflow-hidden
+                              "
+                              style={{ width: "24px", height: "32px" }}
+                            >
+                              <button
+                                type="button"
+                                className="flex-1 flex items-center justify-center hover:bg-gray-200"
+                                onClick={() => {
+                                  let current = opt.score;
+                                  current =
+                                    current == null
+                                      ? 0
+                                      : Math.min(6, current + 1);
+
+                                  setOptions(
+                                    options.map((o, j) =>
+                                      j === i ? { ...o, score: current } : o
+                                    )
+                                  );
+                                }}
+                              >
+                                <ChevronUp size={14} className="text-gray-600" />
+                              </button>
+
+                              <button
+                                type="button"
+                                className="flex-1 flex items-center justify-center hover:bg-gray-200"
+                                onClick={() => {
+                                  let current = opt.score;
+                                  current =
+                                    current == null
+                                      ? 6
+                                      : Math.max(0, current - 1);
+
+                                  setOptions(
+                                    options.map((o, j) =>
+                                      j === i ? { ...o, score: current } : o
+                                    )
+                                  );
+                                }}
+                              >
+                                <ChevronDown
+                                  size={14}
+                                  className="text-gray-600"
+                                />
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Löschen */}
+                        <button
+                          onClick={() =>
+                            setOptions(options.filter((_, j) => j !== i))
+                          }
+                          className="text-red-500 hover:text-red-400 transition-all"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
+                    ))}
+                    {errorOptions && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {errorOptions}
+                      </p>
+                    )}
+                    <button
+                      onClick={() =>
+                        setOptions([...options, { label: "", score: null }])
+                      }
+                      className="
+                        flex items-center gap-2
+                        mt-3
+                        text-sm font-semibold
+                        transition
+                        hover:underline
+                      "
+                      style={{
+                        color: "#b08d2a",
+                      }}
+                    >
+                      <Plus size={16} className="text-[#b08d2a]" />
+                      Neue Option hinzufügen
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* kleiner Abstand wie bei User-Modals */}
+              <div className="h-3" />
+
             </div>
 
-            {/* Footer */}
-            <div className="flex justify-end gap-3 px-8 py-4 border-t bg-white sticky bottom-0 rounded-b-xl">
+            {/* Buttons außerhalb des Modals */}
+            <div className="h-3" />
+            <div className="mt-1 flex gap-2">
               <button
+                type="button"
                 onClick={handleCancel}
-                className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100"
+                className="
+                  flex-1
+                  h-12
+                  text-sm font-medium
+                  text-slate-800
+                  bg-[#f3f3f3]
+                  hover:bg-[#e5e5e5]
+                  border border-slate-200
+                  rounded-xl
+                  transition
+                "
               >
                 Abbrechen
               </button>
+
               <button
+                type="button"
                 onClick={handleConfirm}
-                className="px-4 py-2 rounded-lg bg-brand-sand text-white font-medium hover:opacity-90"
+                className="
+                    flex-1
+                    h-12
+                    text-sm font-semibold
+                    rounded-xl
+                    bg-[#E3BB62]
+                    text-[#264555]
+                    hover:bg-[#d8ac55]
+                    shadow-[0_10px_30px_rgba(0,0,0,0.18)]
+                    transition
+                    hover:-translate-y-[1px]
+                  "
               >
                 Hinzufügen
               </button>

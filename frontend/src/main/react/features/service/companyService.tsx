@@ -7,6 +7,7 @@ export type WorkerApi = {
   workSpaceRef?: string;
   companyId: string;
   email: string;
+  status?: "active" | "inactive";
   createdAt?: string;
   updatedAt?: string;
 }; 
@@ -155,7 +156,7 @@ export type AssignmentApi = {
     title: string;
     description?: string;
   };
-  status: "assigned" | "in_progress" | "completed" | "expired";
+  status: "assigned" | "in_progress" | "completed" | "expired" | "blocked";
   accessCode?: string;
   accessToken?: string;
   assignedAt?: string;
@@ -195,4 +196,23 @@ export async function getCompaniesInactive(): Promise<CompanyApi[]> {
     headers: { Accept: "application/json" },
   });
   return data ?? [];
+}
+
+// Toggle Worker Status (active <-> inactive)
+export async function changeWorkerStatus(id: string): Promise<WorkerApi> {
+  const { data } = await apiClient.patch<WorkerApi>(
+    `/workers/${encodeURIComponent(id)}/status/change`,
+    null,
+    { headers: { Accept: "application/json" } }
+  );
+  return data;
+}
+
+// Get Worker Assignment Count
+export async function getWorkerAssignmentCount(id: string): Promise<number> {
+  const { data } = await apiClient.get<{ count: number }>(
+    `/workers/${encodeURIComponent(id)}/assignment-count`,
+    { headers: { Accept: "application/json" } }
+  );
+  return data?.count ?? 0;
 }

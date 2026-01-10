@@ -21,6 +21,9 @@ public class  CompanyService {
     @Autowired
     private CompanyRepository companyRepository;
 
+    @Autowired
+    private AuditLogService auditLogService;
+
     // ========== Mapper Methods ==========
     
     private CompanyResponseDTO mapToDTO(Company company) {
@@ -116,6 +119,8 @@ public class  CompanyService {
     public CompanyResponseDTO createCompany(CreateCompanyDTO dto) {
         Company company = mapToEntity(dto);
         Company saved = companyRepository.save(company);
+        String details = String.format("Name: %s, City: %s", saved.getName(), saved.getCity());
+        auditLogService.log("CREATE", "company", saved.getId(), details, null);
         return mapToDTO(saved);
     }
 
@@ -150,10 +155,15 @@ public class  CompanyService {
         }
         
         Company updated = companyRepository.save(company);
+        String details = String.format("Name: %s, City: %s", updated.getName(), updated.getCity());
+        auditLogService.log("UPDATE", "company", updated.getId(), details, null);
         return mapToDTO(updated);
     }
 
     public void deleteCompany(UUID id) {
+        Company company = companyRepository.findById(id).orElse(null);
+        String details = company != null ? String.format("Deleted company: %s", company.getName()) : "Company ID: " + id;
+        auditLogService.log("DELETE", "company", id, details, null);
         companyRepository.deleteById(id);
     }
 

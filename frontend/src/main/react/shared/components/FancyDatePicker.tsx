@@ -113,7 +113,8 @@ export default function FancyDatePicker({
         className={cn(
           "p-0 w-[332px] max-w-[332px]",
           "rounded-2xl border border-white/60",
-          "bg-white/92 backdrop-blur-xl",
+          "bg-slate-50 backdrop-blur-0"
+,
           "shadow-[0_26px_70px_rgba(15,23,42,0.24)]"
         )}
       >

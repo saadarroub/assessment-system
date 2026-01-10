@@ -2,22 +2,32 @@ package com.assessment.backend.service;
 
 import com.assessment.backend.dto.AssignmentSummaryDto;
 import com.assessment.backend.dto.CompanyActivityDto;
+import com.assessment.backend.dto.CompletedCatalogMaturityDto;
 import com.assessment.backend.dto.DashboardStatsDto;
 import com.assessment.backend.dto.HierarchyNodeDto;
+import com.assessment.backend.dto.ReifegradIntervalDTO;
 import com.assessment.backend.dto.SessionSummaryDto;
 import com.assessment.backend.dto.StatusDistributionDto;
 import com.assessment.backend.dto.ThemeScoreDto;
 import com.assessment.backend.entity.AssessmentSession;
+import com.assessment.backend.entity.Catalog;
+import com.assessment.backend.entity.ReifegradModel;
+import com.assessment.backend.entity.ThemaCatalog;
 import com.assessment.backend.entity.WorkerCatalog;
 import com.assessment.backend.repository.*;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.ArrayList;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -30,6 +40,8 @@ public class DashboardService {
     private final WorkerRepository workerRepository;
     private final WorkerCatalogRepository workerCatalogRepository;
     private final AssessmentSessionRepository assessmentSessionRepository;
+    private final ThemaCatalogRepository themaCatalogRepository;
+    private final ObjectMapper objectMapper;
 
     public DashboardStatsDto getOverviewStats() {
         DashboardStatsDto stats = new DashboardStatsDto();
@@ -179,5 +191,118 @@ public class DashboardService {
         dto.setCompletedAt(session.getCompletedAt());
         
         return dto;
+    }
+
+    /**
+     * Holt abgeschlossene Kataloge (WorkerCatalog) mit aggregierten Scores und Reifegradmodell-Informationen
+     */
+    public List<CompletedCatalogMaturityDto> getCompletedSessionsWithMaturity(int limit) {
+        // Abgeschlossene Katalog-Zuweisungen holen
+        List<WorkerCatalog> completedCatalogs = workerCatalogRepository
+                .findByStatusOrderByCompletedAtDesc("completed", PageRequest.of(0, limit));
+        
+        return completedCatalogs.stream()
+                .map(this::convertToCompletedCatalogMaturity)
+                .collect(Collectors.toList());
+    }
+
+    private CompletedCatalogMaturityDto convertToCompletedCatalogMaturity(WorkerCatalog wc) {
+        CompletedCatalogMaturityDto dto = new CompletedCatalogMaturityDto();
+        dto.setAssignmentId(wc.getId());
+        dto.setCompletedAt(wc.getCompletedAt());
+        
+        // Worker & Company direkt aus WorkerCatalog
+        dto.setWorkerName(wc.getWorker() != null ? wc.getWorker().getName() : "Unbekannt");
+        dto.setCompanyName(wc.getCompany() != null ? wc.getCompany().getName() : "Unbekannt");
+        
+        // Catalog
+        Catalog catalog = wc.getCatalog();
+        dto.setCatalogTitle(catalog != null ? catalog.getTitle() : "Unbekannt");
+        
+        // Durchschnittliche Scores aus allen Sessions dieses Workers für diesen Katalog berechnen
+        if (wc.getWorker() != null && catalog != null) {
+            List<UUID> themaIds = themaCatalogRepository.findThemasByCatalogId(catalog.getId())
+                    .stream()
+                    .map(t -> t.getId())
+                    .collect(Collectors.toList());
+            
+            // Alle completed Sessions des Workers für Themen dieses Katalogs
+            BigDecimal totalScore = BigDecimal.ZERO;
+            BigDecimal totalMaxScore = BigDecimal.ZERO;
+            int sessionCount = 0;
+            
+            List<AssessmentSession> sessions = assessmentSessionRepository.findByWorkerIdAndStatus(
+                    wc.getWorker().getId(), "completed");
+            
+            for (AssessmentSession session : sessions) {
+                if (session.getThemaId() != null && themaIds.contains(session.getThemaId())) {
+                    totalScore = totalScore.add(session.getTotalScore() != null ? session.getTotalScore() : BigDecimal.ZERO);
+                    totalMaxScore = totalMaxScore.add(session.getMaxPossibleScore() != null ? session.getMaxPossibleScore() : BigDecimal.ZERO);
+                    sessionCount++;
+                }
+            }
+            
+            dto.setAvgScore(totalScore);
+            dto.setTotalMaxScore(totalMaxScore);
+            dto.setSessionCount(sessionCount);
+            
+            // Prozent berechnen
+            if (totalMaxScore.compareTo(BigDecimal.ZERO) > 0) {
+                double pct = totalScore
+                        .divide(totalMaxScore, 4, RoundingMode.HALF_UP)
+                        .multiply(BigDecimal.valueOf(100))
+                        .doubleValue();
+                dto.setPercentage(pct);
+            } else {
+                dto.setPercentage(0.0);
+            }
+        } else {
+            dto.setAvgScore(BigDecimal.ZERO);
+            dto.setTotalMaxScore(BigDecimal.ZERO);
+            dto.setSessionCount(0);
+            dto.setPercentage(0.0);
+        }
+        
+        // Reifegradmodell vom Katalog
+        if (catalog != null) {
+            ReifegradModel model = catalog.getReifegradModel();
+            if (model != null) {
+                dto.setReifegradModelId(model.getId());
+                dto.setReifegradModelName(model.getName());
+                
+                // Intervalle parsen
+                List<CompletedCatalogMaturityDto.IntervalDto> intervals = parseIntervals(model.getIntervalsJson());
+                dto.setIntervals(intervals);
+                
+                // Aktuelles Intervall finden (mit Index und Farbe)
+                if (dto.getPercentage() != null && intervals != null) {
+                    for (int i = 0; i < intervals.size(); i++) {
+                        CompletedCatalogMaturityDto.IntervalDto interval = intervals.get(i);
+                        if (dto.getPercentage() >= interval.getStart() && dto.getPercentage() <= interval.getEnd()) {
+                            dto.setCurrentIntervalName(interval.getName());
+                            dto.setCurrentIntervalIndex(i);
+                            dto.setCurrentIntervalColor(interval.getColor());
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        
+        return dto;
+    }
+
+    private List<CompletedCatalogMaturityDto.IntervalDto> parseIntervals(String intervalsJson) {
+        if (intervalsJson == null || intervalsJson.isBlank()) {
+            return new ArrayList<>();
+        }
+        try {
+            List<ReifegradIntervalDTO> parsed = objectMapper.readValue(intervalsJson, new TypeReference<List<ReifegradIntervalDTO>>() {});
+            return parsed.stream()
+                    .map(i -> new CompletedCatalogMaturityDto.IntervalDto(i.getName(), i.getStart(), i.getEnd(), i.getColor()))
+                    .collect(Collectors.toList());
+        } catch (Exception e) {
+            return new ArrayList<>();
+        }
     }
 }

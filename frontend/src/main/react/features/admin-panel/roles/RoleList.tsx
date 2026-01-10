@@ -2,8 +2,8 @@ import { useEffect, useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import AdminLayout from "@/apps/app/AdminLayout";
 import { Search, ArrowUpDown, Shield, Plus, Trash2, Pencil, Eye, X } from "lucide-react";
-import { SoftSquaresBackground } from "@/shared/components/SoftSquaresBackground";
-
+import { useHasPermission } from "@/shared/hooks/useHasPermission";
+import { PermissionButton } from "@/shared/components/permission/PermissionButton";
 import {
   getRoles,
   getRolePermissions,
@@ -21,6 +21,7 @@ import { useToast } from "@/shared/contexts/ToastContext";
 import { Network } from "lucide-react";
 import PageHeader from "@/features/admin-area/catalogs/PageHeader";
 import ConfirmModal from "@/shared/components/ConfirmModal";
+import { useScrollLock } from "@/shared/hooks/useScrollLock";
 
 /* ================= Types ================= */
 type RoleRow = {
@@ -67,6 +68,13 @@ const BRAND = {
 
 export default function RoleList() {
   const { showSuccess, showError } = useToast();
+  const { has } = useHasPermission();
+
+const canCreateRole = has("roles.create");
+const canEditRole = has("roles.edit");
+const canDeleteRole = has("roles.delete");
+const canViewPerms = has("permissions.view"); // oder roles.view je nachdem was ihr wollt
+
 
   const [items, setItems] = useState<RoleRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -525,14 +533,15 @@ export default function RoleList() {
     const d = new Date(iso);
     return isNaN(d.getTime()) ? "—" : d.toLocaleDateString("de-DE");
   };
+   const anyModalOpen = openCreate || openEdit || openDelete;
+  useScrollLock(anyModalOpen);
+  
 
   return (
     <AdminLayout>
       {/* HEADER  */}
 
       <div className="relative min-h-screen">
-        {/* 2. Unser neues Pattern */}
-        <SoftSquaresBackground />
         <PageHeader
           title="Rollen Verwaltung"
           subtitle="Verwalte Benutzerrollen und deren Berechtigungen"
@@ -548,7 +557,7 @@ export default function RoleList() {
           style={{
             background:
               "radial-gradient(circle at 0 0, rgba(227,187,98,0.13) 0, transparent 40%)," +
-              "radial-gradient(circle at 100% 0, rgba(56,189,248,0.10) 0, transparent 42%)," +
+              
               "linear-gradient(to bottom, #f3f4f7 0, #e6e9ef 240px, #f4f5f8 100%)",
           }}
         >
@@ -604,10 +613,12 @@ export default function RoleList() {
             </nav>
 
             {/* Button wie bei Users */}
-            <button
-              type="button"
-              onClick={openCreateModal}
-              className="
+           <PermissionButton
+  type="button"
+  allowed={canCreateRole}
+  tooltip="Du brauchst: roles.create"
+  onClick={openCreateModal}
+  className="
     inline-flex items-center gap-2
     rounded-full
     px-5 py-2.5
@@ -618,16 +629,17 @@ export default function RoleList() {
     hover:-translate-y-[1px]
     hover:brightness-105
   "
-              style={{
-                background: "hsl(40,60%,63%)",
-                color: "hsl(200,32%,22%)",
-                border: "1px solid rgba(255,255,255,0.9)",
-              }}
-              aria-label="Add Role"
-            >
-              <Plus size={16} />
-              Neue Rolle
-            </button>
+  style={{
+    background: "hsl(40,60%,63%)",
+    color: "hsl(200,32%,22%)",
+    border: "1px solid rgba(255,255,255,0.9)",
+  }}
+  aria-label="Add Role"
+>
+  <Plus size={16} />
+  Neue Rolle
+</PermissionButton>
+
 
           </div>
 
@@ -854,12 +866,14 @@ export default function RoleList() {
                             style={{ borderBottom: `1px solid ${CSS.border}` }}
                           >
                             <div className="inline-flex items-center justify-center gap-2">
-                              <button
-                                type="button"
-                                aria-label="View permissions"
-                                title="Permissions anzeigen"
-                                onClick={() => void openViewModal(role)}
-                                className="
+                            <PermissionButton
+  type="button"
+  allowed={canViewPerms}
+  tooltip="Du brauchst: permissions.view"
+  aria-label="View permissions"
+  title="Permissions anzeigen"
+  onClick={() => void openViewModal(role)}
+  className="
     inline-flex items-center gap-1.5
     rounded-full
     px-3 py-1.5
@@ -868,32 +882,44 @@ export default function RoleList() {
     transition
     hover:-translate-y-[0.5px]
   "
-                                style={{
-                                  background: "hsl(40,60%,63%)",
-                                  color: "hsl(200,32%,22%)",
-                                  boxShadow: "0 4px 10px rgba(0,0,0,0.10)",
-                                  border: "1px solid rgba(255,255,255,0.9)",
-                                }}
-                              >
-                                <Eye size={13} />
-                                <span className="hidden sm:inline">View</span>
-                              </button>
+  style={{
+    background: "hsl(40,60%,63%)",
+    color: "hsl(200,32%,22%)",
+    boxShadow: "0 4px 10px rgba(0,0,0,0.10)",
+    border: "1px solid rgba(255,255,255,0.9)",
+  }}
+>
+  <Eye size={13} />
+  <span className="hidden sm:inline">View</span>
+</PermissionButton>
 
-                              <button
-                                onClick={() => openEditModal(role)}
-                                className="rounded-full border px-2.5 py-1.5 text-[11px] hover:bg-[#f5f0e4]"
-                                style={{ borderColor: BRAND.sand }}
-                              >
-                                <Pencil size={13} />
-                              </button>
 
-                              <button
-                                onClick={() => openDeleteModal(role)}
-                                className="rounded-full border px-2.5 py-1.5 text-[11px] hover:bg-[#fff1f1]"
-                                style={{ borderColor: "rgba(248,113,113,0.8)", color: "rgb(185,28,28)" }}
-                              >
-                                <Trash2 size={13} />
-                              </button>
+                           <PermissionButton
+  type="button"
+  allowed={canEditRole}
+  tooltip="Du brauchst: roles.edit"
+  onClick={() => void openEditModal(role)}
+  className="rounded-full border px-2.5 py-1.5 text-[11px] hover:bg-[#f5f0e4]"
+  style={{ borderColor: BRAND.sand }}
+  aria-label="Edit role"
+  title="Edit"
+>
+  <Pencil size={13} />
+</PermissionButton>
+
+<PermissionButton
+  type="button"
+  allowed={canDeleteRole}
+  tooltip="Du brauchst: roles.delete"
+  onClick={() => openDeleteModal(role)}
+  className="rounded-full border px-2.5 py-1.5 text-[11px] hover:bg-[#fff1f1]"
+  style={{ borderColor: "rgba(248,113,113,0.8)", color: "rgb(185,28,28)" }}
+  aria-label="Delete role"
+  title="Löschen"
+>
+  <Trash2 size={13} />
+</PermissionButton>
+
                             </div>
                           </td>
                         </tr>
@@ -1054,9 +1080,6 @@ export default function RoleList() {
           role="dialog"
           aria-modal="true"
           className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/40 backdrop-blur-sm"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) closeCreateModal();
-          }}
         >
           <div
             className="w-full max-w-2xl px-4 sm:px-0"
@@ -1344,26 +1367,24 @@ export default function RoleList() {
                 Abbrechen
               </button>
 
-              <button
-                type="submit"
-                form="create-role-form"
-                className="
-            flex-1
-            h-12
-            text-sm font-semibold
-            rounded-xl
-            bg-[#E3BB62]
-            text-[#264555]
-            hover:bg-[#d8ac55]
-            shadow-[0_10px_30px_rgba(0,0,0,0.18)]
-            transition
-            hover:-translate-y-[1px]
-            disabled:opacity-60
-          "
-                disabled={creating || !cName.trim()}
-              >
-                {creating ? "Erstellt…" : "Erstellen"}
-              </button>
+            <PermissionButton
+  type="submit"
+  form="create-role-form"
+  allowed={canCreateRole}
+  tooltip="Du brauchst: roles.create"
+  className="
+    flex-1 h-12 text-sm font-semibold rounded-xl
+    bg-[#E3BB62] text-[#264555]
+    hover:bg-[#d8ac55]
+    shadow-[0_10px_30px_rgba(0,0,0,0.18)]
+    transition hover:-translate-y-[1px]
+    disabled:opacity-60
+  "
+  disabled={creating || !cName.trim()}
+>
+  {creating ? "Erstellt…" : "Erstellen"}
+</PermissionButton>
+
             </div>
           </div>
         </div>
@@ -1376,9 +1397,6 @@ export default function RoleList() {
           role="dialog"
           aria-modal="true"
           className="fixed inset-0  z-[1000] flex items-center justify-center bg-black/40 backdrop-blur-sm"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) closeEditModal();
-          }}
         >
           <div
             className="w-full max-w-2xl px-4 sm:px-0"
@@ -1654,26 +1672,24 @@ export default function RoleList() {
                 Abbrechen
               </button>
 
-              <button
-                type="submit"
-                form="edit-role-form"
-                disabled={updating || !eName.trim()}
-                className="
-            flex-1
-            h-12
-            text-sm font-semibold
-            rounded-xl
-            bg-[#E3BB62]
-            text-[#264555]
-            hover:bg-[#d8ac55]
-            shadow-[0_10px_30px_rgba(0,0,0,0.18)]
-            transition
-            hover:-translate-y-[1px]
-            disabled:opacity-60
-          "
-              >
-                {updating ? "Speichere…" : "Speichern"}
-              </button>
+             <PermissionButton
+  type="submit"
+  form="edit-role-form"
+  allowed={canEditRole}
+  tooltip="Du brauchst: roles.edit"
+  disabled={updating || !eName.trim()}
+  className="
+    flex-1 h-12 text-sm font-semibold rounded-xl
+    bg-[#E3BB62] text-[#264555]
+    hover:bg-[#d8ac55]
+    shadow-[0_10px_30px_rgba(0,0,0,0.18)]
+    transition hover:-translate-y-[1px]
+    disabled:opacity-60
+  "
+>
+  {updating ? "Speichere…" : "Speichern"}
+</PermissionButton>
+
             </div>
           </div>
         </div>
@@ -1720,9 +1736,6 @@ export default function RoleList() {
           role="dialog"
           aria-modal="true"
           className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/40 backdrop-blur-sm"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) closeViewModal();
-          }}
         >
           <div className="w-full max-w-2xl px-4 sm:px-0" onClick={(e) => e.stopPropagation()}>
             <div className="relative overflow-hidden rounded-3xl bg-white shadow-2xl border border-slate-200/80">

@@ -14,6 +14,9 @@ public class RoleService {
     @Autowired
     private RoleRepository roleRepository;
 
+    @Autowired
+    private AuditLogService auditLogService;
+
     /**
      * Get all roles
      */
@@ -45,7 +48,10 @@ public class RoleService {
         if (roleRepository.existsByName(role.getName())) {
             throw new RuntimeException("Role with name '" + role.getName() + "' already exists");
         }
-        return roleRepository.save(role);
+        Role saved = roleRepository.save(role);
+        String details = String.format("Name: %s", saved.getName());
+        auditLogService.log("CREATE", "role", saved.getId(), details, null);
+        return saved;
     }
 
     /**
@@ -63,7 +69,10 @@ public class RoleService {
         role.setName(roleDetails.getName());
         role.setDescription(roleDetails.getDescription());
         
-        return roleRepository.save(role);
+        Role updated = roleRepository.save(role);
+        String details = String.format("Name: %s", updated.getName());
+        auditLogService.log("UPDATE", "role", updated.getId(), details, null);
+        return updated;
     }
 
     /**
@@ -71,6 +80,8 @@ public class RoleService {
      */
     public void deleteRole(UUID id) {
         Role role = getRoleById(id);
+        String details = String.format("Deleted role: %s", role.getName());
+        auditLogService.log("DELETE", "role", id, details, null);
         roleRepository.delete(role);
     }
 

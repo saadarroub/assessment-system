@@ -4,7 +4,7 @@ type PageHeaderProps = {
   title: string;
   subtitle?: string;
   icon?: React.ReactNode;
-  gradient?: "navy" | "sand" | "blue" | "custom";
+  gradient?: "navy" | "sand"  ;
   height?: string;
   center?: boolean;
   showPattern?: boolean;
@@ -71,16 +71,18 @@ export default function PageHeader({
     : "items-start text-left";
 
   return (
+    
     <div
-      className={`relative w-full bg-gradient-to-br ${gradients[gradient]}`}
+
+     className={`relative w-full overflow-hidden bg-gradient-to-br ${gradients[gradient]}`}
       style={{ minHeight: height }}
-    >
+     >
 
       {/* blauer Glow rechts unten */}
       <div
         className="
-          pointer-events-none absolute -right-28 bottom-[-60px]
-          h-64 w-64 rounded-full
+          pointer-events-none absolute -right-28 bottom-[6px]
+          h-60 w-60 rounded-full
           bg-[#3ba4ff]/35 blur-3xl
         "
         aria-hidden="true"
@@ -146,12 +148,10 @@ export default function PageHeader({
       </div>
 
       <div
-        className={`
-          relative z-10 mx-auto flex
-          max-w-[1400px] xl:max-w-[1600px]
-          flex-col gap-6 px-6 py-10
-          ${outerLayout}
-        `}
+        className="relative z-10 flex flex-col gap-6 py-10 pr-6"
+        style={{
+          paddingLeft: "200px",
+        }}
       >
         {/* Linker Bereich: Icon + Titel + Subtitle */}
         <div className={`flex flex-col gap-4 ${columnAlign}`}>
@@ -197,7 +197,7 @@ export default function PageHeader({
           </div>
         </div>
 
-        {/* Rechter Bereich: z.B. Buttons (extra) */}
+        {/* Rechter Bereich: */}
         {extra && (
           <div className="mt-4 flex w-full justify-start lg:mt-0 lg:w-auto lg:justify-end">
             <div className="inline-flex items-center gap-3 rounded-3xl border border-white/25 bg-black/25 px-4 py-3 backdrop-blur-md shadow-[0_16px_40px_rgba(0,0,0,0.65)]">

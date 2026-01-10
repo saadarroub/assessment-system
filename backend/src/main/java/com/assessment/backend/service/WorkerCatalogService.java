@@ -17,8 +17,6 @@ import java.util.stream.Collectors;
 @Service
 public class WorkerCatalogService {
 
-    // TODO : Parsing the expiration date !!!!
-
     @Autowired
     private WorkerCatalogRepository repository;
 
@@ -30,6 +28,9 @@ public class WorkerCatalogService {
 
     @Autowired
     private CompanyRepository companyRepository;
+
+    @Autowired
+    private AuditLogService auditLogService;
 
     @Autowired
     private com.assessment.backend.repository.AssessmentSessionRepository assessmentSessionRepository;
@@ -54,6 +55,11 @@ public class WorkerCatalogService {
         // 1. Validierung
         Worker worker = workerRepository.findById(workerId)
                 .orElseThrow(() -> new RuntimeException("Worker not found with id: " + workerId));
+
+        // Check if worker is active
+        if (worker.getStatus() != null && "inactive".equals(worker.getStatus())) {
+            throw new RuntimeException("Worker ist inaktiv und kann nicht zugewiesen werden");
+        }
 
         Catalog catalog = catalogRepository.findById(catalogId)
                 .orElseThrow(() -> new RuntimeException("Catalog not found with id: " + catalogId));
@@ -96,7 +102,9 @@ public class WorkerCatalogService {
         // }
 
         // 7. Speichern
-        return repository.save(assignment);
+        WorkerCatalog saved = repository.save(assignment);
+        auditLogService.log("ASSIGN_CATALOG", "worker_catalog", saved.getId(), null);
+        return saved;
     }
 
     /**
@@ -230,6 +238,7 @@ public class WorkerCatalogService {
     }
 
     public void deleteAssignment(UUID id) {
+        auditLogService.log("DELETE", "worker_catalog", id, null);
         repository.deleteById(id);
     }
 

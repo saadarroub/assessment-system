@@ -1,4 +1,15 @@
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
+import * as React from "react";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Cell,
+} from "recharts";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 
 type CompanyData = {
   name: string;
@@ -11,73 +22,95 @@ type TopCompaniesChartProps = {
   description?: string;
 };
 
+// ICA / Dashboard Palette (wie bei den anderen Cards)
 const COLORS = ["#264555", "#56768f", "#808080", "#d2c9b9", "#4F6B7E"];
+
+function CustomTooltip({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  payload?: Array<{ value?: number; payload?: CompanyData }>;
+  label?: string;
+}) {
+  if (!active || !payload?.length) return null;
+
+  const value = payload[0]?.value ?? 0;
+
+  return (
+    <div className="rounded-xl border bg-white px-3 py-2 text-sm shadow-lg">
+      <div className="font-semibold text-slate-900">{label}</div>
+      <div className="mt-1 text-slate-600">
+        <span className="font-semibold text-slate-900 tabular-nums">{value}</span> Zuweisungen
+      </div>
+    </div>
+  );
+}
 
 export function TopCompaniesChart({ data, title, description }: TopCompaniesChartProps) {
   if (!data || data.length === 0) {
     return (
-      <div style={{ 
-        background: '#fff', 
-        borderRadius: '12px', 
-        border: '1px solid hsl(var(--border))', 
-        padding: '1.5rem',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        minHeight: '300px',
-        color: '#9ca3af'
-      }}>
-        Keine Daten verfügbar
-      </div>
+      <Card className="h-full">
+        <CardHeader className="items-start pb-0 text-left">
+          <CardTitle>{title ?? "Top 5 Firmen"}</CardTitle>
+          <CardDescription>{description ?? "Firmen mit den meisten Zuweisungen"}</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-1 items-center justify-center text-muted-foreground min-h-[320px]">
+          Keine Daten verfügbar
+        </CardContent>
+      </Card>
     );
   }
 
   return (
-    <div style={{ 
-      background: '#fff', 
-      borderRadius: '12px', 
-      border: '1px solid hsl(var(--border))', 
-      padding: '1.5rem',
-      boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-    }}>
-      {title && (
-        <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.25rem', fontWeight: 600, color: '#264555' }}>
-          {title}
-        </h3>
-      )}
-      {description && (
-        <p style={{ margin: '0 0 1.5rem 0', fontSize: '0.875rem', color: '#6b7280' }}>
-          {description}
-        </p>
-      )}
-      <ResponsiveContainer width="100%" height={300}>
-        <BarChart data={data} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-          <XAxis type="number" stroke="#6b7280" style={{ fontSize: '0.75rem' }} />
-          <YAxis 
-            type="category" 
-            dataKey="name" 
-            stroke="#6b7280" 
-            style={{ fontSize: '0.75rem' }}
-            width={120}
-          />
-          <Tooltip 
-            contentStyle={{ 
-              background: '#fff', 
-              border: '1px solid #e5e7eb', 
-              borderRadius: '8px',
-              fontSize: '0.875rem'
-            }}
-            labelStyle={{ fontWeight: 600, color: '#264555' }}
-            formatter={(value: number) => [`${value} Zuweisungen`, 'Anzahl']}
-          />
-          <Bar dataKey="count" radius={[0, 8, 8, 0]}>
-            {data.map((entry, index) => (
-              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-            ))}
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
-    </div>
+    <Card className="h-full flex flex-col">
+      <CardHeader className="items-start pb-0 text-left">
+        {title && <CardTitle>{title}</CardTitle>}
+        {description && <CardDescription>{description}</CardDescription>}
+      </CardHeader>
+
+      {/* flex-1 sorgt dafür, dass die Card die gleiche Höhe wie Session-Status sauber füllt */}
+      <CardContent className="flex-1 pt-2">
+        <div className="h-[380px] w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              data={data}
+              layout="vertical"
+              margin={{ top: 6, right: 24, left: 8, bottom: 6 }}
+              barCategoryGap={18}
+              barGap={6}
+            >
+
+              <CartesianGrid strokeDasharray="3 3" className="stroke-slate-200" />
+
+              <XAxis
+                type="number"
+                tickLine={false}
+                axisLine={false}
+                className="text-xs fill-slate-500"
+              />
+
+              <YAxis
+                type="category"
+                dataKey="name"
+                width={95}
+                tickLine={false}
+                axisLine={false}
+                className="text-xs fill-slate-500"
+              />
+
+              <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(148,163,184,0.15)" }} />
+
+              <Bar dataKey="count" radius={[10, 10, 10, 10]} barSize={44}>
+                {data.map((_, index) => (
+                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

@@ -135,7 +135,7 @@ class AuthServiceClass {
     try {
       // Backend-Call zum Refresh-Endpoint
       // WICHTIG: httpOnly Refresh-Cookie wird automatisch vom Browser mitgeschickt
-      const response = await fetch('http://localhost:8080/api/auth/refresh', {
+      const response = await fetch('/api/auth/refresh', {
         method: 'POST',
         credentials: 'include', // Wichtig für Cookies!
         headers: {

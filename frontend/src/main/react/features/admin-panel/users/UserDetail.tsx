@@ -1,10 +1,13 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import AdminLayout from "@/apps/app/AdminLayout";
-import { getUser, type UserApi } from "@/features/service/userService";
+import { getUser, changeUserStatus, type UserApi } from "@/features/service/userService";
 import { Network, Users } from "lucide-react";
 import PageHeader from "@/features/admin-area/catalogs/PageHeader";
-import { Pencil } from "lucide-react"
+import { Pencil } from "lucide-react";
+import { useHasPermission } from "@/shared/hooks/useHasPermission";
+import { useScrollLock } from "@/shared/hooks/useScrollLock";
+import ConfirmModal from "@/shared/components/ConfirmModal"
 
 const CSS = {
   adminBg: "hsl(var(--admin-bg,0 0% 92%))",
@@ -39,6 +42,7 @@ type UserWithExtras = UserApi & {
   createdAt?: string;
   updatedAt?: string;
   roles?: any[];
+  status?: "active" | "inactive";
 };
 
 export default function UserDetailsPage() {
@@ -47,6 +51,15 @@ export default function UserDetailsPage() {
   const [user, setUser] = useState<UserWithExtras | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Status toggle states
+  const [confirmStatusOpen, setConfirmStatusOpen] = useState(false);
+  const [pendingStatus, setPendingStatus] = useState<"active" | "inactive" | null>(null);
+  const [changingStatus, setChangingStatus] = useState(false);
+  const [statusError, setStatusError] = useState<string | null>(null);
+  
+  const { has } = useHasPermission();
+  const canChangeUser = has("users.edit");
 
   useEffect(() => {
     let alive = true;
@@ -96,6 +109,85 @@ export default function UserDetailsPage() {
   const createdDate = user?.createdAt;
   const updatedDate = user?.updatedAt;
 
+  // Status toggle handler
+  function onStatusClick() {
+    if (!user) return;
+    if (!canChangeUser || changingStatus) return;
+
+    const next: "active" | "inactive" = (user.status === "active" || !user.status) ? "inactive" : "active";
+    setPendingStatus(next);
+    setStatusError(null);
+    setConfirmStatusOpen(true);
+  }
+
+  // StatusToggle Component
+  function StatusToggle({
+    value,
+    disabled,
+    disabledReason,
+    onToggle,
+  }: {
+    value: "active" | "inactive";
+    disabled?: boolean;
+    disabledReason?: string;
+    onToggle: () => void;
+  }) {
+    const isActive = value === "active";
+
+    return (
+      <button
+        type="button"
+        onClick={(e) => {
+          if (disabled) {
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+          }
+          onToggle();
+        }}
+        disabled={disabled}
+        className={[
+          "inline-flex items-center gap-2 rounded-full px-3 py-1.5",
+          "transition-all select-none",
+          disabled ? "opacity-60 cursor-not-allowed" : "hover:brightness-[1.03]",
+        ].join(" ")}
+        style={{
+          background: isActive ? "rgba(34,197,94,0.18)" : "rgba(148,163,184,0.22)",
+          color: isActive ? "#16a34a" : "#64748b",
+        }}
+        title={
+          disabled
+            ? (disabledReason ?? "Du hast keine Berechtigung.")
+            : (isActive ? "Benutzer ist aktiv" : "Benutzer ist inaktiv")
+        }
+      >
+        <span className="text-[12px] font-semibold">
+          {isActive ? "aktiv" : "inaktiv"}
+        </span>
+
+        <span
+          className="relative h-5 w-9 rounded-full border"
+          style={{
+            background: isActive ? "#22c55e" : "#94a3b8",
+            borderColor: "rgba(0,0,0,0.10)",
+          }}
+          aria-hidden
+        >
+          <span
+            className={[
+              "absolute top-1/2 -translate-y-1/2 h-4 w-4 rounded-full bg-white",
+              "transition-all shadow",
+            ].join(" ")}
+            style={{ left: isActive ? "calc(100% - 18px)" : "2px" }}
+          />
+        </span>
+      </button>
+    );
+  }
+
+  const anyModalOpen = confirmStatusOpen;
+  useScrollLock(anyModalOpen);
+
   return (
     <AdminLayout>
       {/* ===== Hero wie in der Liste ===== */}
@@ -115,7 +207,7 @@ export default function UserDetailsPage() {
         style={{
           background:
             "radial-gradient(circle at 0 0, rgba(227,187,98,0.13) 0, transparent 40%)," +
-            "radial-gradient(circle at 100% 0, rgba(56,189,248,0.10) 0, transparent 42%)," +
+           
             "linear-gradient(to bottom, #f3f4f7 0, #e6e9ef 240px, #f4f5f8 100%)",
         }}
       >
@@ -474,7 +566,12 @@ export default function UserDetailsPage() {
                 </div>
 
                 <div className="px-5 py-5">
-
+                  <StatusToggle
+                    value={(user?.status as "active" | "inactive") ?? "active"}
+                    onToggle={onStatusClick}
+                    disabled={changingStatus || !canChangeUser}
+                    disabledReason={!canChangeUser ? "Du brauchst: users.edit" : undefined}
+                  />
                 </div>
               </section>
 
@@ -482,6 +579,60 @@ export default function UserDetailsPage() {
           </div>
         </div>
       </main>
+
+      {/* ===== ConfirmModal für Status-Change ===== */}
+      <ConfirmModal
+        open={confirmStatusOpen}
+        title={pendingStatus === "inactive" ? "Benutzer deaktivieren?" : "Benutzer aktivieren?"}
+        description={
+          pendingStatus === "inactive"
+            ? `Bist du sicher, dass du "${user?.name ?? "diesen Benutzer"}" deaktivieren willst?`
+            : `Bist du sicher, dass du "${user?.name ?? "diesen Benutzer"}" aktivieren willst?`
+        }
+        hintTitle="Hinweis"
+        hintText={
+          pendingStatus === "inactive"
+            ? "Beim Deaktivieren kann der Benutzer sich möglicherweise nicht mehr anmelden."
+            : "Nach dem Aktivieren kann der Benutzer sich wieder normal anmelden."
+        }
+        cancelLabel="Abbrechen"
+        confirmLabel={
+          changingStatus
+            ? "Ändere…"
+            : pendingStatus === "inactive"
+              ? "Ja, deaktivieren"
+              : "Ja, aktivieren"
+        }
+        onCancel={() => {
+          if (changingStatus) return;
+          setConfirmStatusOpen(false);
+          setPendingStatus(null);
+          setStatusError(null);
+        }}
+        onConfirm={async () => {
+          if (!id || !pendingStatus || changingStatus) return;
+
+          const snapshot = user;
+          if (user) {
+            setUser({ ...user, status: pendingStatus });
+          }
+
+          setChangingStatus(true);
+          setStatusError(null);
+
+          try {
+            const updated = await changeUserStatus(id);
+            setUser({ ...user, ...updated } as UserWithExtras);
+            setConfirmStatusOpen(false);
+            setPendingStatus(null);
+          } catch (e: any) {
+            setUser(snapshot);
+            setStatusError(e?.message ?? String(e));
+          } finally {
+            setChangingStatus(false);
+          }
+        }}
+      />
     </AdminLayout>
   );
 }

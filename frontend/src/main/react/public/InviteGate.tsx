@@ -1,6 +1,9 @@
 // src/features/public/InviteGate.tsx
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import AppHeader from "@/apps/app/AppHeader";
+import patternUrl from "@/assets/footer-pattern.svg";
+
 import {
   fetchInviteMeta,
   verifyInvite,
@@ -8,7 +11,7 @@ import {
   fetchAssignmentByAccessCode,
 } from "@/features/service/inviteService";
 import { KeyRound, Loader2 } from "lucide-react";
-import ica3logo from "@/assets/ica3-logo.png";
+import ica3logo from "@/assets/ICA3_Logo.jpg";
 
 export default function InviteGate() {
   const { token = "" } = useParams();
@@ -182,199 +185,148 @@ export default function InviteGate() {
         </div>
       </div>
     );
-  if (error)
-    return (
-      <div
-        className="
-        relative min-h-screen overflow-hidden
-        bg-[linear-gradient(135deg,hsl(0_0%_98%)_0%,hsl(215_20%_96%)_50%,hsl(0_0%_98%)_100%)]
-        text-[hsl(215_80%_15%)]
-      "
-      >
-        {/* Keyframes nur hier (keine Globals) */}
-        <style>{`
-        @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
+if (error)
+  return (
+    <div className="relative min-h-screen overflow-hidden bg-gray-200 text-[hsl(215_80%_15%)]">
+      {/* Background wie “neuer InviteGate” (Hex + Gold Glow, keine Flecken) */}
+      <style>{`
         @keyframes fade-in { 0%{opacity:0;transform:translateY(16px)} 100%{opacity:1;transform:translateY(0)} }
         @keyframes scale-in { 0%{transform:scale(.96);opacity:0} 100%{transform:scale(1);opacity:1} }
         @keyframes shine { 0%{background-position:200% center} 100%{background-position:-200% center} }
+
+        .hex-bg{
+          background-image:
+            conic-gradient(from 60deg, rgba(38,69,85,0.14) 0 60deg, transparent 0 360deg),
+            conic-gradient(from 60deg, rgba(38,69,85,0.10) 0 60deg, transparent 0 360deg);
+          background-size: 520px 450px;
+          background-position: 0 0, 260px 225px;
+        }
+        .fade-top{
+          mask-image: radial-gradient(circle at 50% 0%, black 0%, black 55%, transparent 85%);
+          -webkit-mask-image: radial-gradient(circle at 50% 0%, black 0%, black 55%, transparent 85%);
+        }
       `}</style>
 
-        {/* Deko */}
-        <div className="pointer-events-none absolute inset-0">
-          <div className="absolute top-14 right-[-6rem] h-[28rem] w-[28rem] rounded-full blur-[90px] bg-[hsla(45,60%,55%,0.20)]" />
-          <div className="absolute bottom-[-7rem] left-[-7rem] h-[34rem] w-[34rem] rounded-full blur-[90px] bg-[hsla(215,80%,15%,0.08)]" />
-          <div className="absolute left-[18%] top-[30%] h-2 w-2 rounded-full bg-[#E3BB62] opacity-80" />
-          <div className="absolute right-[22%] top-[36%] h-1.5 w-1.5 rounded-full bg-[#d2c9b9] opacity-75" />
-        </div>
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute inset-0 bg-gradient-to-b from-white via-gray-100 to-gray-200" />
+        <div className="absolute inset-0 opacity-[0.16] hex-bg fade-top" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_12%,rgba(227,187,98,0.22)_0%,rgba(227,187,98,0.10)_25%,rgba(255,255,255,0)_58%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_45%,rgba(0,0,0,0)_0%,rgba(0,0,0,0.10)_78%)]" />
+      </div>
 
-        <main className="relative mx-auto flex min-h-screen max-w-[90rem] items-center justify-center px-6 py-14">
-          <div className="w-full max-w-[64rem]">
-            {/* Logo */}
-            <div className="mb-10 flex justify-center [animation:scale-in_.4s_ease-out_both]">
-              <div className="relative">
-                <div className="absolute inset-0 rounded-full bg-[hsla(45,60%,55%,0.18)] blur-[36px]" />
-                <img
-                  src={ica3logo}
-                  alt="ICA³ – Integrated Customer Assessments & Advanced Analytics"
-                  className="relative h-20 md:h-24 w-auto drop-shadow-[0_25px_50px_rgba(0,0,0,0.15)]"
-                />
+      <main className="relative px-5 py-12 md:py-16">
+        <div className="mx-auto w-full max-w-[1040px]">
+          {/* HERO (gleiches Feeling wie InviteGate) */}
+          <div className="text-center [animation:fade-in_.5s_ease-out_both]">
+            {/* Framed Logo */}
+            <div className="mx-auto inline-flex items-center justify-center">
+              <div className="rounded-[30px] bg-gradient-to-br from-white via-white/60 to-[hsla(45,60%,55%,0.25)] p-[1px] shadow-[0_26px_70px_-40px_rgba(15,23,42,0.35)]">
+                <div className="rounded-[29px] bg-white/70 backdrop-blur-xl px-6 py-5">
+                  <div className="rounded-2xl bg-white ring-1 ring-slate-200/70 px-6 py-4 shadow-sm">
+                    <img
+                      src={ica3logo}
+                      alt="ICA³"
+                      className="h-16 md:h-20 w-auto drop-shadow-[0_16px_40px_rgba(0,0,0,0.18)]"
+                      draggable={false}
+                    />
+                  </div>
+                </div>
               </div>
             </div>
 
-            {/* Headline */}
-            <div className="mx-auto max-w-4xl text-center [animation:fade-in_.6s_ease-out_.1s_both]">
-              <h1
-                className="
-                text-3xl md:text-5xl font-extrabold tracking-tight
-                bg-gradient-to-br from-[hsl(215_80%_15%)] via-[hsl(215_80%_15%)] to-[hsl(45_60%_55%)]
-                bg-clip-text text-transparent
-                drop-shadow-[0_6px_24px_rgba(0,0,0,.08)]
-              "
-              >
+            <h1 className="mt-8 text-4xl md:text-6xl font-extrabold tracking-tight">
+              <span className="bg-gradient-to-br from-[hsl(215_80%_15%)] via-[hsl(215_80%_15%)] to-[hsl(45_60%_55%)] bg-clip-text text-transparent">
                 Einladung nicht mehr gültig
-              </h1>
-              <div className="mx-auto mt-4 h-[5px] w-52 rounded-full bg-[linear-gradient(90deg,transparent,hsl(45_60%_55%),transparent)]" />
-              <p className="mx-auto mt-6 max-w-3xl text-base md:text-lg text-[hsl(215_20%_45%)]">
-                Der Link ist abgelaufen, ungültig oder wurde bereits genutzt. Bitte kontaktieren Sie Ihre Ansprechperson.
-              </p>
-            </div>
+              </span>
+            </h1>
 
-            {/* Quick-Info Cards */}
+            <div className="mx-auto mt-4 h-[5px] w-52 rounded-full bg-[linear-gradient(90deg,transparent,hsl(45_60%_55%),transparent)]" />
+
+            <p className="mx-auto mt-6 max-w-3xl text-base md:text-lg text-[hsl(215_20%_45%)]">
+              Der Link ist abgelaufen, ungültig oder wurde bereits genutzt. Bitte kontaktieren Sie Ihre Ansprechperson.
+            </p>
+          </div>
+
+          {/* ERROR CARD (im gleichen Card-Stil wie InviteGate Form) */}
+          <section className="mt-10 md:mt-12">
             <div
               className="
-              mx-auto mt-10 grid max-w-[52rem] grid-cols-1 gap-4
-              sm:grid-cols-3
-              [animation:fade-in_.6s_ease-out_.25s_both]
-            "
+                relative overflow-hidden rounded-3xl
+                border border-slate-200/70 bg-white/70 backdrop-blur-2xl
+                shadow-[0_30px_90px_-55px_rgba(15,23,42,0.45)]
+                p-6 md:p-10
+                [animation:scale-in_.35s_ease-out_both]
+              "
             >
-              {[
-                { title: "Sicher", text: "Einladungen sind nur einmal nutzbar." },
-                { title: "Datenschutz", text: "Zugriff endet nach Abschluss / Ablauf." },
-                { title: "Support", text: "Wir helfen bei neuen Links." },
-              ].map((c) => (
-                <div
-                  key={c.title}
-                  className="
-                  rounded-2xl border border-[hsla(215,20%,88%,0.65)]
-                  bg-white/80 backdrop-blur-md p-5
-                  shadow-[0_10px_25px_-8px_rgba(15,23,42,.10)]
-                  transition hover:scale-[1.02]
-                "
-                >
-                  <div className="text-sm font-semibold text-[#264555]">{c.title}</div>
-                  <div className="mt-2 text-sm text-slate-600">{c.text}</div>
-                </div>
-              ))}
-            </div>
+              {/* inner highlight + dezent gold shine */}
+              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.75)_0%,rgba(255,255,255,0)_55%)]" />
+              <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(227,187,98,0.10),rgba(255,255,255,0),rgba(38,69,85,0.06))]" />
+              <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,transparent,hsla(45,60%,55%,.10),transparent)] bg-[length:200%_100%] [animation:shine_3.2s_linear_infinite]" />
 
-            {/* Error Card (Premium) – nicer, NO black, 1 button */}
-            <div
-              className="
-              mx-auto mt-6 max-w-[52rem]
-              overflow-hidden rounded-[22px]
-              border border-[hsla(215,20%,88%,0.75)]
-              bg-white/86 backdrop-blur-2xl
-              shadow-[0_40px_90px_-45px_rgba(23,37,84,.32)]
-              [animation:scale-in_.35s_ease-out_.35s_both]
-            "
-            >
-              {/* Shine (dezent) */}
-              <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,transparent,hsla(45,60%,55%,.08),transparent)] bg-[length:200%_100%] [animation:shine_2.8s_linear_infinite]" />
+              <div className="relative">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <div className="text-sm font-semibold text-[#264555]">
+                      Details (für Debug / Support)
+                    </div>
+                    <div className="mt-1 text-sm text-[hsl(215_20%_45%)]">
+                      Bitte Screenshot + Fehlermeldung an Support senden.
+                    </div>
+                  </div>
 
-              <div className="relative p-6 md:p-8">
-                {/* Kopfzeile der Card */}
-                <div className="flex items-start gap-4">
-                  <div
+                  <span
                     className="
-                    grid h-12 w-12 shrink-0 place-items-center rounded-2xl
-                    bg-[hsla(45,60%,55%,.16)]
-                    border border-[hsla(45,60%,55%,.40)]
-                    shadow-[0_12px_24px_-16px_rgba(227,187,98,.9)]
-                  "
-                  >
-                    <svg viewBox="0 0 24 24" className="h-6 w-6 text-[#264555]" fill="none" stroke="currentColor" strokeWidth="2">
-                      <circle cx="12" cy="12" r="10" />
-                      <path d="M15 9l-6 6" />
-                      <path d="M9 9l6 6" />
-                    </svg>
-                  </div>
-
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between gap-4">
-                      <div className="text-sm font-semibold text-[#264555]">Details (für Debug / Support)</div>
-
-                      {/* kleines Badge */}
-                      <span
-                        className="
-                        inline-flex items-center gap-2 rounded-full
-                        bg-white/70 px-3 py-1
-                        text-[11px] font-semibold uppercase tracking-[0.16em]
-                        border border-[hsla(215,20%,88%,0.85)]
-                        text-slate-400
-                      "
-                      >
-                        <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#E3BB62]" />
-                        Info
-                      </span>
-                    </div>
-
-                    {/* Error message – hell, clean, kein schwarz */}
-                    <div
-                      className="
-                      mt-3 rounded-2xl
-                      border border-[hsla(215,20%,88%,0.85)]
-                      bg-[linear-gradient(135deg,hsla(0,0%,100%,.75)_0%,hsla(215,20%,98%,.85)_100%)]
-                      p-4
-                      shadow-inner
+                      inline-flex items-center gap-2 rounded-full
+                      bg-white/70 px-3 py-1
+                      text-[11px] font-semibold uppercase tracking-[0.16em]
+                      border border-slate-200/80 text-slate-400
                     "
-                    >
-                      <p className="text-sm text-slate-700 break-words">
-                        {error}
-                      </p>
-
-                      {/* mini hint */}
-                      <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                        <span className="inline-flex items-center gap-2">
-                          <span className="h-1.5 w-1.5 rounded-full bg-[#E3BB62]" />
-                          Bitte Screenshot + Fehlermeldung an Support senden.
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* 1 Button only */}
-                    <div className="mt-6 flex justify-center sm:justify-end">
-                      <a
-                        href="mailto:kontakt@cap-consulting.de"
-                        className="
-                        inline-flex items-center justify-center
-                        rounded-2xl px-6 py-3 text-sm font-semibold
-                        bg-[#E3BB62] text-[#264555]
-                        shadow-[0_14px_32px_-12px_rgba(0,0,0,.25)]
-                        hover:brightness-95 hover:shadow-[0_20px_44px_-16px_rgba(0,0,0,.28)]
-                        active:scale-[.99]
-                        transition
-                      "
-                      >
-                        Kontakt aufnehmen
-                      </a>
-                    </div>
-                  </div>
+                  >
+                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#E3BB62]" />
+                    Info
+                  </span>
                 </div>
 
-                <p className="mt-6 text-xs text-slate-400 text-center">
+                <div
+                  className="
+                    mt-5 rounded-2xl
+                    border border-slate-200/80 bg-white/80
+                    p-4 shadow-inner
+                  "
+                >
+                  <p className="text-sm text-slate-700 break-words">{error}</p>
+                </div>
+
+                <div className="mt-6 flex justify-center sm:justify-end">
+                  <a
+                    href="mailto:kontakt@cap-consulting.de"
+                    className="
+                      inline-flex items-center justify-center
+                      rounded-2xl px-6 py-3 text-sm font-extrabold
+                      text-[hsl(215_80%_15%)]
+                      bg-[linear-gradient(135deg,#E3BB62_0%,#f1d18a_42%,#E3BB62_100%)]
+                      shadow-[0_22px_60px_-30px_rgba(15,23,42,0.35)]
+                      transition
+                      hover:translate-y-[-1px]
+                      hover:shadow-[0_30px_80px_-38px_rgba(15,23,42,0.42)]
+                      active:translate-y-[0px]
+                    "
+                  >
+                    Kontakt aufnehmen
+                  </a>
+                </div>
+
+                <p className="mt-8 text-xs text-slate-400 text-center">
                   ICA³ – Survey Platform · CAP Consulting
                 </p>
               </div>
             </div>
+          </section>
+        </div>
+      </main>
+    </div>
+  );
 
-            {/* Mini footer hint (dezent) */}
-            <div className="mt-8 text-center text-xs text-slate-400 [animation:fade-in_.6s_ease-out_.5s_both]">
-              Tipp: Wenn du denkst, das ist ein Fehler, bitte Screenshot + Zeitstempel an den Support senden.
-            </div>
-          </div>
-        </main>
-      </div>
-    );
 
 
   // --- Keyframes nur für Animationen (keine Globals) ---
@@ -388,257 +340,209 @@ export default function InviteGate() {
   );
 
   // --- UI (nur Styling/Markup angepasst) ---
-  if (meta?.requiresCode) {
-    return (
-      <div
-        className="
-          relative min-h-screen overflow-hidden
-          bg-[linear-gradient(135deg,hsl(0_0%_98%)_0%,hsl(215_20%_96%)_50%,hsl(0_0%_98%)_100%)]
-          text-[hsl(215_80%_15%)]
-        "
-      >
-        {Animations}
+ if (meta?.requiresCode) {
+  return (
+    <div className="relative min-h-screen overflow-hidden bg-gray-200 text-[hsl(215_80%_15%)]">
+      {Animations}
 
-        {/* Deko-Blobs */}
-        <div className="pointer-events-none absolute inset-0">
-          <div className="absolute top-16 right-[-5rem] h-[26rem] w-[26rem] rounded-full blur-[90px] bg-[hsla(45,60%,55%,0.20)] " />
-          <div className="absolute bottom-[-6rem] left-[-6rem] h-[32rem] w-[32rem] rounded-full blur-[90px] bg-[hsla(215,80%,15%,0.10)]" />
-        </div>
+      {/* Light Premium Background: subtle hex + clean glow (keine Flecken) */}
+      <style>{`
+        .hex-bg{
+          background-image:
+            conic-gradient(from 60deg, rgba(38,69,85,0.14) 0 60deg, transparent 0 360deg),
+            conic-gradient(from 60deg, rgba(38,69,85,0.10) 0 60deg, transparent 0 360deg);
+          background-size: 520px 450px;
+          background-position: 0 0, 260px 225px;
+        }
+        .fade-top{
+          mask-image: radial-gradient(circle at 50% 0%, black 0%, black 55%, transparent 85%);
+          -webkit-mask-image: radial-gradient(circle at 50% 0%, black 0%, black 55%, transparent 85%);
+        }
+      `}</style>
 
-        {/* HERO */}
-        <section className="relative mx-auto max-w-[90rem] px-6 pt-16 md:pt-24">
-          <div className="mb-10 md:mb-12 flex justify-center [animation:scale-in_.4s_ease-out_both]">
-            <div className="relative">
-              <div className="absolute inset-0 rounded-full bg-[hsla(45,60%,55%,0.2)] blur-[36px]" />
-              <img
-                src={ica3logo}
-                alt="ICA3 – Integrated Customer Assessments & Advanced Analytics"
-                className="relative h-24 md:h-32 w-auto drop-shadow-[0_25px_50px_rgba(0,0,0,0.15)]"
-              />
+      <div className="pointer-events-none absolute inset-0">
+        {/* base wash */}
+        <div className="absolute inset-0 bg-gradient-to-b from-white via-gray-100 to-gray-200" />
+
+        {/* hex pattern – ähnlich wie KatalogThemen, nur cleaner */}
+        <div className="absolute inset-0 opacity-[0.16] hex-bg fade-top" />
+
+        {/* gold glow – dezent, premium */}
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_12%,rgba(227,187,98,0.22)_0%,rgba(227,187,98,0.10)_25%,rgba(255,255,255,0)_58%)]" />
+
+        {/* very light vignette for depth */}
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_45%,rgba(0,0,0,0)_0%,rgba(0,0,0,0.10)_78%)]" />
+      </div>
+
+      <main className="relative px-5 py-12 md:py-16">
+        <div className="mx-auto w-full max-w-[1040px]">
+          {/* HERO */}
+          <div className="text-center">
+            {/* Logo: Premium Frame (ohne Logo zu verändern) */}
+            <div className="mx-auto inline-flex items-center justify-center">
+              <div className="rounded-[30px] bg-gradient-to-br from-white via-white/60 to-[hsla(45,60%,55%,0.25)] p-[1px] shadow-[0_26px_70px_-40px_rgba(15,23,42,0.35)]">
+                <div className="rounded-[29px] bg-white/70 backdrop-blur-xl px-6 py-5">
+                  <div className="rounded-2xl bg-white ring-1 ring-slate-200/70 px-6 py-4 shadow-sm">
+                    <img
+                      src={ica3logo}
+                      alt="ICA³"
+                      className="h-16 md:h-20 w-auto drop-shadow-[0_16px_40px_rgba(0,0,0,0.18)]"
+                      draggable={false}
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
 
-          <div className="mx-auto max-w-5xl text-center">
-            <h1
-              className="
-                text-4xl md:text-6xl font-extrabold tracking-tight
-                bg-gradient-to-br from-[hsl(215_80%_15%)] via-[hsl(215_80%_15%)] to-[hsl(45_60%_55%)]
-                bg-clip-text text-transparent
-                drop-shadow-[0_6px_24px_rgba(0,0,0,.08)]
-              "
-            >
-              Assessment Platform
+            <h1 className="mt-8 text-4xl md:text-7xl font-extrabold tracking-tight">
+              <span className="bg-gradient-to-br from-[hsl(215_80%_15%)] via-[hsl(215_80%_15%)] to-[hsl(45_60%_55%)] bg-clip-text text-transparent">
+                Assessment Platform
+              </span>
             </h1>
-            <div className="mx-auto mt-4 h-[5px] w-56 rounded-full bg-[linear-gradient(90deg,transparent,hsl(45_60%_55%),transparent)]" />
-            <p className="mx-auto mt-6 max-w-3xl text-base md:text-xl text-[hsl(215_20%_45%)]">
+
+            <p className="mx-auto mt-5 max-w-3xl text-base md:text-lg text-[hsl(215_20%_45%)]">
               Bewerten Sie Ihre Unternehmensreife in verschiedenen Bereichen durch interaktive Umfragen
               und erhalten Sie detaillierte Analysen.
             </p>
-          </div>
 
-          {/* Feature-Cards */}
-          <div
-            className="
-              mx-auto mt-10 md:mt-14 grid max-w-[52rem] grid-cols-2 gap-4
-              md:max-w-[64rem] md:grid-cols-4
-              [animation:fade-in_.6s_ease-out_.3s_both]
-            "
-          >
-            {[
-              {
-                label: "Präzise Bewertung",
-                icon: (
-                  <svg
-                    viewBox="0 0 24 24"
-                    className="h-6 w-6 text-[hsl(45_60%_55%)]"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <circle cx="12" cy="12" r="10" />
-                    <circle cx="12" cy="12" r="6" />
-                    <circle cx="12" cy="12" r="2" />
-                  </svg>
-                ),
-              },
-              {
-                label: "Detaillierte Analysen",
-                icon: (
-                  <svg
-                    viewBox="0 0 24 24"
-                    className="h-6 w-6 text-[hsl(45_60%_55%)]"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <line x1="12" y1="20" x2="12" y2="10" />
-                    <line x1="18" y1="20" x2="18" y2="4" />
-                    <line x1="6" y1="20" x2="6" y2="16" />
-                  </svg>
-                ),
-              },
-              {
-                label: "Wachstumspotenzial",
-                icon: (
-                  <svg
-                    viewBox="0 0 24 24"
-                    className="h-6 w-6 text-[hsl(45_60%_55%)]"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
-                    <polyline points="16 7 22 7 22 13" />
-                  </svg>
-                ),
-              },
-              {
-                label: "Sofort einsetzbar",
-                icon: (
-                  <svg
-                    viewBox="0 0 24 24"
-                    className="h-6 w-6 text-[hsl(45_60%_55%)]"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                    <polyline points="22 4 12 14.01 9 11.01" />
-                  </svg>
-                ),
-              },
-            ].map((f, i) => (
-              <div
-                key={i}
-                className="
-                  rounded-xl border border-[hsla(215,20%,88%,0.6)]
-                  bg-white/80 backdrop-blur-md
-                  px-6 py-5 text-center
-                  shadow-[0_10px_25px_-8px_rgba(15,23,42,.10)]
-                  transition hover:scale-[1.05]
-                  hover:border-[hsla(45,60%,55%,0.5)]
-                  hover:shadow-[0_20px_40px_-12px_rgba(15,23,42,.18)]
-                "
-              >
-                <div className="flex flex-col items-center gap-2">
-                  {f.icon}
-                  <span className="text-sm font-medium text-[hsl(215_80%_15%)]">{f.label}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* Access-Code Card */}
-        <section className="relative mx-auto mt-10 md:mt-16 mb-10 max-w-[72rem] px-6">
-          <form
-            onSubmit={onSubmit}
-            className="
-              relative overflow-hidden rounded-[22px]
-              border border-[hsla(215,20%,88%,0.6)]
-              bg-white/82 backdrop-blur-2xl p-6 md:p-8
-              shadow-[0_35px_80px_-30px_rgba(23,37,84,.35)]
-              [animation:scale-in_.35s_ease-out_both]
-            "
-          >
-            {/* Shine */}
-            <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,transparent,hsla(45,60%,55%,.06),transparent)] bg-[length:200%_100%]" />
-
-            <div className="relative flex items-center gap-3 font-semibold">
-              <span className="inline-grid h-10 w-10 place-items-center rounded-xl bg-[hsla(45,60%,55%,.15)]">
-                <KeyRound className="h-5 w-5 text-[hsl(45_60%_55%)]" />
-              </span>
-              <h2 className="text-2xl md:text-3xl">Access-Code eingeben</h2>
-            </div>
-
-            <p className="relative mt-4 text-[hsl(215_20%_45%)] md:text-lg">
-              Gib deinen zugewiesenen Code ein, um deine Themen zu sehen. Den Code hast du per E-Mail erhalten.
-            </p>
-
-            <div className="relative mt-6 grid gap-3 md:grid-cols-[1fr_auto] md:items-center">
-              <div className="relative">
-                <KeyRound className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[hsl(215_20%_45%)]" />
-                <input
-                  id="access-code"
-                  value={code}
-                  onChange={(e) => setCode(e.target.value)}
-                  placeholder="Code eingeben"
-                  autoComplete="one-time-code"
-                  inputMode="numeric"
-                  required
+            {/* Modern “chips” – clean & passend */}
+            <div className="mx-auto mt-7 flex flex-wrap justify-center gap-3">
+              {["Präzise Bewertung", "Detaillierte Analysen", "Wachstumspotenzial", "Sofort einsetzbar"].map((t) => (
+                <span
+                  key={t}
                   className="
-                    h-14 w-full rounded-2xl border border-[hsla(215,20%,88%,0.7)]
-                    bg-white/60 pl-12 pr-4 text-[15px] text-[hsl(215_80%_15%)]
-                    shadow-inner outline-none transition
-                    placeholder:text-[hsl(215_20%_45%)]
-                    focus:border-[hsl(45_60%_55%)]
-                    focus:shadow-[0_0_0_4px_hsla(45,60%,55%,.12)]
+                    inline-flex items-center gap-2 rounded-full
+                    border border-slate-200/70 bg-white/70 px-4 py-2
+                    text-sm font-semibold text-[hsl(215_80%_15%)]
+                    shadow-[0_14px_40px_-28px_rgba(15,23,42,0.25)]
+                    backdrop-blur
                   "
-                />
+                >
+                  <span className="h-1.5 w-1.5 rounded-full bg-[#E3BB62]" />
+                  {t}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {/* FORM CARD */}
+          <section className="mt-10 md:mt-14">
+            <form
+              onSubmit={onSubmit}
+              className="
+                relative overflow-hidden rounded-3xl
+                border border-slate-200/70 bg-white/70 backdrop-blur-2xl
+                shadow-[0_30px_90px_-55px_rgba(15,23,42,0.45)]
+                p-6 md:p-10
+              "
+            >
+              {/* inner highlight – clean */}
+              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.75)_0%,rgba(255,255,255,0)_55%)]" />
+              <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(227,187,98,0.08),rgba(255,255,255,0),rgba(38,69,85,0.06))]" />
+
+              <div className="relative flex items-center gap-3">
+                <span className="inline-grid h-12 w-12 place-items-center rounded-2xl bg-[#E3BB62]/15 ring-1 ring-[#E3BB62]/20 shadow-[0_14px_40px_-26px_rgba(227,187,98,0.55)]">
+                  <KeyRound className="h-5 w-5 text-[#b8902f]" />
+                </span>
+
+                <div className="text-left">
+                  <h2 className="text-2xl md:text-3xl font-bold">Access-Code eingeben</h2>
+                  <p className="mt-1 text-[hsl(215_20%_45%)]">Den Code hast du per E-Mail erhalten.</p>
+                </div>
               </div>
 
-              <button
-                type="submit"
-                disabled={verifying}
-                className="
-                  h-14 min-w-[160px] rounded-2xl px-8 text-[15px] font-semibold
-                  text-[hsl(215_80%_15%)]
-                  bg-[linear-gradient(135deg,hsl(45_60%_55%)_0%,hsl(45_60%_50%)_100%)]
-                  shadow-[0_12px_28px_-10px_rgba(0,0,0,.28)]
-                  transition
-                  enabled:hover:scale-[1.04]
-                  enabled:hover:shadow-[0_24px_44px_-14px_rgba(0,0,0,.30)]
-                  active:scale-[.98]
-                  disabled:opacity-60
-                "
-              >
-                {verifying ? (
-                  <span className="inline-flex items-center gap-2">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Prüfe…
-                  </span>
-                ) : (
-                  "Bestätigen"
-                )}
-              </button>
-            </div>
-
-            {error && <p className="relative mt-3 text-sm text-rose-600">{error}</p>}
-          </form>
-
-          <div className="relative mt-6 text-center text-sm">
-            <div className="mx-auto inline-flex flex-col items-center gap-2 rounded-full border border-[hsla(215,20%,88%,0.7)] bg-white/80 px-6 py-3 backdrop-blur md:flex-row md:gap-6">
-              {meta.catalogTitle ? (
-                <div className="flex items-center gap-2 text-[hsl(215_20%_45%)]">
-                  <span>Katalog:</span>
-                  <span className="font-semibold text-[hsl(215_80%_15%)]">{meta.catalogTitle}</span>
+              <div className="relative mt-7 grid gap-3 md:grid-cols-[1fr_auto] md:items-center">
+                <div className="relative">
+                  <KeyRound className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+                  <input
+                    id="access-code"
+                    value={code}
+                    onChange={(e) => setCode(e.target.value)}
+                    placeholder="Code eingeben"
+                    autoComplete="one-time-code"
+                    inputMode="numeric"
+                    required
+                    className="
+                      h-14 w-full rounded-2xl
+                      border border-slate-200/90 bg-white/80
+                      pl-12 pr-4 text-[15px] text-[hsl(215_80%_15%)]
+                      outline-none transition shadow-inner
+                      placeholder:text-slate-400
+                      focus:border-[#E3BB62]/70
+                      focus:ring-4 focus:ring-[#E3BB62]/15
+                    "
+                  />
                 </div>
-              ) : null}
-            </div>
-          </div>
 
-          <div className="relative mt-6 text-center text-sm">
-            <div className="mx-auto inline-flex flex-col items-center gap-2 rounded-full border border-[hsla(215,20%,88%,0.7)] bg-white/80 px-6 py-3 backdrop-blur md:flex-row md:gap-6">
-              {meta.companyName ? (
-                <div className="flex items-center gap-2 text-[hsl(215_20%_45%)]">
-                  <span>Firma:</span>
-                  <span className="font-semibold text-[hsl(215_80%_15%)]">{meta.companyName}</span>
-                </div>
-              ) : null}
-            </div>
+                <button
+                  type="submit"
+                  disabled={verifying}
+                  className="
+                    h-14 min-w-[180px] rounded-2xl px-8 text-[15px] font-extrabold
+                    text-[hsl(215_80%_15%)]
+                    bg-[linear-gradient(135deg,#E3BB62_0%,#f1d18a_42%,#E3BB62_100%)]
+                    shadow-[0_22px_60px_-30px_rgba(15,23,42,0.35)]
+                    transition
+                    enabled:hover:translate-y-[-2px]
+                    enabled:hover:shadow-[0_30px_80px_-38px_rgba(15,23,42,0.42)]
+                    enabled:active:translate-y-[0px]
+                    disabled:opacity-60 disabled:cursor-not-allowed
+                  "
+                >
+                  {verifying ? (
+                    <span className="inline-flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Prüfe…
+                    </span>
+                  ) : (
+                    "Bestätigen"
+                  )}
+                </button>
+              </div>
+
+              {error && (
+                <p className="relative mt-4 text-sm font-semibold text-rose-600">
+                  {error}
+                </p>
+              )}
+
+            {(meta.catalogTitle || meta.companyName) && (
+  <div className="relative mt-7 mx-auto max-w-3xl">
+    <div className="h-1.5 rounded-full bg-[linear-gradient(90deg,transparent,#E3BB62,transparent)] opacity-80" />
+
+    <div
+      className="
+        mt-3 rounded-2xl border border-slate-200/70 bg-white/75
+        px-5 py-5 shadow-sm backdrop-blur
+      "
+    >
+      <div className="grid gap-4 md:grid-cols-2">
+        {meta.catalogTitle ? (
+          <div className="rounded-xl bg-white/70 ring-1 ring-slate-200/70 p-4">
+            <div className="text-xs font-semibold tracking-wide text-slate-500">KATALOG</div>
+            <div className="mt-1 font-bold text-[hsl(215_80%_15%)]">{meta.catalogTitle}</div>
           </div>
-        </section>
+        ) : null}
+
+        {meta.companyName ? (
+          <div className="rounded-xl bg-white/70 ring-1 ring-slate-200/70 p-4">
+            <div className="text-xs font-semibold tracking-wide text-slate-500">FIRMA</div>
+            <div className="mt-1 font-bold text-[hsl(215_80%_15%)]">{meta.companyName}</div>
+          </div>
+        ) : null}
       </div>
-    );
-  }
+    </div>
+  </div>
+)}
+
+            </form>
+          </section>
+        </div>
+      </main>
+    </div>
+  );
+}
+
 
   // Fallback (sollte wegen Auto-Redirect kaum sichtbar sein)
   return <div className="p-6">Weiterleitung…</div>;

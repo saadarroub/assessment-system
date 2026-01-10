@@ -11,5 +11,16 @@ export default defineConfig({
       '@': path.resolve(__dirname, 'src/main/react'),
     },
   },
-  
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+      },
+      '/public': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+      },
+    },
+  },
 })

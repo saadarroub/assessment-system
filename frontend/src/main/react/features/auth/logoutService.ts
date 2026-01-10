@@ -13,7 +13,7 @@ export async function logoutApi(token: string | null) {
   }
 
   try {
-    const res = await fetch("http://localhost:8080/api/auth/logout", {
+    const res = await fetch("/api/auth/logout", {
       method: "POST",
       credentials: 'include', // WICHTIG: Für Cookie-Cleanup
       headers: { 

@@ -162,6 +162,24 @@ public class PublicAccessController {
 
             WorkerCatalog assignment = assignmentOpt.get();
 
+            // Check if worker is inactive
+            if (assignment.getWorker() != null && 
+                assignment.getWorker().getStatus() != null && 
+                "inactive".equals(assignment.getWorker().getStatus())) {
+                return new ResponseEntity<>(
+                    Map.of("error", "Worker-Konto ist inaktiv"), 
+                    HttpStatus.FORBIDDEN
+                );
+            }
+
+            // Check if assignment is blocked
+            if ("blocked".equals(assignment.getStatus())) {
+                return new ResponseEntity<>(
+                    Map.of("error", "Zugriff wurde blockiert"), 
+                    HttpStatus.FORBIDDEN
+                );
+            }
+
             // Prüfen ob abgelaufen
             if (assignment.getExpiresAt() != null && 
                 LocalDateTime.now().isAfter(assignment.getExpiresAt())) {
