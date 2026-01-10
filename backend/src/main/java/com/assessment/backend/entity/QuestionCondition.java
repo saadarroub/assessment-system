@@ -14,6 +14,8 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "question_condition")
@@ -28,6 +30,10 @@ public class QuestionCondition {
 
   @Column(name = "target_node_id")
   private UUID targetNodeId;
+
+  @JdbcTypeCode(SqlTypes.JSON)
+  @Column(name = "target", columnDefinition = "jsonb")
+  private String target = "{}";
 
   @Column(nullable = false, columnDefinition = "TEXT")
   private String operator;
@@ -58,6 +64,8 @@ public class QuestionCondition {
     return targetNodeId;
   }
 
+  public String getTarget(){return target;}
+
   public String getOperator() {
     return operator;
   }
@@ -83,6 +91,8 @@ public class QuestionCondition {
   public void setTargetNodeId(UUID targetNodeId) {
     this.targetNodeId = targetNodeId;
   }
+
+  public void setTarget(String target){this.target = target;}
 
   public void setExpectedValue(String expectedValue) {
     this.expectedValue = expectedValue;
