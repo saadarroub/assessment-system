@@ -1,12 +1,16 @@
 package com.assessment.backend.util;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
 public class JsonbParser {
 
@@ -109,6 +113,17 @@ public class JsonbParser {
       return objectMapper.readTree(jsonb);
     } catch (Exception e) {
       throw new IllegalArgumentException("Ungültiges JSONB: " + jsonb, e);
+    }
+  }
+
+  public static Map<String, UUID> readTargetFromDbJson(String targetJson) {
+    try {
+      if (targetJson == null || targetJson.isBlank()) {
+        return Map.of();
+      }
+      return objectMapper.readValue(targetJson, new TypeReference<Map<String, UUID>>() {});
+    } catch (JsonProcessingException e) {
+      throw new IllegalArgumentException("target (jsonb) konnte nicht zu Map<String, UUID> geparsed werden", e);
     }
   }
 }
