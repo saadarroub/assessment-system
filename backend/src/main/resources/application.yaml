@@ -15,6 +15,7 @@ spring:
   
 server:
   port: 8080
+  forward-headers-strategy: native
 
 security:
   jwt:

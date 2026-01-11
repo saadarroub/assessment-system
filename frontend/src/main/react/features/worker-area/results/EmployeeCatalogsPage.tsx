@@ -1,10 +1,15 @@
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import AdminLayout from "@/apps/app/AdminLayout";
 import PageHeader from "@/features/admin-area/catalogs/PageHeader";
-import { jsPDF } from "jspdf";
-import autoTable from "jspdf-autotable";
 import { getWorker, getAssignmentsByCompany, getWorkerCatalogScore } from "@/features/service/companyService";
+import { getCatalogsWithModels } from "@/features/service/catalogService";
+import { getReifegradModelById } from "@/api/reifegradModelApi";
+import PdfExportModal from "@/features/admin-area/components/PdfExportModal";
+import type { ExportOptions } from "@/features/admin-area/components/PdfExportModal";
+import { generateCatalogPdf } from "@/features/admin-area/services/pdfExportService";
+import type { PdfExportData } from "@/features/admin-area/services/pdfExportService";
+import { getQuestionsTimeline } from "@/api/scoringApi";
 
 import {
   ArrowLeft,
@@ -32,6 +37,7 @@ interface Catalog {
   date: string;        // assignedAt oder "–"
   overallScore: number; // percentageScore 0-100
   topics: Topic[];
+  reifegradModelId?: string | null;
 }
 
 interface EmployeeData {
@@ -76,6 +82,10 @@ export default function EmployeeCatalogsPage() {
     null
   );
 
+  // PDF Export Modal
+  const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [selectedCatalog, setSelectedCatalog] = useState<Catalog | null>(null);
+
   // Suche
   const [q, setQ] = useState("");
 
@@ -116,7 +126,14 @@ export default function EmployeeCatalogsPage() {
 
         const catalogEntries = Array.from(catalogMap.values());
 
-        // 4) Pro Catalog: Worker-Score + ThemaScores holen
+        // 4) Alle Kataloge mit Reifegrad-Info holen
+        const catalogsWithModels = await getCatalogsWithModels().catch(() => []);
+        const modelMap = new Map<string, string | null>();
+        catalogsWithModels.forEach((c) => {
+          modelMap.set(c.id, c.reifegradModelId || null);
+        });
+
+        // 5) Pro Catalog: Worker-Score + ThemaScores holen
         const catalogs: Catalog[] = await Promise.all(
           catalogEntries.map(async (c) => {
             const score = await getWorkerCatalogScore(workerId, c.id).catch(() => null);
@@ -126,12 +143,14 @@ export default function EmployeeCatalogsPage() {
               name: c.title ?? score?.catalogTitle ?? "–",
               date: c.assignedAt ? new Date(c.assignedAt).toLocaleDateString("de-DE") : "–",
               overallScore: Math.round(score?.percentageScore ?? 0),
+              reifegradModelId: modelMap.get(c.id) || null,
               topics: (score?.themaScores ?? []).map((t) => ({
                 id: t.themaId,
                 name: t.themaName,
                 score: Math.round(t.percentageScore ?? 0),
                 completedSessions: Number(t.completedSessions ?? 0),
                 totalSessions: Number(t.totalSessions ?? 0),
+                sessionId: t.sessionId,
               })),
             };
           })
@@ -160,59 +179,69 @@ export default function EmployeeCatalogsPage() {
     };
   }, [workerId]);
 
-  const handleExportCatalog = (catalog: Catalog) => {
-    const doc = new jsPDF();
+  const openExportModal = (catalog: Catalog) => {
+    setSelectedCatalog(catalog);
+    setExportModalOpen(true);
+  };
 
-    doc.setFontSize(22);
-    doc.setTextColor(41, 128, 185);
-    doc.text(`Report: ${catalog.name}`, 14, 20);
+  const handleAdvancedExport = async (options: ExportOptions) => {
+    if (!selectedCatalog || !employee) return;
 
-    doc.setFontSize(12);
-    doc.setTextColor(0);
-    doc.text(`Mitarbeiter: ${employee?.name}`, 14, 35);
-    doc.text(`Erstelldatum: ${catalog.date}`, 14, 49);
-    doc.text(`Gesamt-Score: ${catalog.overallScore}%`, 14, 56);
+    try {
+      // Fetch session data for all topics if answers are included
+      let sessionData: any[] | undefined;
+      if (options.includeAnswers) {
+        const sessionsWithData = await Promise.all(
+          selectedCatalog.topics
+            .filter((t) => t.sessionId)
+            .map(async (topic) => {
+              try {
+                const timeline = await getQuestionsTimeline(topic.sessionId!);
+                return {
+                  sessionId: topic.sessionId!,
+                  themaName: topic.name,
+                  totalScore: timeline.totalScore,
+                  maxPossibleScore: timeline.maxPossibleScore,
+                  percentageScore: timeline.percentageScore,
+                  questions: timeline.questions,
+                };
+              } catch (e) {
+                console.error(`Failed to load session ${topic.sessionId}:`, e);
+                return null;
+              }
+            })
+        );
+        sessionData = sessionsWithData.filter((s) => s !== null);
+      }
 
-    autoTable(doc, {
-      startY: 70,
-      head: [["Thema", "Status", "Score"]],
-      body: catalog.topics.map((t) => [t.name, `${t.score}%`]),
-      headStyles: { fillColor: [41, 128, 185] },
-    });
+      // Fetch Reifegrad model if catalog has one
+      let reifegradModel = undefined;
+      if (selectedCatalog.reifegradModelId) {
+        try {
+          reifegradModel = await getReifegradModelById(selectedCatalog.reifegradModelId);
+        } catch (e) {
+          console.error("Failed to load Reifegrad model:", e);
+        }
+      }
 
-    catalog.topics.forEach((topic, index) => {
-      doc.addPage();
+      const exportData: PdfExportData = {
+        employee: {
+          id: employee.id,
+          name: employee.name,
+          workSpaceRef: employee.workSpaceRef,
+          email: employee.email,
+        },
+        catalog: selectedCatalog,
+        sessionData,
+        reifegradModel,
+        options,
+      };
 
-      doc.setFontSize(18);
-      doc.setTextColor(0);
-      doc.text(`Thema ${index + 1}: ${topic.name}`, 14, 20);
-
-      doc.setFontSize(12);
-      doc.text(`Score Visualisierung (${topic.score}%)`, 14, 40);
-
-      doc.setFillColor(230, 230, 230);
-      doc.rect(14, 45, 180, 20, "F");
-
-      if (topic.score >= 80) doc.setFillColor(46, 204, 113);
-      else if (topic.score >= 60) doc.setFillColor(241, 196, 15);
-      else doc.setFillColor(231, 76, 60);
-
-      const width = (180 * topic.score) / 100;
-      doc.rect(14, 45, width, 20, "F");
-
-      doc.setFontSize(14);
-      doc.setTextColor(50);
-      doc.text("Analyse & Maßnahmen", 14, 80);
-
-      doc.setFontSize(10);
-      doc.setTextColor(100);
-      const desc =
-        "Basierend auf den Antworten wurden folgende Potenziale erkannt. Bitte prüfen Sie die Compliance-Richtlinien und führen Sie ggf. Nachschulungen durch.";
-      const splitDesc = doc.splitTextToSize(desc, 180);
-      doc.text(splitDesc, 14, 90);
-    });
-
-    doc.save(`${employee?.name}_${catalog.name}_Report.pdf`);
+      await generateCatalogPdf(exportData);
+    } catch (error) {
+      console.error("PDF Export failed:", error);
+      alert("PDF Export fehlgeschlagen. Bitte versuchen Sie es erneut.");
+    }
   };
 
   const filteredCatalogs = useMemo(() => {
@@ -560,8 +589,9 @@ export default function EmployeeCatalogsPage() {
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleExportCatalog(catalog);
+                            openExportModal(catalog);
                           }}
+                          disabled={!catalog.topics.every(t => t.completedSessions === t.totalSessions)}
                           className="
                             inline-flex items-center gap-2
                             rounded-full
@@ -570,6 +600,7 @@ export default function EmployeeCatalogsPage() {
                             focus:outline-none
                             transition
                             hover:-translate-y-[0.5px]
+                            disabled:opacity-50 disabled:cursor-not-allowed
                           "
                           style={{
                             background: "hsl(40,60%,63%)",
@@ -577,6 +608,7 @@ export default function EmployeeCatalogsPage() {
                             boxShadow: "0 4px 10px rgba(0,0,0,0.10)",
                             border: "1px solid rgba(255,255,255,0.9)",
                           }}
+                          title={!catalog.topics.every(t => t.completedSessions === t.totalSessions) ? "Export nur verfügbar wenn alle Themen abgeschlossen sind" : ""}
                         >
                           <FileText size={15} />
                           <span>PDF Export</span>
@@ -646,26 +678,28 @@ export default function EmployeeCatalogsPage() {
                                     {topic.score}%
                                   </span>
 
-                                  <button
-                                    type="button"
-                                  onClick={() => navigate(`/app/results/${topic.sessionId}`)}
-                                    className="
-                                      inline-flex items-center gap-1.5
-                                      rounded-full border
-                                      px-3 py-1.5
-                                      text-[12px] font-semibold
-                                      transition
-                                      hover:bg-[#f5f0e4]
-                                    "
-                                    style={{
-                                      borderColor: BRAND.sand,
-                                      color: BRAND.navy,
-                                      background: "#ffffff",
-                                    }}
-                                  >
-                                    <Search size={14} />
-                                    <span>Analyse ansehen</span>
-                                  </button>
+                                  {topic.sessionId && (
+                                    <button
+                                      type="button"
+                                      onClick={() => navigate(`/app/results/${topic.sessionId}`)}
+                                      className="
+                                        inline-flex items-center gap-1.5
+                                        rounded-full border
+                                        px-3 py-1.5
+                                        text-[12px] font-semibold
+                                        transition
+                                        hover:bg-[#f5f0e4]
+                                      "
+                                      style={{
+                                        borderColor: BRAND.sand,
+                                        color: BRAND.navy,
+                                        background: "#ffffff",
+                                      }}
+                                    >
+                                      <Search size={14} />
+                                      <span>Analyse ansehen</span>
+                                    </button>
+                                  )}
                                 </div>
                               </div>
                             );
@@ -833,6 +867,17 @@ export default function EmployeeCatalogsPage() {
           </div>
         )}
       </main>
+
+      {/* PDF Export Modal */}
+      {selectedCatalog && (
+        <PdfExportModal
+          open={exportModalOpen}
+          onClose={() => setExportModalOpen(false)}
+          catalogName={selectedCatalog.name}
+          hasReifegradModel={!!selectedCatalog.reifegradModelId}
+          onExport={handleAdvancedExport}
+        />
+      )}
     </AdminLayout>
   );
 }

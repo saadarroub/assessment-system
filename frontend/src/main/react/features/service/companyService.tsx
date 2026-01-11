@@ -310,6 +310,7 @@ export type WorkerCatalogScoreApi = {
     percentageScore: number;
     completedSessions: number;
     totalSessions: number;
+    sessionId?: string;
   }>;
 };
 
