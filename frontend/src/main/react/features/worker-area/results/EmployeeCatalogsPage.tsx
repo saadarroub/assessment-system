@@ -4,6 +4,8 @@ import AdminLayout from "@/apps/app/AdminLayout";
 import PageHeader from "@/features/admin-area/catalogs/PageHeader";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
+import { getWorker, getAssignmentsByCompany, getWorkerCatalogScore } from "@/features/service/companyService";
+
 import {
   ArrowLeft,
   FileText,
@@ -17,24 +19,30 @@ interface Topic {
   id: string;
   name: string;
   score: number;
-  status: "completed" | "pending";
-  sessionId: string;
+  completedSessions: number;
+  totalSessions: number;
+  sessionId?: string;   // ✅ hinzufügen
 }
+
+
 
 interface Catalog {
   id: string;
   name: string;
-  date: string;
-  overallScore: number;
+  date: string;        // assignedAt oder "–"
+  overallScore: number; // percentageScore 0-100
   topics: Topic[];
 }
 
 interface EmployeeData {
   id: string;
   name: string;
-  department: string;
+  workSpaceRef?: string;
+  email?: string;
   catalogs: Catalog[];
 }
+
+
 
 // HSL-Token-Fallbacks (wie in deiner UsersPage)
 const CSS = {
@@ -77,73 +85,79 @@ export default function EmployeeCatalogsPage() {
   const PAGE_SIZE_OPTIONS = [5, 10, 25, 50];
 
   useEffect(() => {
-    setLoading(true);
+    if (!workerId) return;
 
-    // Dummy-Data (wie bisher)
-    const t = setTimeout(() => {
-      setEmployee({
-        id: workerId || "w1",
-        name: "Max Mustermann",
-        department: "IT",
-        catalogs: [
-          {
-            id: "cat_001",
-            name: "IT-Strategie 2025",
-            date: "2025-03-15",
-            overallScore: 78,
-            topics: [
-              {
-                id: "t1",
-                name: "Cloud Governance",
-                score: 85,
-                status: "completed",
-                sessionId: "sess_101",
-              },
-              {
-                id: "t2",
-                name: "Security Policies",
-                score: 60,
-                status: "completed",
-                sessionId: "sess_102",
-              },
-              {
-                id: "t3",
-                name: "Budgeting",
-                score: 90,
-                status: "completed",
-                sessionId: "sess_103",
-              },
-            ],
-          },
-          {
-            id: "cat_002",
-            name: "Digital Workplace",
-            date: "2025-02-20",
-            overallScore: 92,
-            topics: [
-              {
-                id: "t4",
-                name: "Remote Access",
-                score: 95,
-                status: "completed",
-                sessionId: "sess_104",
-              },
-              {
-                id: "t5",
-                name: "Collaboration Tools",
-                score: 89,
-                status: "completed",
-                sessionId: "sess_105",
-              },
-            ],
-          },
-        ],
-      });
+    let alive = true;
 
-      setLoading(false);
-    }, 500);
+    (async () => {
+      try {
+        setLoading(true);
 
-    return () => clearTimeout(t);
+        // 1) Worker holen (liefert companyId)
+        const w = await getWorker(workerId);
+
+        // 2) Assignments der Company holen und auf Worker filtern
+        const all = await getAssignmentsByCompany(w.companyId);
+        const mine = (all ?? []).filter((a) => String(a.worker?.id) === String(workerId));
+
+        // 3) Unique Catalogs bauen
+        const catalogMap = new Map<string, { id: string; title: string; assignedAt?: string }>();
+        for (const a of mine) {
+          const cid = a.catalog?.id;
+          if (!cid) continue;
+          if (!catalogMap.has(cid)) {
+            catalogMap.set(cid, {
+              id: cid,
+              title: a.catalog?.title ?? "–",
+              assignedAt: a.assignedAt,
+            });
+          }
+        }
+
+        const catalogEntries = Array.from(catalogMap.values());
+
+        // 4) Pro Catalog: Worker-Score + ThemaScores holen
+        const catalogs: Catalog[] = await Promise.all(
+          catalogEntries.map(async (c) => {
+            const score = await getWorkerCatalogScore(workerId, c.id).catch(() => null);
+
+            return {
+              id: c.id,
+              name: c.title ?? score?.catalogTitle ?? "–",
+              date: c.assignedAt ? new Date(c.assignedAt).toLocaleDateString("de-DE") : "–",
+              overallScore: Math.round(score?.percentageScore ?? 0),
+              topics: (score?.themaScores ?? []).map((t) => ({
+                id: t.themaId,
+                name: t.themaName,
+                score: Math.round(t.percentageScore ?? 0),
+                completedSessions: Number(t.completedSessions ?? 0),
+                totalSessions: Number(t.totalSessions ?? 0),
+              })),
+            };
+          })
+        );
+
+        if (!alive) return;
+
+        setEmployee({
+          id: w.id,
+          name: w.name ?? w.email ?? "–",
+          workSpaceRef: w.workSpaceRef,
+          email: w.email,
+          catalogs,
+        });
+      } catch (e) {
+        console.error(e);
+        if (!alive) return;
+        setEmployee(null);
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
   }, [workerId]);
 
   const handleExportCatalog = (catalog: Catalog) => {
@@ -156,14 +170,13 @@ export default function EmployeeCatalogsPage() {
     doc.setFontSize(12);
     doc.setTextColor(0);
     doc.text(`Mitarbeiter: ${employee?.name}`, 14, 35);
-    doc.text(`Abteilung: ${employee?.department}`, 14, 42);
     doc.text(`Erstelldatum: ${catalog.date}`, 14, 49);
     doc.text(`Gesamt-Score: ${catalog.overallScore}%`, 14, 56);
 
     autoTable(doc, {
       startY: 70,
       head: [["Thema", "Status", "Score"]],
-      body: catalog.topics.map((t) => [t.name, t.status, `${t.score}%`]),
+      body: catalog.topics.map((t) => [t.name, `${t.score}%`]),
       headStyles: { fillColor: [41, 128, 185] },
     });
 
@@ -238,7 +251,7 @@ export default function EmployeeCatalogsPage() {
         title={employee?.name ?? "Employee Catalogs"}
         subtitle={
           employee
-            ? `Zugewiesene Kataloge (${employee.catalogs.length}) · Abteilung: ${employee.department}`
+            ? `Zugewiesene Kataloge (${employee.catalogs.length}) · Abteilung: ${employee.workSpaceRef}`
             : "Übersicht der zugewiesenen Kataloge"
         }
         icon={<BarChart2 size={40} />}
@@ -480,8 +493,8 @@ export default function EmployeeCatalogsPage() {
                   catalog.overallScore >= 80
                     ? { bg: "rgba(34,197,94,0.12)", fg: "rgb(22,101,52)" }
                     : catalog.overallScore >= 60
-                    ? { bg: "rgba(245,158,11,0.14)", fg: "rgb(146,64,14)" }
-                    : { bg: "rgba(239,68,68,0.14)", fg: "rgb(153,27,27)" };
+                      ? { bg: "rgba(245,158,11,0.14)", fg: "rgb(146,64,14)" }
+                      : { bg: "rgba(239,68,68,0.14)", fg: "rgb(153,27,27)" };
 
                 return (
                   <div
@@ -571,9 +584,8 @@ export default function EmployeeCatalogsPage() {
 
                         <ChevronRight
                           size={20}
-                          className={`transition-transform ${
-                            expanded ? "rotate-90" : ""
-                          }`}
+                          className={`transition-transform ${expanded ? "rotate-90" : ""
+                            }`}
                           style={{ color: "#b0b0b0" }}
                         />
                       </div>
@@ -602,8 +614,8 @@ export default function EmployeeCatalogsPage() {
                               topic.score >= 80
                                 ? "bg-[rgb(220,252,231)] text-[rgb(22,101,52)]"
                                 : topic.score >= 60
-                                ? "bg-[rgb(254,243,199)] text-[rgb(146,64,14)]"
-                                : "bg-[rgb(254,226,226)] text-[rgb(153,27,27)]";
+                                  ? "bg-[rgb(254,243,199)] text-[rgb(146,64,14)]"
+                                  : "bg-[rgb(254,226,226)] text-[rgb(153,27,27)]";
 
                             return (
                               <div
@@ -636,7 +648,7 @@ export default function EmployeeCatalogsPage() {
 
                                   <button
                                     type="button"
-                                    onClick={() => navigate(`/app/results/${topic.sessionId}`)}
+                                  onClick={() => navigate(`/app/results/${topic.sessionId}`)}
                                     className="
                                       inline-flex items-center gap-1.5
                                       rounded-full border
