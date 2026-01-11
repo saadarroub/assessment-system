@@ -18,7 +18,7 @@ public class Worker {
     @Column(nullable = false)
     private String name;
 
-    @Column(name = "work_space_ref", nullable = false)
+    @Column(name = "work_space_ref", nullable = true)
     private String workSpaceRef;
 
     @Column(name = "company_id", nullable = false)

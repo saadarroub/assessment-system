@@ -155,6 +155,10 @@ export default function CompanyDetails() {
   const [workerStatusError, setWorkerStatusError] = useState<string | null>(null);
   const [workerAssignmentCount, setWorkerAssignmentCount] = useState<number>(0);
 
+  // Scroll Lock für alle Modals
+  const anyModalOpen = openInvite || !!editing || !!toDelete || confirmStatusOpen || confirmWorkerStatusOpen;
+  useScrollLock(anyModalOpen);
+
 function onStatusClick() {
   if (!company) return;
   if (!canChangeCompany || changingStatus) return; // <-- neu
@@ -261,9 +265,6 @@ function StatusToggle({
   onToggle: () => void;
 }) {
   const isActive = value === "active";
-  const anyModalOpen = openInvite || !!editing || !!toDelete || confirmStatusOpen || confirmWorkerStatusOpen;
-useScrollLock(anyModalOpen);
-
 
   return (
     <button
@@ -384,17 +385,13 @@ useScrollLock(anyModalOpen);
       setCreateErr("Bitte Name und Email ausfüllen.");
       return;
     }
-    if (!invWorkspace.trim()) {
-      setCreateErr("Bitte Workspace ausfüllen.");
-      return;
-    }
     setCreating(true);
     setCreateErr(null);
     try {
       const created = await createWorker({
         name: invName.trim(),
         email: invEmail.trim(),
-        workSpaceRef: invWorkspace.trim(),
+        workSpaceRef: invWorkspace.trim() || undefined,
         companyId: id,
       });
       setWorkers((prev) => [created, ...prev]);
@@ -426,10 +423,6 @@ useScrollLock(anyModalOpen);
 
     if (!formName.trim() || !formEmail.trim()) {
       setSaveError("Bitte Name und Email ausfüllen.");
-      return;
-    }
-    if (!formWs.trim()) {
-      setSaveError("Bitte Workspace ausfüllen.");
       return;
     }
 
@@ -1543,7 +1536,7 @@ useScrollLock(anyModalOpen);
                       htmlFor="cw-ws"
                       className="block text-sm font-medium text-slate-700 mb-1"
                     >
-                      Workspace <span className="text-red-500">*</span>
+                      Workspace
                     </label>
                     <input
                       id="cw-ws"

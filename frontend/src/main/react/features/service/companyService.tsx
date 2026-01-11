@@ -123,7 +123,7 @@ export async function createWorker(payload: CreateWorkerDto): Promise<WorkerApi>
 // NEU: volles Update-DTO
 export type UpdateWorkerDto = {
   name: string;
-  workSpaceRef: string;   // exakt wie im Backend (case!)
+  workSpaceRef?: string;   // exakt wie im Backend (case!)
   companyId: string;
   email: string;
 };
