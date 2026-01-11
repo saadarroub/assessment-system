@@ -18,7 +18,7 @@ export type CompanyApi = {
   name: string;
   description?: string | null;
   status?: "active" | "inactive" | string;
-  street?: string | null;
+  street?: string | null; 
   postalCode?: string | null;
   city?: string | null;
   country?: string | null;
@@ -216,3 +216,112 @@ export async function getWorkerAssignmentCount(id: string): Promise<number> {
   );
   return data?.count ?? 0;
 }
+// ===== Scoring =====
+export type CompanyOverallScoreApi = {
+  companyId: string;
+  companyName: string;
+  averagePercentageScore: number; // z.B. 75.5
+  totalCompletedSessions: number;
+  totalSessions: number;
+  totalWorkers: number;
+  totalCatalogs: number;
+  catalogScores: any[]; // kannst du später typisieren, für CompanyList nicht nötig
+};
+
+// WICHTIG:
+// Wenn dein apiClient baseURL schon ".../api" enthält (so wie bei /companies),
+// dann ist der Pfad HIER nur "/scoring/..."
+// Falls nicht, dann nimm "/api/scoring/..."
+export async function getCompanyOverallScore(companyId: string): Promise<CompanyOverallScoreApi> {
+  const { data } = await apiClient.get<CompanyOverallScoreApi>(
+    `/scoring/company/${encodeURIComponent(companyId)}/overall`,
+    { headers: { Accept: "application/json" } }
+  );
+  return data;
+}
+
+export type CompanyOverallApi = {
+  companyId: string;
+  companyName: string;
+  averagePercentageScore: number;
+  totalCompletedSessions: number;
+  totalSessions: number;
+  totalWorkers: number;
+  totalCatalogs: number;
+  catalogScores: Array<{
+    catalogId: string;
+    catalogTitle: string;
+    percentageScore: number;
+    completedSessions: number;
+    totalSessions: number;
+  }>;
+};
+
+export type CatalogWithWorkersApi = {
+  catalogId: string;
+  catalogTitle: string;
+  percentageScore: number;
+  completedSessions: number;
+  totalSessions: number;
+  workerScores: Array<{
+    workerId: string;
+    workerName: string;
+    workerEmail: string;
+    percentageScore: number;
+    completedThemas: number;
+    totalThemas: number;
+    status: "assigned" | "in_progress" | "completed";
+  }>;
+};
+
+// Du hast getCompanyOverallScore schon – falls nicht, so sollte es aussehen:
+// export async function getCompanyOverallScore(companyId: string): Promise<CompanyOverallApi> { ... }
+
+export async function getCompanyCatalogScoreWithWorkers(
+  companyId: string,
+  catalogId: string
+): Promise<CatalogWithWorkersApi> {
+  const { data } = await apiClient.get<CatalogWithWorkersApi>(
+    `/scoring/company/${encodeURIComponent(companyId)}/catalog/${encodeURIComponent(catalogId)}/workers`,
+    { headers: { Accept: "application/json" } }
+  );
+  return data;
+}
+export async function getWorker(id: string): Promise<WorkerApi> {
+  const { data } = await apiClient.get<WorkerApi>(`/workers/${encodeURIComponent(id)}`, {
+    headers: { Accept: "application/json" },
+  });
+  return data;
+}
+
+export type WorkerCatalogScoreApi = {
+  catalogId: string;
+  catalogTitle: string;
+  totalScore: number;
+  maxPossibleScore: number;
+  percentageScore: number;
+  completedSessions: number;
+  totalSessions: number;
+  themaScores: Array<{
+    themaId: string;
+    themaName: string;
+    totalScore: number;
+    maxPossibleScore: number;
+    percentageScore: number;
+    completedSessions: number;
+    totalSessions: number;
+  }>;
+};
+
+export async function getWorkerCatalogScore(
+  workerId: string,
+  catalogId: string
+): Promise<WorkerCatalogScoreApi> {
+  const { data } = await apiClient.get<WorkerCatalogScoreApi>(
+    `/scoring/worker/${encodeURIComponent(workerId)}/catalog/${encodeURIComponent(catalogId)}`,
+    { headers: { Accept: "application/json" } }
+  );
+  return data;
+}
+
+

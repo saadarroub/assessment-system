@@ -3,20 +3,19 @@ import { useNavigate, Link } from "react-router-dom";
 import AdminLayout from "@/apps/app/AdminLayout";
 import PageHeader from "@/features/admin-area/catalogs/PageHeader";
 import { Building2, Search, ArrowUpDown, BarChart3 } from "lucide-react";
+import { getCompanies, getWorkersByCompany, type CompanyApi, getCompanyOverallScore } from "@/features/service/companyService";
 
 /*  Types  */
 
 interface Company {
   id: string;
   name: string;
-  overall: number;
   employees: number;
-  industry: string;
-  date: string; // ISO (yyyy-mm-dd) oder beliebig
+  date: string;
+  overall?: number | null;
 }
 
-type SortKey = "id" | "name" | "industry" | "employees" | "overall" | "date";
-
+type SortKey = "id" | "name" | "employees" | "date" | "overall";
 /*  Tokens */
 const CSS = {
   adminBg: "hsl(var(--admin-bg,0 0% 92%))",
@@ -59,7 +58,6 @@ export default function CompanyListPage() {
 
   // Filter
   const [q, setQ] = useState("");
-  const [industry, setIndustry] = useState("all");
 
   // Sort
   const [sortKey, setSortKey] = useState<SortKey>("name");
@@ -75,24 +73,71 @@ export default function CompanyListPage() {
 
     (async () => {
       try {
-        const res = await fetch("http://localhost:5050/api/companyList");
-        const data = await res.json();
+        const apiCompanies: CompanyApi[] = await getCompanies();
         if (!alive) return;
-        setCompanies(Array.isArray(data) ? data : []);
+
+        // Wenn API leer -> fallback Mock
+        if (!apiCompanies || apiCompanies.length === 0) {
+          setCompanies([
+            { id: "1", name: "TechCorp GmbH", employees: 250, date: "2025-03-15" },
+            { id: "2", name: "MedHealth AG", employees: 150, date: "2025-03-18" },
+            { id: "3", name: "FinServ Bank", employees: 500, date: "2025-03-20" },
+          ]);
+          return;
+        }
+
+        // Mitarbeiterzahl pro Company holen
+        const mapped: Company[] = await Promise.all(
+          apiCompanies.map(async (c) => {
+    const [sRes, wRes] = await Promise.allSettled([
+      getCompanyOverallScore(c.id),
+      getWorkersByCompany(c.id),
+    ]);
+
+    // Basis: echte Worker-Liste
+    const workers =
+      wRes.status === "fulfilled" && Array.isArray(wRes.value) ? wRes.value : [];
+    let employees = workers.length;
+
+    // Optional: Score aus Scoring
+    let overall: number | null = null;
+
+    if (sRes.status === "fulfilled") {
+      const s = sRes.value;
+
+      overall =
+        typeof s?.averagePercentageScore === "number"
+          ? Math.round(s.averagePercentageScore)
+          : null;
+
+      // Wenn Scoring eine sinnvolle Zahl liefert, nimm sie – sonst bleib bei workers.length
+      if (typeof s?.totalWorkers === "number" && s.totalWorkers > 0) {
+        employees = s.totalWorkers;
+      }
+    }
+
+    return {
+      id: c.id,
+      name: c.name,
+      employees,
+      date: c.createdAt ?? c.updatedAt ?? "",
+      overall,
+    };
+  })
+        );
+
+
+
+        if (!alive) return;
+        setCompanies(mapped);
       } catch (e) {
         if (!alive) return;
-        // Fallback Mock
+
+        // API down -> fallback Mock
         setCompanies([
-          { id: "C001", name: "TechCorp GmbH", overall: 75, employees: 250, industry: "IT", date: "2025-03-15" },
-          { id: "C002", name: "MedHealth AG", overall: 82, employees: 150, industry: "Healthcare", date: "2025-03-18" },
-          { id: "C003", name: "FinServ Bank", overall: 88, employees: 500, industry: "Finance", date: "2025-03-20" },
-          { id: "C004", name: "AutoParts Ltd", overall: 68, employees: 300, industry: "Manufacturing", date: "2025-03-22" },
-          { id: "C005", name: "RetailMax", overall: 71, employees: 180, industry: "Retail", date: "2025-03-25" },
-          { id: "C006", name: "LogiTrans", overall: 79, employees: 220, industry: "Logistics", date: "2025-03-28" },
-          { id: "C007", name: "EduLearn GmbH", overall: 73, employees: 120, industry: "Education", date: "2025-04-01" },
-          { id: "C008", name: "PowerGrid AG", overall: 85, employees: 400, industry: "Energy", date: "2025-04-05" },
-          { id: "C009", name: "BuildCo", overall: 65, employees: 280, industry: "Construction", date: "2025-04-08" },
-          { id: "C010", name: "FoodService", overall: 70, employees: 160, industry: "Food", date: "2025-04-10" },
+          { id: "1", name: "TechCorp GmbH", employees: 250, date: "2025-03-15" },
+          { id: "2", name: "MedHealth AG", employees: 150, date: "2025-03-18" },
+          { id: "3", name: "FinServ Bank", employees: 500, date: "2025-03-20" },
         ]);
       } finally {
         if (alive) setLoading(false);
@@ -104,41 +149,32 @@ export default function CompanyListPage() {
     };
   }, []);
 
-  const industries = useMemo(() => {
-    const set = new Set<string>(companies.map((c) => c.industry).filter(Boolean));
-    return ["all", ...Array.from(set).sort((a, b) => a.localeCompare(b))];
-  }, [companies]);
 
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
 
     const base = companies.filter((c) => {
-      const matchesQ =
-        !term ||
-        c.name.toLowerCase().includes(term) ||
-        c.id.toLowerCase().includes(term);
-      const matchesIndustry = industry === "all" || c.industry === industry;
-      return matchesQ && matchesIndustry;
+      if (!term) return true;
+      return c.name.toLowerCase().includes(term) || c.id.toLowerCase().includes(term);
     });
 
     base.sort((a, b) => {
       const dir = asc ? 1 : -1;
+
       const va = (() => {
         switch (sortKey) {
           case "id":
             return a.id.toLowerCase();
           case "name":
             return a.name.toLowerCase();
-          case "industry":
-            return a.industry.toLowerCase();
           case "employees":
             return a.employees ?? 0;
-          case "overall":
-            return a.overall ?? 0;
           case "date": {
             const ta = new Date(a.date).getTime();
             return Number.isNaN(ta) ? 0 : ta;
           }
+          case "overall":
+            return a.overall ?? -1;
         }
       })();
 
@@ -148,16 +184,14 @@ export default function CompanyListPage() {
             return b.id.toLowerCase();
           case "name":
             return b.name.toLowerCase();
-          case "industry":
-            return b.industry.toLowerCase();
           case "employees":
             return b.employees ?? 0;
-          case "overall":
-            return b.overall ?? 0;
           case "date": {
             const tb = new Date(b.date).getTime();
             return Number.isNaN(tb) ? 0 : tb;
           }
+          case "overall":
+            return b.overall ?? -1;
         }
       })();
 
@@ -166,7 +200,8 @@ export default function CompanyListPage() {
     });
 
     return base;
-  }, [companies, q, industry, sortKey, asc]);
+  }, [companies, q, sortKey, asc]);
+
 
   const setSort = (key: SortKey) => {
     if (key === sortKey) setAsc((v) => !v);
@@ -178,13 +213,17 @@ export default function CompanyListPage() {
 
   // KPIs
   const total = companies.length;
+  const scored = companies.filter((c) => typeof c.overall === "number") as Array<Company & { overall: number }>;
+
   const avgScore =
-    total > 0 ? Math.round(companies.reduce((s, c) => s + (c.overall || 0), 0) / total) : 0;
-  const goodCount = companies.filter((c) => (c.overall ?? 0) >= 80).length;
-  const criticalCount = companies.filter((c) => (c.overall ?? 0) < 70).length;
+    scored.length > 0 ? Math.round(scored.reduce((s, c) => s + c.overall, 0) / scored.length) : 0;
+
+  const goodCount = scored.filter((c) => c.overall >= 80).length;
+  const criticalCount = scored.filter((c) => c.overall < 70).length;
+
 
   // Pagination
-  useEffect(() => setPage(1), [q, industry, sortKey, asc, pageSize, companies]);
+  useEffect(() => setPage(1), [q, sortKey, asc, pageSize, companies]);
   const totalFiltered = filtered.length;
   const totalPages = Math.max(1, Math.ceil(totalFiltered / pageSize));
   const startIdx = totalFiltered === 0 ? 0 : (page - 1) * pageSize + 1;
@@ -364,48 +403,6 @@ export default function CompanyListPage() {
               />
             </div>
 
-            {/* Filter: Label separat + Select-Pill separat */}
-            <div className="w-full md:w-[340px]">
-              <div className="flex items-center gap-3 md:justify-end">
-                {/* Label (eigenes Styling, KEIN Button) */}
-                <span className="text-xs font-medium whitespace-nowrap" style={{ color: CSS.mutedFg }}>
-                  Filter nach Branche
-                </span>
-
-                {/* Select als eigener Pill/Button */}
-                <div className="relative w-full md:w-[220px]">
-                  <select
-                    value={industry}
-                    onChange={(e) => setIndustry(e.target.value)}
-                    className="
-            w-full h-10 md:h-11
-            rounded-[999px]
-            border bg-white
-            px-4 pr-10
-            text-sm font-semibold
-            outline-none
-            appearance-none
-            shadow-sm
-          "
-                    style={{ borderColor: BRAND.sand, color: BRAND.navy }}
-                  >
-                    {industries.map((i) => (
-                      <option key={i} value={i}>
-                        {i === "all" ? "Alle Branchen" : i}
-                      </option>
-                    ))}
-                  </select>
-
-                  <span
-                    className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[10px]"
-                    style={{ color: "#b0b0b0" }}
-                  >
-                    ▾
-                  </span>
-                </div>
-              </div>
-            </div>
-
             {/* Count Badge (immer rechts, gleiche Höhe wie Inputs) */}
             <div className="flex justify-start md:justify-end">
               <div
@@ -447,32 +444,33 @@ export default function CompanyListPage() {
               >
                 <tr>
                   {[
-                    { k: "id", label: "ID" },
+                    { k: "id", label: "Nr°" },
                     { k: "name", label: "Unternehmen" },
-                    { k: "industry", label: "Branche" },
                     { k: "employees", label: "Mitarbeiter" },
                     { k: "overall", label: "Score" },
                     { k: "date", label: "Datum" },
-                  ].map((col) => (
-                    <th key={col.k} className="px-4 py-3 text-[0.85rem] font-semibold" style={{ color: CSS.fg }}>
-                      <button
-                        type="button"
-                        onClick={() => setSort(col.k as SortKey)}
-                        className="inline-flex items-center gap-2 hover:brightness-110"
-                        style={{ color: "inherit" }}
-                      >
-                        <span>{col.label}</span>
-                        <ArrowUpDown size={14} className="opacity-60" />
-                      </button>
-                    </th>
-                  ))}
+                  ]
+                    .map((col) => (
+                      <th key={col.k} className="px-4 py-3 text-[0.85rem] font-semibold" style={{ color: CSS.fg }}>
+                        <button
+                          type="button"
+                          onClick={() => setSort(col.k as SortKey)}
+                          className="inline-flex items-center gap-2 hover:brightness-110"
+                          style={{ color: "inherit" }}
+                        >
+                          <span>{col.label}</span>
+                          <ArrowUpDown size={14} className="opacity-60" />
+                        </button>
+                      </th>
+                    ))}
+
                 </tr>
               </thead>
 
               <tbody>
                 {pageData.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-4 py-10 bg-white">
+                    <td colSpan={5} className="px-4 py-10 bg-white">
                       <div className="flex flex-col items-center justify-center gap-3 text-center">
                         <div
                           className="flex h-12 w-12 items-center justify-center rounded-full bg-[hsla(200,32%,22%,0.06)]"
@@ -483,53 +481,54 @@ export default function CompanyListPage() {
 
                         <div className="space-y-1">
                           <p className="text-sm font-semibold" style={{ color: CSS.fg }}>
-                            {q.trim() || industry !== "all" ? "Keine Treffer" : "Noch keine Unternehmen vorhanden"}
+                            {q.trim() ? "Keine Treffer" : "Noch keine Unternehmen vorhanden"}
                           </p>
+
                           <p className="text-xs text-slate-500 max-w-md">
-                            {q.trim() || industry !== "all"
-                              ? "Bitte passe den Suchbegriff/Filter an oder setze alles zurück."
+                            {q.trim()
+                              ? "Bitte passe den Suchbegriff an oder setze die Suche zurück."
                               : "Sobald Daten vorhanden sind, siehst du hier die komplette Übersicht."}
                           </p>
                         </div>
 
-                        {(q.trim() || industry !== "all") && (
+                        {q.trim() && (
                           <button
                             type="button"
-                            onClick={() => {
-                              setQ("");
-                              setIndustry("all");
-                            }}
+                            onClick={() => setQ("")}
                             className="rounded-md border px-3 py-1.5 text-xs font-semibold hover:bg-slate-50"
                             style={{ borderColor: CSS.border, color: CSS.mutedFg }}
                           >
-                            Filter zurücksetzen
+                            Suche zurücksetzen
                           </button>
                         )}
+
                       </div>
                     </td>
                   </tr>
                 ) : (
-                  pageData.map((c) => {
-                    const tone = scoreTone(c.overall);
+                  pageData.map((c, idx) => {
+                    const rowNo = (page - 1) * pageSize + idx + 1;
 
                     return (
                       <tr
                         key={c.id}
                         className="
-                          bg-white
-                          transition
-                          border-l-[4px] border-transparent
-                          hover:border-[#E3BB62]
-                          hover:bg-[#fff9ec]
-                          hover:shadow-[0_4px_10px_rgba(0,0,0,0.04)]
-                          cursor-pointer
-                        "
+        bg-white
+        transition
+        border-l-[4px] border-transparent
+        hover:border-[#E3BB62]
+        hover:bg-[#fff9ec]
+        hover:shadow-[0_4px_10px_rgba(0,0,0,0.04)]
+        cursor-pointer
+      "
                         onClick={() => openCompany(c.id)}
                       >
+                        {/* Nr° */}
                         <td className="px-4 py-4 text-sm" style={{ borderBottom: `1px solid ${CSS.border}`, color: CSS.mutedFg }}>
-                          {c.id}
+                          {rowNo}
                         </td>
 
+                        {/* Unternehmen */}
                         <td className="px-4 py-4" style={{ borderBottom: `1px solid ${CSS.border}` }}>
                           <button
                             type="button"
@@ -544,10 +543,7 @@ export default function CompanyListPage() {
                           </button>
                         </td>
 
-                        <td className="px-4 py-4 text-sm" style={{ borderBottom: `1px solid ${CSS.border}`, color: CSS.mutedFg }}>
-                          {c.industry}
-                        </td>
-
+                        {/* Mitarbeiter */}
                         <td className="px-4 py-4" style={{ borderBottom: `1px solid ${CSS.border}` }}>
                           <span
                             className="inline-flex items-center rounded-md px-2 py-1 text-[12px] font-semibold"
@@ -557,34 +553,42 @@ export default function CompanyListPage() {
                           </span>
                         </td>
 
+                        {/* Score */}
                         <td className="px-4 py-4" style={{ borderBottom: `1px solid ${CSS.border}` }}>
-                          <span
-                            className="inline-flex items-center rounded-full px-2.5 py-1 text-[12px] font-semibold"
-                            style={{
-                              background:
-                                tone === "good"
-                                  ? "rgb(220,252,231)"
-                                  : tone === "mid"
-                                    ? "rgb(254,243,199)"
-                                    : "rgb(254,226,226)",
-                              color:
-                                tone === "good"
-                                  ? "rgb(22,101,52)"
-                                  : tone === "mid"
-                                    ? "rgb(146,64,14)"
-                                    : "rgb(153,27,27)",
-                            }}
-                          >
-                            {c.overall}
-                          </span>
+                          {typeof c.overall === "number" ? (
+                            <span
+                              className="inline-flex items-center rounded-full px-2.5 py-1 text-[12px] font-semibold"
+                              style={{
+                                background:
+                                  c.overall >= 80
+                                    ? "rgb(220,252,231)"
+                                    : c.overall >= 70
+                                      ? "rgb(254,243,199)"
+                                      : "rgb(254,226,226)",
+                                color:
+                                  c.overall >= 80
+                                    ? "rgb(22,101,52)"
+                                    : c.overall >= 70
+                                      ? "rgb(146,64,14)"
+                                      : "rgb(153,27,27)",
+                              }}
+                            >
+                              {c.overall}%
+                            </span>
+                          ) : (
+                            <span className="text-sm" style={{ color: CSS.mutedFg }}>–</span>
+                          )}
                         </td>
 
+
+                        {/* Datum */}
                         <td className="px-4 py-4 text-sm" style={{ borderBottom: `1px solid ${CSS.border}`, color: CSS.mutedFg }}>
                           {formatDate(c.date)}
                         </td>
                       </tr>
                     );
                   })
+
                 )}
               </tbody>
             </table>
