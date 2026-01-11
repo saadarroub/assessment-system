@@ -16,21 +16,59 @@ public class QuestionConditionController {
   @Autowired
   private QuestionConditionService questionConditionService;
 
-  // Endpoint zum Erstellen oder Aktualisieren einer QuestionCondition
-  // AKTUELL (manuell testen über URL):
-  @PostMapping("/handle/{sourceQuestionId}/{sessionId}")
-  public ResponseEntity<String> handleQuestionCondition(
+  @PostMapping("/create/{sourceQuestionId}/{temporarySessionId}")
+  public ResponseEntity<String> createQuestionCondition(
       @PathVariable UUID sourceQuestionId,
-      @PathVariable UUID sessionId,
+      @PathVariable UUID temporarySessionId,
       @RequestBody HandleRequest requestBody
   ) {
     try {
-      questionConditionService.handleQuestionByType(
+      questionConditionService.createQuestionCondition(
           sourceQuestionId,
-          sessionId,
-          requestBody.getExpectedValue(),
-          requestBody.getTarget()
+          temporarySessionId,
+          requestBody.getTarget(),
+          requestBody.getExpectedValue()
       );
+      return ResponseEntity.ok("QuestionCondition erfolgreich erstellt.");
+    } catch (IllegalArgumentException e) {
+      return ResponseEntity.badRequest().body(e.getMessage());
+    } catch (Exception e) {
+      return ResponseEntity.internalServerError().body("Interner Fehler: " + e.getMessage());
+    }
+  }
+
+  // ZUKUNFT (automatisch über Header, nur aktivieren wenn Frontend Header sendet):
+
+//  @PostMapping("/create/{temporarySessionId}")
+//  public ResponseEntity<String> createQuestionCondition(
+//      @RequestHeader("X-Question-Id") UUID sourceQuestionId,
+//      @PathVariable UUID temporarySessionId,
+//      @RequestBody HandleRequest requestBody
+//  ) {
+//    try {
+//      questionConditionService.createQuestionCondition(
+//          sourceQuestionId,
+//          temporarySessionId,
+//          requestBody.getTarget(),
+//          requestBody.getExpectedValue()
+//      );
+//      return ResponseEntity.ok("QuestionCondition erfolgreich erstellt.");
+//    } catch (IllegalArgumentException e) {
+//      return ResponseEntity.badRequest().body(e.getMessage());
+//    } catch (Exception e) {
+//      return ResponseEntity.internalServerError().body("Interner Fehler: " + e.getMessage());
+//    }
+//  }
+
+  // Endpoint zum Erstellen oder Aktualisieren einer QuestionCondition
+  // AKTUELL (manuell testen über URL):
+  @PostMapping("/handle/{sourceQuestionId}/{sessionId}/{temporarySessionId}")
+  public ResponseEntity<String> handleQuestionCondition(
+      @PathVariable UUID sourceQuestionId,
+      @PathVariable UUID sessionId,
+      @PathVariable UUID temporarySessionId) {
+    try {
+      questionConditionService.handleQuestionByType(sourceQuestionId, sessionId, temporarySessionId);
       return ResponseEntity.ok("QuestionCondition erfolgreich verarbeitet.");
     } catch (IllegalArgumentException e) {
       return ResponseEntity.badRequest().body(e.getMessage());
@@ -44,15 +82,10 @@ public class QuestionConditionController {
 // public ResponseEntity<String> handleQuestionCondition(
 //     @RequestHeader("X-Question-Id") UUID sourceQuestionId,
 //     @RequestHeader("X-Session-Id") UUID sessionId,
-//     @RequestBody HandleRequest requestBody
+//     @RequestHeader("X-Temporary-Session-Id") UUID temporarySessionId
 // ) {
 //   try {
-//     questionConditionService.handleQuestionByType(
-//         sourceQuestionId,
-//         sessionId,
-//         requestBody.getExpectedValue(),
-//         requestBody.getTarget()
-//     );
+//     questionConditionService.handleQuestionByType(sourceQuestionId, sessionId, temporarySessionId);
 //     return ResponseEntity.ok("QuestionCondition erfolgreich verarbeitet.");
 //   } catch (IllegalArgumentException e) {
 //     return ResponseEntity.badRequest().body(e.getMessage());
@@ -69,11 +102,12 @@ public class QuestionConditionController {
       @PathVariable UUID sessionId
   ) {
     try {
-      var qc = questionConditionService.createOrLoadQuestionCondition(sourceQuestionId, sessionId);
+      var qc = questionConditionService.getterLoaderQuestionCondition(sourceQuestionId, sessionId);
       return ResponseEntity.ok(new QuestionConditionDTO(
           qc.getId(),
           qc.getSourceQuestionId(),
           qc.getTargetNodeId(),
+          qc.getTarget(),
           qc.getOperator(),
           qc.getExpectedValue(),
           qc.getSessionId(),
@@ -96,6 +130,7 @@ public class QuestionConditionController {
 //         qc.getId(),
 //         qc.getSourceQuestionId(),
 //         qc.getTargetNodeId(),
+//         qc.getTarget(),
 //         qc.getOperator(),
 //         qc.getExpectedValue(),
 //         qc.getSessionId(),
@@ -115,16 +150,8 @@ public class QuestionConditionController {
       return expectedValue;
     }
 
-    public void setExpectedValue(String expectedValue) {
-      this.expectedValue = expectedValue;
-    }
-
     public Map<String, UUID> getTarget() {
       return target;
-    }
-
-    public void setTarget(Map<String, UUID> target) {
-      this.target = target;
     }
   }
 }
