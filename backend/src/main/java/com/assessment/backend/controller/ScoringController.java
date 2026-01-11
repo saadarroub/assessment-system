@@ -51,10 +51,10 @@ public class ScoringController {
 
     // Typen die manuelle Bewertung benötigen (gleich wie in PublicAccessController)
     private static final Set<String> MANUAL_REVIEW_TYPES = Set.of(
-        "text_input", 
-        "number_input", 
-        "date_input", 
-        "ordering"
+        "text", 
+        "number", 
+        "date", 
+        "order"
     );
 
     @Autowired
@@ -494,7 +494,7 @@ public class ScoringController {
                     ((java.sql.Timestamp) data.get("answered_at")).toLocalDateTime() : null;
                 
                 q.setAnsweredAt(answeredAt);
-                q.setScore(score != null ? score : BigDecimal.ZERO);
+                q.setScore(score); // null = noch nicht bewertet, Wert = bewertet
                 
                 // Antwort-Wert parsen
                 if (answerValueJson != null && !"null".equals(answerValueJson)) {
@@ -676,7 +676,7 @@ public class ScoringController {
                     ((java.sql.Timestamp) data.get("answered_at")).toLocalDateTime() : null;
                 
                 q.setAnsweredAt(answeredAt);
-                q.setScore(score != null ? score : BigDecimal.ZERO);
+                q.setScore(score); // null = noch nicht bewertet, Wert = bewertet
                 
                 // Antwort-Wert parsen
                 if (answerValueJson != null && !"null".equals(answerValueJson)) {
@@ -705,8 +705,13 @@ public class ScoringController {
                     // Übersprungen: value ist null ODER nicht bewertbar
                     uebersprungen.add(q);
                 } else if (MANUAL_REVIEW_TYPES.contains(q.getInputType())) {
-                    // Manuelle Bewertung erforderlich
-                    manuellZuBewerten.add(q);
+                    // Manuelle Bewertung: Nur wenn Score = null oder 0 (noch nicht bewertet)
+                    // Wenn Score > 0, wurde bereits bewertet → automatischBewertet
+                    if (score == null || score.compareTo(BigDecimal.ZERO) == 0) {
+                        manuellZuBewerten.add(q);
+                    } else {
+                        automatischBewertet.add(q);
+                    }
                 } else {
                     // Automatisch bewertet
                     automatischBewertet.add(q);
@@ -799,7 +804,7 @@ public class ScoringController {
             
             // 4. Score aktualisieren
             answer.setScore(request.getScore());
-            answerRepository.save(answer);
+            answerRepository.saveAndFlush(answer);  // Flush to DB before recalculation
             
             // 5. Session Totals neu berechnen
             assessmentSessionService.recalculateTotals(sessionUuid);
@@ -851,6 +856,11 @@ public class ScoringController {
      * (Gleiche Logik wie in PublicAccessController)
      */
     private BigDecimal calculateMaxScoreForQuestion(String inputType, String scoringSchemaJson) {
+        // Manual review types always get 6 points (0-6 scale)
+        if (MANUAL_REVIEW_TYPES.contains(inputType)) {
+            return BigDecimal.valueOf(6);
+        }
+        
         if (scoringSchemaJson == null || scoringSchemaJson.isBlank()) {
             return BigDecimal.ZERO;
         }

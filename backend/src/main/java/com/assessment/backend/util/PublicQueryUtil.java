@@ -467,8 +467,8 @@ public class PublicQueryUtil {
                                 java.math.BigDecimal sumFromSchema = extractSumScore(scoringSchemaJson);
                                 total = total.add(sumFromSchema);
                             } else {
-                                // Fallback: keine Schema = 5 Punkte
-                                total = total.add(java.math.BigDecimal.valueOf(5));
+                                // Fallback: keine Schema = 6 Punkte
+                                total = total.add(java.math.BigDecimal.valueOf(6));
                             }
                         }
                         else if ("multiple_choice".equals(normalized) || "dropdown".equals(normalized)) {
@@ -477,14 +477,14 @@ public class PublicQueryUtil {
                                 java.math.BigDecimal maxFromSchema = extractMaxScore(scoringSchemaJson);
                                 total = total.add(maxFromSchema);
                             } else {
-                                // Fallback: keine Schema = 5 Punkte
-                                total = total.add(java.math.BigDecimal.valueOf(5));
+                                // Fallback: keine Schema = 6 Punkte
+                                total = total.add(java.math.BigDecimal.valueOf(6));
                             }
                         } 
                         else {
                             // Manual Scoring: text_input, number_input, date_input, ordering
-                            // Jeweils 5 Punkte
-                            total = total.add(java.math.BigDecimal.valueOf(5));
+                            // Jeweils 6 Punkte
+                            total = total.add(java.math.BigDecimal.valueOf(6));
                         }
                     }
                     

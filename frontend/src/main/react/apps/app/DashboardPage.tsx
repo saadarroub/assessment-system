@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import AdminLayout from "./AdminLayout";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   getDashboardStats,
   getRecentAssignments,
@@ -201,6 +201,7 @@ function SectionHeader({
 
 
 export function DashboardPage() {
+  const navigate = useNavigate();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recentAssignments, setRecentAssignments] = useState<
     AssignmentSummary[]
@@ -716,14 +717,11 @@ export function DashboardPage() {
                       return (
                         <div
                           key={s.id}
-                          onClick={() => (window.location.href = `/app/results/${s.id}`)}
                           className="
                   rounded-xl border px-4 py-3
                   bg-white
-                  cursor-pointer
                   transition-all duration-200
                   hover:shadow-md hover:border-blue-300
-                  hover:bg-blue-50/30
                   group
                 "
                           style={{ borderColor: "#e5e7eb" }}
@@ -736,10 +734,24 @@ export function DashboardPage() {
                                 {s.workerName}
                               </span>
                             </div>
-                            <ArrowRight
-                              size={14}
-                              className="text-slate-400 group-hover:text-blue-500 transition-colors"
-                            />
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigate(`/app/results/${s.id}`);
+                                }}
+                                className="
+                                  px-3 py-1.5 text-xs font-semibold rounded-lg
+                                  bg-blue-500 text-white
+                                  hover:bg-blue-600 transition-all
+                                  shadow-sm hover:shadow-md
+                                  flex items-center gap-1.5
+                                "
+                              >
+                                <Award size={12} />
+                                Bewerten
+                              </button>
+                            </div>
                           </div>
 
                           {/* Theme + Company */}
