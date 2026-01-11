@@ -18,10 +18,12 @@ import {
 interface Topic {
   id: string;
   name: string;
-  score: number; // 0-100
+  score: number;
   completedSessions: number;
   totalSessions: number;
+  sessionId?: string;   // ✅ hinzufügen
 }
+
 
 
 interface Catalog {
@@ -646,7 +648,7 @@ export default function EmployeeCatalogsPage() {
 
                                   <button
                                     type="button"
-                                  onClick={() => navigate(`/topic/${topic.id}`)}
+                                  onClick={() => navigate(`/app/results/${topic.sessionId}`)}
                                     className="
                                       inline-flex items-center gap-1.5
                                       rounded-full border
