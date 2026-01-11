@@ -523,10 +523,11 @@ public class PublicQueryUtil {
                 }
             }
             
-            return java.math.BigDecimal.valueOf(maxValue);
+            // Fallback to 6 if no value found
+            return maxValue > 0 ? java.math.BigDecimal.valueOf(maxValue) : java.math.BigDecimal.valueOf(6);
         } catch (Exception e) {
             // Fallback bei Parse-Fehler
-            return java.math.BigDecimal.valueOf(5);
+            return java.math.BigDecimal.valueOf(6);
         }
     }
 
@@ -559,10 +560,11 @@ public class PublicQueryUtil {
                 }
             }
             
-            return java.math.BigDecimal.valueOf(sum);
+            // Fallback to 6 if sum is 0
+            return sum > 0 ? java.math.BigDecimal.valueOf(sum) : java.math.BigDecimal.valueOf(6);
         } catch (Exception e) {
             // Fallback bei Parse-Fehler
-            return java.math.BigDecimal.valueOf(5);
+            return java.math.BigDecimal.valueOf(6);
         }
     }
 

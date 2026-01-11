@@ -861,8 +861,14 @@ public class ScoringController {
             return BigDecimal.valueOf(6);
         }
         
+        // Rating/Slider always get 6 points (0-6 scale), regardless of schema
+        if ("rating".equals(inputType) || "slider".equals(inputType)) {
+            return BigDecimal.valueOf(6);
+        }
+        
         if (scoringSchemaJson == null || scoringSchemaJson.isBlank()) {
-            return BigDecimal.ZERO;
+            // Fallback for types without schema: assume 6 points
+            return BigDecimal.valueOf(6);
         }
 
         try {
@@ -900,15 +906,7 @@ public class ScoringController {
                 return sum;
             }
             
-            // 3. Rating/Slider
-            if ("rating".equals(inputType) || "slider".equals(inputType)) {
-                if (root.has("maxPoints")) {
-                    return BigDecimal.valueOf(root.get("maxPoints").asDouble());
-                }
-                return BigDecimal.ZERO;
-            }
-            
-            // 4. Boolean (Ja/Nein)
+            // 3. Boolean (Ja/Nein)
             if ("boolean".equals(inputType)) {
                 BigDecimal truePoints = root.has("true") ? 
                     BigDecimal.valueOf(root.get("true").asDouble()) : BigDecimal.ZERO;
@@ -917,11 +915,22 @@ public class ScoringController {
                 return truePoints.max(falsePoints);
             }
             
-            // Default
-            return BigDecimal.ZERO;
+            // Default: try to extract max value from schema
+            BigDecimal max = BigDecimal.ZERO;
+            var it = root.fields();
+            while (it.hasNext()) {
+                var entry = it.next();
+                if (entry.getValue().isNumber()) {
+                    BigDecimal val = BigDecimal.valueOf(entry.getValue().asDouble());
+                    if (val.compareTo(max) > 0) {
+                        max = val;
+                    }
+                }
+            }
+            return max.compareTo(BigDecimal.ZERO) > 0 ? max : BigDecimal.valueOf(6);
             
         } catch (Exception e) {
-            return BigDecimal.ZERO;
+            return BigDecimal.valueOf(6);
         }
     }
 }
