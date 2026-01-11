@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import AppHeader from "@/apps/app/AppHeader";
-import { fetchThemenByCatalog } from "@/features/service/themaCatalogService";
+import { fetchThemenByCatalog, getQuestionCountForThema } from "@/features/service/themaCatalogService";
 import type { ThemaDto } from "@/features/service/themaCatalogService";
 import { getState, calcProgressPct } from "@/features/service/publicAssessmentService";
 import { fetchAssignmentByAccessCode, fetchInviteMeta } from "@/features/service/inviteService";
@@ -218,7 +218,7 @@ function CatalogCard({ data, onStart }: { data: TopicCardModel; onStart: () => v
             {completed ? (
               <span>Umfrage abgeschlossen</span>
             ) : (
-              <span>Fragen : noch nicht implementiert</span>
+              <span>{data.questionsLabel}</span>
             )}
           </div>
         </div>
@@ -309,6 +309,7 @@ export default function KatalogThemenPublic() {
   const [activeTab, setActiveTab] = useState<TabKey>("available");
   const [tick, setTick] = useState(0);
   const [themen, setThemen] = useState<ThemaDto[] | null>(null);
+  const [questionCounts, setQuestionCounts] = useState<Record<string, number>>({});
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -514,20 +515,57 @@ export default function KatalogThemenPublic() {
           if (wantsRefresh) {
             writeSnapshotIds(assignmentIdSafe, list.map((t) => t.id));
             setThemen(list);
+            // Fragenanzahl für alle Themen laden
+            list.forEach(async (t) => {
+              try {
+                const count = await getQuestionCountForThema(t.id);
+                setQuestionCounts((prev) => ({ ...prev, [t.id]: count }));
+              } catch (e) {
+                console.error("Fehler beim Laden der Fragenanzahl für Thema", t.id, e);
+              }
+            });
             return;
           }
           const snapIds = readSnapshotIds(assignmentIdSafe);
           if (snapIds && snapIds.length) {
             const setIds = new Set(snapIds);
-            setThemen(list.filter((t) => setIds.has(t.id)));
+            const filteredList = list.filter((t) => setIds.has(t.id));
+            setThemen(filteredList);
+            // Fragenanzahl für gefilterte Themen laden
+            filteredList.forEach(async (t) => {
+              try {
+                const count = await getQuestionCountForThema(t.id);
+                setQuestionCounts((prev) => ({ ...prev, [t.id]: count }));
+              } catch (e) {
+                console.error("Fehler beim Laden der Fragenanzahl für Thema", t.id, e);
+              }
+            });
             return;
           } else {
             writeSnapshotIds(assignmentIdSafe, list.map((t) => t.id));
             setThemen(list);
+            // Fragenanzahl für alle Themen laden
+            list.forEach(async (t) => {
+              try {
+                const count = await getQuestionCountForThema(t.id);
+                setQuestionCounts((prev) => ({ ...prev, [t.id]: count }));
+              } catch (e) {
+                console.error("Fehler beim Laden der Fragenanzahl für Thema", t.id, e);
+              }
+            });
             return;
           }
         }
         setThemen(list);
+        // Fragenanzahl für alle Themen laden
+        list.forEach(async (t) => {
+          try {
+            const count = await getQuestionCountForThema(t.id);
+            setQuestionCounts((prev) => ({ ...prev, [t.id]: count }));
+          } catch (e) {
+            console.error("Fehler beim Laden der Fragenanzahl für Thema", t.id, e);
+          }
+        });
       } catch {
         if (alive) setThemen([]);
       }
@@ -578,11 +616,12 @@ export default function KatalogThemenPublic() {
           .catch(() => { });
       }
 
+      const questionCount = questionCounts[t.id] ?? 0;
       return {
         dashKey,
         tag: "Thema",
         title: t.name || "Unbenanntes Thema",
-        questionsLabel: "Thema",
+        questionsLabel: questionCount > 0 ? `${questionCount} Fragen` : "Lade...",
         subtitle: t.description || "Kein Beschreibungstext vorhanden.",
         est: DEFAULT_EST,
         features: DEFAULT_FEATURES,
@@ -593,7 +632,7 @@ export default function KatalogThemenPublic() {
         statusFromApi,
       };
     });
-  }, [themen, assessments, token, assignmentIdEffective]);
+  }, [themen, assessments, token, assignmentIdEffective, questionCounts]);
 
   /* --- Tabs --- */
 

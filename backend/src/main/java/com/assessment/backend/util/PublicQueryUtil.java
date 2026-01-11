@@ -467,8 +467,8 @@ public class PublicQueryUtil {
                                 java.math.BigDecimal sumFromSchema = extractSumScore(scoringSchemaJson);
                                 total = total.add(sumFromSchema);
                             } else {
-                                // Fallback: keine Schema = 5 Punkte
-                                total = total.add(java.math.BigDecimal.valueOf(5));
+                                // Fallback: keine Schema = 6 Punkte
+                                total = total.add(java.math.BigDecimal.valueOf(6));
                             }
                         }
                         else if ("multiple_choice".equals(normalized) || "dropdown".equals(normalized)) {
@@ -477,14 +477,14 @@ public class PublicQueryUtil {
                                 java.math.BigDecimal maxFromSchema = extractMaxScore(scoringSchemaJson);
                                 total = total.add(maxFromSchema);
                             } else {
-                                // Fallback: keine Schema = 5 Punkte
-                                total = total.add(java.math.BigDecimal.valueOf(5));
+                                // Fallback: keine Schema = 6 Punkte
+                                total = total.add(java.math.BigDecimal.valueOf(6));
                             }
                         } 
                         else {
                             // Manual Scoring: text_input, number_input, date_input, ordering
-                            // Jeweils 5 Punkte
-                            total = total.add(java.math.BigDecimal.valueOf(5));
+                            // Jeweils 6 Punkte
+                            total = total.add(java.math.BigDecimal.valueOf(6));
                         }
                     }
                     
@@ -523,10 +523,11 @@ public class PublicQueryUtil {
                 }
             }
             
-            return java.math.BigDecimal.valueOf(maxValue);
+            // Fallback to 6 if no value found
+            return maxValue > 0 ? java.math.BigDecimal.valueOf(maxValue) : java.math.BigDecimal.valueOf(6);
         } catch (Exception e) {
             // Fallback bei Parse-Fehler
-            return java.math.BigDecimal.valueOf(5);
+            return java.math.BigDecimal.valueOf(6);
         }
     }
 
@@ -559,10 +560,11 @@ public class PublicQueryUtil {
                 }
             }
             
-            return java.math.BigDecimal.valueOf(sum);
+            // Fallback to 6 if sum is 0
+            return sum > 0 ? java.math.BigDecimal.valueOf(sum) : java.math.BigDecimal.valueOf(6);
         } catch (Exception e) {
             // Fallback bei Parse-Fehler
-            return java.math.BigDecimal.valueOf(5);
+            return java.math.BigDecimal.valueOf(6);
         }
     }
 

@@ -39,11 +39,6 @@ public class Answer {
         }
     }
 
-    @PreUpdate
-    public void preUpdate() {
-        answeredAt = LocalDateTime.now();
-    }
-
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
 

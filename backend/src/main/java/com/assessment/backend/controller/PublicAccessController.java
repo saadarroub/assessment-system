@@ -50,10 +50,10 @@ public class PublicAccessController {
 
     // Typen die manuelle Bewertung benötigen (score wird auf 0 gesetzt)
     private static final Set<String> MANUAL_REVIEW_TYPES = Set.of(
-        "text_input", 
-        "number_input", 
-        "date_input", 
-        "ordering"
+        "text", 
+        "number", 
+        "date", 
+        "order"
     );
 
     @Autowired
@@ -954,10 +954,10 @@ public class PublicAccessController {
                 return new ResponseEntity<>(response, HttpStatus.OK);
             }
             
-            // Manuelle Review-Typen: Score = 0.0 (später von Admin bewertet), NULL wenn nicht bewertbar
+            // Manuelle Review-Typen: Score = NULL (wird später von Admin bewertet)
             if (MANUAL_REVIEW_TYPES.contains(inputType)) {
-                // Wenn nicht bewertbar → Score = NULL (wird ignoriert)
-                BigDecimal scoreToSave = isScorable ? BigDecimal.ZERO : null;
+                // Score bleibt NULL bis Admin manuell bewertet - auch wenn isScorable=true
+                BigDecimal scoreToSave = null;
                 var saved = answerService.upsert(session.getId(), questionUuid, value, scoreToSave);
                 assessmentSessionService.recalculateTotals(session.getId());
 

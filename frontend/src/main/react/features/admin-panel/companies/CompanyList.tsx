@@ -123,7 +123,7 @@ export default function CompaniesList() {
   const [cStreet, setCStreet] = useState("");
   const [cPostalCode, setCPostalCode] = useState("");
   const [cCity, setCCity] = useState("");
-  const [cCountry, setCCountry] = useState("");
+  const [cCountry, setCCountry] = useState("Deutschland");
   const [cWebsite, setCWebsite] = useState("");
   const [cPhone, setCPhone] = useState("");
   const [creating, setCreating] = useState(false);
@@ -1330,7 +1330,6 @@ export default function CompaniesList() {
           role="dialog"
           aria-modal="true"
           className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/40 backdrop-blur-sm"
-
         >
           <div
             className="w-full max-w-xl px-4 sm:px-0"
