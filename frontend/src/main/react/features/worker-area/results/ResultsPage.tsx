@@ -326,22 +326,6 @@ export default function ResultsPage() {
               </span>
             </div>
           </nav>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => alert("PDF Export kommt bald")}
-              className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition hover:-translate-y-[1px]"
-              style={{
-                background: BRAND.gold,
-                color: BRAND.navy,
-                boxShadow: "0 6px 14px rgba(0,0,0,0.12)",
-                border: "1px solid rgba(255,255,255,0.8)",
-              }}
-            >
-              <FileText size={16} />
-              PDF
-            </button>
-          </div>
         </div>
 
         {/* Session Info Card (optisch wie Code 2 Cards) */}
