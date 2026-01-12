@@ -15,6 +15,7 @@ public class ThemaScoreDTO {
     private Double percentageScore; // 0-100%
     private Long completedSessions;
     private Long totalSessions;
+    private UUID sessionId; // ID der besten completed Session
     
     public ThemaScoreDTO() {}
     
@@ -28,6 +29,19 @@ public class ThemaScoreDTO {
         this.percentageScore = percentageScore;
         this.completedSessions = completedSessions;
         this.totalSessions = totalSessions;
+    }
+    
+    public ThemaScoreDTO(UUID themaId, String themaName, BigDecimal totalScore, 
+                         BigDecimal maxPossibleScore, Double percentageScore,
+                         Long completedSessions, Long totalSessions, UUID sessionId) {
+        this.themaId = themaId;
+        this.themaName = themaName;
+        this.totalScore = totalScore;
+        this.maxPossibleScore = maxPossibleScore;
+        this.percentageScore = percentageScore;
+        this.completedSessions = completedSessions;
+        this.totalSessions = totalSessions;
+        this.sessionId = sessionId;
     }
     
     // Getters and Setters
@@ -85,5 +99,13 @@ public class ThemaScoreDTO {
     
     public void setTotalSessions(Long totalSessions) {
         this.totalSessions = totalSessions;
+    }
+    
+    public UUID getSessionId() {
+        return sessionId;
+    }
+    
+    public void setSessionId(UUID sessionId) {
+        this.sessionId = sessionId;
     }
 }
