@@ -12,37 +12,31 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-import lombok.Getter;
+import jakarta.persistence.UniqueConstraint;
 import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
 
 @Entity
-@Table(name = "question_condition")
+@Table(name = "question_condition",
+    uniqueConstraints = @UniqueConstraint(
+        name = "uk_question_condition_unique",
+        columnNames = {"source_question_id", "operator", "expected_value"}))
 public class QuestionCondition {
 
   @Id
   @GeneratedValue(strategy = GenerationType.UUID)
   private UUID id;
 
-  @Column(name ="source_question_id")
+  @Column(name = "source_question_id", nullable = false)
   private UUID sourceQuestionId;
 
   @Column(name = "target_node_id")
   private UUID targetNodeId;
-
-  @JdbcTypeCode(SqlTypes.JSON)
-  @Column(name = "target", columnDefinition = "jsonb")
-  private String target = "{}";
 
   @Column(nullable = false, columnDefinition = "TEXT")
   private String operator;
 
   @Column(nullable = false, columnDefinition = "TEXT")
   private String expectedValue;
-
-  @Column(name = "session_id")
-  private UUID sessionId;
 
   @CreationTimestamp
   @Column(name = "created_at", nullable = false, updatable = false)
@@ -54,7 +48,9 @@ public class QuestionCondition {
 
   //Getter
 
-  public UUID getId() {return id;}
+  public UUID getId() {
+    return id;
+  }
 
   public UUID getSourceQuestionId() {
     return sourceQuestionId;
@@ -64,18 +60,12 @@ public class QuestionCondition {
     return targetNodeId;
   }
 
-  public String getTarget(){return target;}
-
   public String getOperator() {
     return operator;
   }
 
   public String getExpectedValue() {
     return expectedValue;
-  }
-
-  public UUID getSessionId() {
-    return sessionId;
   }
 
   public LocalDateTime getCreatedAt() {
@@ -92,21 +82,19 @@ public class QuestionCondition {
     this.targetNodeId = targetNodeId;
   }
 
-  public void setTarget(String target){this.target = target;}
-
   public void setExpectedValue(String expectedValue) {
     this.expectedValue = expectedValue;
-  }
-
-  public void setSessionId(UUID sessionId) {
-    this.sessionId = sessionId;
   }
 
   public void setQuestion(Question question) {
     this.question = question;
   }
 
-  public void setSourceQuestionId(UUID sourceQuestionId) { this.sourceQuestionId = sourceQuestionId; }
+  public void setSourceQuestionId(UUID sourceQuestionId) {
+    this.sourceQuestionId = sourceQuestionId;
+  }
 
-  public void setOperator(String operator) {this.operator = operator;}
+  public void setOperator(String operator) {
+    this.operator = operator;
+  }
 }
