@@ -17,15 +17,13 @@ public class QuestionConditionDTO {
   // Konstruktoren
   public QuestionConditionDTO() {}
 
-  public QuestionConditionDTO(UUID id, UUID sourceQuestionId, UUID targetNodeId, String target, String operator,
-                              String expectedValue, UUID sessionId, LocalDateTime createdAt) {
+  public QuestionConditionDTO(UUID id, UUID sourceQuestionId, UUID targetNodeId, String operator,
+                              String expectedValue, LocalDateTime createdAt) {
     this.id = id;
     this.sourceQuestionId = sourceQuestionId;
     this.targetNodeId = targetNodeId;
-    this.target = target;
     this.operator = operator;
     this.expectedValue = expectedValue;
-    this.sessionId = sessionId;
     this.createdAt = createdAt;
   }
 
@@ -54,10 +52,6 @@ public class QuestionConditionDTO {
     this.targetNodeId = targetNodeId;
   }
 
-  public String getTarget(){return target;}
-
-  public void  setTarget(String target){ this.target = target; }
-
   public String getOperator() {
     return operator;
   }
@@ -72,14 +66,6 @@ public class QuestionConditionDTO {
 
   public void setExpectedValue(String expectedValue) {
     this.expectedValue = expectedValue;
-  }
-
-  public UUID getSessionId() {
-    return sessionId;
-  }
-
-  public void setSessionId(UUID sessionId) {
-    this.sessionId = sessionId;
   }
 
   public LocalDateTime getCreatedAt() {

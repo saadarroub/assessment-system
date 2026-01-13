@@ -5,19 +5,18 @@ import com.assessment.backend.entity.QuestionCondition;
 import com.assessment.backend.entity.QuestionType;
 import com.assessment.backend.repository.QuestionConditionRepository;
 import com.assessment.backend.service.QuestionConditionService;
-import com.assessment.backend.util.JsonbParser;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
-import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import java.time.LocalDate;
-import java.util.*;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -33,265 +32,279 @@ class QuestionConditionServiceTest {
 
   @BeforeEach
   void setup() {
-    service = new QuestionConditionService(new ObjectMapper());
+    service = spy(new QuestionConditionService(new ObjectMapper()));
     ReflectionTestUtils.setField(service, "questionConditionRepository", questionConditionRepository);
   }
 
-  @Test
-  void handleQuestionByType_multipleChoice_match_setsEqualTarget() {
-    UUID sourceQuestionId = UUID.randomUUID();
-    UUID sessionId = UUID.randomUUID();
-    UUID temporarySessionId = UUID.randomUUID();
-
-    UUID eqTarget = UUID.randomUUID();
-    UUID neTarget = UUID.randomUUID();
-
+  private static QuestionCondition qc(UUID sourceId, String operator, UUID targetNodeId, String expectedValue) {
     QuestionCondition qc = new QuestionCondition();
-    qc.setSourceQuestionId(sourceQuestionId);
-    qc.setSessionId(temporarySessionId); // wird in loadQuestionCondition auf sessionId gesetzt
-    qc.setExpectedValue("Yes");
-    qc.setTarget("{\"==\":\"" + eqTarget + "\",\"!=\":\"" + neTarget + "\"}");
+    qc.setSourceQuestionId(sourceId);
+    qc.setOperator(operator);
+    qc.setTargetNodeId(targetNodeId);
+    qc.setExpectedValue(expectedValue);
+    return qc;
+  }
 
-    Question question = mock(Question.class);
-    QuestionType type = mock(QuestionType.class);
+  /**
+   * Nur das verwenden, was in der Service-Klasse sichtbar ist:
+   * Service nutzt question.getQuestionType().getName()
+   * -> wir bauen echte Entities und setzen Felder per Reflection (keine unbekannten Setter nötig).
+   */
+  private static Question questionWithTypeName(String typeName) {
+    QuestionType type = new QuestionType();
+    setFirstExistingField(type, typeName, "name", "typeName");
 
-    when(questionConditionRepository.findBySourceQuestionIdAndSessionId(sourceQuestionId, temporarySessionId))
-        .thenReturn(qc);
-    when(questionConditionRepository.findQuestionBySourceQuestionId(sourceQuestionId))
-        .thenReturn(question);
-    when(question.getQuestionType()).thenReturn(type);
-    when(type.getName()).thenReturn("Multiple Choice");
-    when(questionConditionRepository.findValueByQuestionIdAndSessionId(sourceQuestionId, sessionId))
-        .thenReturn("{\"value\":\"Yes\"}");
+    Question question = new Question();
+    setFirstExistingField(question, type, "questionType", "type");
 
-    Map<String, UUID> targetMap = new HashMap<>();
-    targetMap.put("==", eqTarget);
-    targetMap.put("!=", neTarget);
+    return question;
+  }
 
-    try (MockedStatic<JsonbParser> mocked = mockStatic(JsonbParser.class)) {
-      mocked.when(() -> JsonbParser.readTargetFromDbJson(anyString())).thenReturn(targetMap);
-      mocked.when(() -> JsonbParser.parseString(anyString())).thenReturn("yes"); // ignoreCase
-
-      service.handleQuestionByType(sourceQuestionId, sessionId, temporarySessionId);
+  private static void setFirstExistingField(Object target, Object value, String... fieldCandidates) {
+    RuntimeException last = null;
+    for (String field : fieldCandidates) {
+      try {
+        ReflectionTestUtils.setField(target, field, value);
+        return;
+      } catch (RuntimeException e) {
+        last = e;
+      }
     }
-
-    ArgumentCaptor<QuestionCondition> captor = ArgumentCaptor.forClass(QuestionCondition.class);
-    verify(questionConditionRepository, atLeastOnce()).save(captor.capture());
-
-    QuestionCondition saved = captor.getValue();
-    assertEquals(sessionId, saved.getSessionId());
-    assertEquals(eqTarget, saved.getTargetNodeId());
+    // wenn nichts passt: lieber klar fehlschlagen
+    throw last != null ? last : new IllegalStateException("Kein Feld gefunden zum Setzen per Reflection.");
   }
 
   @Test
-  void handleQuestionByType_multipleChoice_noMatch_setsNotEqualTarget() {
+  void handleQuestionByType_multipleChoice_callsHandleQuestionWithCorrectTargets() {
     UUID sourceQuestionId = UUID.randomUUID();
     UUID sessionId = UUID.randomUUID();
-    UUID temporarySessionId = UUID.randomUUID();
 
     UUID eqTarget = UUID.randomUUID();
     UUID neTarget = UUID.randomUUID();
+    String expectedValue = "Yes";
 
-    QuestionCondition qc = new QuestionCondition();
-    qc.setSourceQuestionId(sourceQuestionId);
-    qc.setSessionId(temporarySessionId);
-    qc.setExpectedValue("Yes");
-    qc.setTarget("{\"==\":\"" + eqTarget + "\",\"!=\":\"" + neTarget + "\"}");
+    when(questionConditionRepository.findAllBySourceQuestionId(sourceQuestionId))
+        .thenReturn(List.of(
+            qc(sourceQuestionId, "==", eqTarget, expectedValue),
+            qc(sourceQuestionId, "!=", neTarget, expectedValue)
+        ));
 
-    Question question = mock(Question.class);
-    QuestionType type = mock(QuestionType.class);
-
-    when(questionConditionRepository.findBySourceQuestionIdAndSessionId(sourceQuestionId, temporarySessionId))
-        .thenReturn(qc);
     when(questionConditionRepository.findQuestionBySourceQuestionId(sourceQuestionId))
-        .thenReturn(question);
-    when(question.getQuestionType()).thenReturn(type);
-    when(type.getName()).thenReturn("Multiple Choice");
-    when(questionConditionRepository.findValueByQuestionIdAndSessionId(sourceQuestionId, sessionId))
-        .thenReturn("{\"value\":\"No\"}");
+        .thenReturn(questionWithTypeName("Multiple Choice"));
 
-    Map<String, UUID> targetMap = new HashMap<>();
-    targetMap.put("==", eqTarget);
-    targetMap.put("!=", neTarget);
+    doReturn(eqTarget).when(service).handleQuestion(eq(sourceQuestionId), anyMap(), eq(sessionId), eq(expectedValue));
 
-    try (MockedStatic<JsonbParser> mocked = mockStatic(JsonbParser.class)) {
-      mocked.when(() -> JsonbParser.readTargetFromDbJson(anyString())).thenReturn(targetMap);
-      mocked.when(() -> JsonbParser.parseString(anyString())).thenReturn("No");
+    service.handleQuestionByType(sourceQuestionId, sessionId);
 
-      service.handleQuestionByType(sourceQuestionId, sessionId, temporarySessionId);
-    }
+    @SuppressWarnings("unchecked")
+    ArgumentCaptor<Map<String, UUID>> mapCaptor = ArgumentCaptor.forClass(Map.class);
 
-    ArgumentCaptor<QuestionCondition> captor = ArgumentCaptor.forClass(QuestionCondition.class);
-    verify(questionConditionRepository, atLeastOnce()).save(captor.capture());
+    verify(service).handleQuestion(eq(sourceQuestionId), mapCaptor.capture(), eq(sessionId), eq(expectedValue));
 
-    assertEquals(neTarget, captor.getValue().getTargetNodeId());
+    Map<String, UUID> map = mapCaptor.getValue();
+    assertEquals(eqTarget, map.get("=="));
+    assertEquals(neTarget, map.get("!="));
   }
 
   @Test
-  void handleQuestionByType_multipleSelect_equal_setsEqualTarget() {
+  void handleQuestionByType_multipleSelect_callsHandleMultipleSelectWithCorrectTargets() {
     UUID sourceQuestionId = UUID.randomUUID();
     UUID sessionId = UUID.randomUUID();
-    UUID temporarySessionId = UUID.randomUUID();
 
     UUID eqTarget = UUID.randomUUID();
     UUID neTarget = UUID.randomUUID();
+    String expectedValue = "A, b";
 
-    QuestionCondition qc = new QuestionCondition();
-    qc.setSourceQuestionId(sourceQuestionId);
-    qc.setSessionId(temporarySessionId);
-    qc.setExpectedValue("A, b");
-    qc.setTarget("{\"==\":\"" + eqTarget + "\",\"!=\":\"" + neTarget + "\"}");
+    when(questionConditionRepository.findAllBySourceQuestionId(sourceQuestionId))
+        .thenReturn(List.of(
+            qc(sourceQuestionId, "==", eqTarget, expectedValue),
+            qc(sourceQuestionId, "!=", neTarget, expectedValue)
+        ));
 
-    Question question = mock(Question.class);
-    QuestionType type = mock(QuestionType.class);
-
-    when(questionConditionRepository.findBySourceQuestionIdAndSessionId(sourceQuestionId, temporarySessionId))
-        .thenReturn(qc);
     when(questionConditionRepository.findQuestionBySourceQuestionId(sourceQuestionId))
-        .thenReturn(question);
-    when(question.getQuestionType()).thenReturn(type);
-    when(type.getName()).thenReturn("Multiple Select");
-    when(questionConditionRepository.findValueByQuestionIdAndSessionId(sourceQuestionId, sessionId))
-        .thenReturn("{\"value\":[\"a\",\"B \"]}");
+        .thenReturn(questionWithTypeName("Multiple Select"));
 
-    Map<String, UUID> targetMap = new HashMap<>();
-    targetMap.put("==", eqTarget);
-    targetMap.put("!=", neTarget);
+    doReturn(eqTarget).when(service).handleMultipleSelectQuestion(eq(sourceQuestionId), anyMap(), eq(sessionId), eq(expectedValue));
 
-    try (MockedStatic<JsonbParser> mocked = mockStatic(JsonbParser.class)) {
-      mocked.when(() -> JsonbParser.readTargetFromDbJson(anyString())).thenReturn(targetMap);
-      mocked.when(() -> JsonbParser.parseStringSet(anyString()))
-          .thenReturn(new HashSet<>(Arrays.asList("a", "B ")));
+    service.handleQuestionByType(sourceQuestionId, sessionId);
 
-      service.handleQuestionByType(sourceQuestionId, sessionId, temporarySessionId);
-    }
+    @SuppressWarnings("unchecked")
+    ArgumentCaptor<Map<String, UUID>> mapCaptor = ArgumentCaptor.forClass(Map.class);
 
-    ArgumentCaptor<QuestionCondition> captor = ArgumentCaptor.forClass(QuestionCondition.class);
-    verify(questionConditionRepository, atLeastOnce()).save(captor.capture());
+    verify(service).handleMultipleSelectQuestion(eq(sourceQuestionId), mapCaptor.capture(), eq(sessionId), eq(expectedValue));
 
-    assertEquals(eqTarget, captor.getValue().getTargetNodeId());
+    Map<String, UUID> map = mapCaptor.getValue();
+    assertEquals(eqTarget, map.get("=="));
+    assertEquals(neTarget, map.get("!="));
   }
 
   @Test
-  void handleQuestionByType_numberInput_less_setsLessTarget() {
+  void handleQuestionByType_numberInput_callsHandleNumberWithCorrectTargets() {
     UUID sourceQuestionId = UUID.randomUUID();
     UUID sessionId = UUID.randomUUID();
-    UUID temporarySessionId = UUID.randomUUID();
 
     UUID eqTarget = UUID.randomUUID();
     UUID ltTarget = UUID.randomUUID();
     UUID gtTarget = UUID.randomUUID();
+    String expectedValue = "10";
 
-    QuestionCondition qc = new QuestionCondition();
-    qc.setSourceQuestionId(sourceQuestionId);
-    qc.setSessionId(temporarySessionId);
-    qc.setExpectedValue("10");
-    qc.setTarget("{\"==\":\"" + eqTarget + "\",\"<\":\"" + ltTarget + "\",\">\":\"" + gtTarget + "\"}");
+    when(questionConditionRepository.findAllBySourceQuestionId(sourceQuestionId))
+        .thenReturn(List.of(
+            qc(sourceQuestionId, "==", eqTarget, expectedValue),
+            qc(sourceQuestionId, "<", ltTarget, expectedValue),
+            qc(sourceQuestionId, ">", gtTarget, expectedValue)
+        ));
 
-    Question question = mock(Question.class);
-    QuestionType type = mock(QuestionType.class);
-
-    when(questionConditionRepository.findBySourceQuestionIdAndSessionId(sourceQuestionId, temporarySessionId))
-        .thenReturn(qc);
     when(questionConditionRepository.findQuestionBySourceQuestionId(sourceQuestionId))
-        .thenReturn(question);
-    when(question.getQuestionType()).thenReturn(type);
-    when(type.getName()).thenReturn("Number Input");
-    when(questionConditionRepository.findValueByQuestionIdAndSessionId(sourceQuestionId, sessionId))
-        .thenReturn("{\"value\":5}");
+        .thenReturn(questionWithTypeName("Number Input"));
 
-    Map<String, UUID> targetMap = new HashMap<>();
-    targetMap.put("==", eqTarget);
-    targetMap.put("<", ltTarget);
-    targetMap.put(">", gtTarget);
+    doReturn(ltTarget).when(service).handleNumberQuestion(eq(sourceQuestionId), anyMap(), eq(sessionId), eq(expectedValue));
 
-    try (MockedStatic<JsonbParser> mocked = mockStatic(JsonbParser.class)) {
-      mocked.when(() -> JsonbParser.readTargetFromDbJson(anyString())).thenReturn(targetMap);
-      mocked.when(() -> JsonbParser.parseLong(anyString())).thenReturn(5L);
+    service.handleQuestionByType(sourceQuestionId, sessionId);
 
-      service.handleQuestionByType(sourceQuestionId, sessionId, temporarySessionId);
-    }
+    @SuppressWarnings("unchecked")
+    ArgumentCaptor<Map<String, UUID>> mapCaptor = ArgumentCaptor.forClass(Map.class);
 
-    ArgumentCaptor<QuestionCondition> captor = ArgumentCaptor.forClass(QuestionCondition.class);
-    verify(questionConditionRepository, atLeastOnce()).save(captor.capture());
+    verify(service).handleNumberQuestion(eq(sourceQuestionId), mapCaptor.capture(), eq(sessionId), eq(expectedValue));
 
-    assertEquals(ltTarget, captor.getValue().getTargetNodeId());
+    Map<String, UUID> map = mapCaptor.getValue();
+    assertEquals(eqTarget, map.get("=="));
+    assertEquals(ltTarget, map.get("<"));
+    assertEquals(gtTarget, map.get(">"));
   }
 
   @Test
-  void handleQuestionByType_dateInput_before_setsLessTarget() {
+  void handleQuestionByType_ratingScale_callsHandleNumberWithCorrectTargets() {
     UUID sourceQuestionId = UUID.randomUUID();
     UUID sessionId = UUID.randomUUID();
-    UUID temporarySessionId = UUID.randomUUID();
 
     UUID eqTarget = UUID.randomUUID();
     UUID ltTarget = UUID.randomUUID();
     UUID gtTarget = UUID.randomUUID();
+    String expectedValue = "3";
 
-    QuestionCondition qc = new QuestionCondition();
-    qc.setSourceQuestionId(sourceQuestionId);
-    qc.setSessionId(temporarySessionId);
-    qc.setExpectedValue("02.01.2026");
-    qc.setTarget("{\"==\":\"" + eqTarget + "\",\"<\":\"" + ltTarget + "\",\">\":\"" + gtTarget + "\"}");
+    when(questionConditionRepository.findAllBySourceQuestionId(sourceQuestionId))
+        .thenReturn(List.of(
+            qc(sourceQuestionId, "==", eqTarget, expectedValue),
+            qc(sourceQuestionId, "<", ltTarget, expectedValue),
+            qc(sourceQuestionId, ">", gtTarget, expectedValue)
+        ));
 
-    Question question = mock(Question.class);
-    QuestionType type = mock(QuestionType.class);
-
-    when(questionConditionRepository.findBySourceQuestionIdAndSessionId(sourceQuestionId, temporarySessionId))
-        .thenReturn(qc);
     when(questionConditionRepository.findQuestionBySourceQuestionId(sourceQuestionId))
-        .thenReturn(question);
-    when(question.getQuestionType()).thenReturn(type);
-    when(type.getName()).thenReturn("Date Input");
-    when(questionConditionRepository.findValueByQuestionIdAndSessionId(sourceQuestionId, sessionId))
-        .thenReturn("{\"value\":\"2026-01-01\"}");
+        .thenReturn(questionWithTypeName("Rating Scale"));
 
-    Map<String, UUID> targetMap = new HashMap<>();
-    targetMap.put("==", eqTarget);
-    targetMap.put("<", ltTarget);
-    targetMap.put(">", gtTarget);
+    doReturn(eqTarget).when(service).handleNumberQuestion(eq(sourceQuestionId), anyMap(), eq(sessionId), eq(expectedValue));
 
-    try (MockedStatic<JsonbParser> mocked = mockStatic(JsonbParser.class)) {
-      mocked.when(() -> JsonbParser.readTargetFromDbJson(anyString())).thenReturn(targetMap);
-      mocked.when(() -> JsonbParser.parseDate(anyString())).thenReturn(LocalDate.of(2026, 1, 1));
+    service.handleQuestionByType(sourceQuestionId, sessionId);
 
-      service.handleQuestionByType(sourceQuestionId, sessionId, temporarySessionId);
-    }
-
-    ArgumentCaptor<QuestionCondition> captor = ArgumentCaptor.forClass(QuestionCondition.class);
-    verify(questionConditionRepository, atLeastOnce()).save(captor.capture());
-
-    assertEquals(ltTarget, captor.getValue().getTargetNodeId());
+    verify(service).handleNumberQuestion(eq(sourceQuestionId), anyMap(), eq(sessionId), eq(expectedValue));
   }
 
   @Test
-  void createQuestionCondition_multipleChoice_setsOperatorAndSaves() {
+  void handleQuestionByType_dateInput_callsHandleDateWithCorrectTargets() {
     UUID sourceQuestionId = UUID.randomUUID();
-    UUID tempSessionId = UUID.randomUUID();
+    UUID sessionId = UUID.randomUUID();
 
-    Map<String, UUID> target = new HashMap<>();
-    target.put("==", UUID.randomUUID());
-    target.put("!=", UUID.randomUUID());
+    UUID eqTarget = UUID.randomUUID();
+    UUID ltTarget = UUID.randomUUID();
+    UUID gtTarget = UUID.randomUUID();
+    String expectedValue = "02.01.2026";
 
-    Question question = mock(Question.class);
-    QuestionType type = mock(QuestionType.class);
+    when(questionConditionRepository.findAllBySourceQuestionId(sourceQuestionId))
+        .thenReturn(List.of(
+            qc(sourceQuestionId, "==", eqTarget, expectedValue),
+            qc(sourceQuestionId, "<", ltTarget, expectedValue),
+            qc(sourceQuestionId, ">", gtTarget, expectedValue)
+        ));
 
     when(questionConditionRepository.findQuestionBySourceQuestionId(sourceQuestionId))
-        .thenReturn(question);
-    when(question.getQuestionType()).thenReturn(type);
-    when(type.getName()).thenReturn("Multiple Choice");
+        .thenReturn(questionWithTypeName("Date Input"));
+
+    doReturn(gtTarget).when(service).handleDateQuestion(eq(sourceQuestionId), anyMap(), eq(sessionId), eq(expectedValue));
+
+    service.handleQuestionByType(sourceQuestionId, sessionId);
+
+    verify(service).handleDateQuestion(eq(sourceQuestionId), anyMap(), eq(sessionId), eq(expectedValue));
+  }
+
+  @Test
+  void findTargetNodeIdByOperator_returnsMatchingTarget() {
+    UUID sourceQuestionId = UUID.randomUUID();
+    UUID eqTarget = UUID.randomUUID();
+    UUID neTarget = UUID.randomUUID();
+
+    List<QuestionCondition> list = List.of(
+        qc(sourceQuestionId, "==", eqTarget, "x"),
+        qc(sourceQuestionId, "!=", neTarget, "x")
+    );
+
+    assertEquals(eqTarget, service.findTargetNodeIdByOperator(list, "=="));
+    assertEquals(neTarget, service.findTargetNodeIdByOperator(list, "!="));
+    assertNull(service.findTargetNodeIdByOperator(list, "<"));
+  }
+
+  // createQuestionCondition: nur abhängig von Service-Logik + Repository-Stub
+  @Test
+  void createQuestionCondition_multipleChoice_operatorEquals_throwsAccordingToCurrentServiceLogic() {
+    UUID sourceQuestionId = UUID.randomUUID();
+    UUID targetNodeId = UUID.randomUUID();
+
+    when(questionConditionRepository.findQuestionBySourceQuestionId(sourceQuestionId))
+        .thenReturn(questionWithTypeName("Multiple Choice"));
+
+    assertThrows(IllegalArgumentException.class, () ->
+        service.createQuestionCondition(sourceQuestionId, targetNodeId, "==", "Yes")
+    );
+
+    verify(questionConditionRepository, never()).save(any());
+  }
+
+  @Test
+  void createQuestionCondition_multipleChoice_operatorLessThan_savesAccordingToCurrentServiceLogic() {
+    UUID sourceQuestionId = UUID.randomUUID();
+    UUID targetNodeId = UUID.randomUUID();
+
+    when(questionConditionRepository.findQuestionBySourceQuestionId(sourceQuestionId))
+        .thenReturn(questionWithTypeName("Multiple Choice"));
 
     when(questionConditionRepository.save(any(QuestionCondition.class)))
         .thenAnswer(inv -> inv.getArgument(0));
 
-    QuestionCondition saved = service.createQuestionCondition(sourceQuestionId, tempSessionId, target, "Yes");
+    QuestionCondition saved = service.createQuestionCondition(sourceQuestionId, targetNodeId, "<", "Yes");
 
-    assertNotNull(saved);
     assertEquals(sourceQuestionId, saved.getSourceQuestionId());
-    assertEquals(tempSessionId, saved.getSessionId());
+    assertEquals(targetNodeId, saved.getTargetNodeId());
+    assertEquals("<", saved.getOperator());
     assertEquals("Yes", saved.getExpectedValue());
-    assertEquals("==,!=", saved.getOperator());
-    assertNotNull(saved.getTarget());
-    verify(questionConditionRepository).save(any(QuestionCondition.class));
+  }
+
+  @Test
+  void createQuestionCondition_unknownType_throws() {
+    UUID sourceQuestionId = UUID.randomUUID();
+    UUID targetNodeId = UUID.randomUUID();
+
+    when(questionConditionRepository.findQuestionBySourceQuestionId(sourceQuestionId))
+        .thenReturn(questionWithTypeName("Unknown Type"));
+
+    assertThrows(IllegalArgumentException.class, () ->
+        service.createQuestionCondition(sourceQuestionId, targetNodeId, "==", "x")
+    );
+
+    verify(questionConditionRepository, never()).save(any());
+  }
+
+  @Test
+  void createQuestionCondition_questionNotFound_throws() {
+    UUID sourceQuestionId = UUID.randomUUID();
+    UUID targetNodeId = UUID.randomUUID();
+
+    when(questionConditionRepository.findQuestionBySourceQuestionId(sourceQuestionId))
+        .thenReturn(null);
+
+    assertThrows(IllegalStateException.class, () ->
+        service.createQuestionCondition(sourceQuestionId, targetNodeId, "==", "x")
+    );
+
+    verify(questionConditionRepository, never()).save(any());
   }
 }
