@@ -213,6 +213,22 @@ export async function getInactiveThemas() {
   return response.data;
 }
 
+// 🔧 Condition für eine Frage erstellen
+export async function createQuestionCondition(
+  sourceQuestionId: string,
+  payload: {
+    targetNodeId: string;   // ✅ richtig
+    operator: "==" | "!=" | "<" | ">";
+    expectedValue: string;
+  }
+) {
+  const url = `/question-condition/create/${sourceQuestionId}`;
+  const res = await apiClient.post(url, payload);
+  return res.data;
+}
+
+
+
 
 
 
