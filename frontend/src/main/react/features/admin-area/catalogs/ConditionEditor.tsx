@@ -28,6 +28,10 @@ import {
   ChevronUp,
   ChevronDown,
   Eye,
+  Target,
+  CheckCircle2,
+  RefreshCcw,
+  PlusCircle,
 } from "lucide-react";
 
 import {
@@ -41,7 +45,8 @@ import {
   updateQuestion,
   updateQuestionNodeRequired,
   moveRootNode,
-  moveChildNode,createQuestionCondition 
+  moveChildNode,
+  createQuestionCondition,
 } from "@/api/questionApi";
 
 // 🧩 Drag & Drop Imports
@@ -56,13 +61,13 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { restrictToParentElement } from "@dnd-kit/modifiers";
 
- const OPERATOR_BY_TYPE: Record<string, string[]> = {
-    radio: ["==", "!="],
-    checkbox: ["==", "!="],
-    number: ["==", "<", ">"],
-    range: ["==", "<", ">"],
-    date: ["==", "<", ">"],
-  };
+const OPERATOR_BY_TYPE: Record<string, string[]> = {
+  radio: ["==", "!="],
+  select: ["==", "!="],
+  number: ["==", "<", ">"],
+  range: ["==", "<", ">"],
+  date: ["==", "<", ">"],
+};
 
 export default function ConditionEditor() {
   const navigate = useNavigate();
@@ -103,8 +108,6 @@ export default function ConditionEditor() {
   const [conditionSourceQuestion, setConditionSourceQuestion] =
     useState<any>(null);
 
- 
-
   // 🔀 Target-Pick-Mode
   const [isPickingTarget, setIsPickingTarget] = useState(false);
   const [pendingConditionIndex, setPendingConditionIndex] = useState<
@@ -122,15 +125,14 @@ export default function ConditionEditor() {
   >([]);
 
   const allowedOperators = useMemo(() => {
-  if (!conditionSourceQuestion) return [];
-  return OPERATOR_BY_TYPE[conditionSourceQuestion.type] ?? [];
-}, [conditionSourceQuestion]);
+    if (!conditionSourceQuestion) return [];
+    return OPERATOR_BY_TYPE[conditionSourceQuestion.type] ?? [];
+  }, [conditionSourceQuestion]);
 
-const usedOperators = useMemo(
-  () => conditions.map((c) => c.operator).filter(Boolean),
-  [conditions]
-);
-
+  const usedOperators = useMemo(
+    () => conditions.map((c) => c.operator).filter(Boolean),
+    [conditions]
+  );
 
   const [questions, setQuestions] = useState<any[]>([]);
   const [parentQuestion, setParentQuestion] = useState<any | null>(null);
@@ -1022,8 +1024,9 @@ const usedOperators = useMemo(
   // 1️⃣ useSortable + Auto-Close
   // -----------------------------
   function SortableQuestion({ q, level = 0 }: { q: any; level?: number }) {
+  
 
-    const conditionTypes = ["radio", "checkbox", "number", "range", "date"];
+    const conditionTypes = ["radio", "select", "number", "range", "date"];
     const canHaveCondition = conditionTypes.includes(q.type);
 
     const isBlockedByConditionPick = useMemo(() => {
@@ -1119,21 +1122,18 @@ const usedOperators = useMemo(
             boxShadow: "0 3px 10px rgba(0,0,0,0.03)",
           }}
         >
-
-          
-    {/* ✅ HIER */}
-  {isThisDragging && (
-  <div
-    className="
+          {/* ✅ HIER */}
+          {isThisDragging && (
+            <div
+              className="
       absolute inset-0
       rounded-xl
       z-10
       pointer-events-none
       drag-active-highlight
     "
-  />
-)}
-
+            />
+          )}
 
           {/* Goldener Hover-Glow */}
           <div
@@ -1153,29 +1153,38 @@ const usedOperators = useMemo(
           {/* 🔀 Condition Button – SEPARAT */}
           {canHaveCondition && (
             <button
+              disabled={isPickingTarget}
               onClick={(e) => {
+                if (isPickingTarget) return;
                 e.stopPropagation();
                 setConditionSourceQuestion(q);
-               setConditions([
-  { operator: "", expectedValue: "", targetNodeId: undefined, targetLabel: "" },
-]);
+                setConditions([
+                  {
+                    operator: "",
+                    expectedValue: "",
+                    targetNodeId: undefined,
+                    targetLabel: "",
+                  },
+                ]);
                 setIsConditionModalOpen(true);
               }}
-              className="
-      absolute right-[210px] top-5 z-30
-      h-9 w-9
-      rounded-full
-      flex items-center justify-center
-      border border-[#e5dcc7]
-      bg-white/80 backdrop-blur
-      text-[#264555]
-      shadow-[0_8px_20px_rgba(0,0,0,0.12)]
-      opacity-0 pointer-events-none
-      transition-all duration-200
-      group-hover:opacity-100
-      group-hover:pointer-events-auto
-      hover:bg-[#fff4d6]
-    "
+              className={`
+    absolute right-[210px] top-5 z-30
+    h-9 w-9
+    rounded-full
+    flex items-center justify-center
+    border border-[#e5dcc7]
+    backdrop-blur
+    text-[#264555]
+    shadow-[0_8px_20px_rgba(0,0,0,0.12)]
+    transition-all duration-200
+
+    ${
+      isPickingTarget
+        ? "opacity-0 pointer-events-none"
+        : "bg-white/80 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto hover:bg-[#fff4d6]"
+    }
+  `}
               title="Bedingungen / Folgefragen"
             >
               <ChevronRight size={18} />
@@ -1207,15 +1216,18 @@ const usedOperators = useMemo(
             {/* Grip */}
             <GripVertical
               size={20}
-              className={`cursor-grab mt-1 transition-all duration-150
-                 ${
-                   draggingId === q.id
-                     ? "text-green-500 scale-110"
-                     : "text-gray-400"
-                 }
-                `}
-              {...attributes}
-              onPointerDown={handleGripDown}
+              className={`
+    mt-1 transition-all duration-150
+    ${
+      isPickingTarget
+        ? "text-gray-300 cursor-not-allowed pointer-events-none"
+        : draggingId === q.id
+        ? "text-green-500 scale-110 cursor-grab"
+        : "text-gray-400 cursor-grab"
+    }
+  `}
+              {...(!isPickingTarget ? attributes : {})}
+              onPointerDown={isPickingTarget ? undefined : handleGripDown}
             />
 
             {/* Pfeil */}
@@ -1389,6 +1401,7 @@ const usedOperators = useMemo(
 
             {/* Add */}
             <button
+              disabled={isPickingTarget}
               onClick={(e) => {
                 e.stopPropagation();
                 setParentQuestion(q);
@@ -1396,23 +1409,26 @@ const usedOperators = useMemo(
                 setIsScorable(true);
                 setIsModalOpen(true);
               }}
-              className="
-      h-9 w-9 rounded-full
-      flex items-center justify-center
-      border border-[#e5dcc7]
-      bg-white/60 text-[#264555]
-      transition-all
-      hover:bg-[#fff4d6]
-      hover:-translate-y-[1px]
-      hover:shadow-[0_10px_20px_rgba(0,0,0,0.14)]
-    "
+              className={`
+    h-9 w-9 rounded-full
+    flex items-center justify-center
+    border border-[#e5dcc7]
+    transition-all
+    ${
+      isPickingTarget
+        ? "opacity-30 cursor-not-allowed"
+        : "bg-white/60 text-[#264555] hover:bg-[#fff4d6] hover:-translate-y-[1px] hover:shadow-[0_10px_20px_rgba(0,0,0,0.14)]"
+    }
+  `}
             >
               <Plus size={18} />
             </button>
 
             {/* Edit */}
             <button
+              disabled={isPickingTarget}
               onClick={(e) => {
+                if (isPickingTarget) return;
                 e.stopPropagation();
                 setEditingQuestion(q);
                 setParentQuestion(null);
@@ -1421,82 +1437,109 @@ const usedOperators = useMemo(
                 setOptions(normalizeOptions(q));
                 setIsModalOpen(true);
               }}
-              className="
-      h-9 w-9 rounded-full
-      flex items-center justify-center
-      border border-[#e5dcc7]
-      bg-white/60 text-[#264555]
-      transition-all
-      hover:bg-[#e6edff]
-      hover:-translate-y-[1px]
-      hover:shadow-[0_10px_20px_rgba(0,0,0,0.14)]
-    "
+              className={`
+    h-9 w-9 rounded-full
+    flex items-center justify-center
+    border border-[#e5dcc7]
+    transition-all
+    ${
+      isPickingTarget
+        ? "opacity-30 cursor-not-allowed"
+        : "bg-white/60 text-[#264555] hover:bg-[#e6edff] hover:-translate-y-[1px] hover:shadow-[0_10px_20px_rgba(0,0,0,0.14)]"
+    }
+  `}
             >
               <Edit3 size={18} />
             </button>
 
             {/* Delete */}
             <button
+              disabled={isPickingTarget}
               onClick={(e) => {
+                if (isPickingTarget) return;
                 e.stopPropagation();
                 handleDeleteQuestion(q);
               }}
-              className="
-      h-9 w-9 rounded-full
-      flex items-center justify-center
-      border border-[#e5dcc7]
-      bg-white/60
-      transition-all
-      hover:bg-[#ffecec]
-      hover:-translate-y-[1px]
-      hover:shadow-[0_10px_20px_rgba(0,0,0,0.14)]
-    "
+              className={`
+    h-9 w-9 rounded-full
+    flex items-center justify-center
+    border border-[#e5dcc7]
+    transition-all
+    ${
+      isPickingTarget
+        ? "opacity-30 cursor-not-allowed"
+        : "bg-white/60 hover:bg-[#ffecec] hover:-translate-y-[1px] hover:shadow-[0_10px_20px_rgba(0,0,0,0.14)]"
+    }
+  `}
             >
               <Trash2 size={18} className="text-red-600" />
             </button>
           </div>
         </div>
 
-     {isPickingTarget && q.id === conditionSourceQuestion?.id && (
-  <div className="my-6">
-    {/* Trennlinie */}
-    <div className="h-[2px] bg-gradient-to-r from-transparent via-[#E3BB62] to-transparent mb-4" />
+        {isPickingTarget && q.id === conditionSourceQuestion?.id && (
+          <div className="my-6">
+            {/* Trennlinie */}
+            <div className="h-[2px] bg-gradient-to-r from-transparent via-[#E3BB62] to-transparent mb-4" />
 
-    {/* Hinweis */}
-    <div className="flex justify-center">
-      <div
-        className="
+            {/* Buttons */}
+            <div className="flex justify-center gap-4">
+              {/* ZIEL AUSWÄHLEN */}
+              <div
+                className="
           flex items-center gap-3
           px-6 py-3
           rounded-full
           border
           bg-white/70 backdrop-blur-md
           shadow-[0_8px_24px_rgba(0,0,0,0.10)]
+          cursor-default
         "
-        style={{ borderColor: "#E3BB62" }}
-      >
-        {/* Icon */}
-        <div
-          className="
+                style={{ borderColor: "#E3BB62" }}
+              >
+                <div
+                  className="
             flex items-center justify-center
             w-8 h-8
             rounded-full
             bg-[#E3BB62]
             text-[#264555]
           "
-        >
-          <ChevronDown size={18} />
-        </div>
+                >
+                  <ChevronDown size={18} />
+                </div>
 
-        {/* Text */}
-        <span className="text-sm font-semibold text-[#264555]">
-          Ziel-Frage auswählen
-        </span>
-      </div>
-    </div>
-  </div>
-)}
+                <span className="text-sm font-semibold text-[#264555]">
+                  Ziel-Frage auswählen
+                </span>
+              </div>
 
+              {/* ABBRECHEN */}
+              <button
+                onClick={() => {
+                  setIsPickingTarget(false);
+                  setPendingConditionIndex(null);
+                  setIsConditionModalOpen(true); // 🔥 ZURÜCK ZUM MODAL
+                }}
+                className="
+          flex items-center gap-2
+          px-5 py-3
+          rounded-full
+          border
+          bg-white/60
+          text-sm font-semibold
+          text-gray-600
+          hover:bg-white
+          hover:text-gray-800
+          transition
+          shadow-sm
+        "
+              >
+                Abbrechen
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Kinder */}
         <div style={childContainerStyle}>
@@ -1794,26 +1837,32 @@ const usedOperators = useMemo(
           <div style={{ position: "relative", overflow: "hidden" }}>
             <DndContext
               collisionDetection={closestCorners}
-              onDragStart={({ active }) => {
-                const parentId = active.data?.current?.parent;
-                const isRoot = parentId === "root";
+              onDragStart={
+                isPickingTarget
+                  ? undefined
+                  : ({ active }) => {
+                      const parentId = active.data?.current?.parent;
+                      const isRoot = parentId === "root";
 
-                setQuestions((prev) => {
-                  if (isRoot) {
-                    // 👉 Root bewegt → alle Root-Listen schließen
-                    return closeAllRootLists(prev);
-                  } else {
-                    // 👉 Kind bewegt → nur Kinder der Parent schließen
-                    return closeChildrenOfParent(prev, parentId);
-                  }
-                });
+                      setQuestions((prev) => {
+                        if (isRoot) {
+                          return closeAllRootLists(prev);
+                        } else {
+                          return closeChildrenOfParent(prev, parentId);
+                        }
+                      });
 
-                setDraggingId(String(active.id));
-              }}
-              onDragEnd={(event) => {
-                handleDragEnd(event); // 👈 Reihenfolge speichern
-                setDraggingId(null); // 👈 Sichtbarkeit fixen
-              }}
+                      setDraggingId(String(active.id));
+                    }
+              }
+              onDragEnd={
+                isPickingTarget
+                  ? undefined
+                  : (event) => {
+                      handleDragEnd(event);
+                      setDraggingId(null);
+                    }
+              }
               modifiers={[restrictToParentElement]}
             >
               <SortableContext
@@ -2576,232 +2625,628 @@ const usedOperators = useMemo(
             </div>
           </div>
         )}{" "}
-        
-        {/* COndition Modal  */}
- {isConditionModalOpen && conditionSourceQuestion && (
-  <div
-    className="fixed inset-0 z-[1200] flex items-center justify-center bg-black/40 backdrop-blur-sm"
+        {/* Condition Modal  */}
+        {isConditionModalOpen && conditionSourceQuestion && (
+          <div
+            className="fixed inset-0 z-[1200] flex items-center justify-center bg-black/40 backdrop-blur-sm"
+            onClick={() => {
+              setIsConditionModalOpen(false);
+              setIsPickingTarget(false);
+              setPendingConditionIndex(null);
+            }}
+          >
+            <div
+              className="w-full max-w-3xl mx-4 flex flex-col gap-3"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="relative w-full overflow-hidden rounded-3xl bg-white shadow-2xl border border-slate-200/80">
+                {/* Deko-Glows */}
+                <div
+                  className="pointer-events-none absolute -right-24 -top-24 h-52 w-52 rounded-full bg-gradient-to-br from-[#E3BB62]/40 via-amber-400/20 to-transparent opacity-60"
+                  aria-hidden="true"
+                />
+
+                {/* HEADER */}
+                <div className="relative px-6 py-4 border-b">
+                  <h3 className="text-lg font-semibold text-slate-900">
+                    Bedingungen für diese Frage
+                  </h3>
+                  <p className="text-sm text-slate-500 mt-1">
+                    {conditionSourceQuestion.text}
+                  </p>
+                </div>
+
+               {/* INFO-BADGES (wie auf der Frage-Karte) */}
+<div className="px-6 py-3 flex flex-wrap items-center gap-2 bg-slate-50/50">
+  {/* Fragetyp */}
+  <span
+    className="
+      inline-flex items-center gap-1
+      px-2.5 py-0.5
+      text-xs font-medium
+      rounded-full
+      border
+      bg-[#eef2ff]
+      text-[#264555]
+      border-[#d6ddff]
+    "
+  >
+    {
+      questionTypes.find(
+        (t) => t.value === conditionSourceQuestion.type
+      )?.label
+    }
+  </span>
+
+  {/* Pflicht / Optional */}
+  {conditionSourceQuestion.required ? (
+    <span
+      className="
+        inline-flex items-center gap-1
+        px-2.5 py-0.5
+        text-xs font-medium
+        rounded-full
+        border
+        bg-[#fff4d6]
+        text-[#8b5d00]
+        border-[#e8d8a8]
+      "
+    >
+      Pflicht
+    </span>
+  ) : (
+    <span
+      className="
+        inline-flex items-center gap-1
+        px-2.5 py-0.5
+        text-xs font-medium
+        rounded-full
+        border
+        bg-[#f0f0f0]
+        text-[#555]
+        border-[#d9d9d9]
+      "
+    >
+      Optional
+    </span>
+  )}
+</div>
+
+
+                {/* Modal von Innen */}
+                <div className="relative px-6 py-4 space-y-5 max-h-[60vh] overflow-y-auto">
+                  {conditions.map((c, index) => {
+                    const remainingOperators = allowedOperators.filter(
+                      (op) => op === c.operator || !usedOperators.includes(op)
+                    );
+
+                    return (
+                      <div
+                        key={index}
+                        className="
+                      rounded-xl
+                      border
+                      border-[#E3BB62]
+                      bg-[#fffdf7]
+                      px-4 py-4
+                      space-y-3
+                      shadow-sm
+                    "
+                      >
+                        {/* OBERSTE ZEILE */}
+                        <div className="grid grid-cols-[130px_1fr_250px_36px] gap-3 items-center">
+                          {/* OPERATOR */}
+                          <select
+                            className="
+    h-10
+    rounded-lg
+    border border-[#e6d8b5]
+    px-3
+    text-sm
+    bg-white
+    transition
+    focus:outline-none
+    focus:ring-1
+    focus:ring-[#E3BB62]
+    focus:border-[#E3BB62]
+  "
+                            value={c.operator}
+                            onChange={(e) =>
+                              setConditions((prev) =>
+                                prev.map((x, i) =>
+                                  i === index
+                                    ? { ...x, operator: e.target.value }
+                                    : x
+                                )
+                              )
+                            }
+                          >
+                            <option value="" disabled hidden>
+                              Operator
+                            </option>
+
+                            {remainingOperators.map((op) => (
+                              <option key={op} value={op}>
+                                {op}
+                              </option>
+                            ))}
+                          </select>
+
+                          {/* WERT */}
+                 {/* WERT */}
+{conditionSourceQuestion.type === "range" ? (
+  /* SKALA 0–6 */
+  <select
+    className="
+      h-10
+      rounded-lg
+      border border-[#e6d8b5]
+      px-3
+      text-sm
+      bg-white
+      transition
+      focus:outline-none
+      focus:ring-1
+      focus:ring-[#E3BB62]
+      focus:border-[#E3BB62]
+    "
+    value={c.expectedValue ?? ""}
+    onChange={(e) =>
+      setConditions((prev) =>
+        prev.map((x, i) =>
+          i === index ? { ...x, expectedValue: e.target.value } : x
+        )
+      )
+    }
+  >
+    <option value="" disabled hidden>
+      Wert auswählen
+    </option>
+    {[0, 1, 2, 3, 4, 5, 6].map((v) => (
+      <option key={v} value={v}>
+        {v}
+      </option>
+    ))}
+  </select>
+
+) : conditionSourceQuestion.type === "radio" ||
+  conditionSourceQuestion.type === "select" ? (
+
+  /* ✅ RADIO / SELECT → NUR ANTWORTOPTIONEN */
+  <select
+    className="
+      h-10
+      rounded-lg
+      border border-[#e6d8b5]
+      px-3
+      text-sm
+      bg-white
+      transition
+      focus:outline-none
+      focus:ring-1
+      focus:ring-[#E3BB62]
+      focus:border-[#E3BB62]
+    "
+    value={c.expectedValue ?? ""}
+    onChange={(e) =>
+      setConditions((prev) =>
+        prev.map((x, i) =>
+          i === index ? { ...x, expectedValue: e.target.value } : x
+        )
+      )
+    }
+  >
+    <option value="" disabled hidden>
+      Antwort auswählen
+    </option>
+
+    {(conditionSourceQuestion.options || []).map((opt: any) => (
+      <option key={opt.label} value={opt.label}>
+        {opt.label}
+      </option>
+    ))}
+  </select>
+
+) : conditionSourceQuestion.type === "number" ? (
+
+  /* 🔢 NUMBER → NUR ZAHLEN */
+ <input
+  type="number"
+  inputMode="numeric"
+  pattern="-?[0-9]*"
+  className="
+    h-10
+    rounded-lg
+    border border-[#e6d8b5]
+    px-3
+    text-sm
+    bg-white
+    transition
+    focus:outline-none
+    focus:ring-1
+    focus:ring-[#E3BB62]
+    focus:border-[#E3BB62]
+  "
+  placeholder="Zahl eingeben"
+  value={c.expectedValue}
+  onKeyDown={(e) => {
+    const allowedKeys = [
+      "Backspace",
+      "Delete",
+      "ArrowLeft",
+      "ArrowRight",
+      "Tab",
+      "Home",
+      "End",
+      "-",
+    ];
+
+    if (
+      allowedKeys.includes(e.key) ||
+      /^[0-9]$/.test(e.key)
+    ) {
+      return;
+    }
+
+    e.preventDefault(); // ❌ blockiert Buchstaben & Sonderzeichen
+  }}
+  onChange={(e) =>
+    setConditions((prev) =>
+      prev.map((x, i) =>
+        i === index ? { ...x, expectedValue: e.target.value } : x
+      )
+    )
+  }
+/>
+
+
+) : conditionSourceQuestion.type === "date" ? (
+
+  /* 📅 DATE → DATUM */
+  <input
+    type="date"
+    className="
+      h-10
+      rounded-lg
+      border border-[#e6d8b5]
+      px-3
+      text-sm
+      bg-white
+      transition
+      focus:outline-none
+      focus:ring-1
+      focus:ring-[#E3BB62]
+      focus:border-[#E3BB62]
+    "
+    value={c.expectedValue}
+    onChange={(e) =>
+      setConditions((prev) =>
+        prev.map((x, i) =>
+          i === index ? { ...x, expectedValue: e.target.value } : x
+        )
+      )
+    }
+  />
+
+) : (
+
+  /* ✏️ ALLE ANDEREN TYPEN */
+  <input
+    className="
+      h-10
+      rounded-lg
+      border border-[#e6d8b5]
+      px-3
+      text-sm
+      bg-white
+      transition
+      focus:outline-none
+      focus:ring-1
+      focus:ring-[#E3BB62]
+      focus:border-[#E3BB62]
+    "
+    placeholder="Wert eingeben"
+    value={c.expectedValue}
+    onChange={(e) =>
+      setConditions((prev) =>
+        prev.map((x, i) =>
+          i === index ? { ...x, expectedValue: e.target.value } : x
+        )
+      )
+    }
+  />
+)}
+
+
+
+                          {/* ZIEL */}
+                          {c.targetNodeId ? (
+                            <div
+                              className="
+                            inline-flex items-center gap-2
+                            h-10 px-3
+                            rounded-lg
+                            border
+                            bg-[#eefaf1]
+                            text-sm font-semibold
+                            text-[#1f7a3f]
+                            border-[#b7dfc2]
+                          "
+                            >
+                              <CheckCircle2
+                                size={18}
+                                className="text-[#2e9f5e]"
+                              />
+                              Ziel gesetzt
+                            </div>
+                          ) : (
+                            <button
+                              className="
+                            h-10
+                            inline-flex items-center gap-2
+                            px-3
+                            rounded-lg
+                            border
+                            text-sm font-semibold
+                            text-[#264555]
+                            bg-white
+                            hover:bg-[#fff4d6]
+                            transition
+                          "
+                              onClick={() => {
+                                setPendingConditionIndex(index);
+                                setIsPickingTarget(true);
+                                setIsConditionModalOpen(false);
+                              }}
+                            >
+                              <Target size={18} className="text-[#b08d2a]" />
+                              Ziel auswählen
+                            </button>
+                          )}
+
+                          {/* DELETE */}
+                          <button
+                            type="button"
+                            title="Bedingung löschen"
+                            onClick={() =>
+                              setConditions((prev) =>
+                                prev.filter((_, i) => i !== index)
+                              )
+                            }
+                            className="
+                          h-9 w-9
+                          flex items-center justify-center
+                          rounded-lg
+                          border
+                          border-[#f1c6c6]
+                          bg-white
+                          text-red-600
+                          transition-all
+                          hover:bg-[#ffecec]
+                          hover:shadow-[0_4px_10px_rgba(220,38,38,0.25)]
+                          hover:-translate-y-[1px]
+                          active:translate-y-0
+                        "
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        </div>
+
+                        {/* ZIEL-FRAGE – VOLLE BREITE */}
+                        {c.targetNodeId && (
+                          <div
+                            className="
+                          w-full
+                          rounded-xl
+                          border
+                          bg-gradient-to-br from-[#fffdf7] to-[#fff8e8]
+                          px-4 py-4
+                          shadow-sm
+                          flex flex-col gap-3
+                        "
+                            style={{ borderColor: "#eddcb8" }}
+                          >
+                            {/* HEADER */}
+                            <div className="flex items-center justify-between">
+                              <div className="text-xs font-semibold tracking-wide text-[#b08d2a]">
+                                Ziel-Frage
+                              </div>
+
+                              {/* ZIEL ÄNDERN BUTTON */}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setPendingConditionIndex(index);
+                                  setIsPickingTarget(true);
+                                  setIsConditionModalOpen(false);
+                                }}
+                                className="
+                              inline-flex items-center gap-2
+                              text-xs font-semibold
+                              text-[#264555]
+                              px-3 py-1.5
+                              rounded-full
+                              border
+                              bg-white
+                              transition
+                              hover:bg-[#fff4d6]
+                              hover:-translate-y-[1px]
+                            "
+                                style={{ borderColor: "#e6d8b5" }}
+                              >
+                                <RefreshCcw
+                                  size={14}
+                                  className="text-[#b08d2a]"
+                                />
+                                Ziel ändern
+                              </button>
+                            </div>
+
+                            {/* CONTENT */}
+                            <div
+                              className="
+                            w-full
+                            rounded-lg
+                            bg-white
+                            px-3 py-2.5
+                            border
+                            text-sm
+                            text-[#264555]
+                          "
+                              style={{ borderColor: "#e6e0d2" }}
+                            >
+                              {c.targetLabel}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+
+                  {/* ADD CONDITION */}
+ {conditions.length > 0 && (
+  <div className="mt-4 flex items-center gap-3">
+    {/* LINKE SEITE */}
+    {conditions.length < allowedOperators.length ? (
+      <button
+        type="button"
+        title="Neue Bedingung hinzufügen"
+        onClick={() =>
+          setConditions((prev) => [
+            ...prev,
+            {
+              operator: "",
+              expectedValue: "",
+              targetNodeId: undefined,
+              targetLabel: "",
+            },
+          ])
+        }
+        className="
+          inline-flex items-center gap-2
+          px-4 py-2
+          rounded-full
+          border
+          bg-white
+          text-sm font-semibold
+          text-[#264555]
+          transition-all
+          hover:bg-[#fff4d6]
+          hover:-translate-y-[1px]
+          hover:shadow-[0_6px_14px_rgba(0,0,0,0.12)]
+        "
+        style={{ borderColor: "#e6d8b5" }}
+      >
+        <PlusCircle size={18} className="text-[#b08d2a]" />
+        Neue Bedingung
+      </button>
+    ) : (
+      /* ⬅️ PLATZHALTER, DAMIT RECHTS NICHT SPRINGT */
+      <div />
+    )}
+
+    {/* 🔹 SPACER */}
+    <div className="flex-1" />
+
+    {/* RECHTE SEITE – IMMER GLEICH */}
+    <button
+      type="button"
+      className="
+        inline-flex items-center gap-2
+        px-4 py-2
+        rounded-full
+        border
+        bg-white
+        text-sm font-semibold
+        text-red-700
+        transition-all
+        hover:bg-[#ffecec]
+        hover:-translate-y-[1px]
+        hover:shadow-[0_6px_18px_rgba(180,35,24,0.25)]
+      "
+      style={{ borderColor: "#f2b8b5" }}
+    >
+      <Trash2 size={18} />
+      Bedingung entfernen
+    </button>
+  </div>
+)}
+
+
+                </div>
+              </div>
+
+              {/* BUTTONS OUTSIDE THE CARD */}
+              <div className="flex gap-3">
+  {/* ABBRECHEN – LINKS */}
+  <button
+    type="button"
+    className="
+      flex-1
+      h-12
+      text-sm font-medium
+      text-slate-800
+      bg-[#f3f3f3]
+      hover:bg-[#e5e5e5]
+      border border-slate-200
+      rounded-xl
+      transition
+    "
     onClick={() => {
       setIsConditionModalOpen(false);
       setIsPickingTarget(false);
       setPendingConditionIndex(null);
     }}
   >
-    <div
-      className="w-full max-w-3xl mx-4 rounded-2xl bg-white shadow-2xl border"
-      onClick={(e) => e.stopPropagation()}
-    >
-      {/* HEADER */}
-      <div className="px-6 py-4 border-b">
-        <h3 className="text-lg font-semibold">
-          Bedingungen für diese Frage
-        </h3>
-        <p className="text-sm text-gray-600 mt-1">
-          {conditionSourceQuestion.text}
-        </p>
-      </div>
+    Abbrechen
+  </button>
 
-      {/* HINWEIS */}
-      <div className="px-6 py-3 text-sm text-gray-600">
-        Pro Zeile ist <b>nur ein Operator</b> erlaubt.
-      </div>
+  {/* SPEICHERN – RECHTS */}
+  <button
+    type="button"
+    className="
+      flex-1
+      h-12
+      text-sm font-semibold
+      rounded-xl
+      bg-[#E3BB62]
+      text-[#264555]
+      hover:bg-[#d8ac55]
+      shadow-[0_10px_30px_rgba(0,0,0,0.18)]
+      transition
+      hover:-translate-y-[1px]
+    "
+    onClick={async () => {
+      try {
+        const sourceQuestionId = conditionSourceQuestion.questionId;
 
-      {/* CONDITIONS */}
-      <div className="px-6 py-4 space-y-4">
-        {conditions.map((c, index) => {
-          const remainingOperators = allowedOperators.filter(
-            (op) => op === c.operator || !usedOperators.includes(op)
-          );
+        for (const c of conditions) {
+          if (!c.operator || !c.expectedValue || !c.targetNodeId) continue;
 
-          return (
-            <div key={index} className="w-full">
-              {/* OBERSTE ZEILE */}
-              <div className="grid grid-cols-[120px_1fr_1fr_40px] gap-2 items-center">
-                {/* OPERATOR */}
-                <select
-                  className="border rounded px-2 py-1"
-                  value={c.operator}
-                  onChange={(e) =>
-                    setConditions((prev) =>
-                      prev.map((x, i) =>
-                        i === index
-                          ? { ...x, operator: e.target.value }
-                          : x
-                      )
-                    )
-                  }
-                >
-                  <option value="">Operator</option>
-                  {remainingOperators.map((op) => (
-                    <option key={op} value={op}>
-                      {op}
-                    </option>
-                  ))}
-                </select>
+          const payload = {
+            targetNodeId: c.targetNodeId,
+            operator: c.operator as "==" | "!=" | "<" | ">",
+            expectedValue: String(c.expectedValue),
+          };
 
-                {/* EXPECTED VALUE */}
-                <input
-                  className="border rounded px-2 py-1"
-                  placeholder="Wert"
-                  value={c.expectedValue}
-                  onChange={(e) =>
-                    setConditions((prev) =>
-                      prev.map((x, i) =>
-                        i === index
-                          ? { ...x, expectedValue: e.target.value }
-                          : x
-                      )
-                    )
-                  }
-                />
+          await createQuestionCondition(sourceQuestionId, payload);
+        }
 
-                {/* TARGET */}
-                <div>
-                  {c.targetNodeId ? (
-                    <div
-                      className="
-                        flex items-center gap-2
-                        px-3 py-2
-                        rounded-lg
-                        bg-[#f6f9fc]
-                        border border-[#d6e0ea]
-                        text-sm font-medium
-                        text-[#264555]
-                      "
-                    >
-                      → Ziel gesetzt
-                    </div>
-                  ) : (
-                    <button
-                      className="text-sm font-semibold text-[#264555] underline"
-                      onClick={() => {
-                        setPendingConditionIndex(index);
-                        setIsPickingTarget(true);
-                        setIsConditionModalOpen(false);
-                      }}
-                    >
-                      Ziel auswählen
-                    </button>
-                  )}
-                </div>
+        setIsConditionModalOpen(false);
+        setIsPickingTarget(false);
+        setPendingConditionIndex(null);
+      } catch (err) {
+        alert("Fehler beim Speichern der Bedingungen");
+      }
+    }}
+  >
+    Speichern
+  </button>
+</div>
 
-                {/* DELETE */}
-                <button
-                  className="text-red-600"
-                  onClick={() =>
-                    setConditions((prev) =>
-                      prev.filter((_, i) => i !== index)
-                    )
-                  }
-                >
-                  🗑️
-                </button>
-              </div>
-
-              {/* ZIEL-FRAGE – VOLLE BREITE */}
-              {c.targetNodeId && (
-                <div
-                  className="
-                    mt-2
-                    w-full
-                    rounded-xl
-                    border
-                    bg-[#fffdf7]
-                    px-4 py-3
-                    text-sm
-                    text-[#264555]
-                    shadow-sm
-                  "
-                  style={{ borderColor: "#E3BB62" }}
-                >
-                  <div className="text-xs font-semibold text-[#b08d2a] mb-1">
-                    Ziel-Frage
-                  </div>
-
-                  <div className="w-full rounded-lg bg-white px-3 py-2 border border-[#e6e0d2]">
-                    {c.targetLabel}
-                  </div>
-                </div>
-              )}
             </div>
-          );
-        })}
-
-        {/* ADD CONDITION */}
-        {usedOperators.length < allowedOperators.length && (
-          <button
-            className="
-              mt-2
-              inline-flex items-center gap-2
-              text-sm font-semibold
-              text-[#b08d2a]
-              hover:underline
-            "
-            onClick={() =>
-              setConditions((prev) => [
-                ...prev,
-                {
-                  operator: "",
-                  expectedValue: "",
-                  targetNodeId: undefined,
-                  targetLabel: "",
-                },
-              ])
-            }
-          >
-            ➕ Neue Bedingung
-          </button>
+          </div>
         )}
-      </div>
-
-      {/* FOOTER */}
-      <div className="px-6 py-4 border-t flex justify-end gap-2">
-        <button
-          className="px-4 py-2 rounded bg-gray-100"
-          onClick={() => {
-            setIsConditionModalOpen(false);
-            setIsPickingTarget(false);
-            setPendingConditionIndex(null);
-          }}
-        >
-          Abbrechen
-        </button>
-
-        <button
-          className="px-4 py-2 rounded bg-[#E3BB62] text-[#264555]"
-          onClick={async () => {
-            try {
-              const sourceQuestionId =
-                conditionSourceQuestion.questionId;
-
-              for (const c of conditions) {
-                if (!c.operator || !c.expectedValue || !c.targetNodeId) continue;
-
-                const payload = {
-                  targetNodeId: c.targetNodeId,
-                  operator: c.operator as "==" | "!=" | "<" | ">",
-                  expectedValue: String(c.expectedValue),
-                };
-
-                await createQuestionCondition(sourceQuestionId, payload);
-              }
-
-              setIsConditionModalOpen(false);
-              setIsPickingTarget(false);
-              setPendingConditionIndex(null);
-            } catch (err) {
-              alert("Fehler beim Speichern der Bedingungen");
-            }
-          }}
-        >
-          Speichern
-        </button>
-      </div>
-    </div>
-  </div>
-)}
-
-
       </main>
     </AdminLayout>
   );
