@@ -5,6 +5,7 @@ import com.assessment.backend.entity.QuestionCondition;
 import com.assessment.backend.service.QuestionConditionService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -155,6 +156,106 @@ public class QuestionConditionController {
 //   }
 // }
 
+  @PutMapping("/update/{sourceQuestionId}/{operator}/{expectedValue}")
+  //@PreAuthorize("hasAuthority('questionCondition.edit')")
+  public ResponseEntity<String> updateQuestionCondition(@PathVariable UUID sourceQuestionId,
+                                                        @PathVariable String operator,
+                                                        @PathVariable String expectedValue){
+
+    try {
+
+      questionConditionService.updateQuestionConditionEntity(sourceQuestionId, operator,expectedValue);
+
+      return ResponseEntity.ok("QuestionCondition erfolgreich aktualisiert.");
+    } catch (IllegalArgumentException e) {
+      return ResponseEntity.badRequest().body(e.getMessage());
+    } catch (Exception e) {
+      return ResponseEntity.internalServerError().body("Interner Fehler: " + e.getMessage());
+    }
+
+  }
+
+  // ZUKUNFT (automatisch über Header, expectedValue kommt aus Body, nur aktivieren wenn Frontend Header sendet):
+
+// @PutMapping("/update")
+// public ResponseEntity<String> updateQuestionCondition(
+//     @RequestHeader("X-Question-Id") UUID sourceQuestionId,
+//     @RequestHeader("X-Operator") String operator,
+//     @RequestBody UpdateRequest requestBody
+// ) {
+//   try {
+//     questionConditionService.updateQuestionConditionEntity(sourceQuestionId, operator, requestBody.getExpectedValue());
+//     return ResponseEntity.ok("QuestionCondition erfolgreich aktualisiert.");
+//   } catch (IllegalArgumentException e) {
+//     return ResponseEntity.badRequest().body(e.getMessage());
+//   } catch (Exception e) {
+//     return ResponseEntity.internalServerError().body("Interner Fehler: " + e.getMessage());
+//   }
+// }
+
+  @DeleteMapping("/deleteOne/{sourceQuestionId}/{operator}")
+  //@PreAuthorize("hasAuthority('questionCondition.delete')")
+  public ResponseEntity<String> deleteOneQuestionCondition(@PathVariable UUID sourceQuestionId,
+                                                           @PathVariable String operator){
+    try {
+
+      questionConditionService.deleteASingleQuestionCondition(sourceQuestionId, operator);
+
+      return ResponseEntity.ok("QuestionCondition erfolgreich gelöscht.");
+    } catch (IllegalArgumentException e) {
+      return ResponseEntity.badRequest().body(e.getMessage());
+    } catch (Exception e) {
+      return ResponseEntity.internalServerError().body("Interner Fehler: " + e.getMessage());
+    }
+  }
+
+  // ZUKUNFT (automatisch über Header, alles mitsenden, nur aktivieren wenn Frontend Header sendet):
+
+// @DeleteMapping("/deleteOne")
+// public ResponseEntity<String> deleteOneQuestionCondition(
+//     @RequestHeader("X-Question-Id") UUID sourceQuestionId,
+//     @RequestHeader("X-Operator") String operator
+// ) {
+//   try {
+//     questionConditionService.deleteASingleQuestionCondition(sourceQuestionId, operator);
+//     return ResponseEntity.ok("QuestionCondition erfolgreich gelöscht.");
+//   } catch (IllegalArgumentException e) {
+//     return ResponseEntity.badRequest().body(e.getMessage());
+//   } catch (Exception e) {
+//     return ResponseEntity.internalServerError().body("Interner Fehler: " + e.getMessage());
+//   }
+// }
+
+  @DeleteMapping("/deleteAll/{sourceQuestionId}")
+  //@PreAuthorize("hasAuthority('questionCondition.delete')")
+  public ResponseEntity<String> deleteAllQuestionCondition(@PathVariable UUID sourceQuestionId){
+    try {
+
+      questionConditionService.deleteAllQuestionConditions(sourceQuestionId);
+
+      return ResponseEntity.ok("Alle QuestionConditions erfolgreich gelöscht.");
+    } catch (IllegalArgumentException e) {
+      return ResponseEntity.badRequest().body(e.getMessage());
+    } catch (Exception e) {
+      return ResponseEntity.internalServerError().body("Interner Fehler: " + e.getMessage());
+    }
+
+  }
+
+  // @DeleteMapping("/deleteAll")
+// public ResponseEntity<String> deleteAllQuestionCondition(
+//     @RequestHeader("X-Question-Id") UUID sourceQuestionId
+// ) {
+//   try {
+//     questionConditionService.deleteAllQuestionConditions(sourceQuestionId);
+//     return ResponseEntity.ok("Alle QuestionConditions erfolgreich gelöscht.");
+//   } catch (IllegalArgumentException e) {
+//     return ResponseEntity.badRequest().body(e.getMessage());
+//   } catch (Exception e) {
+//     return ResponseEntity.internalServerError().body("Interner Fehler: " + e.getMessage());
+//   }
+// }
+
   // RequestBody-Klasse für POST
   public static class HandleRequest {
     private String expectedValue;
@@ -176,5 +277,7 @@ public class QuestionConditionController {
       return targetNodeId;
 
     }
+
+
   }
 }
