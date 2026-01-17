@@ -227,6 +227,29 @@ export async function createQuestionCondition(
   return res.data;
 }
 
+export async function getQuestionConditions(sourceQuestionId: string) {
+  const res = await apiClient.get(
+    `/question-condition/${sourceQuestionId}`
+  );
+  return res.data;
+}
+
+
+export async function deleteAllQuestionConditions(sourceQuestionId: string) {
+  return apiClient.delete(
+    `/question-condition/deleteAll/${sourceQuestionId}`
+  );
+}
+
+
+export async function deleteQuestionCondition(
+  sourceQuestionId: string,
+  operator: "==" | "!=" | "<" | ">"
+) {
+  return apiClient.delete(
+    `/question-condition/deleteOne/${sourceQuestionId}/${encodeURIComponent(operator)}`
+  );
+}
 
 
 

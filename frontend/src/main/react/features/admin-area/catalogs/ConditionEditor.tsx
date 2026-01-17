@@ -46,7 +46,7 @@ import {
   updateQuestionNodeRequired,
   moveRootNode,
   moveChildNode,
-  createQuestionCondition,
+  createQuestionCondition,getQuestionConditions,deleteAllQuestionConditions,deleteQuestionCondition
 } from "@/api/questionApi";
 
 // 🧩 Drag & Drop Imports
@@ -60,6 +60,15 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { restrictToParentElement } from "@dnd-kit/modifiers";
+
+type ConditionItem = {
+  operator: string;
+  expectedValue: string;
+  targetNodeId?: string;
+  targetLabel?: string;
+  persisted?: boolean;
+};
+
 
 const OPERATOR_BY_TYPE: Record<string, string[]> = {
   radio: ["==", "!="],
@@ -121,6 +130,7 @@ export default function ConditionEditor() {
       expectedValue: string;
       targetNodeId?: string;
       targetLabel?: string;
+      persisted?: boolean; 
     }[]
   >([]);
 
@@ -171,6 +181,14 @@ export default function ConditionEditor() {
 
   const isOrderType = selectedType?.value === "order";
   const { showSuccess, showError } = useToast();
+  const [isDeleteAllConditionsOpen, setIsDeleteAllConditionsOpen] = useState(false);
+
+
+const [isDeleteConditionOpen, setIsDeleteConditionOpen] = useState(false);
+const [conditionToDelete, setConditionToDelete] = useState<ConditionItem | null>(null);
+const [conditionToDeleteIndex, setConditionToDeleteIndex] = useState<number | null>(null);
+
+
 
   // 🔁 Rekursive Funktion, die ALLE Kinder bis zur tiefsten Ebene lädt
   async function fetchChildrenRecursive(parentId: string): Promise<any[]> {
@@ -1154,20 +1172,58 @@ export default function ConditionEditor() {
           {canHaveCondition && (
             <button
               disabled={isPickingTarget}
-              onClick={(e) => {
-                if (isPickingTarget) return;
-                e.stopPropagation();
-                setConditionSourceQuestion(q);
-                setConditions([
-                  {
-                    operator: "",
-                    expectedValue: "",
-                    targetNodeId: undefined,
-                    targetLabel: "",
-                  },
-                ]);
-                setIsConditionModalOpen(true);
-              }}
+             onClick={async (e) => {
+  if (isPickingTarget) return;
+  e.stopPropagation();
+
+  setConditionSourceQuestion(q);
+
+  try {
+    const existing = await getQuestionConditions(q.questionId);
+
+    if (Array.isArray(existing) && existing.length > 0) {
+    setConditions(
+  existing.map((c: any) => {
+    const target = flatQuestions.find(
+      (q) => q.id === c.targetNodeId
+    );
+
+    return {
+      operator: c.operator,
+      expectedValue: c.expectedValue,
+      targetNodeId: c.targetNodeId,
+      targetLabel: target?.text ?? "Unbekannte Frage",
+      persisted: true, // ✅ WICHTIG
+    };
+  })
+);
+
+    } else {
+      // ✅ KEINE CONDITIONS → LEER STARTEN
+      setConditions([
+        {
+          operator: "",
+          expectedValue: "",
+          targetNodeId: undefined,
+          targetLabel: "",
+        },
+      ]);
+    }
+  } catch {
+    // ✅ 404 / 204 → KEINE CONDITIONS
+    setConditions([
+      {
+        operator: "",
+        expectedValue: "",
+        targetNodeId: undefined,
+        targetLabel: "",
+      },
+    ]);
+  }
+
+  setIsConditionModalOpen(true);
+}}
+
               className={`
     absolute right-[210px] top-5 z-30
     h-9 w-9
@@ -3005,31 +3061,60 @@ export default function ConditionEditor() {
                           )}
 
                           {/* DELETE */}
-                          <button
-                            type="button"
-                            title="Bedingung löschen"
-                            onClick={() =>
-                              setConditions((prev) =>
-                                prev.filter((_, i) => i !== index)
-                              )
-                            }
-                            className="
-                          h-9 w-9
-                          flex items-center justify-center
-                          rounded-lg
-                          border
-                          border-[#f1c6c6]
-                          bg-white
-                          text-red-600
-                          transition-all
-                          hover:bg-[#ffecec]
-                          hover:shadow-[0_4px_10px_rgba(220,38,38,0.25)]
-                          hover:-translate-y-[1px]
-                          active:translate-y-0
-                        "
-                          >
-                            <Trash2 size={18} />
-                          </button>
+     <button
+  type="button"
+  title="Bedingung löschen"
+onClick={() => {
+  const c = conditions[index];
+
+  // ✅ FALL 1: LEER → SOFORT LÖSCHEN (KEIN MODAL)
+  if (!c.operator || !c.expectedValue) {
+    setConditions((prev) => {
+      const next = prev.filter((_, i) => i !== index);
+
+      return next.length > 0
+        ? next
+        : [
+            {
+              operator: "",
+              expectedValue: "",
+              targetNodeId: undefined,
+              targetLabel: "",
+              persisted: false,
+            },
+          ];
+    });
+    return;
+  }
+
+  // ✅ FALL 2: AUSGEFÜLLT → CONFIRM MODAL
+  setConditionToDelete(c);
+  setConditionToDeleteIndex(index);
+  setIsDeleteConditionOpen(true);
+}}
+
+
+
+
+  className="
+    h-9 w-9
+    flex items-center justify-center
+    rounded-lg
+    border
+    border-[#f1c6c6]
+    bg-white
+    text-red-600
+    transition-all
+    hover:bg-[#ffecec]
+    hover:shadow-[0_4px_10px_rgba(220,38,38,0.25)]
+    hover:-translate-y-[1px]
+    active:translate-y-0
+  "
+>
+  <Trash2 size={18} />
+</button>
+
+
                         </div>
 
                         {/* ZIEL-FRAGE – VOLLE BREITE */}
@@ -3149,26 +3234,27 @@ export default function ConditionEditor() {
     <div className="flex-1" />
 
     {/* RECHTE SEITE – IMMER GLEICH */}
-    <button
-      type="button"
-      className="
-        inline-flex items-center gap-2
-        px-4 py-2
-        rounded-full
-        border
-        bg-white
-        text-sm font-semibold
-        text-red-700
-        transition-all
-        hover:bg-[#ffecec]
-        hover:-translate-y-[1px]
-        hover:shadow-[0_6px_18px_rgba(180,35,24,0.25)]
-      "
-      style={{ borderColor: "#f2b8b5" }}
-    >
-      <Trash2 size={18} />
-      Bedingung entfernen
-    </button>
+   <button
+  type="button"
+  onClick={() => {
+  setIsDeleteAllConditionsOpen(true);
+}}
+
+  className="
+    inline-flex items-center gap-2
+    px-4 py-2
+    rounded-full
+    border
+    bg-white
+    text-sm font-semibold
+    text-red-700
+    hover:bg-[#ffecec]
+  "
+>
+  <Trash2 size={18} />
+  Bedingungen entfernen
+</button>
+
   </div>
 )}
 
@@ -3200,6 +3286,133 @@ export default function ConditionEditor() {
   >
     Abbrechen
   </button>
+
+  <ConfirmModal
+  open={isDeleteAllConditionsOpen}
+  title="Alle Bedingungen löschen?"
+  description={
+    <>
+      Willst du wirklich{" "}
+      <span className="font-semibold text-red-700">
+        alle Bedingungen
+      </span>{" "}
+      für diese Frage löschen?
+    </>
+  }
+  hintTitle="Hinweis"
+  hintText={
+    <>
+      Diese Aktion kann{" "}
+      <span className="font-semibold text-red-700">
+        nicht rückgängig gemacht
+      </span>{" "}
+      werden.
+    </>
+  }
+  onConfirm={async () => {
+    if (!conditionSourceQuestion) return;
+
+    await deleteAllQuestionConditions(
+      conditionSourceQuestion.questionId
+    );
+
+    // ✅ danach wieder leere Eingabe anzeigen
+    setConditions([
+      {
+        operator: "",
+        expectedValue: "",
+        targetNodeId: undefined,
+        targetLabel: "",
+        persisted: false,
+      },
+    ]);
+
+    setIsDeleteAllConditionsOpen(false);
+  }}
+  onCancel={() => setIsDeleteAllConditionsOpen(false)}
+  confirmLabel="Alle löschen"
+  cancelLabel="Abbrechen"
+  icon={<Trash2 className="text-red-500" />}
+/>
+
+
+<ConfirmModal
+  open={isDeleteConditionOpen}
+  title="Bedingung löschen?"
+  description={
+    <>
+      Willst du die Bedingung mit
+      <span className="font-semibold"> Operator </span>
+      <span className="font-mono bg-gray-100 px-1 rounded">
+        {conditionToDelete?.operator}
+      </span>
+      <span className="font-semibold"> und Wert </span>
+      <span className="font-mono bg-gray-100 px-1 rounded">
+        {conditionToDelete?.expectedValue}
+      </span>
+      wirklich löschen?
+    </>
+  }
+  hintTitle="Hinweis"
+  hintText={
+    <>
+      Diese Aktion kann{" "}
+      <span className="font-semibold text-red-700">
+        nicht rückgängig gemacht
+      </span>{" "}
+      werden.
+    </>
+  }
+  confirmLabel="Löschen"
+  cancelLabel="Abbrechen"
+  icon={<Trash2 className="text-red-500" />}
+  onCancel={() => {
+    setIsDeleteConditionOpen(false);
+    setConditionToDelete(null);
+    setConditionToDeleteIndex(null);
+  }}
+  onConfirm={async () => {
+    if (
+      !conditionSourceQuestion ||
+      !conditionToDelete ||
+      conditionToDeleteIndex === null
+    )
+      return;
+
+    // 🔹 Backend nur wenn gespeichert
+    if (conditionToDelete.persisted) {
+      await deleteQuestionCondition(
+        conditionSourceQuestion.questionId,
+        conditionToDelete.operator as "==" | "!=" | "<" | ">"
+      );
+    }
+
+    // 🔹 UI aktualisieren
+    setConditions((prev) => {
+      const next = prev.filter(
+        (_, i) => i !== conditionToDeleteIndex
+      );
+
+      return next.length > 0
+        ? next
+        : [
+            {
+              operator: "",
+              expectedValue: "",
+              targetNodeId: undefined,
+              targetLabel: "",
+              persisted: false,
+            },
+          ];
+    });
+
+    setIsDeleteConditionOpen(false);
+    setConditionToDelete(null);
+    setConditionToDeleteIndex(null);
+  }}
+/>
+
+
 
   {/* SPEICHERN – RECHTS */}
   <button
