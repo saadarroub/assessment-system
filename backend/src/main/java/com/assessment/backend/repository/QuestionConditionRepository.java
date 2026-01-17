@@ -19,6 +19,9 @@ public interface QuestionConditionRepository extends JpaRepository<QuestionCondi
   //Find all QuestionCondition Object for a sourceQuestionId
   List<QuestionCondition> findAllBySourceQuestionId(UUID sourceQuestionId);
 
+  //Find a QuestionCondition Object with Id and Operator
+  QuestionCondition findBySourceQuestionIdAndOperator(UUID sourceQuestionId, String operator);
+
 //Existiert die QuestionCondition bereits
   boolean existsBySourceQuestionIdAndOperatorAndExpectedValue(UUID sourceQuestionId, String operator, String expectedValue);
 
