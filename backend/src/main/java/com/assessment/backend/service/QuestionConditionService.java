@@ -9,10 +9,13 @@ import static com.assessment.backend.util.JsonbParser.parseString;
 import static com.assessment.backend.util.JsonbParser.readTargetFromDbJson;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+import java.time.format.ResolverStyle;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -23,6 +26,7 @@ import com.assessment.backend.entity.QuestionType;
 import com.assessment.backend.repository.QuestionConditionRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class QuestionConditionService {
@@ -307,6 +311,95 @@ public class QuestionConditionService {
       return targetNodeId.get(">");
 
     }
+  }
+
+  //Update a existing Question Condition Object
+  @Transactional
+  public QuestionCondition updateQuestionConditionEntity(UUID sourceQuestionId, String operator, String expectedValue) {
+
+    DateTimeFormatter EU_DATE = DateTimeFormatter.ofPattern("dd.MM.uuuu", Locale.GERMANY)
+        .withResolverStyle(ResolverStyle.STRICT);
+
+    QuestionCondition qc =
+        questionConditionRepository.findBySourceQuestionIdAndOperator(sourceQuestionId, operator);
+
+    Question question = questionConditionRepository.findQuestionBySourceQuestionId(sourceQuestionId);
+    QuestionType qT = question.getQuestionType();
+    String questionType = qT.getName();
+
+    if ("Number Input".equals(questionType) || "Rating Scale".equals(questionType)) {
+      if (expectedValue == null || expectedValue.isBlank()) {
+        throw new IllegalArgumentException("expectedValue darf nicht leer sein");
+      }
+      if (expectedValue.contains(",")) {
+        throw new IllegalArgumentException("expectedValue muss eine ganze Zahl ohne Komma sein");
+      }
+      try {
+        Long.parseLong(expectedValue.replace(".", ""));
+      } catch (NumberFormatException e) {
+        throw new IllegalArgumentException("expectedValue muss eine ganze Zahl sein");
+      }
+
+    } else if ("Multiple Choice".equals(questionType)) {
+      if (expectedValue == null || expectedValue.trim().isEmpty()) {
+        throw new IllegalArgumentException("expectedValue darf nicht leer sein");
+      }
+      expectedValue = expectedValue.trim();
+      if (expectedValue.length() > 255) {
+        throw new IllegalArgumentException("expectedValue ist zu lang (max 255 Zeichen)");
+      }
+
+    } else if ("Multiple Select".equals(questionType)) {
+      if (expectedValue == null || expectedValue.trim().isEmpty()) {
+        throw new IllegalArgumentException("expectedValue darf nicht leer sein");
+      }
+      List<String> values = Arrays.stream(expectedValue.split(","))
+          .map(String::trim)
+          .filter(s -> !s.isEmpty())
+          .toList();
+
+      if (values.size() < 2) {
+        throw new IllegalArgumentException("expectedValue muss mindestens 2 Werte enthalten, getrennt mit Komma");
+      }
+
+    } else if ("Date Input".equals(questionType)) {
+      if (expectedValue == null || expectedValue.trim().isEmpty()) {
+        throw new IllegalArgumentException("expectedValue darf nicht leer sein");
+      }
+      try {
+        LocalDate.parse(expectedValue.trim(), EU_DATE);
+      } catch (DateTimeParseException e) {
+        throw new IllegalArgumentException("expectedValue muss ein Datum im Format tt.MM.jjjj sein (z.B. 17.01.2026)");
+      }
+
+    } else {
+      if (expectedValue == null) {
+        throw new IllegalArgumentException("expectedValue darf nicht null sein");
+      }
+    }
+
+    qc.setExpectedValue(expectedValue);
+    return questionConditionRepository.save(qc);
+  }
+
+  //Delete a Single Question Condition Object
+  @Transactional
+  public void deleteASingleQuestionCondition(UUID sourceQuestionId, String operator){
+
+    QuestionCondition qc = questionConditionRepository.findBySourceQuestionIdAndOperator(sourceQuestionId,operator);
+
+    questionConditionRepository.delete(qc);
+
+  }
+
+  //Delete All Question Conditions for a Source Question ID
+  @Transactional
+  public void deleteAllQuestionConditions(UUID sourceQuestionId){
+
+    List<QuestionCondition> qc = questionConditionRepository.findAllBySourceQuestionId(sourceQuestionId);
+
+    questionConditionRepository.deleteAll(qc);
+
   }
 
 }
