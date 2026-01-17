@@ -72,7 +72,7 @@ public class QuestionConditionService {
     Set<String> numberAllowed = Set.of("==", "<", ">");
 
 
-    if ("Multiple Choice".equals(questionTypeName)||"Multiple Select".equals(questionTypeName)) {
+    if ("Multiple Choice".equals(questionTypeName)||"Multiple Select".equals(questionTypeName)|| "Dropdown".equals(questionTypeName)) {
 
       if(!wordAllowed.contains(sign)){
 
@@ -133,7 +133,7 @@ public class QuestionConditionService {
 
     Map<String, UUID> targetNodeId = new HashMap<>();
 
-    if ("Multiple Choice".equals(questionTypeName)) {
+    if ("Multiple Choice".equals(questionTypeName)||"Dropdown".equals(questionTypeName)) {
 
       targetNodeId.put("==", findTargetNodeIdByOperator(qc,"=="));
       targetNodeId.put("!=", findTargetNodeIdByOperator(qc,"!="));
@@ -169,7 +169,7 @@ public class QuestionConditionService {
 
   }
 
-  //Multiple Choice
+  //Multiple Choice + Dropdown
   public UUID handleQuestion(UUID sourceQuestionID, Map<String, UUID> targetNodeId, UUID sessionId,
                           String expectedValue) {
 
@@ -315,7 +315,8 @@ public class QuestionConditionService {
 
   //Update a existing Question Condition Object
   @Transactional
-  public QuestionCondition updateQuestionConditionEntity(UUID sourceQuestionId, String operator, String expectedValue) {
+  public QuestionCondition updateQuestionConditionEntity(UUID sourceQuestionId, String operator,
+                                                         String expectedValue, UUID targetNodeId) {
 
     DateTimeFormatter EU_DATE = DateTimeFormatter.ofPattern("dd.MM.uuuu", Locale.GERMANY)
         .withResolverStyle(ResolverStyle.STRICT);
@@ -340,7 +341,7 @@ public class QuestionConditionService {
         throw new IllegalArgumentException("expectedValue muss eine ganze Zahl sein");
       }
 
-    } else if ("Multiple Choice".equals(questionType)) {
+    } else if ("Multiple Choice".equals(questionType)||"Dropdown".equals(questionType)) {
       if (expectedValue == null || expectedValue.trim().isEmpty()) {
         throw new IllegalArgumentException("expectedValue darf nicht leer sein");
       }
@@ -359,7 +360,8 @@ public class QuestionConditionService {
           .toList();
 
       if (values.size() < 2) {
-        throw new IllegalArgumentException("expectedValue muss mindestens 2 Werte enthalten, getrennt mit Komma");
+        throw new IllegalArgumentException("expectedValue muss mindestens 2 Werte enthalten " +
+            "getrennt mit einen Komma");
       }
 
     } else if ("Date Input".equals(questionType)) {
@@ -369,7 +371,7 @@ public class QuestionConditionService {
       try {
         LocalDate.parse(expectedValue.trim(), EU_DATE);
       } catch (DateTimeParseException e) {
-        throw new IllegalArgumentException("expectedValue muss ein Datum im Format tt.MM.jjjj sein (z.B. 17.01.2026)");
+        throw new IllegalArgumentException("expectedValue muss ein Datum sein");
       }
 
     } else {
@@ -379,6 +381,7 @@ public class QuestionConditionService {
     }
 
     qc.setExpectedValue(expectedValue);
+    qc.setTargetNodeId(targetNodeId);
     return questionConditionRepository.save(qc);
   }
 
