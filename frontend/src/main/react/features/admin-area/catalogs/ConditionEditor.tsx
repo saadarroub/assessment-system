@@ -32,6 +32,8 @@ import {
   CheckCircle2,
   RefreshCcw,
   PlusCircle,
+  Info,
+  Workflow,
 } from "lucide-react";
 
 import {
@@ -46,7 +48,7 @@ import {
   updateQuestionNodeRequired,
   moveRootNode,
   moveChildNode,
-  createQuestionCondition,getQuestionConditions,deleteAllQuestionConditions,deleteQuestionCondition
+  createQuestionCondition, getQuestionConditions, deleteAllQuestionConditions, deleteQuestionCondition
 } from "@/api/questionApi";
 
 // 🧩 Drag & Drop Imports
@@ -130,7 +132,7 @@ export default function ConditionEditor() {
       expectedValue: string;
       targetNodeId?: string;
       targetLabel?: string;
-      persisted?: boolean; 
+      persisted?: boolean;
     }[]
   >([]);
 
@@ -184,9 +186,9 @@ export default function ConditionEditor() {
   const [isDeleteAllConditionsOpen, setIsDeleteAllConditionsOpen] = useState(false);
 
 
-const [isDeleteConditionOpen, setIsDeleteConditionOpen] = useState(false);
-const [conditionToDelete, setConditionToDelete] = useState<ConditionItem | null>(null);
-const [conditionToDeleteIndex, setConditionToDeleteIndex] = useState<number | null>(null);
+  const [isDeleteConditionOpen, setIsDeleteConditionOpen] = useState(false);
+  const [conditionToDelete, setConditionToDelete] = useState<ConditionItem | null>(null);
+  const [conditionToDeleteIndex, setConditionToDeleteIndex] = useState<number | null>(null);
 
 
 
@@ -303,7 +305,7 @@ const [conditionToDeleteIndex, setConditionToDeleteIndex] = useState<number | nu
       // Ansonsten Standard: true
       const requiredValue =
         editingQuestion.required !== undefined &&
-        editingQuestion.required !== null
+          editingQuestion.required !== null
           ? editingQuestion.required
           : true;
       setIsRequired(requiredValue);
@@ -311,7 +313,7 @@ const [conditionToDeleteIndex, setConditionToDeleteIndex] = useState<number | nu
       // isScorable aus editingQuestion laden (default: true)
       const scorableValue =
         editingQuestion.isScorable !== undefined &&
-        editingQuestion.isScorable !== null
+          editingQuestion.isScorable !== null
           ? editingQuestion.isScorable
           : true;
       setIsScorable(scorableValue);
@@ -835,20 +837,20 @@ const [conditionToDeleteIndex, setConditionToDeleteIndex] = useState<number | nu
         list.map((q) =>
           q.id === editingQuestion.id
             ? {
-                ...q,
-                text: questionText,
-                type: selectedType?.value || q.type,
-                options: hasOptions ? options : [],
-                scoringSchema: hasOptions
-                  ? Object.fromEntries(options.map((o) => [o.label, o.score]))
-                  : {},
-                required: isRequired, // ✅ isRequired auch in UI aktualisieren
-                isScorable: hasOptions ? true : isScorable, // ✅ isScorable auch in UI aktualisieren
-              }
+              ...q,
+              text: questionText,
+              type: selectedType?.value || q.type,
+              options: hasOptions ? options : [],
+              scoringSchema: hasOptions
+                ? Object.fromEntries(options.map((o) => [o.label, o.score]))
+                : {},
+              required: isRequired, // ✅ isRequired auch in UI aktualisieren
+              isScorable: hasOptions ? true : isScorable, // ✅ isScorable auch in UI aktualisieren
+            }
             : {
-                ...q,
-                children: q.children ? updateQuestionInTree(q.children) : [],
-              }
+              ...q,
+              children: q.children ? updateQuestionInTree(q.children) : [],
+            }
         );
 
       setQuestions((prev) => updateQuestionInTree(prev));
@@ -915,10 +917,10 @@ const [conditionToDeleteIndex, setConditionToDeleteIndex] = useState<number | nu
                 child.id === id
                   ? !child.expanded
                     ? {
-                        ...child,
-                        expanded: true,
-                        children: await fetchChildrenRecursive(child.id),
-                      }
+                      ...child,
+                      expanded: true,
+                      children: await fetchChildrenRecursive(child.id),
+                    }
                     : { ...child, expanded: false }
                   : await toggleExpandInChild(child, id)
               )
@@ -1042,10 +1044,31 @@ const [conditionToDeleteIndex, setConditionToDeleteIndex] = useState<number | nu
   // 1️⃣ useSortable + Auto-Close
   // -----------------------------
   function SortableQuestion({ q, level = 0 }: { q: any; level?: number }) {
-  
-
     const conditionTypes = ["radio", "select", "number", "range", "date"];
     const canHaveCondition = conditionTypes.includes(q.type);
+
+    // 🌟 Layout & Overflow Logic
+    const titleRef = useRef<HTMLParagraphElement | null>(null);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const hoverTimeout = useRef<any>(null);
+    const [showInfoIcon, setShowInfoIcon] = useState(false);
+    const [showTooltipFull, setShowTooltipFull] = useState(false);
+
+    useEffect(() => {
+      const observer = new ResizeObserver(() => {
+        const el = titleRef.current;
+        if (!el) return;
+        // Check both width and height to be safe (like TopicCard), though width is primary here
+        const isOverflow = el.scrollWidth > el.clientWidth || el.scrollHeight > el.clientHeight;
+        setShowInfoIcon(isOverflow);
+      });
+
+      if (titleRef.current) {
+        observer.observe(titleRef.current);
+      }
+
+      return () => observer.disconnect();
+    }, [q.text]);
 
     const isBlockedByConditionPick = useMemo(() => {
       if (!isPickingTarget || !conditionSourceQuestion) return false;
@@ -1079,36 +1102,18 @@ const [conditionToDeleteIndex, setConditionToDeleteIndex] = useState<number | nu
       maxHeight: q.expanded && !isThisDragging ? "900px" : "0px",
       opacity: q.expanded && !isThisDragging ? 1 : 0,
       overflow: "hidden",
+      transition: "all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1)",
+
     };
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const handleGripDown = (e: any) => {
-      const isFirstChild = level === 1;
-      const isSecondChild = level === 2;
-
-      console.log("====== GRIP CLICK =======");
-      console.log("TEXT:", q.text);
-      console.log("LEVEL:", level);
-      console.log("expanded:", q.expanded);
-      console.log("parentId:", parentId);
-
-      if (isFirstChild) {
-        console.log("👉 FIRST CHILD GRIP (LEVEL 1)");
-      }
-
-      if (isSecondChild) {
-        console.log("👉 SECOND CHILD GRIP (LEVEL 2)");
-      }
-
-      console.log("=========================");
-
-      // WICHTIG → Drag aktivieren
       listeners?.onPointerDown?.(e);
     };
 
     return (
-      <div ref={setNodeRef} style={style} className="mt-3">
+      <div ref={setNodeRef} style={style} className="mt-3 relative hover:z-[9999]">
         {/* Karten-Header */}
-
         <div
           className={
             "group relative flex items-center justify-between rounded-xl px-4 py-3 border transition-colors duration-300 " +
@@ -1140,130 +1145,21 @@ const [conditionToDeleteIndex, setConditionToDeleteIndex] = useState<number | nu
             boxShadow: "0 3px 10px rgba(0,0,0,0.03)",
           }}
         >
-          {/* ✅ HIER */}
           {isThisDragging && (
-            <div
-              className="
-      absolute inset-0
-      rounded-xl
-      z-10
-      pointer-events-none
-      drag-active-highlight
-    "
-            />
+            <div className="absolute inset-0 rounded-xl z-10 pointer-events-none drag-active-highlight" />
           )}
 
           {/* Goldener Hover-Glow */}
           <div
-            className="
-    absolute inset-0 rounded-xl
-    opacity-0 group-hover:opacity-100
-    transition-opacity duration-300
-  "
+            className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"
             style={{
-              background: `
-      radial-gradient(circle at top left, rgba(227,187,98,0.35), transparent 45%),
-      radial-gradient(circle at top right, rgba(227,187,98,0.25), transparent 45%)
-    `,
+              background: `radial-gradient(circle at top left, rgba(227,187,98,0.35), transparent 45%), radial-gradient(circle at top right, rgba(227,187,98,0.25), transparent 45%)`,
             }}
           />
 
-          {/* 🔀 Condition Button – SEPARAT */}
-          {canHaveCondition && (
-            <button
-              disabled={isPickingTarget}
-             onClick={async (e) => {
-  if (isPickingTarget) return;
-  e.stopPropagation();
-
-  setConditionSourceQuestion(q);
-
-  try {
-    const existing = await getQuestionConditions(q.questionId);
-
-    if (Array.isArray(existing) && existing.length > 0) {
-    setConditions(
-  existing.map((c: any) => {
-    const target = flatQuestions.find(
-      (q) => q.id === c.targetNodeId
-    );
-
-    return {
-      operator: c.operator,
-      expectedValue: c.expectedValue,
-      targetNodeId: c.targetNodeId,
-      targetLabel: target?.text ?? "Unbekannte Frage",
-      persisted: true, // ✅ WICHTIG
-    };
-  })
-);
-
-    } else {
-      // ✅ KEINE CONDITIONS → LEER STARTEN
-      setConditions([
-        {
-          operator: "",
-          expectedValue: "",
-          targetNodeId: undefined,
-          targetLabel: "",
-        },
-      ]);
-    }
-  } catch {
-    // ✅ 404 / 204 → KEINE CONDITIONS
-    setConditions([
-      {
-        operator: "",
-        expectedValue: "",
-        targetNodeId: undefined,
-        targetLabel: "",
-      },
-    ]);
-  }
-
-  setIsConditionModalOpen(true);
-}}
-
-              className={`
-    absolute right-[210px] top-5 z-30
-    h-9 w-9
-    rounded-full
-    flex items-center justify-center
-    border border-[#e5dcc7]
-    backdrop-blur
-    text-[#264555]
-    shadow-[0_8px_20px_rgba(0,0,0,0.12)]
-    transition-all duration-200
-
-    ${
-      isPickingTarget
-        ? "opacity-0 pointer-events-none"
-        : "bg-white/80 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto hover:bg-[#fff4d6]"
-    }
-  `}
-              title="Bedingungen / Folgefragen"
-            >
-              <ChevronRight size={18} />
-            </button>
-          )}
-
+          {/* LEFT CONTENT (Grip, Expand, Text) */}
           <div
-            className="
-    pointer-events-none
-    absolute inset-0 rounded-xl
-    opacity-0 group-hover:opacity-100
-    transition-opacity duration-300
-  "
-            style={{
-              background: `
-      radial-gradient(circle at top left, rgba(227,187,98,0.35), transparent 45%),
-      radial-gradient(circle at top right, rgba(227,187,98,0.25), transparent 45%)
-    `,
-            }}
-          />
-
-          <div
-            className="relative z-30 flex items-start gap-3 transition-all"
+            className="relative z-20 flex items-start gap-3 transition-all min-w-0 flex-1"
             style={{
               filter: isBlockedByConditionPick ? "blur(4px)" : "none",
               opacity: isBlockedByConditionPick ? 0.7 : 1,
@@ -1272,264 +1168,259 @@ const [conditionToDeleteIndex, setConditionToDeleteIndex] = useState<number | nu
             {/* Grip */}
             <GripVertical
               size={20}
-              className={`
-    mt-1 transition-all duration-150
-    ${
-      isPickingTarget
-        ? "text-gray-300 cursor-not-allowed pointer-events-none"
-        : draggingId === q.id
-        ? "text-green-500 scale-110 cursor-grab"
-        : "text-gray-400 cursor-grab"
-    }
-  `}
+              className={`mt-1 shrink-0 transition-all duration-150 ${isPickingTarget
+                ? "text-gray-300 cursor-not-allowed pointer-events-none"
+                : draggingId === q.id
+                  ? "text-green-500 scale-110 cursor-grab"
+                  : "text-gray-400 cursor-grab"
+                }`}
               {...(!isPickingTarget ? attributes : {})}
               onPointerDown={isPickingTarget ? undefined : handleGripDown}
             />
 
-            {/* Pfeil */}
-            {q.children?.length > 0 ? (
-              q.expanded ? (
-                <ChevronDown
-                  size={18}
+            {/* Expander */}
+            <div className="mt-1 shrink-0 w-[18px] flex justify-center">
+              {q.children?.length > 0 && (
+                <div
                   className="cursor-pointer"
                   onClick={(e) => {
-                    e.stopPropagation(); // 🔥 DAS ist der Fix
+                    e.stopPropagation();
                     toggleExpand(q.id);
                   }}
-                />
-              ) : (
-                <ChevronRight
-                  size={18}
-                  className="cursor-pointer"
-                  onClick={(e) => {
-                    e.stopPropagation(); // 🔥
-                    toggleExpand(q.id);
-                  }}
-                />
-              )
-            ) : (
-              <div className="w-[18px]" />
-            )}
-
-            {/* Frage */}
-            <div className="relative z-20 flex flex-col mt-0">
-              <p className="font-semibold">{q.text}</p>
-
-              <div className="relative z-20 flex items-center gap-2 mt-2">
-                <div className="flex items-center gap-2 mt-0">
-                  {/* Typ */}
-                  <span
-                    className="
-      inline-flex items-center gap-1
-      px-2.5 py-0.5
-      text-xs font-medium
-      rounded-full
-      border
-      transition-all
-      bg-[#eef2ff] text-[#264555] border-[#d6ddff]
-      group-hover:bg-[#e6edff]
-      group-hover:border-[#c7d2fe]
-    "
-                  >
-                    {questionTypes.find((t) => t.value === q.type)?.label}
-                  </span>
-
-                  {/* Pflicht / Optional */}
-                  {q.required ? (
-                    <span
-                      className="
-        inline-flex items-center gap-1
-        px-2.5 py-0.5
-        text-xs font-medium
-        rounded-full
-        border
-        transition-all
-        bg-[#fff4d6] text-[#8b5d00] border-[#e8d8a8]
-        group-hover:bg-[#ffedc2]
-        group-hover:border-[#ddc691]
-      "
-                    >
-                      Pflicht
-                    </span>
+                >
+                  {q.expanded ? (
+                    <ChevronDown size={18} />
                   ) : (
-                    <span
-                      className="
-        inline-flex items-center gap-1
-        px-2.5 py-0.5
-        text-xs font-medium
-        rounded-full
-        border
-        transition-all
-        bg-[#f0f0f0] text-[#555] border-[#d9d9d9]
-        group-hover:bg-[#e6e6e6]
-      "
-                    >
-                      Optional
-                    </span>
-                  )}
-
-                  {/* Max Score */}
-                  {/* Bewertung */}
-                  {q.isScorable === false ? (
-                    <span
-                      className="
-      inline-flex items-center gap-1
-      px-2.5 py-0.5
-      text-xs font-medium
-      rounded-full
-      border
-      transition-all
-      bg-[#f1f3f5] text-[#6c757d] border-[#dee2e6]
-      group-hover:bg-[#e9ecef]
-      group-hover:border-[#ced4da]
-    "
-                    >
-                      Nicht bewertet
-                    </span>
-                  ) : (
-                    <span
-                      className="
-      inline-flex items-center gap-1
-      px-2.5 py-0.5
-      text-xs font-medium
-      rounded-full
-      border
-      transition-all
-      bg-[#e6f4ea] text-[#0f5132] border-[#b7dfc2]
-      group-hover:bg-[#d1e7dd]
-      group-hover:border-[#a3cfbb]
-    "
-                    >
-                      Max Score:{" "}
-                      {(() => {
-                        if (q.options && q.options.length > 0) {
-                          const sum = q.options
-                            .map((o: any) => Number(o.score))
-                            .filter((n: number) => !isNaN(n))
-                            .reduce((a: number, b: number) => a + b, 0);
-
-                          return sum > 0 ? sum : 6;
-                        }
-                        return 6;
-                      })()}
-                    </span>
+                    <ChevronRight size={18} />
                   )}
                 </div>
+              )}
+            </div>
+
+            {/* TEXT & INFO & BADGES */}
+            <div className="flex flex-col min-w-0 flex-1">
+              <div className="flex items-center gap-2 relative">
+                <p
+                  ref={titleRef}
+                  className="font-semibold truncate text-[15px] select-none text-slate-800"
+                >
+                  {q.text}
+                </p>
+
+                {/* INFO ICON CHECK */}
+                {showInfoIcon && (
+                  <div
+                    className="relative shrink-0"
+                    onMouseEnter={() => {
+                      hoverTimeout.current = setTimeout(() => {
+                        setShowTooltipFull(true);
+                      }, 350);
+                    }}
+                    onMouseLeave={() => {
+                      clearTimeout(hoverTimeout.current);
+                      setShowTooltipFull(false);
+                    }}
+                  >
+                    <div className="w-5 h-5 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-all cursor-pointer">
+                      <Info
+                        size={14}
+                        className="text-gray-500"
+                        strokeWidth={2}
+                      />
+                    </div>
+                    {/* TOOLTIP */}
+                    <div
+                      className={`
+                        ${showTooltipFull
+                          ? "opacity-100 visible"
+                          : "opacity-0 invisible"
+                        }
+                        absolute right-full top-0 mr-2 w-[36rem]
+                        rounded-xl p-3 text-xs
+                        transition-all duration-200 z-[9999]
+                        bg-[#fffaf0] text-[#264555] border border-[#e6dcc8] shadow-xl
+                        break-words whitespace-normal
+                      `}
+                    >
+                      <b>{q.text}</b>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Badges */}
+              <div className="flex flex-wrap items-center gap-2 mt-2">
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-medium rounded-full border transition-all bg-[#eef2ff] text-[#264555] border-[#d6ddff] group-hover:bg-[#e6edff] group-hover:border-[#c7d2fe]">
+                  {questionTypes.find((t) => t.value === q.type)?.label}
+                </span>
+                {q.required ? (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-medium rounded-full border transition-all bg-[#fff4d6] text-[#8b5d00] border-[#e8d8a8] group-hover:bg-[#ffedc2] group-hover:border-[#ddc691]">
+                    Pflicht
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-medium rounded-full border transition-all bg-[#f0f0f0] text-[#555] border-[#d9d9d9] group-hover:bg-[#e6e6e6]">
+                    Optional
+                  </span>
+                )}
+                {q.isScorable === false ? (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-medium rounded-full border transition-all bg-[#f1f3f5] text-[#6c757d] border-[#dee2e6] group-hover:bg-[#e9ecef] group-hover:border-[#ced4da]">
+                    Nicht bewertet
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-medium rounded-full border transition-all bg-[#e6f4ea] text-[#0f5132] border-[#b7dfc2] group-hover:bg-[#d1e7dd] group-hover:border-[#a3cfbb]">
+                    Max Score:{" "}
+                    {(() => {
+                      if (q.options && q.options.length > 0) {
+                        const sum = q.options
+                          .map((o: any) => Number(o.score))
+                          .filter((n: number) => !isNaN(n))
+                          .reduce((a: number, b: number) => a + b, 0);
+                        return sum > 0 ? sum : 6;
+                      }
+                      return 6;
+                    })()}
+                  </span>
+                )}
               </div>
             </div>
           </div>
 
-          {/* Rechts – Buttons nur bei Hover sichtbar */}
-          {/* Rechts – Actions (Design passend zu Sand/Navy) */}
-          <div
-            className="
-    flex items-center gap-2
-    rounded-full
-    px-2 py-1
-    border border-[#e5dcc7]
-    bg-white/70 backdrop-blur-md
-    shadow-[0_10px_24px_rgba(0,0,0,0.10)]
-    opacity-0 translate-x-2 pointer-events-none
-    transition-all duration-200
-    group-hover:opacity-100 group-hover:translate-x-0 group-hover:pointer-events-auto
-  "
-          >
-            {/* Preview */}
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setPreviewQuestion(q);
-                setPreviewAnswer(null);
-              }}
-              className="
-      h-9 w-9 rounded-full
-      flex items-center justify-center
-      border border-[#e5dcc7]
-      bg-white/60 text-[#264555]
-      transition-all
-      hover:bg-[#f3ecff]
-      hover:-translate-y-[1px]
-      hover:shadow-[0_10px_20px_rgba(0,0,0,0.14)]
-    "
-            >
-              <Eye size={18} />
-            </button>
+          {/* RIGHT BUTTONS GROUP */}
+          <div className="relative z-30 flex items-center gap-2 shrink-0 ml-4 opacity-0 translate-x-2 pointer-events-none transition-all duration-200 group-hover:opacity-100 group-hover:translate-x-0 group-hover:pointer-events-auto bg">
 
-            {/* Add */}
-            <button
-              disabled={isPickingTarget}
-              onClick={(e) => {
-                e.stopPropagation();
-                setParentQuestion(q);
-                setIsRequired(true);
-                setIsScorable(true);
-                setIsModalOpen(true);
-              }}
-              className={`
-    h-9 w-9 rounded-full
-    flex items-center justify-center
-    border border-[#e5dcc7]
-    transition-all
-    ${
-      isPickingTarget
-        ? "opacity-30 cursor-not-allowed"
-        : "bg-white/60 text-[#264555] hover:bg-[#fff4d6] hover:-translate-y-[1px] hover:shadow-[0_10px_20px_rgba(0,0,0,0.14)]"
-    }
-  `}
-            >
-              <Plus size={18} />
-            </button>
+            {/* Condition Button (Standalone, Premium Design) */}
+            {canHaveCondition && (
+              <button
+                disabled={isPickingTarget}
+                onClick={async (e) => {
+                  if (isPickingTarget) return;
+                  e.stopPropagation();
+                  setConditionSourceQuestion(q);
+                  try {
+                    const existing = await getQuestionConditions(q.questionId);
+                    if (Array.isArray(existing) && existing.length > 0) {
+                      setConditions(
+                        existing.map((c: any) => {
+                          const target = flatQuestions.find(
+                            (q) => q.id === c.targetNodeId
+                          );
+                          return {
+                            operator: c.operator,
+                            expectedValue: c.expectedValue,
+                            targetNodeId: c.targetNodeId,
+                            targetLabel: target?.text ?? "Unbekannte Frage",
+                            persisted: true,
+                          };
+                        })
+                      );
+                    } else {
+                      setConditions([
+                        {
+                          operator: "",
+                          expectedValue: "",
+                          targetNodeId: undefined,
+                          targetLabel: "",
+                        },
+                      ]);
+                    }
+                  } catch {
+                    setConditions([
+                      {
+                        operator: "",
+                        expectedValue: "",
+                        targetNodeId: undefined,
+                        targetLabel: "",
+                      },
+                    ]);
+                  }
+                  setIsConditionModalOpen(true);
+                }}
+                className={`
+                  h-9 w-9 
+                  rounded-xl 
+                  flex items-center justify-center 
+                  border border-[#E3BB62] 
+                  bg-[#fffdf7] text-[#b08d2a] 
+                  shadow-[0_2px_8px_rgba(227,187,98,0.15)]
+                  transition-all duration-200
+                  hover:bg-[#E3BB62] hover:text-white hover:-translate-y-[1px] hover:shadow-[0_4px_12px_rgba(227,187,98,0.3)]
+                  ${isPickingTarget ? "opacity-30 cursor-not-allowed" : ""}
+                `}
+                title="Bedingungen / Folgefragen"
+              >
+                <Workflow size={17} strokeWidth={2} />
+              </button>
+            )}
 
-            {/* Edit */}
-            <button
-              disabled={isPickingTarget}
-              onClick={(e) => {
-                if (isPickingTarget) return;
-                e.stopPropagation();
-                setEditingQuestion(q);
-                setParentQuestion(null);
-                setQuestionText(q.text);
-                setSelectedType(questionTypes.find((t) => t.value === q.type));
-                setOptions(normalizeOptions(q));
-                setIsModalOpen(true);
-              }}
-              className={`
-    h-9 w-9 rounded-full
-    flex items-center justify-center
-    border border-[#e5dcc7]
-    transition-all
-    ${
-      isPickingTarget
-        ? "opacity-30 cursor-not-allowed"
-        : "bg-white/60 text-[#264555] hover:bg-[#e6edff] hover:-translate-y-[1px] hover:shadow-[0_10px_20px_rgba(0,0,0,0.14)]"
-    }
-  `}
-            >
-              <Edit3 size={18} />
-            </button>
+            {/* Standard Actions (Pill) */}
+            <div className="flex items-center gap-1 bg-white/70 backdrop-blur-md rounded-full px-2 py-1 shadow-sm border border-[#e5dcc7]">
+              {/* Preview */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setPreviewQuestion(q);
+                  setPreviewAnswer(null);
+                }}
+                className="h-9 w-9 rounded-full flex items-center justify-center border border-[#e5dcc7] bg-white text-[#264555] transition-all hover:bg-[#f3ecff] hover:-translate-y-[1px] hover:shadow-[0_10px_20px_rgba(0,0,0,0.14)]"
+              >
+                <Eye size={18} />
+              </button>
 
-            {/* Delete */}
-            <button
-              disabled={isPickingTarget}
-              onClick={(e) => {
-                if (isPickingTarget) return;
-                e.stopPropagation();
-                handleDeleteQuestion(q);
-              }}
-              className={`
-    h-9 w-9 rounded-full
-    flex items-center justify-center
-    border border-[#e5dcc7]
-    transition-all
-    ${
-      isPickingTarget
-        ? "opacity-30 cursor-not-allowed"
-        : "bg-white/60 hover:bg-[#ffecec] hover:-translate-y-[1px] hover:shadow-[0_10px_20px_rgba(0,0,0,0.14)]"
-    }
-  `}
-            >
-              <Trash2 size={18} className="text-red-600" />
-            </button>
+              {/* Add */}
+              <button
+                disabled={isPickingTarget}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setParentQuestion(q);
+                  setIsRequired(true);
+                  setIsScorable(true);
+                  setIsModalOpen(true);
+                }}
+                className={`h-9 w-9 rounded-full flex items-center justify-center border border-[#e5dcc7] transition-all ${isPickingTarget
+                  ? "opacity-30 cursor-not-allowed"
+                  : "bg-white text-[#264555] hover:bg-[#fff4d6] hover:-translate-y-[1px] hover:shadow-[0_10px_20px_rgba(0,0,0,0.14)]"
+                  }`}
+              >
+                <Plus size={18} />
+              </button>
+
+              {/* Edit */}
+              <button
+                disabled={isPickingTarget}
+                onClick={(e) => {
+                  if (isPickingTarget) return;
+                  e.stopPropagation();
+                  setEditingQuestion(q);
+                  setParentQuestion(null);
+                  setQuestionText(q.text);
+                  setSelectedType(questionTypes.find((t) => t.value === q.type));
+                  setOptions(normalizeOptions(q));
+                  setIsModalOpen(true);
+                }}
+                className={`h-9 w-9 rounded-full flex items-center justify-center border border-[#e5dcc7] transition-all ${isPickingTarget
+                  ? "opacity-30 cursor-not-allowed"
+                  : "bg-white text-[#264555] hover:bg-[#e6edff] hover:-translate-y-[1px] hover:shadow-[0_10px_20px_rgba(0,0,0,0.14)]"
+                  }`}
+              >
+                <Edit3 size={18} />
+              </button>
+
+              {/* Delete */}
+              <button
+                disabled={isPickingTarget}
+                onClick={(e) => {
+                  if (isPickingTarget) return;
+                  e.stopPropagation();
+                  handleDeleteQuestion(q);
+                }}
+                className={`h-9 w-9 rounded-full flex items-center justify-center border border-[#e5dcc7] transition-all ${isPickingTarget
+                  ? "opacity-30 cursor-not-allowed"
+                  : "bg-white hover:bg-[#ffecec] hover:-translate-y-[1px] hover:shadow-[0_10px_20px_rgba(0,0,0,0.14)]"
+                  }`}
+              >
+                <Trash2 size={18} className="text-red-600" />
+              </button>
+            </div>
           </div>
         </div>
 
@@ -1553,18 +1444,9 @@ const [conditionToDeleteIndex, setConditionToDeleteIndex] = useState<number | nu
         "
                 style={{ borderColor: "#E3BB62" }}
               >
-                <div
-                  className="
-            flex items-center justify-center
-            w-8 h-8
-            rounded-full
-            bg-[#E3BB62]
-            text-[#264555]
-          "
-                >
+                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-[#E3BB62] text-[#264555]">
                   <ChevronDown size={18} />
                 </div>
-
                 <span className="text-sm font-semibold text-[#264555]">
                   Ziel-Frage auswählen
                 </span>
@@ -1577,19 +1459,7 @@ const [conditionToDeleteIndex, setConditionToDeleteIndex] = useState<number | nu
                   setPendingConditionIndex(null);
                   setIsConditionModalOpen(true); // 🔥 ZURÜCK ZUM MODAL
                 }}
-                className="
-          flex items-center gap-2
-          px-5 py-3
-          rounded-full
-          border
-          bg-white/60
-          text-sm font-semibold
-          text-gray-600
-          hover:bg-white
-          hover:text-gray-800
-          transition
-          shadow-sm
-        "
+                className="flex items-center gap-2 px-5 py-3 rounded-full border bg-white/60 text-sm font-semibold text-gray-600 hover:bg-white hover:text-gray-800 transition shadow-sm"
               >
                 Abbrechen
               </button>
@@ -1897,27 +1767,27 @@ const [conditionToDeleteIndex, setConditionToDeleteIndex] = useState<number | nu
                 isPickingTarget
                   ? undefined
                   : ({ active }) => {
-                      const parentId = active.data?.current?.parent;
-                      const isRoot = parentId === "root";
+                    const parentId = active.data?.current?.parent;
+                    const isRoot = parentId === "root";
 
-                      setQuestions((prev) => {
-                        if (isRoot) {
-                          return closeAllRootLists(prev);
-                        } else {
-                          return closeChildrenOfParent(prev, parentId);
-                        }
-                      });
+                    setQuestions((prev) => {
+                      if (isRoot) {
+                        return closeAllRootLists(prev);
+                      } else {
+                        return closeChildrenOfParent(prev, parentId);
+                      }
+                    });
 
-                      setDraggingId(String(active.id));
-                    }
+                    setDraggingId(String(active.id));
+                  }
               }
               onDragEnd={
                 isPickingTarget
                   ? undefined
                   : (event) => {
-                      handleDragEnd(event);
-                      setDraggingId(null);
-                    }
+                    handleDragEnd(event);
+                    setDraggingId(null);
+                  }
               }
               modifiers={[restrictToParentElement]}
             >
@@ -2091,13 +1961,12 @@ const [conditionToDeleteIndex, setConditionToDeleteIndex] = useState<number | nu
                               }, 150);
                             }
                           }}
-                          className={`flex items-center justify-start gap-3 border rounded-xl py-3 px-4 text-left font-medium text-sm transition-all duration-150 ${
-                            selectedType?.id === type.id
-                              ? "bg-[#E3BB62] border-[#E3BB62] text-[#264555] shadow-md"
-                              : errorType
+                          className={`flex items-center justify-start gap-3 border rounded-xl py-3 px-4 text-left font-medium text-sm transition-all duration-150 ${selectedType?.id === type.id
+                            ? "bg-[#E3BB62] border-[#E3BB62] text-[#264555] shadow-md"
+                            : errorType
                               ? "border-red-500 text-slate-800 hover:bg-slate-50 bg-white"
                               : "border-slate-200 text-slate-800 hover:bg-slate-50 bg-white"
-                          }`}
+                            }`}
                         >
                           {type.icon}
                           {type.label}
@@ -2123,14 +1992,12 @@ const [conditionToDeleteIndex, setConditionToDeleteIndex] = useState<number | nu
                       <button
                         type="button"
                         onClick={() => setIsRequired(!isRequired)}
-                        className={`w-12 h-7 flex items-center rounded-full transition-all ${
-                          isRequired ? "bg-[#E3BB62]" : "bg-slate-300"
-                        }`}
+                        className={`w-12 h-7 flex items-center rounded-full transition-all ${isRequired ? "bg-[#E3BB62]" : "bg-slate-300"
+                          }`}
                       >
                         <span
-                          className={`w-5 h-5 bg-white rounded-full shadow transform transition-all ${
-                            isRequired ? "translate-x-6" : "translate-x-1"
-                          }`}
+                          className={`w-5 h-5 bg-white rounded-full shadow transform transition-all ${isRequired ? "translate-x-6" : "translate-x-1"
+                            }`}
                         ></span>
                       </button>
                     </div>
@@ -2153,14 +2020,12 @@ const [conditionToDeleteIndex, setConditionToDeleteIndex] = useState<number | nu
                         <button
                           type="button"
                           onClick={() => setIsScorable(!isScorable)}
-                          className={`w-12 h-7 flex items-center rounded-full transition-all ${
-                            isScorable ? "bg-[#E3BB62]" : "bg-slate-300"
-                          }`}
+                          className={`w-12 h-7 flex items-center rounded-full transition-all ${isScorable ? "bg-[#E3BB62]" : "bg-slate-300"
+                            }`}
                         >
                           <span
-                            className={`w-5 h-5 bg-white rounded-full shadow transform transition-all ${
-                              isScorable ? "translate-x-6" : "translate-x-1"
-                            }`}
+                            className={`w-5 h-5 bg-white rounded-full shadow transform transition-all ${isScorable ? "translate-x-6" : "translate-x-1"
+                              }`}
                           ></span>
                         </button>
                       </div>
@@ -2194,11 +2059,10 @@ const [conditionToDeleteIndex, setConditionToDeleteIndex] = useState<number | nu
                               );
                               if (errorOptions) setErrorOptions(null); // 🔥 hier hinzufügen
                             }}
-                            className={`flex-1 border rounded-md px-2 py-1 focus:ring-1 focus:ring-brand-sand focus:outline-none ${
-                              hasSubmitted && !opt.label.trim()
-                                ? "border-red-500"
-                                : "border-gray-300"
-                            }`}
+                            className={`flex-1 border rounded-md px-2 py-1 focus:ring-1 focus:ring-brand-sand focus:outline-none ${hasSubmitted && !opt.label.trim()
+                              ? "border-red-500"
+                              : "border-gray-300"
+                              }`}
                           />
 
                           {/* Score */}
@@ -2477,11 +2341,10 @@ const [conditionToDeleteIndex, setConditionToDeleteIndex] = useState<number | nu
                         <label
                           key={optLabel}
                           className={`flex items-center p-5 border-2 rounded-lg cursor-pointer transition bg-white
-                          ${
-                            checked
+                          ${checked
                               ? "border-[#E3BB62] bg-[#FFFAEB]"
                               : "border-gray-200 hover:border-[#264555] hover:bg-[#f8fafc]"
-                          }`}
+                            }`}
                         >
                           <input
                             type="radio"
@@ -2513,11 +2376,10 @@ const [conditionToDeleteIndex, setConditionToDeleteIndex] = useState<number | nu
                         <label
                           key={optLabel}
                           className={`flex items-center p-5 border-2 rounded-lg cursor-pointer transition bg-white
-                          ${
-                            checked
+                          ${checked
                               ? "border-[#E3BB62] bg-[#FFFAEB]"
                               : "border-gray-200 hover:border-[#264555] hover:bg-[#f8fafc]"
-                          }`}
+                            }`}
                         >
                           <input
                             type="checkbox"
@@ -2543,29 +2405,29 @@ const [conditionToDeleteIndex, setConditionToDeleteIndex] = useState<number | nu
                 {/* Slider / Range (Skala) */}
                 {(previewQuestion.type === "slider" ||
                   previewQuestion.type === "range") && (
-                  <div className="py-5">
-                    <input
-                      type="range"
-                      min={0}
-                      max={6}
-                      value={previewAnswer ?? 3}
-                      onChange={(e) => setPreviewAnswer(Number(e.target.value))}
-                      className="w-full h-2 rounded bg-[#ebebec] outline-none cursor-pointer
+                    <div className="py-5">
+                      <input
+                        type="range"
+                        min={0}
+                        max={6}
+                        value={previewAnswer ?? 3}
+                        onChange={(e) => setPreviewAnswer(Number(e.target.value))}
+                        className="w-full h-2 rounded bg-[#ebebec] outline-none cursor-pointer
                         [accent-color:#56768f]
                         [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:h-6
                         [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[#56768f] [&::-webkit-slider-thumb]:cursor-pointer
                         [&::-moz-range-thumb]:w-6 [&::-moz-range-thumb]:h-6 [&::-moz-range-thumb]:rounded-full
                         [&::-moz-range-thumb]:bg-[#56768f] [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:cursor-pointer"
-                    />
-                    <div className="text-center text-[18px] font-semibold text-[#56768f] mt-2">
-                      {previewAnswer ?? 3}
+                      />
+                      <div className="text-center text-[18px] font-semibold text-[#56768f] mt-2">
+                        {previewAnswer ?? 3}
+                      </div>
+                      <div className="flex justify-between mt-2 text-sm text-[#666]">
+                        <span>Niedrig</span>
+                        <span>Hoch</span>
+                      </div>
                     </div>
-                    <div className="flex justify-between mt-2 text-sm text-[#666]">
-                      <span>Niedrig</span>
-                      <span>Hoch</span>
-                    </div>
-                  </div>
-                )}
+                  )}
 
                 {/* Textarea */}
                 {previewQuestion.type === "textarea" && (
@@ -2712,11 +2574,11 @@ const [conditionToDeleteIndex, setConditionToDeleteIndex] = useState<number | nu
                   </p>
                 </div>
 
-               {/* INFO-BADGES (wie auf der Frage-Karte) */}
-<div className="px-6 py-3 flex flex-wrap items-center gap-2 bg-slate-50/50">
-  {/* Fragetyp */}
-  <span
-    className="
+                {/* INFO-BADGES (wie auf der Frage-Karte) */}
+                <div className="px-6 py-3 flex flex-wrap items-center gap-2 bg-slate-50/50">
+                  {/* Fragetyp */}
+                  <span
+                    className="
       inline-flex items-center gap-1
       px-2.5 py-0.5
       text-xs font-medium
@@ -2726,18 +2588,18 @@ const [conditionToDeleteIndex, setConditionToDeleteIndex] = useState<number | nu
       text-[#264555]
       border-[#d6ddff]
     "
-  >
-    {
-      questionTypes.find(
-        (t) => t.value === conditionSourceQuestion.type
-      )?.label
-    }
-  </span>
+                  >
+                    {
+                      questionTypes.find(
+                        (t) => t.value === conditionSourceQuestion.type
+                      )?.label
+                    }
+                  </span>
 
-  {/* Pflicht / Optional */}
-  {conditionSourceQuestion.required ? (
-    <span
-      className="
+                  {/* Pflicht / Optional */}
+                  {conditionSourceQuestion.required ? (
+                    <span
+                      className="
         inline-flex items-center gap-1
         px-2.5 py-0.5
         text-xs font-medium
@@ -2747,12 +2609,12 @@ const [conditionToDeleteIndex, setConditionToDeleteIndex] = useState<number | nu
         text-[#8b5d00]
         border-[#e8d8a8]
       "
-    >
-      Pflicht
-    </span>
-  ) : (
-    <span
-      className="
+                    >
+                      Pflicht
+                    </span>
+                  ) : (
+                    <span
+                      className="
         inline-flex items-center gap-1
         px-2.5 py-0.5
         text-xs font-medium
@@ -2762,11 +2624,11 @@ const [conditionToDeleteIndex, setConditionToDeleteIndex] = useState<number | nu
         text-[#555]
         border-[#d9d9d9]
       "
-    >
-      Optional
-    </span>
-  )}
-</div>
+                    >
+                      Optional
+                    </span>
+                  )}
+                </div>
 
 
                 {/* Modal von Innen */}
@@ -2829,11 +2691,11 @@ const [conditionToDeleteIndex, setConditionToDeleteIndex] = useState<number | nu
                           </select>
 
                           {/* WERT */}
-                 {/* WERT */}
-{conditionSourceQuestion.type === "range" ? (
-  /* SKALA 0–6 */
-  <select
-    className="
+                          {/* WERT */}
+                          {conditionSourceQuestion.type === "range" ? (
+                            /* SKALA 0–6 */
+                            <select
+                              className="
       h-10
       rounded-lg
       border border-[#e6d8b5]
@@ -2846,31 +2708,31 @@ const [conditionToDeleteIndex, setConditionToDeleteIndex] = useState<number | nu
       focus:ring-[#E3BB62]
       focus:border-[#E3BB62]
     "
-    value={c.expectedValue ?? ""}
-    onChange={(e) =>
-      setConditions((prev) =>
-        prev.map((x, i) =>
-          i === index ? { ...x, expectedValue: e.target.value } : x
-        )
-      )
-    }
-  >
-    <option value="" disabled hidden>
-      Wert auswählen
-    </option>
-    {[0, 1, 2, 3, 4, 5, 6].map((v) => (
-      <option key={v} value={v}>
-        {v}
-      </option>
-    ))}
-  </select>
+                              value={c.expectedValue ?? ""}
+                              onChange={(e) =>
+                                setConditions((prev) =>
+                                  prev.map((x, i) =>
+                                    i === index ? { ...x, expectedValue: e.target.value } : x
+                                  )
+                                )
+                              }
+                            >
+                              <option value="" disabled hidden>
+                                Wert auswählen
+                              </option>
+                              {[0, 1, 2, 3, 4, 5, 6].map((v) => (
+                                <option key={v} value={v}>
+                                  {v}
+                                </option>
+                              ))}
+                            </select>
 
-) : conditionSourceQuestion.type === "radio" ||
-  conditionSourceQuestion.type === "select" ? (
+                          ) : conditionSourceQuestion.type === "radio" ||
+                            conditionSourceQuestion.type === "select" ? (
 
-  /* ✅ RADIO / SELECT → NUR ANTWORTOPTIONEN */
-  <select
-    className="
+                            /* ✅ RADIO / SELECT → NUR ANTWORTOPTIONEN */
+                            <select
+                              className="
       h-10
       rounded-lg
       border border-[#e6d8b5]
@@ -2883,34 +2745,34 @@ const [conditionToDeleteIndex, setConditionToDeleteIndex] = useState<number | nu
       focus:ring-[#E3BB62]
       focus:border-[#E3BB62]
     "
-    value={c.expectedValue ?? ""}
-    onChange={(e) =>
-      setConditions((prev) =>
-        prev.map((x, i) =>
-          i === index ? { ...x, expectedValue: e.target.value } : x
-        )
-      )
-    }
-  >
-    <option value="" disabled hidden>
-      Antwort auswählen
-    </option>
+                              value={c.expectedValue ?? ""}
+                              onChange={(e) =>
+                                setConditions((prev) =>
+                                  prev.map((x, i) =>
+                                    i === index ? { ...x, expectedValue: e.target.value } : x
+                                  )
+                                )
+                              }
+                            >
+                              <option value="" disabled hidden>
+                                Antwort auswählen
+                              </option>
 
-    {(conditionSourceQuestion.options || []).map((opt: any) => (
-      <option key={opt.label} value={opt.label}>
-        {opt.label}
-      </option>
-    ))}
-  </select>
+                              {(conditionSourceQuestion.options || []).map((opt: any) => (
+                                <option key={opt.label} value={opt.label}>
+                                  {opt.label}
+                                </option>
+                              ))}
+                            </select>
 
-) : conditionSourceQuestion.type === "number" ? (
+                          ) : conditionSourceQuestion.type === "number" ? (
 
-  /* 🔢 NUMBER → NUR ZAHLEN */
- <input
-  type="number"
-  inputMode="numeric"
-  pattern="-?[0-9]*"
-  className="
+                            /* 🔢 NUMBER → NUR ZAHLEN */
+                            <input
+                              type="number"
+                              inputMode="numeric"
+                              pattern="-?[0-9]*"
+                              className="
     h-10
     rounded-lg
     border border-[#e6d8b5]
@@ -2923,45 +2785,45 @@ const [conditionToDeleteIndex, setConditionToDeleteIndex] = useState<number | nu
     focus:ring-[#E3BB62]
     focus:border-[#E3BB62]
   "
-  placeholder="Zahl eingeben"
-  value={c.expectedValue}
-  onKeyDown={(e) => {
-    const allowedKeys = [
-      "Backspace",
-      "Delete",
-      "ArrowLeft",
-      "ArrowRight",
-      "Tab",
-      "Home",
-      "End",
-      "-",
-    ];
+                              placeholder="Zahl eingeben"
+                              value={c.expectedValue}
+                              onKeyDown={(e) => {
+                                const allowedKeys = [
+                                  "Backspace",
+                                  "Delete",
+                                  "ArrowLeft",
+                                  "ArrowRight",
+                                  "Tab",
+                                  "Home",
+                                  "End",
+                                  "-",
+                                ];
 
-    if (
-      allowedKeys.includes(e.key) ||
-      /^[0-9]$/.test(e.key)
-    ) {
-      return;
-    }
+                                if (
+                                  allowedKeys.includes(e.key) ||
+                                  /^[0-9]$/.test(e.key)
+                                ) {
+                                  return;
+                                }
 
-    e.preventDefault(); // ❌ blockiert Buchstaben & Sonderzeichen
-  }}
-  onChange={(e) =>
-    setConditions((prev) =>
-      prev.map((x, i) =>
-        i === index ? { ...x, expectedValue: e.target.value } : x
-      )
-    )
-  }
-/>
+                                e.preventDefault(); // ❌ blockiert Buchstaben & Sonderzeichen
+                              }}
+                              onChange={(e) =>
+                                setConditions((prev) =>
+                                  prev.map((x, i) =>
+                                    i === index ? { ...x, expectedValue: e.target.value } : x
+                                  )
+                                )
+                              }
+                            />
 
 
-) : conditionSourceQuestion.type === "date" ? (
+                          ) : conditionSourceQuestion.type === "date" ? (
 
-  /* 📅 DATE → DATUM */
-  <input
-    type="date"
-    className="
+                            /* 📅 DATE → DATUM */
+                            <input
+                              type="date"
+                              className="
       h-10
       rounded-lg
       border border-[#e6d8b5]
@@ -2974,21 +2836,21 @@ const [conditionToDeleteIndex, setConditionToDeleteIndex] = useState<number | nu
       focus:ring-[#E3BB62]
       focus:border-[#E3BB62]
     "
-    value={c.expectedValue}
-    onChange={(e) =>
-      setConditions((prev) =>
-        prev.map((x, i) =>
-          i === index ? { ...x, expectedValue: e.target.value } : x
-        )
-      )
-    }
-  />
+                              value={c.expectedValue}
+                              onChange={(e) =>
+                                setConditions((prev) =>
+                                  prev.map((x, i) =>
+                                    i === index ? { ...x, expectedValue: e.target.value } : x
+                                  )
+                                )
+                              }
+                            />
 
-) : (
+                          ) : (
 
-  /* ✏️ ALLE ANDEREN TYPEN */
-  <input
-    className="
+                            /* ✏️ ALLE ANDEREN TYPEN */
+                            <input
+                              className="
       h-10
       rounded-lg
       border border-[#e6d8b5]
@@ -3001,17 +2863,17 @@ const [conditionToDeleteIndex, setConditionToDeleteIndex] = useState<number | nu
       focus:ring-[#E3BB62]
       focus:border-[#E3BB62]
     "
-    placeholder="Wert eingeben"
-    value={c.expectedValue}
-    onChange={(e) =>
-      setConditions((prev) =>
-        prev.map((x, i) =>
-          i === index ? { ...x, expectedValue: e.target.value } : x
-        )
-      )
-    }
-  />
-)}
+                              placeholder="Wert eingeben"
+                              value={c.expectedValue}
+                              onChange={(e) =>
+                                setConditions((prev) =>
+                                  prev.map((x, i) =>
+                                    i === index ? { ...x, expectedValue: e.target.value } : x
+                                  )
+                                )
+                              }
+                            />
+                          )}
 
 
 
@@ -3061,42 +2923,42 @@ const [conditionToDeleteIndex, setConditionToDeleteIndex] = useState<number | nu
                           )}
 
                           {/* DELETE */}
-     <button
-  type="button"
-  title="Bedingung löschen"
-onClick={() => {
-  const c = conditions[index];
+                          <button
+                            type="button"
+                            title="Bedingung löschen"
+                            onClick={() => {
+                              const c = conditions[index];
 
-  // ✅ FALL 1: LEER → SOFORT LÖSCHEN (KEIN MODAL)
-  if (!c.operator || !c.expectedValue) {
-    setConditions((prev) => {
-      const next = prev.filter((_, i) => i !== index);
+                              // ✅ FALL 1: LEER → SOFORT LÖSCHEN (KEIN MODAL)
+                              if (!c.operator || !c.expectedValue) {
+                                setConditions((prev) => {
+                                  const next = prev.filter((_, i) => i !== index);
 
-      return next.length > 0
-        ? next
-        : [
-            {
-              operator: "",
-              expectedValue: "",
-              targetNodeId: undefined,
-              targetLabel: "",
-              persisted: false,
-            },
-          ];
-    });
-    return;
-  }
+                                  return next.length > 0
+                                    ? next
+                                    : [
+                                      {
+                                        operator: "",
+                                        expectedValue: "",
+                                        targetNodeId: undefined,
+                                        targetLabel: "",
+                                        persisted: false,
+                                      },
+                                    ];
+                                });
+                                return;
+                              }
 
-  // ✅ FALL 2: AUSGEFÜLLT → CONFIRM MODAL
-  setConditionToDelete(c);
-  setConditionToDeleteIndex(index);
-  setIsDeleteConditionOpen(true);
-}}
-
-
+                              // ✅ FALL 2: AUSGEFÜLLT → CONFIRM MODAL
+                              setConditionToDelete(c);
+                              setConditionToDeleteIndex(index);
+                              setIsDeleteConditionOpen(true);
+                            }}
 
 
-  className="
+
+
+                            className="
     h-9 w-9
     flex items-center justify-center
     rounded-lg
@@ -3110,9 +2972,9 @@ onClick={() => {
     hover:-translate-y-[1px]
     active:translate-y-0
   "
->
-  <Trash2 size={18} />
-</button>
+                          >
+                            <Trash2 size={18} />
+                          </button>
 
 
                         </div>
@@ -3177,6 +3039,7 @@ onClick={() => {
                             border
                             text-sm
                             text-[#264555]
+                            break-all
                           "
                               style={{ borderColor: "#e6e0d2" }}
                             >
@@ -3189,25 +3052,25 @@ onClick={() => {
                   })}
 
                   {/* ADD CONDITION */}
- {conditions.length > 0 && (
-  <div className="mt-4 flex items-center gap-3">
-    {/* LINKE SEITE */}
-    {conditions.length < allowedOperators.length ? (
-      <button
-        type="button"
-        title="Neue Bedingung hinzufügen"
-        onClick={() =>
-          setConditions((prev) => [
-            ...prev,
-            {
-              operator: "",
-              expectedValue: "",
-              targetNodeId: undefined,
-              targetLabel: "",
-            },
-          ])
-        }
-        className="
+                  {conditions.length > 0 && (
+                    <div className="mt-4 flex items-center gap-3">
+                      {/* LINKE SEITE */}
+                      {conditions.length < allowedOperators.length ? (
+                        <button
+                          type="button"
+                          title="Neue Bedingung hinzufügen"
+                          onClick={() =>
+                            setConditions((prev) => [
+                              ...prev,
+                              {
+                                operator: "",
+                                expectedValue: "",
+                                targetNodeId: undefined,
+                                targetLabel: "",
+                              },
+                            ])
+                          }
+                          className="
           inline-flex items-center gap-2
           px-4 py-2
           rounded-full
@@ -3220,27 +3083,27 @@ onClick={() => {
           hover:-translate-y-[1px]
           hover:shadow-[0_6px_14px_rgba(0,0,0,0.12)]
         "
-        style={{ borderColor: "#e6d8b5" }}
-      >
-        <PlusCircle size={18} className="text-[#b08d2a]" />
-        Neue Bedingung
-      </button>
-    ) : (
-      /* ⬅️ PLATZHALTER, DAMIT RECHTS NICHT SPRINGT */
-      <div />
-    )}
+                          style={{ borderColor: "#e6d8b5" }}
+                        >
+                          <PlusCircle size={18} className="text-[#b08d2a]" />
+                          Neue Bedingung
+                        </button>
+                      ) : (
+                        /* ⬅️ PLATZHALTER, DAMIT RECHTS NICHT SPRINGT */
+                        <div />
+                      )}
 
-    {/* 🔹 SPACER */}
-    <div className="flex-1" />
+                      {/* 🔹 SPACER */}
+                      <div className="flex-1" />
 
-    {/* RECHTE SEITE – IMMER GLEICH */}
-   <button
-  type="button"
-  onClick={() => {
-  setIsDeleteAllConditionsOpen(true);
-}}
+                      {/* RECHTE SEITE – IMMER GLEICH */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsDeleteAllConditionsOpen(true);
+                        }}
 
-  className="
+                        className="
     inline-flex items-center gap-2
     px-4 py-2
     rounded-full
@@ -3250,13 +3113,13 @@ onClick={() => {
     text-red-700
     hover:bg-[#ffecec]
   "
->
-  <Trash2 size={18} />
-  Bedingungen entfernen
-</button>
+                      >
+                        <Trash2 size={18} />
+                        Bedingungen entfernen
+                      </button>
 
-  </div>
-)}
+                    </div>
+                  )}
 
 
                 </div>
@@ -3264,10 +3127,10 @@ onClick={() => {
 
               {/* BUTTONS OUTSIDE THE CARD */}
               <div className="flex gap-3">
-  {/* ABBRECHEN – LINKS */}
-  <button
-    type="button"
-    className="
+                {/* ABBRECHEN – LINKS */}
+                <button
+                  type="button"
+                  className="
       flex-1
       h-12
       text-sm font-medium
@@ -3278,146 +3141,146 @@ onClick={() => {
       rounded-xl
       transition
     "
-    onClick={() => {
-      setIsConditionModalOpen(false);
-      setIsPickingTarget(false);
-      setPendingConditionIndex(null);
-    }}
-  >
-    Abbrechen
-  </button>
+                  onClick={() => {
+                    setIsConditionModalOpen(false);
+                    setIsPickingTarget(false);
+                    setPendingConditionIndex(null);
+                  }}
+                >
+                  Abbrechen
+                </button>
 
-  <ConfirmModal
-  open={isDeleteAllConditionsOpen}
-  title="Alle Bedingungen löschen?"
-  description={
-    <>
-      Willst du wirklich{" "}
-      <span className="font-semibold text-red-700">
-        alle Bedingungen
-      </span>{" "}
-      für diese Frage löschen?
-    </>
-  }
-  hintTitle="Hinweis"
-  hintText={
-    <>
-      Diese Aktion kann{" "}
-      <span className="font-semibold text-red-700">
-        nicht rückgängig gemacht
-      </span>{" "}
-      werden.
-    </>
-  }
-  onConfirm={async () => {
-    if (!conditionSourceQuestion) return;
+                <ConfirmModal
+                  open={isDeleteAllConditionsOpen}
+                  title="Alle Bedingungen löschen?"
+                  description={
+                    <>
+                      Willst du wirklich{" "}
+                      <span className="font-semibold text-red-700">
+                        alle Bedingungen
+                      </span>{" "}
+                      für diese Frage löschen?
+                    </>
+                  }
+                  hintTitle="Hinweis"
+                  hintText={
+                    <>
+                      Diese Aktion kann{" "}
+                      <span className="font-semibold text-red-700">
+                        nicht rückgängig gemacht
+                      </span>{" "}
+                      werden.
+                    </>
+                  }
+                  onConfirm={async () => {
+                    if (!conditionSourceQuestion) return;
 
-    await deleteAllQuestionConditions(
-      conditionSourceQuestion.questionId
-    );
+                    await deleteAllQuestionConditions(
+                      conditionSourceQuestion.questionId
+                    );
 
-    // ✅ danach wieder leere Eingabe anzeigen
-    setConditions([
-      {
-        operator: "",
-        expectedValue: "",
-        targetNodeId: undefined,
-        targetLabel: "",
-        persisted: false,
-      },
-    ]);
+                    // ✅ danach wieder leere Eingabe anzeigen
+                    setConditions([
+                      {
+                        operator: "",
+                        expectedValue: "",
+                        targetNodeId: undefined,
+                        targetLabel: "",
+                        persisted: false,
+                      },
+                    ]);
 
-    setIsDeleteAllConditionsOpen(false);
-  }}
-  onCancel={() => setIsDeleteAllConditionsOpen(false)}
-  confirmLabel="Alle löschen"
-  cancelLabel="Abbrechen"
-  icon={<Trash2 className="text-red-500" />}
-/>
-
-
-<ConfirmModal
-  open={isDeleteConditionOpen}
-  title="Bedingung löschen?"
-  description={
-    <>
-      Willst du die Bedingung mit
-      <span className="font-semibold"> Operator </span>
-      <span className="font-mono bg-gray-100 px-1 rounded">
-        {conditionToDelete?.operator}
-      </span>
-      <span className="font-semibold"> und Wert </span>
-      <span className="font-mono bg-gray-100 px-1 rounded">
-        {conditionToDelete?.expectedValue}
-      </span>
-      wirklich löschen?
-    </>
-  }
-  hintTitle="Hinweis"
-  hintText={
-    <>
-      Diese Aktion kann{" "}
-      <span className="font-semibold text-red-700">
-        nicht rückgängig gemacht
-      </span>{" "}
-      werden.
-    </>
-  }
-  confirmLabel="Löschen"
-  cancelLabel="Abbrechen"
-  icon={<Trash2 className="text-red-500" />}
-  onCancel={() => {
-    setIsDeleteConditionOpen(false);
-    setConditionToDelete(null);
-    setConditionToDeleteIndex(null);
-  }}
-  onConfirm={async () => {
-    if (
-      !conditionSourceQuestion ||
-      !conditionToDelete ||
-      conditionToDeleteIndex === null
-    )
-      return;
-
-    // 🔹 Backend nur wenn gespeichert
-    if (conditionToDelete.persisted) {
-      await deleteQuestionCondition(
-        conditionSourceQuestion.questionId,
-        conditionToDelete.operator as "==" | "!=" | "<" | ">"
-      );
-    }
-
-    // 🔹 UI aktualisieren
-    setConditions((prev) => {
-      const next = prev.filter(
-        (_, i) => i !== conditionToDeleteIndex
-      );
-
-      return next.length > 0
-        ? next
-        : [
-            {
-              operator: "",
-              expectedValue: "",
-              targetNodeId: undefined,
-              targetLabel: "",
-              persisted: false,
-            },
-          ];
-    });
-
-    setIsDeleteConditionOpen(false);
-    setConditionToDelete(null);
-    setConditionToDeleteIndex(null);
-  }}
-/>
+                    setIsDeleteAllConditionsOpen(false);
+                  }}
+                  onCancel={() => setIsDeleteAllConditionsOpen(false)}
+                  confirmLabel="Alle löschen"
+                  cancelLabel="Abbrechen"
+                  icon={<Trash2 className="text-red-500" />}
+                />
 
 
+                <ConfirmModal
+                  open={isDeleteConditionOpen}
+                  title="Bedingung löschen?"
+                  description={
+                    <>
+                      Willst du die Bedingung mit
+                      <span className="font-semibold"> Operator </span>
+                      <span className="font-mono bg-gray-100 px-1 rounded">
+                        {conditionToDelete?.operator}
+                      </span>
+                      <span className="font-semibold"> und Wert </span>
+                      <span className="font-mono bg-gray-100 px-1 rounded">
+                        {conditionToDelete?.expectedValue}
+                      </span>
+                      wirklich löschen?
+                    </>
+                  }
+                  hintTitle="Hinweis"
+                  hintText={
+                    <>
+                      Diese Aktion kann{" "}
+                      <span className="font-semibold text-red-700">
+                        nicht rückgängig gemacht
+                      </span>{" "}
+                      werden.
+                    </>
+                  }
+                  confirmLabel="Löschen"
+                  cancelLabel="Abbrechen"
+                  icon={<Trash2 className="text-red-500" />}
+                  onCancel={() => {
+                    setIsDeleteConditionOpen(false);
+                    setConditionToDelete(null);
+                    setConditionToDeleteIndex(null);
+                  }}
+                  onConfirm={async () => {
+                    if (
+                      !conditionSourceQuestion ||
+                      !conditionToDelete ||
+                      conditionToDeleteIndex === null
+                    )
+                      return;
 
-  {/* SPEICHERN – RECHTS */}
-  <button
-    type="button"
-    className="
+                    // 🔹 Backend nur wenn gespeichert
+                    if (conditionToDelete.persisted) {
+                      await deleteQuestionCondition(
+                        conditionSourceQuestion.questionId,
+                        conditionToDelete.operator as "==" | "!=" | "<" | ">"
+                      );
+                    }
+
+                    // 🔹 UI aktualisieren
+                    setConditions((prev) => {
+                      const next = prev.filter(
+                        (_, i) => i !== conditionToDeleteIndex
+                      );
+
+                      return next.length > 0
+                        ? next
+                        : [
+                          {
+                            operator: "",
+                            expectedValue: "",
+                            targetNodeId: undefined,
+                            targetLabel: "",
+                            persisted: false,
+                          },
+                        ];
+                    });
+
+                    setIsDeleteConditionOpen(false);
+                    setConditionToDelete(null);
+                    setConditionToDeleteIndex(null);
+                  }}
+                />
+
+
+
+                {/* SPEICHERN – RECHTS */}
+                <button
+                  type="button"
+                  className="
       flex-1
       h-12
       text-sm font-semibold
@@ -3429,33 +3292,33 @@ onClick={() => {
       transition
       hover:-translate-y-[1px]
     "
-    onClick={async () => {
-      try {
-        const sourceQuestionId = conditionSourceQuestion.questionId;
+                  onClick={async () => {
+                    try {
+                      const sourceQuestionId = conditionSourceQuestion.questionId;
 
-        for (const c of conditions) {
-          if (!c.operator || !c.expectedValue || !c.targetNodeId) continue;
+                      for (const c of conditions) {
+                        if (!c.operator || !c.expectedValue || !c.targetNodeId) continue;
 
-          const payload = {
-            targetNodeId: c.targetNodeId,
-            operator: c.operator as "==" | "!=" | "<" | ">",
-            expectedValue: String(c.expectedValue),
-          };
+                        const payload = {
+                          targetNodeId: c.targetNodeId,
+                          operator: c.operator as "==" | "!=" | "<" | ">",
+                          expectedValue: String(c.expectedValue),
+                        };
 
-          await createQuestionCondition(sourceQuestionId, payload);
-        }
+                        await createQuestionCondition(sourceQuestionId, payload);
+                      }
 
-        setIsConditionModalOpen(false);
-        setIsPickingTarget(false);
-        setPendingConditionIndex(null);
-      } catch (err) {
-        alert("Fehler beim Speichern der Bedingungen");
-      }
-    }}
-  >
-    Speichern
-  </button>
-</div>
+                      setIsConditionModalOpen(false);
+                      setIsPickingTarget(false);
+                      setPendingConditionIndex(null);
+                    } catch (err) {
+                      alert("Fehler beim Speichern der Bedingungen");
+                    }
+                  }}
+                >
+                  Speichern
+                </button>
+              </div>
 
             </div>
           </div>
