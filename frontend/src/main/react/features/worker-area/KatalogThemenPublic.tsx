@@ -363,25 +363,32 @@ export default function KatalogThemenPublic() {
 
 
   const bubbleRef = useRef<HTMLDivElement | null>(null);
-
   const [bubbleActive, setBubbleActive] = useState(false);
 
+  // ---- neu (Meta/Messenger Verhalten)
+  const BUBBLE_SIZE = 160;
+  const PADDING = 8;
+  const DRAG_THRESHOLD = 8; // px bevor wirklich gezogen wird
 
   const [bubblePos, setBubblePos] = useState<{ x: number; y: number }>(() => {
-    // gespeicherte Position laden
     try {
       const raw = localStorage.getItem("publicBubblePos");
       if (raw) return JSON.parse(raw);
     } catch { }
-    // Default: wie jetzt ungefähr unten rechts
     return { x: window.innerWidth - 220, y: window.innerHeight - 320 };
   });
 
-  const dragRef = useRef<{
-    dragging: boolean;
-    offsetX: number;
-    offsetY: number;
-  }>({ dragging: false, offsetX: 0, offsetY: 0 });
+  const dragRef = useRef({
+    dragging: false,
+    pointerId: -1,
+    startX: 0,
+    startY: 0,
+    offsetX: 0,
+    offsetY: 0,
+  });
+
+  const [isDragging, setIsDragging] = useState(false);
+
 
   // Position speichern (damit sie nach Reload bleibt)
   useEffect(() => {
@@ -390,51 +397,88 @@ export default function KatalogThemenPublic() {
     } catch { }
   }, [bubblePos]);
 
+  function clampPos(x: number, y: number, w: number, h: number) {
+    const maxX = window.innerWidth - w - PADDING;
+    const maxY = window.innerHeight - h - PADDING;
+    return {
+      x: Math.max(PADDING, Math.min(maxX, x)),
+      y: Math.max(PADDING, Math.min(maxY, y)),
+    };
+  }
+
+  function snapToEdge(x: number, y: number, w: number, h: number) {
+    const mid = window.innerWidth / 2;
+    const maxX = window.innerWidth - w - PADDING;
+    const targetX = x + w / 2 < mid ? PADDING : maxX;
+    return clampPos(targetX, y, w, h);
+  }
+
   function onBubblePointerDown(e: React.PointerEvent) {
-    // Nur linke Maustaste
     if (e.button !== 0) return;
-    setBubbleActive(true);
 
     const el = bubbleRef.current;
     if (!el) return;
 
     const rect = el.getBoundingClientRect();
 
-    dragRef.current.dragging = true;
+    dragRef.current.pointerId = e.pointerId;
+    dragRef.current.startX = e.clientX;
+    dragRef.current.startY = e.clientY;
     dragRef.current.offsetX = e.clientX - rect.left;
     dragRef.current.offsetY = e.clientY - rect.top;
 
-    // wichtig: damit pointermove auch außerhalb weiter geht
+    dragRef.current.dragging = false; // <- wichtig: erst nach threshold
+    setBubbleActive(true);
+
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   }
 
   function onBubblePointerMove(e: React.PointerEvent) {
-    if (!dragRef.current.dragging) return;
-
     const el = bubbleRef.current;
     if (!el) return;
+    if (dragRef.current.pointerId !== e.pointerId) return;
+
+    const dx = e.clientX - dragRef.current.startX;
+    const dy = e.clientY - dragRef.current.startY;
+    const dist = Math.hypot(dx, dy);
+
+    // erst nach threshold wirklich ziehen
+    if (!dragRef.current.dragging) {
+      if (dist < DRAG_THRESHOLD) return;
+      dragRef.current.dragging = true;
+      setIsDragging(true);
+    }
 
     const w = el.offsetWidth;
     const h = el.offsetHeight;
 
-    // neue Position berechnen
-    let x = e.clientX - dragRef.current.offsetX;
-    let y = e.clientY - dragRef.current.offsetY;
+    const x = e.clientX - dragRef.current.offsetX;
+    const y = e.clientY - dragRef.current.offsetY;
 
-    // im Viewport halten
-    const maxX = window.innerWidth - w - 8;
-    const maxY = window.innerHeight - h - 8;
-
-    x = Math.max(8, Math.min(maxX, x));
-    y = Math.max(8, Math.min(maxY, y));
-
-    setBubblePos({ x, y });
+    setBubblePos(clampPos(x, y, w, h));
   }
 
-  function onBubblePointerUp() {
+  function onBubblePointerUp(e: React.PointerEvent) {
+    const el = bubbleRef.current;
+    if (!el) return;
+    if (dragRef.current.pointerId !== e.pointerId) return;
+
+    const wasDragging = dragRef.current.dragging;
+
+    dragRef.current.pointerId = -1;
     dragRef.current.dragging = false;
+    setIsDragging(false);
+
+    // Snap nur wenn wirklich gezogen wurde
+    if (wasDragging) {
+      const w = el.offsetWidth;
+      const h = el.offsetHeight;
+      setBubblePos((p) => snapToEdge(p.x, p.y, w, h));
+    }
+
     setBubbleActive(false);
   }
+
 
   const remaining = useMemo(() => {
     if (!expiresAt) return null;
@@ -452,6 +496,14 @@ export default function KatalogThemenPublic() {
 
     return { d, h, m, s, expired: remainingMs <= 0 };
   }, [expiresAt, now]);
+
+  const ringPct = useMemo(() => {
+    if (!remaining) return 0;
+    const remainingInDaySec = remaining.h * 3600 + remaining.m * 60 + remaining.s;
+    const pct = 1 - remainingInDaySec / 86400; // 0..1
+    return Math.max(0, Math.min(100, pct * 100));
+  }, [remaining]);
+
 
   //in expiresAt muss Z.b: 2025-11-05T18:00:00Z
   useEffect(() => {
@@ -808,21 +860,85 @@ export default function KatalogThemenPublic() {
             setBubbleActive(false);
           }
         }}
-        className="
-    hidden lg:block
-    fixed z-[999]
-    select-none
-    cursor-grab active:cursor-grabbing
-  "
+        className={`
+  hidden lg:block fixed z-[999] select-none
+  ${isDragging ? "cursor-grabbing" : "cursor-grab"}
+`}
         style={{
           left: bubblePos.x,
           top: bubblePos.y,
-          width: 160,
-          height: 160,
+          width: BUBBLE_SIZE,
+          height: BUBBLE_SIZE,
+          transition: isDragging ? "none" : "left 220ms ease, top 220ms ease",
         }}
+
       >
         {/* äußerer Ring */}
-        <div className="absolute inset-0 rounded-full border border-[#E3BB62] opacity-90" />
+        {/* Progress-Ring (around the bubble) */}
+        {(() => {
+          const size = BUBBLE_SIZE;
+          const stroke = 3;              // Ring-Dicke
+          const r = (size / 2) - stroke; // Radius
+          const c = 2 * Math.PI * r;     // Umfang
+          const dash = bubbleActive ? (ringPct / 100) * c : 0;
+
+
+          return (
+            <svg
+              className="absolute inset-0"
+              width={size}
+              height={size}
+              viewBox={`0 0 ${size} ${size}`}
+            >
+              {/* Background Ring */}
+              <circle
+                cx={size / 2}
+                cy={size / 2}
+                r={r}
+                fill="none"
+                stroke="rgba(227,187,98,0.22)"
+                strokeWidth={stroke}
+              />
+
+              {/* Progress Ring (only strong on hover) */}
+              <circle
+                cx={size / 2}
+                cy={size / 2}
+                r={r}
+                fill="none"
+                stroke="rgba(227,187,98,0.95)"
+                strokeWidth={stroke}
+                strokeLinecap="round"
+                strokeDasharray={`${dash} ${c - dash}`}
+                transform={`rotate(-90 ${size / 2} ${size / 2})`}
+                style={{
+                  transition: "stroke-dasharray 350ms ease, opacity 250ms ease",
+                  opacity: bubbleActive ? 1 : 0,
+
+                }}
+              />
+            </svg>
+          );
+        })()}
+        {/* äußerer Ring + Glow */}
+        <div
+          className={`
+    absolute inset-0 rounded-full
+   
+    ${bubbleActive ? "shadow-[0_0_0_6px_rgba(227,187,98,0.12),0_18px_60px_rgba(227,187,98,0.22)]" : "shadow-none"}
+    transition-shadow duration-300
+  `}
+        />
+
+        {/* subtiler Shine (nur hover) */}
+        <div
+          className={`
+    pointer-events-none absolute inset-0 rounded-full
+    bg-[radial-gradient(circle_at_30%_25%,rgba(255,255,255,0.28)_0%,rgba(255,255,255,0)_55%)]
+    ${bubbleActive ? "opacity-100" : "opacity-0"}
+    transition-opacity duration-300
+  `}
+        />
 
         {/* innerer Kreis */}
         <div
@@ -845,13 +961,15 @@ export default function KatalogThemenPublic() {
               /* HOVER: HH:MM:SS */
               <div className="flex flex-col items-center">
                 <div className="text-[26px] font-bold tabular-nums leading-none">
+                  {remaining.d}T{" "}
                   {String(remaining.h).padStart(2, "0")}:
                   {String(remaining.m).padStart(2, "0")}:
                   {String(remaining.s).padStart(2, "0")}
                 </div>
                 <div className="text-[10px] uppercase tracking-[0.18em] opacity-70 mt-1">
-                  verbleibend
+                  bis Ablauf
                 </div>
+
               </div>
             ) : (
               /*  NORMAL: Tage */

@@ -135,12 +135,12 @@ const raw = sessionStorage.getItem("publicAssessmentSession");
                 Themen
               </button>
 
-              <NavLink to="/app/help" className={linkCls} end>
+              <NavLink to="/help-faq" className={linkCls} end>
                 Hilfe
               </NavLink>
 
               <NavLink
-                to="/app/contact"
+                to="/kontakt"
                 end
                 className="
                   inline-flex items-center justify-center

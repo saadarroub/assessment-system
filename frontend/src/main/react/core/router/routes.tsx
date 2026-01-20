@@ -23,7 +23,7 @@ import InviteGate from '@/public/InviteGate';
 import ZugewiesenerKatalog from '@/public/ZugewiesenerKatalogPagePublic';
 import { DashboardPage } from '@/apps/app/DashboardPage';
 import AssessmentCompleted from '@/features/worker-area/AssessmentCompleted ';
-
+import HelpFaqPage from '@/features/worker-area/HelpFaqPage';
 // Topic-Seiten
 import EamPage from '@/features/admin-area/topics/eam/EamPage';
 import OperatingModelPage from '@/features/admin-area/topics/operating-model/OperatingModelPage';
@@ -35,15 +35,17 @@ import CatalogList from '@/features/admin-area/catalogs/CatalogList';
 import ReifegradPage from '@/features/admin-area/topics/reifegradmodelle/Reifegradmodelle';
 import EmployeeProfile from '@/features/profile/ProfilePage';
 import InviteInvalid from '@/public/InviteInvalid';
-
 import Ica3LandingPage from '@/apps/landing/Ica3LandingPage';
 import EmployeeCatalogsPage from '@/features/worker-area/results/EmployeeCatalogsPage';
-
+import ContactPagePublic from '@/features/worker-area/ContactPagePublic';
 export default function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<Navigate to="/login" replace />} />
       <Route path="/startseite" element={<LandingPage />} />
+      <Route path="/help-faq" element={<HelpFaqPage />} />
+            <Route path="/kontakt" element={<ContactPagePublic />} />
+
       <Route path="/login" element={<LoginPage />} />
       <Route path="/invite/:token" element={<InviteGate />} />
       <Route path="/KatalogGate" element={<ZugewiesenerKatalog />} />
@@ -57,6 +59,7 @@ export default function AppRoutes() {
 	    </ProtectedRoute>
 	  }
 	/>
+    
 	      
 
       <Route

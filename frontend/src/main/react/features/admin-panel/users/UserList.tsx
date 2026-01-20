@@ -114,6 +114,7 @@ export default function UsersPage() {
   const [uName, setUName] = useState("");
   const [uEmail, setUEmail] = useState("");
   const [uPassword, setUPassword] = useState("");
+  const [uPhone, setUPhone] = useState("");
   const [selectedRoleId, setSelectedRoleId] = useState<string>("");
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -321,6 +322,7 @@ export default function UsersPage() {
         name: uName.trim(),
         email: uEmail.trim(),
         password: uPassword,
+        phone: uPhone.trim(),
         roleId: selectedRoleId,
       });
 
@@ -343,6 +345,7 @@ export default function UsersPage() {
       setUName("");
       setUEmail("");
       setUPassword("");
+      setUPhone("");
       setSelectedRoleId("");
       setOpenCreate(false);
       showSuccess(`Benutzer "${created.name}" erfolgreich erstellt!`);
@@ -1231,7 +1234,6 @@ export default function UsersPage() {
                       required
                     />
                   </div>
-
                   <div>
                     <label
                       htmlFor="u-pass"
@@ -1456,58 +1458,6 @@ export default function UsersPage() {
                       value={eName}
                       onChange={(e) => setEName(e.target.value)}
                       placeholder="Name ändern (optional)"
-                    />
-                  </div>
-
-                  <div>
-                    <label
-                      htmlFor="e-email"
-                      className="block text-sm font-medium text-slate-700 mb-1"
-                    >
-                      Email
-                    </label>
-                    <input
-                      id="e-email"
-                      type="email"
-                      className="
-                        w-full rounded-xl border px-3 py-2.5 text-sm
-                        bg-slate-50
-                        border-slate-200
-                        outline-none
-                        focus:bg-white
-                        focus:border-[#E3BB62]
-                        focus:ring-2 focus:ring-[rgba(227,187,98,0.45)]
-                        transition
-                      "
-                      value={eEmail}
-                      onChange={(e) => setEEmail(e.target.value)}
-                      placeholder="Email ändern (optional)"
-                    />
-                  </div>
-
-                  <div>
-                    <label
-                      htmlFor="e-pass"
-                      className="block text-sm font-medium text-slate-700 mb-1"
-                    >
-                      New Password
-                    </label>
-                    <input
-                      id="e-pass"
-                      type="password"
-                      className="
-                        w-full rounded-xl border px-3 py-2.5 text-sm
-                        bg-slate-50
-                        border-slate-200
-                        outline-none
-                        focus:bg-white
-                        focus:border-[#E3BB62]
-                        focus:ring-2 focus:ring-[rgba(227,187,98,0.45)]
-                        transition
-                      "
-                      value={ePassword}
-                      onChange={(e) => setEPassword(e.target.value)}
-                      placeholder="Leer lassen, um Passwort zu behalten"
                     />
                   </div>
 

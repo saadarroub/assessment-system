@@ -8,6 +8,8 @@ import Erstev from "@/assets/dritte.png";
 import IcaLogo from "@/assets/ChatGPT Image 29. Dez. 2025, 20_35_15.png";
 import IcaLogo2 from "@/assets/ChatGPT Image 29. Dez. 2025, 20_48_13.png";
 import { Eye, EyeOff } from "lucide-react";
+import { useScrollLock } from "@/shared/hooks/useScrollLock";
+import SandboxQr from "@/assets/twilio-sandbox-qr.png";
 
 
 const API_URL = (import.meta as any)?.env?.VITE_API_URL ?? "/api";
@@ -55,7 +57,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
 
   const [fpOpen, setFpOpen] = useState(false);
-  const [fpStep, setFpStep] = useState<"phone" | "code" | "newpw" | "done">("phone");
+  const [fpStep, setFpStep] = useState<"connect" | "phone" | "code" | "newpw" | "done">("connect");
   const [fpPhone, setFpPhone] = useState("");
   const [fpCode, setFpCode] = useState("");
   const [fpRequestId, setFpRequestId] = useState<string | null>(null);
@@ -63,6 +65,8 @@ export default function LoginPage() {
   const [fpNewPw2, setFpNewPw2] = useState("");
   const [fpLoading, setFpLoading] = useState(false);
   const [fpError, setFpError] = useState<string | null>(null);
+
+  useScrollLock(fpOpen);
 
 
   const navigate = useNavigate();
@@ -299,7 +303,7 @@ export default function LoginPage() {
                         type="button"
                         onClick={() => {
                           setFpOpen(true);
-                          setFpStep("phone");
+                          setFpStep("connect");
                           setFpError(null);
                           setFpPhone("");
                           setFpCode("");
@@ -346,220 +350,332 @@ export default function LoginPage() {
         </div>
       </div>
       {fpOpen && (
-  <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-    <div
-      className="absolute inset-0 bg-black/50"
-      onClick={() => !fpLoading && setFpOpen(false)}
-    />
-    <div className="relative w-full max-w-md rounded-2xl bg-white shadow-xl border border-slate-200">
-      <div className="p-5 border-b border-slate-200 flex items-center justify-between">
-        <div className="font-semibold text-[#264555]">Passwort zurücksetzen</div>
-        <button
-          type="button"
-          disabled={fpLoading}
-          onClick={() => setFpOpen(false)}
-          className="text-slate-500 hover:text-slate-700"
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/40 backdrop-blur-sm"
         >
-          ✕
-        </button>
-      </div>
+          {/* optional: NICHT schließen bei Klick auf backdrop (wie “nur Abbrechen/Nein”) */}
+          <div className="w-full max-w-xl px-4 sm:px-0" onClick={(e) => e.stopPropagation()}>
+            {/* Karten-Block mit Glow (wie Create/Edit User) */}
+            <div className="relative overflow-hidden rounded-3xl bg-white shadow-2xl border border-slate-200/80">
+              {/* Deko-Glows */}
+              <div
+                className="pointer-events-none absolute -right-24 -top-24 h-52 w-52 rounded-full bg-gradient-to-br from-[#E3BB62]/40 via-amber-400/20 to-transparent opacity-60"
+                aria-hidden="true"
+              />
+              <div
+                className="pointer-events-none absolute -left-24 -bottom-24 h-52 w-52 rounded-full bg-gradient-to-tr from-sky-500/20 via-indigo-500/10 to-transparent opacity-60"
+                aria-hidden="true"
+              />
 
-      <div className="p-5 space-y-4">
-        {fpError && (
-          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {fpError}
-          </div>
-        )}
+              {/* Header */}
+              <div className="relative px-6 pt-6 pb-4 flex items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-lg sm:text-xl font-semibold text-slate-900 mb-1">
+                    Passwort zurücksetzen
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    {fpStep === "connect" && "Verbinde zuerst WhatsApp Sandbox (QR-Code scannen), dann geht’s weiter."}
+                    {fpStep === "phone" && "Gib deine Telefonnummer ein. Wir senden dir einen Code."}
+                    {fpStep === "code" && "Gib den Code ein, den du per SMS erhalten hast."}
+                    {fpStep === "newpw" && "Setze jetzt ein neues Passwort."}
+                    {fpStep === "done" && "Fertig – du kannst dich jetzt anmelden."}
+                  </p>
+                </div>
 
-        {fpStep === "phone" && (
-          <>
-            <p className="text-sm text-slate-600">
-              Gib deine Telefonnummer ein. Wir senden dir einen Code.
-            </p>
+                <button
+                  type="button"
+                  disabled={fpLoading}
+                  onClick={() => setFpOpen(false)}
+                  className="rounded-md p-2 text-slate-500 hover:text-slate-700"
+                  aria-label="Schließen"
+                >
+                  ✕
+                </button>
+              </div>
 
-            <input
-              value={fpPhone}
-              onChange={(e) => setFpPhone(e.target.value)}
-              placeholder="+4917..."
-              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3
-                         focus:outline-none focus:ring-2 focus:ring-[#E3BB62]/60 focus:border-[#E3BB62]"
-            />
+              {/* Body */}
+              <div className="relative px-6 pb-6">
+                {fpError && (
+                  <div
+                    className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+                    role="alert"
+                  >
+                    {fpError}
+                  </div>
+                )}
 
-            <button
-              type="button"
-              disabled={fpLoading || !fpPhone.trim()}
-              onClick={async () => {
-                setFpLoading(true);
-                setFpError(null);
-                try {
-                  const res = await fetch(`${RESET_BASE}/auth/password-reset/sms/request`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ phone: fpPhone.trim() }),
-                  });
-                  // neutral response -> immer weiter
-                  if (!res.ok) {
-                    const d = await res.json().catch(() => ({}));
-                    throw new Error(d.details || d.error || `HTTP ${res.status}`);
-                  }
-                  setFpStep("code");
-                } catch (e: any) {
-                  setFpError(e?.message || "Fehler beim Senden des Codes.");
-                } finally {
-                  setFpLoading(false);
-                }
-              }}
-              className="w-full rounded-xl py-3 font-semibold text-[#264555]
-                         bg-[#E3BB62] disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              {fpLoading ? "Sende..." : "Code senden"}
-            </button>
-          </>
-        )}
+                {fpStep === "connect" && (
+                  <div className="space-y-4">
+                    <p className="text-sm text-slate-600">
+                      Bevor du einen Code bekommst, musst du WhatsApp mit der Twilio Sandbox verbinden.
+                      Scanne den QR-Code oder sende die Join-Nachricht.
+                    </p>
 
-        {fpStep === "code" && (
-          <>
-            <p className="text-sm text-slate-600">
-              Gib den Code ein, den du per SMS bekommen hast.
-            </p>
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <div className="flex flex-col sm:flex-row gap-4 items-center">
+                        <img
+                          src={SandboxQr}
+                          alt="Twilio WhatsApp Sandbox QR"
+                          className="h-44 w-44 rounded-xl bg-white p-2 border border-slate-200"
+                        />
 
-            <input
-              value={fpCode}
-              onChange={(e) => setFpCode(e.target.value)}
-              placeholder="123456"
-              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3
-                         focus:outline-none focus:ring-2 focus:ring-[#E3BB62]/60 focus:border-[#E3BB62]"
-            />
+                        <div className="text-sm text-slate-700 space-y-2 w-full">
+                          <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+                            <div className="text-xs text-slate-500">Twilio WhatsApp Nummer</div>
+                            <div className="font-mono font-semibold">+1 415 523 8886</div>
+                          </div>
 
-            <div className="flex gap-3">
+                          <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+                            <div className="text-xs text-slate-500">Join Code</div>
+                            <div className="font-mono font-semibold">join he-prove</div>
+                          </div>
+
+                          <p className="text-xs text-slate-500">
+                            Danach klickst du unten auf „Weiter“.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {fpStep === "phone" && (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">
+                        Telefonnummer
+                      </label>
+                      <input
+                        value={fpPhone}
+                        onChange={(e) => setFpPhone(e.target.value)}
+                        placeholder="+4917..."
+                        className="
+                    w-full rounded-xl border px-3 py-2.5 text-sm
+                    bg-slate-50 border-slate-200 outline-none
+                    focus:bg-white focus:border-[#E3BB62]
+                    focus:ring-2 focus:ring-[rgba(227,187,98,0.45)]
+                    transition
+                  "
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {fpStep === "code" && (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">
+                        SMS Code
+                      </label>
+                      <input
+                        value={fpCode}
+                        onChange={(e) => setFpCode(e.target.value)}
+                        placeholder="123456"
+                        className="
+                    w-full rounded-xl border px-3 py-2.5 text-sm
+                    bg-slate-50 border-slate-200 outline-none
+                    focus:bg-white focus:border-[#E3BB62]
+                    focus:ring-2 focus:ring-[rgba(227,187,98,0.45)]
+                    transition
+                  "
+                      />
+                    </div>
+
+                    <button
+                      type="button"
+                      disabled={fpLoading}
+                      onClick={() => {
+                        setFpStep("phone");
+                        setFpError(null);
+                      }}
+                      className="text-xs font-semibold text-slate-600 hover:underline"
+                    >
+                      Code erneut senden / Telefonnummer ändern
+                    </button>
+                  </div>
+                )}
+
+                {fpStep === "newpw" && (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">
+                        Neues Passwort
+                      </label>
+                      <input
+                        type="password"
+                        value={fpNewPw}
+                        onChange={(e) => setFpNewPw(e.target.value)}
+                        placeholder="Neues Passwort"
+                        className="
+                    w-full rounded-xl border px-3 py-2.5 text-sm
+                    bg-slate-50 border-slate-200 outline-none
+                    focus:bg-white focus:border-[#E3BB62]
+                    focus:ring-2 focus:ring-[rgba(227,187,98,0.45)]
+                    transition
+                  "
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">
+                        Passwort wiederholen
+                      </label>
+                      <input
+                        type="password"
+                        value={fpNewPw2}
+                        onChange={(e) => setFpNewPw2(e.target.value)}
+                        placeholder="Passwort wiederholen"
+                        className="
+                    w-full rounded-xl border px-3 py-2.5 text-sm
+                    bg-slate-50 border-slate-200 outline-none
+                    focus:bg-white focus:border-[#E3BB62]
+                    focus:ring-2 focus:ring-[rgba(227,187,98,0.45)]
+                    transition
+                  "
+                      />
+                    </div>
+
+                    <p className="text-[11px] text-slate-500">
+                      Hinweis: mindestens 8 Zeichen, beide Felder müssen übereinstimmen.
+                    </p>
+                  </div>
+                )}
+
+                {fpStep === "done" && (
+                  <div className="space-y-4">
+                    <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+                      Passwort wurde geändert. Du kannst dich jetzt einloggen.
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* kleiner Abstand wie bei Create/Edit */}
+            <div className="h-3" />
+
+            {/* Button-Leiste – wie bei Create/Edit User */}
+            <div className="mt-1 flex gap-2">
               <button
                 type="button"
-                disabled={fpLoading}
                 onClick={() => {
-                  setFpStep("phone");
+                  if (fpLoading) return;
+                  // Back-Verhalten je Step
+
+                  if (fpStep === "phone") setFpStep("connect");
+                  else if (fpStep === "code") setFpStep("phone");
+                  else if (fpStep === "newpw") setFpStep("code");
+                  else setFpOpen(false);
+
                   setFpError(null);
                 }}
-                className="flex-1 rounded-xl py-3 font-semibold border border-slate-200 text-slate-700"
+                disabled={fpLoading}
+                className="
+            flex-1 h-12 text-sm font-medium text-slate-800
+            bg-[#f3f3f3] hover:bg-[#e5e5e5]
+            border border-slate-200 rounded-xl
+            disabled:opacity-60
+          "
               >
-                Zurück
+                {fpStep === "done" ? "Schließen" : "Abbrechen"}
               </button>
 
-              <button
-                type="button"
-                disabled={fpLoading || !fpCode.trim()}
-                onClick={async () => {
-                  setFpLoading(true);
-                  setFpError(null);
-                  try {
-                    const res = await fetch(`${RESET_BASE}/auth/password-reset/sms/verify`, {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ phone: fpPhone.trim(), code: fpCode.trim() }),
-                    });
-                    if (!res.ok) {
-                      const d = await res.json().catch(() => ({}));
-                      throw new Error(d.details || d.error || "Code ungültig.");
+              {fpStep !== "done" && (
+                <button
+                  type="button"
+                  disabled={
+                    fpLoading ||
+                    (fpStep === "phone" && !fpPhone.trim()) ||
+                    (fpStep === "code" && !fpCode.trim()) ||
+                    (fpStep === "newpw" && (!fpRequestId || fpNewPw.length < 8 || fpNewPw !== fpNewPw2))
+                  }
+                  onClick={async () => {
+                    setFpLoading(true);
+                    setFpError(null);
+
+                    try {
+                      if (fpStep === "connect") {
+                        setFpStep("phone");
+                        return;
+                      }
+
+                      if (fpStep === "phone") {
+                        const res = await fetch(`${RESET_BASE}/auth/password-reset/sms/request`, {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ phone: fpPhone.trim() }),
+                        });
+                        if (!res.ok) {
+                          const d = await res.json().catch(() => ({}));
+                          throw new Error(d.details || d.error || `HTTP ${res.status}`);
+                        }
+                        setFpStep("code");
+                      }
+
+                      if (fpStep === "code") {
+                        const res = await fetch(`${RESET_BASE}/auth/password-reset/sms/verify`, {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ phone: fpPhone.trim(), code: fpCode.trim() }),
+                        });
+                        if (!res.ok) {
+                          const d = await res.json().catch(() => ({}));
+                          throw new Error(d.details || d.error || "Code ungültig.");
+                        }
+                        const data = await res.json();
+                        if (!data?.requestId) throw new Error("Keine requestId erhalten.");
+                        setFpRequestId(String(data.requestId));
+                        setFpStep("newpw");
+                      }
+
+                      if (fpStep === "newpw") {
+                        const res = await fetch(`${RESET_BASE}/auth/password-reset/sms/confirm`, {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ requestId: fpRequestId, newPassword: fpNewPw }),
+                        });
+                        if (!res.ok) {
+                          const d = await res.json().catch(() => ({}));
+                          throw new Error(d.details || d.error || `HTTP ${res.status}`);
+                        }
+                        setFpStep("done");
+                      }
+                    } catch (e: any) {
+                      setFpError(e?.message || "Unbekannter Fehler.");
+                    } finally {
+                      setFpLoading(false);
                     }
-                    const data = await res.json();
-                    if (!data?.requestId) throw new Error("Keine requestId erhalten.");
-                    setFpRequestId(String(data.requestId));
-                    setFpStep("newpw");
-                  } catch (e: any) {
-                    setFpError(e?.message || "Code ungültig.");
-                  } finally {
-                    setFpLoading(false);
+                  }}
+                  className="
+              flex-1 h-12 text-sm font-semibold rounded-xl
+              bg-[#E3BB62] text-[#264555] hover:bg-[#d8ac55]
+              shadow-[0_10px_30px_rgba(0,0,0,0.18)]
+              transition hover:-translate-y-[1px]
+              disabled:opacity-60 disabled:cursor-not-allowed
+            "
+                >
+                  {fpLoading
+                    ? "Bitte warten…"
+                    : fpStep === "connect"
+                      ? "Weiter"
+                      : fpStep === "phone"
+                        ? "Code senden"
+                        : fpStep === "code"
+                          ? "Bestätigen"
+                          : "Passwort speichern"
                   }
-                }}
-                className="flex-1 rounded-xl py-3 font-semibold text-[#264555]
-                           bg-[#E3BB62] disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                {fpLoading ? "Prüfe..." : "Bestätigen"}
-              </button>
+                </button>
+              )}
             </div>
-          </>
-        )}
-
-        {fpStep === "newpw" && (
-          <>
-            <p className="text-sm text-slate-600">
-              Setze jetzt ein neues Passwort.
-            </p>
-
-            <input
-              type="password"
-              value={fpNewPw}
-              onChange={(e) => setFpNewPw(e.target.value)}
-              placeholder="Neues Passwort"
-              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3
-                         focus:outline-none focus:ring-2 focus:ring-[#E3BB62]/60 focus:border-[#E3BB62]"
-            />
-
-            <input
-              type="password"
-              value={fpNewPw2}
-              onChange={(e) => setFpNewPw2(e.target.value)}
-              placeholder="Passwort wiederholen"
-              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3
-                         focus:outline-none focus:ring-2 focus:ring-[#E3BB62]/60 focus:border-[#E3BB62]"
-            />
-
-            <button
-              type="button"
-              disabled={fpLoading || !fpRequestId || fpNewPw.length < 8 || fpNewPw !== fpNewPw2}
-              onClick={async () => {
-                setFpLoading(true);
-                setFpError(null);
-                try {
-                  const res = await fetch(`${RESET_BASE}/auth/password-reset/sms/confirm`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ requestId: fpRequestId, newPassword: fpNewPw }),
-                  });
-                  if (!res.ok) {
-                    const d = await res.json().catch(() => ({}));
-                    throw new Error(d.details || d.error || `HTTP ${res.status}`);
-                  }
-                  setFpStep("done");
-                } catch (e: any) {
-                  setFpError(e?.message || "Fehler beim Setzen des Passworts.");
-                } finally {
-                  setFpLoading(false);
-                }
-              }}
-              className="w-full rounded-xl py-3 font-semibold text-[#264555]
-                         bg-[#E3BB62] disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              {fpLoading ? "Speichere..." : "Passwort speichern"}
-            </button>
-
-            <div className="text-xs text-slate-500">
-              Hinweis: mindestens 8 Zeichen, beide Felder müssen übereinstimmen.
-            </div>
-          </>
-        )}
-
-        {fpStep === "done" && (
-          <>
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-              Passwort wurde geändert. Du kannst dich jetzt einloggen.
-            </div>
-            <button
-              type="button"
-              onClick={() => setFpOpen(false)}
-              className="w-full rounded-xl py-3 font-semibold border border-slate-200 text-slate-700"
-            >
-              Schließen
-            </button>
-          </>
-        )}
-      </div>
-    </div>
-  </div>
-)}
+          </div>
+        </div>
+      )}
 
     </div>
 
 
   );
-  
+
 }
