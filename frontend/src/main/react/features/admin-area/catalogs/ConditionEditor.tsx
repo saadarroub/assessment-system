@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate, useParams } from "react-router-dom";
 import { useToast } from "@/shared/contexts/ToastContext";
 import PageHeader from "./PageHeader";
@@ -48,7 +49,7 @@ import {
   updateQuestionNodeRequired,
   moveRootNode,
   moveChildNode,
-  createQuestionCondition, getQuestionConditions, deleteAllQuestionConditions, deleteQuestionCondition
+  createQuestionCondition, getQuestionConditions, deleteAllQuestionConditions, deleteQuestionCondition, updateQuestionCondition
 } from "@/api/questionApi";
 
 // 🧩 Drag & Drop Imports
@@ -69,12 +70,17 @@ type ConditionItem = {
   targetNodeId?: string;
   targetLabel?: string;
   persisted?: boolean;
+  _open?: boolean;
+  _dropdownPos?: { top: number; left: number; width: number };
 };
+
+
 
 
 const OPERATOR_BY_TYPE: Record<string, string[]> = {
   radio: ["==", "!="],
   select: ["==", "!="],
+  checkbox: ["==", "!="],
   number: ["==", "<", ">"],
   range: ["==", "<", ">"],
   date: ["==", "<", ">"],
@@ -87,6 +93,7 @@ export default function ConditionEditor() {
 
   // 🔍 Such-State
   const [searchTerm, setSearchTerm] = useState("");
+
 
   useEffect(() => {
     async function fetchThemaDetails() {
@@ -126,15 +133,8 @@ export default function ConditionEditor() {
   >(null);
 
   // 🔀 Conditions (V1 simpel)
-  const [conditions, setConditions] = useState<
-    {
-      operator: string;
-      expectedValue: string;
-      targetNodeId?: string;
-      targetLabel?: string;
-      persisted?: boolean;
-    }[]
-  >([]);
+  const [conditions, setConditions] = useState<ConditionItem[]>([]);
+
 
   const allowedOperators = useMemo(() => {
     if (!conditionSourceQuestion) return [];
@@ -189,6 +189,37 @@ export default function ConditionEditor() {
   const [isDeleteConditionOpen, setIsDeleteConditionOpen] = useState(false);
   const [conditionToDelete, setConditionToDelete] = useState<ConditionItem | null>(null);
   const [conditionToDeleteIndex, setConditionToDeleteIndex] = useState<number | null>(null);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      const target = e.target as HTMLElement;
+      if (!target.closest('.checkbox-dropdown-container') && !target.closest('.checkbox-dropdown-trigger')) {
+        setConditions(prev => {
+          if (prev.some(c => c._open)) {
+            return prev.map(c => ({ ...c, _open: false }));
+          }
+          return prev;
+        });
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+
+
+  function normalize(value: string): string {
+    return value.trim().toLowerCase();
+  }
+
+  function parseList(value: string): string[] {
+    return value
+      .split(",")
+      .map(v => normalize(v))
+      .filter(Boolean);
+  }
+
+
 
 
 
@@ -1044,7 +1075,7 @@ export default function ConditionEditor() {
   // 1️⃣ useSortable + Auto-Close
   // -----------------------------
   function SortableQuestion({ q, level = 0 }: { q: any; level?: number }) {
-    const conditionTypes = ["radio", "select", "number", "range", "date"];
+    const conditionTypes = ["radio", "select", "checkbox", "number", "range", "date"];
     const canHaveCondition = conditionTypes.includes(q.type);
 
     // 🌟 Layout & Overflow Logic
@@ -1053,6 +1084,10 @@ export default function ConditionEditor() {
     const hoverTimeout = useRef<any>(null);
     const [showInfoIcon, setShowInfoIcon] = useState(false);
     const [showTooltipFull, setShowTooltipFull] = useState(false);
+    const [tooltipPos, setTooltipPos] = useState({ top: 0, left: 0 });
+    const infoIconRef = useRef<HTMLDivElement | null>(null);
+
+
 
     useEffect(() => {
       const observer = new ResizeObserver(() => {
@@ -1146,7 +1181,7 @@ export default function ConditionEditor() {
           }}
         >
           {isThisDragging && (
-            <div className="absolute inset-0 rounded-xl z-10 pointer-events-none drag-active-highlight" />
+            <div className="absolute -inset-[1px] z-10 pointer-events-none drag-active-highlight" />
           )}
 
           {/* Goldener Hover-Glow */}
@@ -1208,43 +1243,65 @@ export default function ConditionEditor() {
                 </p>
 
                 {/* INFO ICON CHECK */}
+                {/* INFO ICON CHECK */}
                 {showInfoIcon && (
-                  <div
-                    className="relative shrink-0"
-                    onMouseEnter={() => {
-                      hoverTimeout.current = setTimeout(() => {
-                        setShowTooltipFull(true);
-                      }, 350);
-                    }}
-                    onMouseLeave={() => {
-                      clearTimeout(hoverTimeout.current);
-                      setShowTooltipFull(false);
-                    }}
-                  >
-                    <div className="w-5 h-5 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-all cursor-pointer">
-                      <Info
-                        size={14}
-                        className="text-gray-500"
-                        strokeWidth={2}
-                      />
-                    </div>
-                    {/* TOOLTIP */}
+                  <>
                     <div
-                      className={`
-                        ${showTooltipFull
-                          ? "opacity-100 visible"
-                          : "opacity-0 invisible"
+                      ref={infoIconRef}
+                      className="relative shrink-0"
+                      onMouseEnter={() => {
+                        // Calculate position immediately on hover
+                        if (infoIconRef.current) {
+                          const rect = infoIconRef.current.getBoundingClientRect();
+                          setTooltipPos({
+                            top: rect.top,
+                            left: rect.left - 8
+                          });
                         }
-                        absolute right-full top-0 mr-2 w-[36rem]
-                        rounded-xl p-3 text-xs
-                        transition-all duration-200 z-[9999]
-                        bg-[#fffaf0] text-[#264555] border border-[#e6dcc8] shadow-xl
-                        break-words whitespace-normal
-                      `}
+
+                        hoverTimeout.current = setTimeout(() => {
+                          setShowTooltipFull(true);
+                        }, 350);
+                      }}
+                      onMouseLeave={() => {
+                        clearTimeout(hoverTimeout.current);
+                        setShowTooltipFull(false);
+                      }}
                     >
-                      <b>{q.text}</b>
+                      <div className="w-5 h-5 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-all cursor-pointer">
+                        <Info
+                          size={14}
+                          className="text-gray-500"
+                          strokeWidth={2}
+                        />
+                      </div>
                     </div>
-                  </div>
+
+                    {/* TOOLTIP PORTAL */}
+                    {showTooltipFull &&
+                      createPortal(
+                        <div
+                          style={{
+                            position: "fixed",
+                            top: tooltipPos.top,
+                            left: tooltipPos.left,
+                            transform: "translateX(-100%)",
+                            zIndex: 99999,
+                          }}
+                          className={`
+                            opacity-100 visible
+                            w-[36rem]
+                            rounded-xl p-3 text-xs
+                            transition-all duration-200
+                            bg-[#fffaf0] text-[#264555] border border-[#e6dcc8] shadow-xl
+                            break-words whitespace-normal
+                          `}
+                        >
+                          <b>{q.text}</b>
+                        </div>,
+                        document.body
+                      )}
+                  </>
                 )}
               </div>
 
@@ -1293,8 +1350,8 @@ export default function ConditionEditor() {
               <button
                 disabled={isPickingTarget}
                 onClick={async (e) => {
-                  if (isPickingTarget) return;
-                  e.stopPropagation();
+                  e.stopPropagation();          // ⛔ IMMER zuerst
+                  if (isPickingTarget) return;  // ⛔ dann abbrechen
                   setConditionSourceQuestion(q);
                   try {
                     const existing = await getQuestionConditions(q.questionId);
@@ -1320,6 +1377,7 @@ export default function ConditionEditor() {
                           expectedValue: "",
                           targetNodeId: undefined,
                           targetLabel: "",
+                          _open: false,
                         },
                       ]);
                     }
@@ -1336,16 +1394,20 @@ export default function ConditionEditor() {
                   setIsConditionModalOpen(true);
                 }}
                 className={`
-                  h-9 w-9 
-                  rounded-xl 
-                  flex items-center justify-center 
-                  border border-[#E3BB62] 
-                  bg-[#fffdf7] text-[#b08d2a] 
-                  shadow-[0_2px_8px_rgba(227,187,98,0.15)]
-                  transition-all duration-200
-                  hover:bg-[#E3BB62] hover:text-white hover:-translate-y-[1px] hover:shadow-[0_4px_12px_rgba(227,187,98,0.3)]
-                  ${isPickingTarget ? "opacity-30 cursor-not-allowed" : ""}
-                `}
+  h-9 w-9 
+  rounded-xl 
+  flex items-center justify-center 
+  border border-[#E3BB62] 
+  bg-[#fffdf7] text-[#b08d2a] 
+  shadow-[0_2px_8px_rgba(227,187,98,0.15)]
+  transition-all duration-200
+
+  ${isPickingTarget
+                    ? "opacity-30 cursor-not-allowed"
+                    : "hover:bg-[#E3BB62] hover:text-white hover:-translate-y-[1px] hover:shadow-[0_4px_12px_rgba(227,187,98,0.3)]"}
+`}
+
+
                 title="Bedingungen / Folgefragen"
               >
                 <Workflow size={17} strokeWidth={2} />
@@ -2569,9 +2631,17 @@ export default function ConditionEditor() {
                   <h3 className="text-lg font-semibold text-slate-900">
                     Bedingungen für diese Frage
                   </h3>
-                  <p className="text-sm text-slate-500 mt-1">
+                  <p
+                    className="
+    text-sm text-slate-500 mt-1
+    break-all              /* 🔥 bricht auch lange Zahlen */
+    whitespace-normal
+    max-w-full
+  "
+                  >
                     {conditionSourceQuestion.text}
                   </p>
+
                 </div>
 
                 {/* INFO-BADGES (wie auf der Frage-Karte) */}
@@ -2652,7 +2722,7 @@ export default function ConditionEditor() {
                     "
                       >
                         {/* OBERSTE ZEILE */}
-                        <div className="grid grid-cols-[130px_1fr_250px_36px] gap-3 items-center">
+                        <div className="grid grid-cols-[130px_1fr_200px_36px] gap-3 items-center">
                           {/* OPERATOR */}
                           <select
                             className="
@@ -2726,6 +2796,174 @@ export default function ConditionEditor() {
                                 </option>
                               ))}
                             </select>
+
+                          ) : conditionSourceQuestion.type === "checkbox" ? (
+
+                            /* ✅ MEHRFACH – NUR AUS ANTWORTOPTIONEN */
+                            <div className="relative">
+                              {/* Anzeige-Feld */}
+                              <div className="relative w-full">
+
+                                <input
+                                  ref={(el) => {
+                                    if (el && c._open) {
+                                      const rect = el.getBoundingClientRect();
+                                      el.dataset.dropdownTop = String(rect.bottom + 4);
+                                      el.dataset.dropdownLeft = String(rect.left);
+                                      el.dataset.dropdownWidth = String(rect.width);
+                                    }
+                                  }}
+                                  readOnly
+                                  className="
+  h-10 w-full
+  rounded-lg
+  border border-[#e6d8b5]
+  pl-3 pr-10
+  checkbox-dropdown-trigger
+  text-sm
+  bg-white
+  cursor-pointer
+  transition-colors duration-150
+
+
+  focus:outline-none
+  focus:ring-0
+
+
+  active:border-[#E3BB62]
+  focus:border-[#E3BB62]
+
+
+  active:shadow-[0_0_0_1px_rgba(227,187,98,0.7)]
+  focus:shadow-[0_0_0_1px_rgba(227,187,98,0.7)]
+"
+
+
+                                  placeholder="Antworten auswählen…"
+                                  value={c.expectedValue}
+                                  onClick={(e) => {
+                                    const rect = e.currentTarget.getBoundingClientRect();
+                                    setConditions(prev =>
+                                      prev.map((x, i) =>
+                                        i === index ? {
+                                          ...x,
+                                          _open: !x._open,
+                                          _dropdownPos: {
+                                            top: rect.bottom + 4,
+                                            left: rect.left,
+                                            width: rect.width
+                                          }
+                                        } : x
+                                      )
+                                    );
+                                  }}
+                                />
+
+
+                                {/* 🔽 PFEIL RECHTS */}
+                                <div
+                                  className="
+    pointer-events-none
+    absolute
+    right-3
+    top-1/2
+    -translate-y-1/2
+    text-[#b08d2a]
+  "
+                                >
+                                  {c._open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                                </div>
+
+
+                              </div>
+
+                              {/* Dropdown Portal */}
+                              {c._open && c._dropdownPos && createPortal(
+                                <div
+                                  className="checkbox-dropdown-container"
+                                  style={{
+                                    position: "fixed",
+                                    top: c._dropdownPos.top,
+                                    left: c._dropdownPos.left,
+                                    width: c._dropdownPos.width,
+                                    zIndex: 99999,
+                                  }}
+                                >
+                                  <div
+                                    className="
+            rounded-lg
+            border border-[#e6d8b5]
+            bg-white
+            shadow-xl
+            p-2
+            max-h-48 overflow-auto
+          "
+                                  >
+                                    {(conditionSourceQuestion.options || []).map((opt: any) => {
+                                      const selected = parseList(c.expectedValue)
+                                        .map(normalize)
+                                        .includes(normalize(opt.label));
+
+
+                                      return (
+                                        <div
+                                          key={opt.label}
+                                          className="
+      flex items-center gap-2
+      px-2 py-1.5
+      rounded-md  
+      cursor-pointer  
+      hover:bg-[#fff4d6]
+    "
+                                          onClick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+
+                                            const current = parseList(c.expectedValue).map(normalize);
+                                            const value = normalize(opt.label);
+
+                                            const set = new Set(current);
+
+                                            if (set.has(value)) {
+                                              set.delete(value);   // ❌ entfernen
+                                            } else {
+                                              set.add(value);      // ✅ hinzufügen
+                                            }
+
+                                            const next = Array.from(set);
+
+
+                                            setConditions(prev =>
+                                              prev.map((x, i) =>
+                                                i === index
+                                                  ? { ...x, expectedValue: next.join(",") }
+                                                  : x
+                                              )
+                                            );
+
+                                          }}
+                                        >
+                                          <input
+                                            type="checkbox"
+                                            checked={selected}
+                                            readOnly
+                                            className="pointer-events-none accent-[#E3BB62]"
+                                          />
+                                          <span className="text-sm text-[#264555]">
+                                            {opt.label}
+                                          </span>
+                                        </div>
+
+                                      );
+                                    })}
+                                  </div>
+                                </div>,
+                                document.body
+                              )}
+                            </div>
+
+
+
 
                           ) : conditionSourceQuestion.type === "radio" ||
                             conditionSourceQuestion.type === "select" ? (
@@ -3299,20 +3537,30 @@ export default function ConditionEditor() {
                       for (const c of conditions) {
                         if (!c.operator || !c.expectedValue || !c.targetNodeId) continue;
 
-                        const payload = {
-                          targetNodeId: c.targetNodeId,
-                          operator: c.operator as "==" | "!=" | "<" | ">",
-                          expectedValue: String(c.expectedValue),
-                        };
-
-                        await createQuestionCondition(sourceQuestionId, payload);
+                        if (c.persisted) {
+                          // ✅ UPDATE
+                          await updateQuestionCondition(sourceQuestionId, c.operator, {
+                            targetNodeId: c.targetNodeId,
+                            expectedValue: String(c.expectedValue),
+                            operator: c.operator,
+                          });
+                        } else {
+                          // ✅ CREATE
+                          const payload = {
+                            targetNodeId: c.targetNodeId,
+                            operator: c.operator as "==" | "!=" | "<" | ">",
+                            expectedValue: String(c.expectedValue),
+                          };
+                          await createQuestionCondition(sourceQuestionId, payload);
+                        }
                       }
 
+                      showSuccess("Bedingungen erfolgreich gespeichert.");
                       setIsConditionModalOpen(false);
                       setIsPickingTarget(false);
                       setPendingConditionIndex(null);
                     } catch (err) {
-                      alert("Fehler beim Speichern der Bedingungen");
+                      showError("Fehler beim Speichern der Bedingungen");
                     }
                   }}
                 >
