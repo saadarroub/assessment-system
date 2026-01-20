@@ -4,7 +4,7 @@ type PageHeaderProps = {
   title: string;
   subtitle?: string;
   icon?: React.ReactNode;
-  gradient?: "navy" | "sand"  ;
+  gradient?: "navy" | "sand";
   height?: string;
   center?: boolean;
   showPattern?: boolean;
@@ -71,12 +71,12 @@ export default function PageHeader({
     : "items-start text-left";
 
   return (
-    
+
     <div
 
       className={`relative w-full bg-gradient-to-br ${gradients[gradient]}`}
       style={{ minHeight: height }}
-     >
+    >
 
       {/* blauer Glow rechts unten */}
       <div
@@ -148,13 +148,13 @@ export default function PageHeader({
       </div>
 
       <div
-        className="relative z-10 flex flex-col gap-6 py-10 pr-6"
+        className="relative z-10 flex flex-col gap-6 py-10 pr-6 min-w-0"
         style={{
           paddingLeft: "200px",
         }}
       >
         {/* Linker Bereich: Icon + Titel + Subtitle */}
-        <div className={`flex flex-col gap-4 ${columnAlign}`}>
+        <div className={`flex flex-col gap-4 ${columnAlign} min-w-0`}>
           {/* Icon + kleines Label (System · Management etc.) */}
           {(icon || title) && (
             <div className="inline-flex items-center gap-3 rounded-3xl border border-white/25 bg-white/10 px-4 py-2 backdrop-blur-md shadow-[0_12px_30px_rgba(0,0,0,0.42)]">
@@ -185,8 +185,8 @@ export default function PageHeader({
           )}
 
           {/* Titel + Subtitle */}
-          <div>
-            <h1 className="text-3xl md:text-4xl font-extrabold text-white tracking-wide drop-shadow-[0_4px_12px_rgba(0,0,0,0.55)]">
+          <div className="max-w-full">
+            <h1 className="text-3xl md:text-4xl font-extrabold text-white tracking-wide drop-shadow-[0_4px_12px_rgba(0,0,0,0.55)] truncate max-w-full">
               {title}
             </h1>
             {subtitle && (

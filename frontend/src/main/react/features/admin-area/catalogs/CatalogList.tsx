@@ -18,6 +18,9 @@ import {
   Trash2,
   ChevronUp,
   ChevronDown,
+  PlusCircle,
+
+  ArrowLeft,
 } from "lucide-react";
 
 import {
@@ -186,6 +189,39 @@ export default function CatalogList() {
   }, [selectedType]);
 
   useEffect(() => {
+    if (isModalOpen) {
+      const scrollY = window.scrollY;
+      document.body.dataset.scrollY = scrollY.toString();
+      document.body.style.position = "fixed";
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.left = "0";
+      document.body.style.right = "0";
+      document.body.style.width = "100%";
+      document.body.style.overflow = "hidden";
+    } else {
+      const scrollY = document.body.dataset.scrollY;
+      document.body.style.position = "";
+      document.body.style.top = "";
+      document.body.style.left = "";
+      document.body.style.right = "";
+      document.body.style.width = "";
+      document.body.style.overflow = "";
+      if (scrollY) {
+        window.scrollTo(0, parseInt(scrollY, 10));
+        delete document.body.dataset.scrollY;
+      }
+    }
+    return () => {
+      document.body.style.position = "";
+      document.body.style.top = "";
+      document.body.style.left = "";
+      document.body.style.right = "";
+      document.body.style.width = "";
+      document.body.style.overflow = "";
+    };
+  }, [isModalOpen]);
+
+  useEffect(() => {
     if (selectedType?.hasOptions && optionsRef.current) {
       setTimeout(() => {
         optionsRef.current?.scrollIntoView({
@@ -314,9 +350,44 @@ export default function CatalogList() {
             "linear-gradient(to bottom, #f3f4f7 0, #e6e9ef 240px, #f4f5f8 100%)",
         }}
       >
+        {/* Top-Bar: Zurück Button links */}
+        <div className="max-w-[1400px] xl:max-w-[1600px] mx-auto mb-3 flex items-center justify-between">
+          <nav className="flex items-center">
+            <button
+              onClick={() => navigate("/admin")}
+              className="
+                inline-flex items-center gap-2
+                rounded-full border
+                px-3 py-1.5
+                shadow-[0_4px_10px_rgba(0,0,0,0.06)]
+                text-xs sm:text-sm
+                bg-white/80
+                backdrop-blur-[2px]
+                hover:bg-white
+                hover:-translate-y-[2px]
+                transition
+              "
+              style={{ borderColor: "#d2c9b9" }}
+            >
+              <span
+                className="inline-flex h-6 w-6 items-center justify-center rounded-full"
+                style={{
+                  background: "rgba(38,69,85,0.06)",
+                  color: "#264555",
+                }}
+              >
+                <ArrowLeft size={14} />
+              </span>
+              <span className="font-semibold" style={{ color: "#264555" }}>
+                Zurück zur Übersicht
+              </span>
+            </button>
+          </nav>
+        </div>
+
         <div className="max-w-[1400px] xl:max-w-[1600px] mx-auto mt-6">
-  <div
-    className="
+          <div
+            className="
       relative
       overflow-hidden
       rounded-2xl
@@ -325,77 +396,79 @@ export default function CatalogList() {
       text-center
       shadow-[0_10px_30px_rgba(0,0,0,0.06)]
     "
-    style={{
-      background:
-        "linear-gradient(180deg, #ffffff 0%, #fffdf7 100%)",
-      borderColor: "rgba(227,187,98,0.35)",
-    }}
-  >
-    {/* Goldener Deko-Glow */}
-    <div
-      className="pointer-events-none absolute -right-24 -top-24 h-56 w-56 rounded-full opacity-60"
-      style={{
-        background:
-          "radial-gradient(circle, rgba(227,187,98,0.35), transparent 70%)",
-      }}
-    />
+            style={{
+              background:
+                "linear-gradient(180deg, #ffffff 0%, #fffdf7 100%)",
+              borderColor: "rgba(227,187,98,0.35)",
+            }}
+          >
+            {/* Goldener Deko-Glow */}
+            <div
+              className="pointer-events-none absolute -right-24 -top-24 h-56 w-56 rounded-full opacity-60"
+              style={{
+                background:
+                  "radial-gradient(circle, rgba(227,187,98,0.35), transparent 70%)",
+              }}
+            />
 
-    {/* Icon */}
-    <div
-      className="
+            {/* Icon */}
+            <div
+              className="
         mx-auto mb-4
         flex items-center justify-center
         h-14 w-14
         rounded-2xl
         shadow
       "
-      style={{
-        background:
-          "linear-gradient(135deg, #E3BB62 0%, #D4AF37 100%)",
-      }}
-    >
-      <MessageSquare size={26} className="text-[#264555]" />
-    </div>
+              style={{
+                background:
+                  "linear-gradient(135deg, #E3BB62 0%, #D4AF37 100%)",
+              }}
+            >
+              <MessageSquare size={26} className="text-[#264555]" />
+            </div>
 
-    {/* Titel */}
-    <h2 className="text-xl font-semibold text-[#264555]">
-      Noch keine Fragen vorhanden
-    </h2>
+            {/* Titel */}
+            <h2 className="text-xl font-semibold text-[#264555]">
+              Noch keine Fragen vorhanden
+            </h2>
 
-    {/* Beschreibung */}
-    <p className="mt-2 text-sm text-slate-600 max-w-md mx-auto">
-      Beginnen Sie mit dem Erstellen der ersten Hauptfrage, um den
-      Fragenkatalog aufzubauen.
-    </p>
+            {/* Beschreibung */}
+            <p className="mt-2 text-sm text-slate-600 max-w-md mx-auto">
+              Beginnen Sie mit dem Erstellen der ersten Hauptfrage, um den
+              Fragenkatalog aufzubauen.
+            </p>
 
-    {/* Action Button */}
-    <div className="mt-6">
-      <button
-        onClick={() => setIsModalOpen(true)}
-        className="
+            {/* Action Button */}
+            <div className="mt-6">
+              <button
+                onClick={() => setIsModalOpen(true)}
+                className="
           inline-flex items-center gap-2
           rounded-full
           px-6 py-3
           text-sm font-semibold
           transition
           hover:-translate-y-[1px]
+          hover:bg-[#d8ac55]
+          hover:shadow-lg
         "
-        style={{
-          background: "#E3BB62",
-          color: "#264555",
-          boxShadow: "0 10px 30px rgba(0,0,0,0.18)",
-        }}
-      >
-        <Plus size={16} />
-        Erste Hauptfrage erstellen
-      </button>
-    </div>
-  </div>
-</div>
+                style={{
+                  background: "#E3BB62",
+                  color: "#264555",
+                  boxShadow: "0 10px 30px rgba(0,0,0,0.18)",
+                }}
+              >
+                <Plus size={16} />
+                Erste Hauptfrage erstellen
+              </button>
+            </div>
+          </div>
+        </div>
 
       </main>
 
-      {/* � Modal: Neue Frage hinzufügen */}
+      {/* 🧱 Modal: Neue Frage hinzufügen */}
       {isModalOpen && (
         <div
           role="dialog"
@@ -437,10 +510,12 @@ export default function CatalogList() {
                 <div>
                   <label
                     htmlFor="question-text"
-                    className="block text-sm font-medium text-slate-700 mb-1"
+                    className="flex items-center gap-1 text-sm font-semibold text-slate-800 mb-2"
                   >
-                    Frage <span className="text-red-500">*</span>
+                    Frage
+                    <span className="text-red-500">*</span>
                   </label>
+
                   <textarea
                     id="question-text"
                     value={questionText}
@@ -451,19 +526,16 @@ export default function CatalogList() {
                     placeholder="Frage eingeben..."
                     rows={3}
                     className={`
-                      w-full rounded-xl border px-3 py-2.5 text-sm
-                      bg-slate-50 border-slate-200
-                      outline-none
-                      focus:bg-white
-                      focus:border-[#E3BB62]
-                      focus:ring-2 focus:ring-[rgba(227,187,98,0.45)]
-                      transition
-                      resize-none
-                      ${errorQuestionText ? "border-red-500" : ""}
-                    `}
+                       w-full rounded-xl border px-3 py-2.5 text-sm
+                       transition
+                       outline-none
+                       focus:ring-2 focus:ring-[rgba(227,187,98,0.45)]
+                       resize-none
+                       ${errorQuestionText ? "border-red-500 bg-red-50 focus:border-red-500 shadow-[0_0_0_1px_rgba(239,68,68,0.2)]" : "bg-slate-50 border-slate-200 focus:bg-white focus:border-[#E3BB62]"}
+                     `}
                   />
                   {errorQuestionText && (
-                    <p className="text-red-500 text-xs mt-1">
+                    <p className="text-[10px] text-red-500 font-bold uppercase tracking-wider mt-1 px-1">
                       {errorQuestionText}
                     </p>
                   )}
@@ -471,9 +543,11 @@ export default function CatalogList() {
 
                 {/* 🔸 Fragetyp */}
                 <div className="mt-6">
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Fragetyp <span className="text-red-500">*</span>
+                  <label className="flex items-center gap-1 text-sm font-semibold text-slate-800 mb-2">
+                    Fragetyp
+                    <span className="text-red-500">*</span>
                   </label>
+
                   <div className="grid grid-cols-2 gap-3">
                     {questionTypes.map((type) => (
                       <button
@@ -495,7 +569,7 @@ export default function CatalogList() {
                         className={`flex items-center justify-start gap-3 border rounded-xl py-3 px-4 text-left font-medium text-sm transition-all duration-150 ${selectedType?.id === type.id
                           ? "bg-[#E3BB62] border-[#E3BB62] text-[#264555] shadow-md"
                           : errorType
-                            ? "border-red-500 text-slate-800 hover:bg-slate-50 bg-white"
+                            ? "border-red-500 bg-red-50 text-red-600 shadow-[0_0_0_1px_rgba(239,68,68,0.2)] hover:bg-red-100"
                             : "border-slate-200 text-slate-800 hover:bg-slate-50 bg-white"
                           }`}
                       >
@@ -505,15 +579,16 @@ export default function CatalogList() {
                     ))}
                   </div>
                   {errorType && (
-                    <p className="text-red-500 text-xs mt-2">{errorType}</p>
+                    <p className="text-[10px] text-red-500 font-bold uppercase tracking-wider mt-2 px-1">{errorType}</p>
                   )}
                 </div>
 
                 {/* 🔸 Pflichtfeld */}
                 <div className="mt-6">
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                  <label className="flex items-center gap-1 text-sm font-semibold text-slate-800 mb-2">
                     Antwort notwendig
                   </label>
+
                   <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">
                     <div>
                       <p className="text-sm text-slate-700">
@@ -537,9 +612,10 @@ export default function CatalogList() {
                 {/* 🔸 Bewertbar */}
                 {selectedType && !selectedType.hasOptions && (
                   <div className="mt-4">
-                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                    <label className="flex items-center gap-1 text-sm font-semibold text-slate-800 mb-2">
                       Bewertung
                     </label>
+
                     <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">
                       <div>
                         <p className="text-sm text-slate-700">
@@ -567,15 +643,24 @@ export default function CatalogList() {
                 {showOptions && (
                   <div
                     ref={optionsRef}
-                    className="border-t border-gray-200 pt-4 mt-4"
+                    className="border-t border-[#e6d8b5] pt-4 mt-4"
                   >
-                    <h3 className="text-md font-semibold text-gray-800 mb-3">
+                    <h3 className="text-md font-semibold text-[#264555] mb-3">
                       Antwortmöglichkeiten
                     </h3>
+
                     {options.map((opt, i) => (
                       <div
                         key={i}
-                        className="flex items-center gap-3 mb-3 border border-gray-200 p-2 rounded-lg"
+                        className="
+        flex items-center gap-3 mb-3 p-2 rounded-xl
+        border border-[#e6d8b5]
+        bg-white
+        transition-all
+        hover:bg-[#fffaf0]
+        hover:border-[#d9c18a]
+        hover:shadow-[0_4px_14px_rgba(227,187,98,0.18)]
+      "
                       >
                         {/* Antworttext */}
                         <input
@@ -590,9 +675,14 @@ export default function CatalogList() {
                             );
                             if (errorOptions) setErrorOptions(null);
                           }}
-                          className={`flex-1 border rounded-md px-2 py-1 focus:ring-1 focus:ring-brand-sand focus:outline-none ${hasSubmitted && !opt.label.trim()
-                            ? "border-red-500"
-                            : "border-gray-300"
+                          className={`flex-1 rounded-md px-2 py-1 border transition
+          focus:outline-none
+          focus:ring-1
+          focus:ring-[#E3BB62]
+          focus:border-[#E3BB62]
+          ${hasSubmitted && !opt.label.trim()
+                              ? "border-red-500 bg-red-50 shadow-[0_0_0_1px_rgba(239,68,68,0.2)]"
+                              : "border-[#d9c18a]"
                             }`}
                         />
 
@@ -602,11 +692,18 @@ export default function CatalogList() {
                             <input
                               type="text"
                               placeholder="Score"
-                              className="w-full border rounded-md px-2 py-1 text-center pr-6"
                               value={opt.score ?? ""}
+                              className={`w-full rounded-md px-2 py-1 text-center pr-[26px] border transition
+              focus:outline-none
+              focus:ring-1
+              focus:ring-[#E3BB62]
+              focus:border-[#E3BB62]
+              ${hasSubmitted && (opt.score === null || isNaN(Number(opt.score)))
+                                  ? "border-red-500 bg-red-50 shadow-[0_0_0_1px_rgba(239,68,68,0.2)]"
+                                  : "border-[#d9c18a]"
+                                }`}
                               onChange={(e) => {
                                 const val = e.target.value;
-
                                 if (val === "") {
                                   setOptions(
                                     options.map((o, j) =>
@@ -615,7 +712,6 @@ export default function CatalogList() {
                                   );
                                   return;
                                 }
-
                                 if (/^[0-6]$/.test(val)) {
                                   setOptions(
                                     options.map((o, j) =>
@@ -625,14 +721,9 @@ export default function CatalogList() {
                                 }
                               }}
                               onKeyDown={(e) => {
-                                if (
-                                  e.key === "ArrowUp" ||
-                                  e.key === "ArrowDown"
-                                ) {
+                                if (e.key === "ArrowUp" || e.key === "ArrowDown") {
                                   e.preventDefault();
-
                                   let current = opt.score;
-
                                   if (current == null)
                                     current = e.key === "ArrowUp" ? 0 : 6;
                                   else {
@@ -641,7 +732,6 @@ export default function CatalogList() {
                                     if (e.key === "ArrowDown")
                                       current = Math.max(0, current - 1);
                                   }
-
                                   setOptions(
                                     options.map((o, j) =>
                                       j === i ? { ...o, score: current } : o
@@ -651,26 +741,39 @@ export default function CatalogList() {
                               }}
                             />
 
-                            {/* CUSTOM ARROW BUTTONS */}
+                            {/* Custom Arrow Buttons */}
                             <div
                               className="
-                                absolute right-1 top-1/2 -translate-y-1/2 
-                                flex flex-col 
-                                bg-gray-100 border border-gray-300 
-                                rounded-md overflow-hidden
-                              "
-                              style={{ width: "24px", height: "32px" }}
+  absolute right-0.5 top-0.5 bottom-0.5
+  flex flex-col
+  rounded-md
+  overflow-hidden
+  bg-[#e6d8b5]
+  border border-[#d9c18a]
+
+  transition-all
+  hover:bg-[#edd39a]
+"
+                              style={{ width: "26px", height: "30px" }}
                             >
                               <button
                                 type="button"
-                                className="flex-1 flex items-center justify-center hover:bg-gray-200"
+                                className="
+  flex-1 flex items-center justify-center
+  text-[#7a5a00]
+
+  transition-colors
+  hover:bg-[#f3f3f3]
+
+  focus:outline-none
+  focus:ring-0
+  active:outline-none
+  active:ring-0
+"
                                 onClick={() => {
                                   let current = opt.score;
                                   current =
-                                    current == null
-                                      ? 0
-                                      : Math.min(6, current + 1);
-
+                                    current == null ? 0 : Math.min(6, current + 1);
                                   setOptions(
                                     options.map((o, j) =>
                                       j === i ? { ...o, score: current } : o
@@ -678,19 +781,27 @@ export default function CatalogList() {
                                   );
                                 }}
                               >
-                                <ChevronUp size={14} className="text-gray-600" />
+                                <ChevronUp size={14} />
                               </button>
 
                               <button
                                 type="button"
-                                className="flex-1 flex items-center justify-center hover:bg-gray-200"
+                                className="
+  flex-1 flex items-center justify-center
+  text-[#7a5a00]
+
+  transition-colors
+  hover:bg-[#f3f3f3]
+
+  focus:outline-none
+  focus:ring-0
+  active:outline-none
+  active:ring-0
+"
                                 onClick={() => {
                                   let current = opt.score;
                                   current =
-                                    current == null
-                                      ? 6
-                                      : Math.max(0, current - 1);
-
+                                    current == null ? 6 : Math.max(0, current - 1);
                                   setOptions(
                                     options.map((o, j) =>
                                       j === i ? { ...o, score: current } : o
@@ -698,10 +809,7 @@ export default function CatalogList() {
                                   );
                                 }}
                               >
-                                <ChevronDown
-                                  size={14}
-                                  className="text-gray-600"
-                                />
+                                <ChevronDown size={14} />
                               </button>
                             </div>
                           </div>
@@ -712,42 +820,67 @@ export default function CatalogList() {
                           onClick={() =>
                             setOptions(options.filter((_, j) => j !== i))
                           }
-                          className="text-red-500 hover:text-red-400 transition-all"
+                          title="Antwort entfernen"
+                          className="
+    h-9 w-9
+    flex items-center justify-center
+    rounded-lg
+    border border-red-200
+    bg-white
+    text-red-600
+
+    transition-all duration-200
+
+    hover:bg-red-50
+    hover:text-red-700
+    hover:shadow-[0_4px_10px_rgba(220,38,38,0.25)]
+    hover:-translate-y-[1px]
+
+    active:translate-y-0
+    focus:outline-none focus:ring-0
+  "
                         >
-                          <Trash2 size={18} />
+                          <Trash2 size={16} />
                         </button>
                       </div>
                     ))}
+
                     {errorOptions && (
-                      <p className="text-red-500 text-xs mt-1">
+                      <p className="text-[10px] text-red-500 font-bold uppercase tracking-wider mt-1 px-1">
                         {errorOptions}
                       </p>
                     )}
+
                     <button
-                      onClick={() =>
-                        setOptions([...options, { label: "", score: null }])
-                      }
-                      className="
-                        flex items-center gap-2
-                        mt-3
-                        text-sm font-semibold
-                        transition
-                        hover:underline
-                      "
-                      style={{
-                        color: "#b08d2a",
+                      type="button"
+                      onClick={() => {
+                        setHasSubmitted(false);
+                        setOptions([...options, { label: "", score: null }]);
                       }}
+                      className="
+      inline-flex items-center gap-2
+      px-4 py-2
+      mt-3
+      rounded-full
+      border border-[#e6d8b5]
+      bg-white
+      text-sm font-semibold
+      text-[#b08d2a]
+      transition-all
+      hover:bg-[#f6e7c3]
+      hover:-translate-y-[1px]
+      hover:shadow-[0_6px_14px_rgba(0,0,0,0.12)]
+    "
                     >
-                      <Plus size={16} className="text-[#b08d2a]" />
-                      Neue Option hinzufügen
+                      <PlusCircle size={18} className="text-[#b08d2a]" />
+                      Neue Option
                     </button>
                   </div>
                 )}
               </div>
 
-              {/* kleiner Abstand wie bei User-Modals */}
+              {/* kleiner Abstand */}
               <div className="h-3" />
-
             </div>
 
             {/* Buttons außerhalb des Modals */}

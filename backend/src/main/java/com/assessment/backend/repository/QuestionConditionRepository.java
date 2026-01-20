@@ -17,7 +17,7 @@ import org.springframework.stereotype.Repository;
 public interface QuestionConditionRepository extends JpaRepository<QuestionCondition, UUID> {
 
   //Find all QuestionCondition Object for a sourceQuestionId
-  List<QuestionCondition> findAllBySourceQuestionId(UUID sourceQuestionId);
+  List<QuestionCondition> findAllBySourceQuestionIdOrderByCreatedAtAsc(UUID sourceQuestionId);
 
   //Find a QuestionCondition Object with Id and Operator
   QuestionCondition findBySourceQuestionIdAndOperator(UUID sourceQuestionId, String operator);

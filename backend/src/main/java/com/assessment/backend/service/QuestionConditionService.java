@@ -99,7 +99,7 @@ public class QuestionConditionService {
     //Load QuestionCondition
   public List<QuestionCondition> loadQuestionCondition(UUID sourceQuestionId) {
 
-    List<QuestionCondition> qc = questionConditionRepository.findAllBySourceQuestionId(sourceQuestionId);
+    List<QuestionCondition> qc = questionConditionRepository.findAllBySourceQuestionIdOrderByCreatedAtAsc(sourceQuestionId);
 
     return qc;
 
@@ -399,7 +399,7 @@ public class QuestionConditionService {
   @Transactional
   public void deleteAllQuestionConditions(UUID sourceQuestionId){
 
-    List<QuestionCondition> qc = questionConditionRepository.findAllBySourceQuestionId(sourceQuestionId);
+    List<QuestionCondition> qc = questionConditionRepository.findAllBySourceQuestionIdOrderByCreatedAtAsc(sourceQuestionId);
 
     questionConditionRepository.deleteAll(qc);
 

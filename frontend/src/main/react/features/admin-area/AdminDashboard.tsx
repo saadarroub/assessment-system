@@ -404,6 +404,7 @@ export default function AdminDashboard() {
                 bg-white/80
                 backdrop-blur-[2px]
                 hover:bg-white
+                 hover:-translate-y-[2px]
                 transition
               "
               style={{ borderColor: "#d2c9b9" }}
@@ -434,7 +435,8 @@ export default function AdminDashboard() {
               px-4 py-2
               text-sm font-semibold
               focus:outline-none
-              transition
+               hover:-translate-y-[2px]
+                transition
               hover:-translate-y-[1px]
             "
             style={{
@@ -489,9 +491,14 @@ export default function AdminDashboard() {
         {/* THEMEN */}
 
         <section className="topics-section mt-4">
-          <div className="section-header max-w-[1400px] xl:max-w-[1600px] mx-auto mb-3">
-            <h2>Themen</h2>
-          </div>
+       <div className="max-w-[1400px] xl:max-w-[1600px] mx-auto mb-4">
+  <h2 className="text-2xl font-semibold text-[#264555] tracking-tight">
+    Themen
+  </h2>
+  <div className="mt-1 h-[2px] w-14 rounded-full bg-[#E3BB62]" />
+</div>
+
+
 
           {/* SEARCH */}
           <div

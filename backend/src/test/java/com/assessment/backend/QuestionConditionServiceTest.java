@@ -83,7 +83,7 @@ class QuestionConditionServiceTest {
     UUID neTarget = UUID.randomUUID();
     String expectedValue = "Yes";
 
-    when(questionConditionRepository.findAllBySourceQuestionId(sourceQuestionId))
+    when(questionConditionRepository.findAllBySourceQuestionIdOrderByCreatedAtAsc(sourceQuestionId))
         .thenReturn(List.of(
             qc(sourceQuestionId, "==", eqTarget, expectedValue),
             qc(sourceQuestionId, "!=", neTarget, expectedValue)
@@ -115,7 +115,7 @@ class QuestionConditionServiceTest {
     UUID neTarget = UUID.randomUUID();
     String expectedValue = "A, b";
 
-    when(questionConditionRepository.findAllBySourceQuestionId(sourceQuestionId))
+    when(questionConditionRepository.findAllBySourceQuestionIdOrderByCreatedAtAsc(sourceQuestionId))
         .thenReturn(List.of(
             qc(sourceQuestionId, "==", eqTarget, expectedValue),
             qc(sourceQuestionId, "!=", neTarget, expectedValue)
@@ -148,7 +148,7 @@ class QuestionConditionServiceTest {
     UUID gtTarget = UUID.randomUUID();
     String expectedValue = "10";
 
-    when(questionConditionRepository.findAllBySourceQuestionId(sourceQuestionId))
+    when(questionConditionRepository.findAllBySourceQuestionIdOrderByCreatedAtAsc(sourceQuestionId))
         .thenReturn(List.of(
             qc(sourceQuestionId, "==", eqTarget, expectedValue),
             qc(sourceQuestionId, "<", ltTarget, expectedValue),
@@ -183,7 +183,7 @@ class QuestionConditionServiceTest {
     UUID gtTarget = UUID.randomUUID();
     String expectedValue = "3";
 
-    when(questionConditionRepository.findAllBySourceQuestionId(sourceQuestionId))
+    when(questionConditionRepository.findAllBySourceQuestionIdOrderByCreatedAtAsc(sourceQuestionId))
         .thenReturn(List.of(
             qc(sourceQuestionId, "==", eqTarget, expectedValue),
             qc(sourceQuestionId, "<", ltTarget, expectedValue),
@@ -210,7 +210,7 @@ class QuestionConditionServiceTest {
     UUID gtTarget = UUID.randomUUID();
     String expectedValue = "02.01.2026";
 
-    when(questionConditionRepository.findAllBySourceQuestionId(sourceQuestionId))
+    when(questionConditionRepository.findAllBySourceQuestionIdOrderByCreatedAtAsc(sourceQuestionId))
         .thenReturn(List.of(
             qc(sourceQuestionId, "==", eqTarget, expectedValue),
             qc(sourceQuestionId, "<", ltTarget, expectedValue),

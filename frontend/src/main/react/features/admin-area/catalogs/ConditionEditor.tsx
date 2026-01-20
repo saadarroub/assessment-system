@@ -49,7 +49,7 @@ import {
   updateQuestionNodeRequired,
   moveRootNode,
   moveChildNode,
-  createQuestionCondition, getQuestionConditions, deleteAllQuestionConditions, deleteQuestionCondition, updateQuestionCondition
+  createQuestionCondition, getQuestionConditions, deleteAllQuestionConditions, deleteQuestionCondition
 } from "@/api/questionApi";
 
 // 🧩 Drag & Drop Imports
@@ -72,6 +72,9 @@ type ConditionItem = {
   persisted?: boolean;
   _open?: boolean;
   _dropdownPos?: { top: number; left: number; width: number };
+  _opOpen?: boolean;
+  _opDropdownPos?: { top: number; left: number; width: number };
+  createdAt?: string;
 };
 
 
@@ -85,6 +88,7 @@ const OPERATOR_BY_TYPE: Record<string, string[]> = {
   range: ["==", "<", ">"],
   date: ["==", "<", ">"],
 };
+
 
 export default function ConditionEditor() {
   const navigate = useNavigate();
@@ -115,6 +119,7 @@ export default function ConditionEditor() {
   }, [themaId]);
 
   // 🧩 States
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [questionText, setQuestionText] = useState("");
   const [selectedType, setSelectedType] = useState<any | null>(null);
@@ -134,6 +139,8 @@ export default function ConditionEditor() {
 
   // 🔀 Conditions (V1 simpel)
   const [conditions, setConditions] = useState<ConditionItem[]>([]);
+
+
 
 
   const allowedOperators = useMemo(() => {
@@ -189,14 +196,16 @@ export default function ConditionEditor() {
   const [isDeleteConditionOpen, setIsDeleteConditionOpen] = useState(false);
   const [conditionToDelete, setConditionToDelete] = useState<ConditionItem | null>(null);
   const [conditionToDeleteIndex, setConditionToDeleteIndex] = useState<number | null>(null);
+  const [isConditionSubmitted, setIsConditionSubmitted] = useState(false);
+
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       const target = e.target as HTMLElement;
       if (!target.closest('.checkbox-dropdown-container') && !target.closest('.checkbox-dropdown-trigger')) {
         setConditions(prev => {
-          if (prev.some(c => c._open)) {
-            return prev.map(c => ({ ...c, _open: false }));
+          if (prev.some(c => c._open || c._opOpen)) {
+            return prev.map(c => ({ ...c, _open: false, _opOpen: false }));
           }
           return prev;
         });
@@ -221,6 +230,19 @@ export default function ConditionEditor() {
 
 
 
+
+  // 🔄 Hilfsfunktion: Aktualisiert das hasConditions-Flag in der rekursiven Baum-Struktur
+  const updateHasConditionsInTree = (list: any[], questionId: string, hasConditions: boolean): any[] => {
+    return list.map((q) => {
+      if (q.questionId === questionId) {
+        return { ...q, hasConditions };
+      }
+      if (q.children && q.children.length > 0) {
+        return { ...q, children: updateHasConditionsInTree(q.children, questionId, hasConditions) };
+      }
+      return q;
+    });
+  };
 
 
   // 🔁 Rekursive Funktion, die ALLE Kinder bis zur tiefsten Ebene lädt
@@ -258,6 +280,15 @@ export default function ConditionEditor() {
             parsedScoring = {};
           }
 
+          // 🧩 Prüfen auf existierende Bedingungen
+          let hasConds = false;
+          try {
+            const conds = await getQuestionConditions(child.question?.id);
+            hasConds = Array.isArray(conds) && conds.length > 0;
+          } catch {
+            hasConds = false;
+          }
+
           return {
             id: child.id,
             questionId: child.question?.id,
@@ -275,6 +306,7 @@ export default function ConditionEditor() {
             required: child.isRequired ?? true,
             isScorable: child.question?.isScorable ?? true, // ✅ isScorable Feld aus Backend
             expanded: false,
+            hasConditions: hasConds,
             children: await fetchChildrenRecursive(child.id),
           };
         })
@@ -288,7 +320,10 @@ export default function ConditionEditor() {
   }
 
   useEffect(() => {
-    if (isModalOpen) {
+    // Liste aller Modals/Overlays, die den Hintergrund sperren sollen
+    const isAnyModalOpen = isModalOpen || isConditionModalOpen || !!previewQuestion;
+
+    if (isAnyModalOpen) {
       const scrollY = window.scrollY;
 
       // Scrollposition speichern
@@ -327,7 +362,7 @@ export default function ConditionEditor() {
       document.body.style.width = "";
       document.body.style.overflow = "";
     };
-  }, [isModalOpen]);
+  }, [isModalOpen, isConditionModalOpen, previewQuestion]);
 
   // 🔹 frage Requiredn
   useEffect(() => {
@@ -516,6 +551,15 @@ export default function ConditionEditor() {
               parsedScoring = {};
             }
 
+            // 🧩 Prüfen auf existierende Bedingungen
+            let hasConds = false;
+            try {
+              const conds = await getQuestionConditions(root.question?.id);
+              hasConds = Array.isArray(conds) && conds.length > 0;
+            } catch {
+              hasConds = false;
+            }
+
             return {
               id: root.id,
               questionId: root.question?.id,
@@ -528,6 +572,7 @@ export default function ConditionEditor() {
               required: root.isRequired ?? true, // ✅ isRequired Feld aus Backend
               isScorable: root.question?.isScorable ?? true, // ✅ isScorable Feld aus Backend
               expanded: false,
+              hasConditions: hasConds,
               children: await fetchChildrenRecursive(root.id),
             };
           })
@@ -683,25 +728,13 @@ export default function ConditionEditor() {
     } else setErrorOptions(null);
 
     if (hasError && modalRef.current) {
-      let scrollPosition = 0;
-
-      // 🔹 Falls Fragetext-Fehler → ganz oben scrollen
       if (errorQuestionText) {
-        scrollPosition = 0;
+        modalRef.current.scrollTo({ top: 0, behavior: "smooth" });
+      } else if (errorOptions && optionsRef.current) {
+        optionsRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+      } else if (errorType) {
+        modalRef.current.scrollTo({ top: 150, behavior: "smooth" });
       }
-      // 🔹 Falls Fragetyp-Fehler → leicht nach unten (z. B. 200px)
-      else if (errorType) {
-        scrollPosition = 200;
-      }
-      // 🔹 Falls Antwortoptionen Fehler → weiter unten (z. B. 600px)
-      else if (errorOptions) {
-        scrollPosition = 600;
-      }
-
-      modalRef.current.scrollTo({
-        top: scrollPosition,
-        behavior: "smooth",
-      });
 
       return; // 🚫 Speichern abbrechen
     }
@@ -818,25 +851,13 @@ export default function ConditionEditor() {
     }
 
     if (hasError && modalRef.current) {
-      let scrollPosition = 0;
-
-      // 🔹 Falls Fragetext-Fehler → ganz oben scrollen
       if (errorQuestionText) {
-        scrollPosition = 0;
+        modalRef.current.scrollTo({ top: 0, behavior: "smooth" });
+      } else if (errorOptions && optionsRef.current) {
+        optionsRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+      } else if (errorType) {
+        modalRef.current.scrollTo({ top: 150, behavior: "smooth" });
       }
-      // 🔹 Falls Fragetyp-Fehler → leicht nach unten (z. B. 200px)
-      else if (errorType) {
-        scrollPosition = 200;
-      }
-      // 🔹 Falls Antwortoptionen Fehler → weiter unten (z. B. 600px)
-      else if (errorOptions) {
-        scrollPosition = 600;
-      }
-
-      modalRef.current.scrollTo({
-        top: scrollPosition,
-        behavior: "smooth",
-      });
 
       return; // 🚫 Speichern abbrechen
     }
@@ -856,7 +877,27 @@ export default function ConditionEditor() {
         isScorable: hasOptions ? true : isScorable, // Nur für Textfelder relevant
       };
 
+      const typeChanged = editingQuestion.type !== selectedType?.value;
+
       await updateQuestion(editingQuestion.questionId, payload);
+
+      const oldLabels = (editingQuestion.options || []).map((o: any) => normalize(o.label));
+      const newLabels = options.map((o) => normalize(o.label));
+
+      // 🔍 Logik: Wurde eine existierende Option gelöscht oder umbenannt?
+      // Neue Optionen hinzufügen soll KEINE Löschung auslösen.
+      const wasExistingLabelRemoved = oldLabels.some((old: string) => !newLabels.includes(old));
+      const labelsChanged = hasOptions && wasExistingLabelRemoved;
+
+      if (typeChanged || labelsChanged) {
+        // 🗑️ Wenn der Fragetyp ODER die Antwortoptionen geändert wurden, löschen wir alle Bedingungen automatisch,
+        // da Operatoren und Werte nicht mehr kompatibel sein könnten.
+        try {
+          await deleteAllQuestionConditions(editingQuestion.questionId);
+        } catch (e) {
+          console.warn("Konnte Bedingungen nach Änderung nicht löschen oder keine vorhanden.");
+        }
+      }
 
       // 🔹 isRequired Status aktualisieren (wenn sich geändert hat)
       if (editingQuestion.required !== isRequired) {
@@ -877,6 +918,7 @@ export default function ConditionEditor() {
                 : {},
               required: isRequired, // ✅ isRequired auch in UI aktualisieren
               isScorable: hasOptions ? true : isScorable, // ✅ isScorable auch in UI aktualisieren
+              hasConditions: (typeChanged || labelsChanged) ? false : q.hasConditions,
             }
             : {
               ...q,
@@ -1338,6 +1380,11 @@ export default function ConditionEditor() {
                     })()}
                   </span>
                 )}
+                {q.hasConditions && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-medium rounded-full border transition-all bg-[#f5f3ff] text-[#5b21b6] border-[#ddd6fe] group-hover:bg-[#ede9fe] group-hover:border-[#c4b5fd]">
+                    Bedingung
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -1350,14 +1397,38 @@ export default function ConditionEditor() {
               <button
                 disabled={isPickingTarget}
                 onClick={async (e) => {
-                  e.stopPropagation();          // ⛔ IMMER zuerst
-                  if (isPickingTarget) return;  // ⛔ dann abbrechen
+                  e.stopPropagation();
+                  if (isPickingTarget) return;
                   setConditionSourceQuestion(q);
                   try {
+
+                    if (!q.hasConditions) {
+                      setConditions([
+                        {
+                          operator: "",
+                          expectedValue: "",
+                          targetNodeId: undefined,
+                          targetLabel: "",
+                          persisted: false,
+                        },
+                      ]);
+                      setIsConditionSubmitted(false);
+                      setIsConditionModalOpen(true);
+                      return;
+                    }
+
                     const existing = await getQuestionConditions(q.questionId);
                     if (Array.isArray(existing) && existing.length > 0) {
+                      // 🕒 Sortiere nach Erstellungsdatum (Stabilität)
+                      const sorted = [...existing].sort((a: any, b: any) => {
+                        return (
+                          new Date(a.createdAt || 0).getTime() -
+                          new Date(b.createdAt || 0).getTime()
+                        );
+                      });
+
                       setConditions(
-                        existing.map((c: any) => {
+                        sorted.map((c: any) => {
                           const target = flatQuestions.find(
                             (q) => q.id === c.targetNodeId
                           );
@@ -1367,6 +1438,7 @@ export default function ConditionEditor() {
                             targetNodeId: c.targetNodeId,
                             targetLabel: target?.text ?? "Unbekannte Frage",
                             persisted: true,
+                            createdAt: c.createdAt,
                           };
                         })
                       );
@@ -1377,6 +1449,7 @@ export default function ConditionEditor() {
                           expectedValue: "",
                           targetNodeId: undefined,
                           targetLabel: "",
+                          persisted: false,
                           _open: false,
                         },
                       ]);
@@ -1388,9 +1461,11 @@ export default function ConditionEditor() {
                         expectedValue: "",
                         targetNodeId: undefined,
                         targetLabel: "",
+                        persisted: false,
                       },
                     ]);
                   }
+                  setIsConditionSubmitted(false);
                   setIsConditionModalOpen(true);
                 }}
                 className={`
@@ -1404,14 +1479,15 @@ export default function ConditionEditor() {
 
   ${isPickingTarget
                     ? "opacity-30 cursor-not-allowed"
-                    : "hover:bg-[#E3BB62] hover:text-white hover:-translate-y-[1px] hover:shadow-[0_4px_12px_rgba(227,187,98,0.3)]"}
+                    : "hover:bg-[#f6e7c3] hover:text-[#7a5a00] hover:-translate-y-[1px] hover:shadow-[0_10px_20px_rgba(0,0,0,0.14)]"}
 `}
-
-
-                title="Bedingungen / Folgefragen"
+                title="Folgefragen"
               >
-                <Workflow size={17} strokeWidth={2} />
+                <Workflow size={18} strokeWidth={2} />
               </button>
+
+
+
             )}
 
             {/* Standard Actions (Pill) */}
@@ -1440,11 +1516,13 @@ export default function ConditionEditor() {
                 }}
                 className={`h-9 w-9 rounded-full flex items-center justify-center border border-[#e5dcc7] transition-all ${isPickingTarget
                   ? "opacity-30 cursor-not-allowed"
-                  : "bg-white text-[#264555] hover:bg-[#fff4d6] hover:-translate-y-[1px] hover:shadow-[0_10px_20px_rgba(0,0,0,0.14)]"
+                  : "bg-white text-[#264555] hover:bg-[#dbe4ff] hover:-translate-y-[1px] hover:shadow-[0_10px_20px_rgba(0,0,0,0.14)]"
                   }`}
               >
                 <Plus size={18} />
               </button>
+
+
 
               {/* Edit */}
               <button
@@ -1461,10 +1539,11 @@ export default function ConditionEditor() {
                 }}
                 className={`h-9 w-9 rounded-full flex items-center justify-center border border-[#e5dcc7] transition-all ${isPickingTarget
                   ? "opacity-30 cursor-not-allowed"
-                  : "bg-white text-[#264555] hover:bg-[#e6edff] hover:-translate-y-[1px] hover:shadow-[0_10px_20px_rgba(0,0,0,0.14)]"
+                  : "bg-white text-[#264555] hover:bg-[#e6f6ee] hover:-translate-y-[1px] hover:shadow-[0_10px_20px_rgba(0,0,0,0.14)]"
                   }`}
               >
                 <Edit3 size={18} />
+
               </button>
 
               {/* Delete */}
@@ -1671,29 +1750,7 @@ export default function ConditionEditor() {
     <AdminLayout>
       {/* Header */}
 
-      {/* BACK BUTTON – oben links fixiert */}
-      <div className="absolute left-10 top-10 z-20">
-        <button
-          onClick={() => navigate("/admin")}
-          className="
-      group flex items-center gap-2 
-      bg-white/70 backdrop-blur-xl 
-      border border-gray-300 
-      px-5 py-2.5 rounded-xl 
-      shadow-sm 
-      hover:bg-white/90 
-      transition-all
-    "
-        >
-          <ArrowLeft
-            size={20}
-            className="text-[#264555] transition-all group-hover:-translate-x-1"
-          />
-          <span className="text-sm font-semibold text-[#264555]">
-            Zurück zur Übersicht
-          </span>
-        </button>
-      </div>
+
 
       <PageHeader
         title={thema?.name || "Lade Thema..."}
@@ -1701,7 +1758,7 @@ export default function ConditionEditor() {
         icon={<Layers size={40} />}
         gradient="navy" // ⭐ Dein helles Sand-Design
         height="250px"
-        center={true}
+        center={false}
         showPattern={true}
       />
 
@@ -1715,8 +1772,41 @@ export default function ConditionEditor() {
             "linear-gradient(to bottom, #f3f4f7 0, #e6e9ef 240px, #f4f5f8 100%)",
         }}
       >
-        {/* Top-Bar: Neue Hauptfrage Button rechts */}
-        <div className="max-w-[1400px] xl:max-w-[1600px] mx-auto mb-3 flex items-center justify-end">
+        {/* Top-Bar: Admin-Panel Button links + Neue Hauptfrage Button rechts */}
+        <div className="max-w-[1400px] xl:max-w-[1600px] mx-auto mb-3 flex items-center justify-between">
+          {/* Zurück Button links (wie Admin-Panel in Dashboard) */}
+          <nav className="flex items-center">
+            <button
+              onClick={() => navigate("/admin")}
+              className="
+                inline-flex items-center gap-2
+                rounded-full border
+                px-3 py-1.5
+                shadow-[0_4px_10px_rgba(0,0,0,0.06)]
+                text-xs sm:text-sm
+                bg-white/80
+                backdrop-blur-[2px]
+                hover:bg-white
+                hover:-translate-y-[2px]
+                transition
+              "
+              style={{ borderColor: "#d2c9b9" }}
+            >
+              <span
+                className="inline-flex h-6 w-6 items-center justify-center rounded-full"
+                style={{
+                  background: "rgba(38,69,85,0.06)",
+                  color: "#264555",
+                }}
+              >
+                <ArrowLeft size={14} />
+              </span>
+              <span className="font-semibold" style={{ color: "#264555" }}>
+                Zurück zur Übersicht
+              </span>
+            </button>
+          </nav>
+
           <button
             onClick={handleAddQuestion}
             type="button"
@@ -1728,7 +1818,7 @@ export default function ConditionEditor() {
               text-sm font-semibold
               focus:outline-none
               transition
-              hover:-translate-y-[1px]
+              hover:-translate-y-[2px]
             "
             style={{
               background: "hsl(40,60%,63%)",
@@ -1968,10 +2058,12 @@ export default function ConditionEditor() {
                   <div>
                     <label
                       htmlFor="question-text"
-                      className="block text-sm font-medium text-slate-700 mb-1"
+                      className="flex items-center gap-1 text-sm font-semibold text-slate-800 mb-2"
                     >
-                      Frage <span className="text-red-500">*</span>
+                      Frage
+                      <span className="text-red-500">*</span>
                     </label>
+
                     <textarea
                       id="question-text"
                       value={questionText}
@@ -1982,19 +2074,16 @@ export default function ConditionEditor() {
                       placeholder="Frage eingeben..."
                       rows={3}
                       className={`
-                        w-full rounded-xl border px-3 py-2.5 text-sm
-                        bg-slate-50 border-slate-200
-                        outline-none
-                        focus:bg-white
-                        focus:border-[#E3BB62]
-                        focus:ring-2 focus:ring-[rgba(227,187,98,0.45)]
-                        transition
-                        resize-none
-                        ${errorQuestionText ? "border-red-500" : ""}
-                      `}
+                         w-full rounded-xl border px-3 py-2.5 text-sm
+                         transition
+                         outline-none
+                         focus:ring-2 focus:ring-[rgba(227,187,98,0.45)]
+                         resize-none
+                         ${errorQuestionText ? "border-red-500 bg-red-50 focus:border-red-500 shadow-[0_0_0_1px_rgba(239,68,68,0.2)]" : "bg-slate-50 border-slate-200 focus:bg-white focus:border-[#E3BB62]"}
+                       `}
                     />
                     {errorQuestionText && (
-                      <p className="text-red-500 text-xs mt-1">
+                      <p className="text-[10px] text-red-500 font-bold uppercase tracking-wider mt-1 px-1">
                         {errorQuestionText}
                       </p>
                     )}
@@ -2002,9 +2091,28 @@ export default function ConditionEditor() {
 
                   {/* 🔸 Fragetyp */}
                   <div className="mt-6">
-                    <label className="block text-sm font-medium text-slate-700 mb-2">
-                      Fragetyp <span className="text-red-500">*</span>
+                    <label className="flex items-center gap-1 text-sm font-semibold text-slate-800 mb-2">
+                      Fragetyp
+                      <span className="text-red-500">*</span>
                     </label>
+
+                    {/* ⭐ Hinweis für Typänderung beim Editieren - Nur anzeigen, wenn tatsächlich gewechselt wird */}
+                    {editingQuestion && selectedType && editingQuestion.type !== selectedType.value && (
+                      <div className="mb-4 flex items-start gap-3 p-3 rounded-xl bg-amber-50 border border-amber-200 shadow-sm animate-in fade-in slide-in-from-top-2 duration-200">
+                        <div className="mt-0.5 bg-amber-100 rounded-full p-1 shrink-0">
+                          <Info size={16} className="text-amber-700" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-[13px] font-semibold text-amber-900 mb-0.5">
+                            Wichtiger Hinweis zur Typänderung
+                          </p>
+                          <p className="text-xs text-amber-700 leading-relaxed">
+                            Sie haben den Typ geändert. Beim Speichern werden alle bereits festgelegten <strong>Bedingungen und Folgefragen gelöscht</strong>.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
                     <div className="grid grid-cols-2 gap-3">
                       {questionTypes.map((type) => (
                         <button
@@ -2026,7 +2134,7 @@ export default function ConditionEditor() {
                           className={`flex items-center justify-start gap-3 border rounded-xl py-3 px-4 text-left font-medium text-sm transition-all duration-150 ${selectedType?.id === type.id
                             ? "bg-[#E3BB62] border-[#E3BB62] text-[#264555] shadow-md"
                             : errorType
-                              ? "border-red-500 text-slate-800 hover:bg-slate-50 bg-white"
+                              ? "border-red-500 bg-red-50 text-red-600 shadow-[0_0_0_1px_rgba(239,68,68,0.2)] hover:bg-red-100"
                               : "border-slate-200 text-slate-800 hover:bg-slate-50 bg-white"
                             }`}
                         >
@@ -2036,15 +2144,17 @@ export default function ConditionEditor() {
                       ))}
                     </div>
                     {errorType && (
-                      <p className="text-red-500 text-xs mt-2">{errorType}</p>
+                      <p className="text-[10px] text-red-500 font-bold uppercase tracking-wider mt-2 px-1">{errorType}</p>
                     )}
                   </div>
 
                   {/* 🔸 Pflichtfeld */}
                   <div className="mt-6">
-                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                    <label className="flex items-center gap-1 text-sm font-semibold text-slate-800 mb-2">
                       Antwort notwendig
+
                     </label>
+
                     <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">
                       <div>
                         <p className="text-sm text-slate-700">
@@ -2068,9 +2178,10 @@ export default function ConditionEditor() {
                   {/* 🔸 Bewertbar */}
                   {selectedType && !selectedType.hasOptions && (
                     <div className="mt-4">
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                      <label className="flex items-center gap-1 text-sm font-semibold text-slate-800 mb-2">
                         Bewertung
                       </label>
+
                       <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">
                         <div>
                           <p className="text-sm text-slate-700">
@@ -2098,15 +2209,24 @@ export default function ConditionEditor() {
                   {showOptions && (
                     <div
                       ref={optionsRef}
-                      className="border-t border-gray-200 pt-4 mt-4"
+                      className="border-t border-[#e6d8b5] pt-4 mt-4"
                     >
-                      <h3 className="text-md font-semibold text-gray-800 mb-3">
+                      <h3 className="text-md font-semibold text-[#264555] mb-3">
                         Antwortmöglichkeiten
                       </h3>
+
                       {options.map((opt, i) => (
                         <div
                           key={i}
-                          className="flex items-center gap-3 mb-3 border border-gray-200 p-2 rounded-lg"
+                          className="
+        flex items-center gap-3 mb-3 p-2 rounded-xl
+        border border-[#e6d8b5]
+        bg-white
+        transition-all
+        hover:bg-[#fffaf0]
+        hover:border-[#d9c18a]
+        hover:shadow-[0_4px_14px_rgba(227,187,98,0.18)]
+      "
                         >
                           {/* Antworttext */}
                           <input
@@ -2119,11 +2239,16 @@ export default function ConditionEditor() {
                                   j === i ? { ...o, label: e.target.value } : o
                                 )
                               );
-                              if (errorOptions) setErrorOptions(null); // 🔥 hier hinzufügen
+                              if (errorOptions) setErrorOptions(null);
                             }}
-                            className={`flex-1 border rounded-md px-2 py-1 focus:ring-1 focus:ring-brand-sand focus:outline-none ${hasSubmitted && !opt.label.trim()
-                              ? "border-red-500"
-                              : "border-gray-300"
+                            className={`flex-1 rounded-md px-2 py-1 border transition
+          focus:outline-none
+          focus:ring-1
+          focus:ring-[#E3BB62]
+          focus:border-[#E3BB62]
+          ${hasSubmitted && !opt.label.trim()
+                                ? "border-red-500 bg-red-50 shadow-[0_0_0_1px_rgba(239,68,68,0.2)]"
+                                : "border-[#d9c18a]"
                               }`}
                           />
 
@@ -2133,11 +2258,18 @@ export default function ConditionEditor() {
                               <input
                                 type="text"
                                 placeholder="Score"
-                                className="w-full border rounded-md px-2 py-1 text-center pr-6"
                                 value={opt.score ?? ""}
+                                className={`w-full rounded-md px-2 py-1 text-center pr-[26px] border transition
+              focus:outline-none
+              focus:ring-1
+              focus:ring-[#E3BB62]
+              focus:border-[#E3BB62]
+              ${hasSubmitted && (opt.score === null || isNaN(Number(opt.score)))
+                                    ? "border-red-500 bg-red-50 shadow-[0_0_0_1px_rgba(239,68,68,0.2)]"
+                                    : "border-[#d9c18a]"
+                                  }`}
                                 onChange={(e) => {
                                   const val = e.target.value;
-
                                   if (val === "") {
                                     setOptions(
                                       options.map((o, j) =>
@@ -2146,38 +2278,26 @@ export default function ConditionEditor() {
                                     );
                                     return;
                                   }
-
-                                  // ⭐ 0–6 erlauben statt 0–5
                                   if (/^[0-6]$/.test(val)) {
                                     setOptions(
                                       options.map((o, j) =>
-                                        j === i
-                                          ? { ...o, score: Number(val) }
-                                          : o
+                                        j === i ? { ...o, score: Number(val) } : o
                                       )
                                     );
                                   }
                                 }}
                                 onKeyDown={(e) => {
-                                  if (
-                                    e.key === "ArrowUp" ||
-                                    e.key === "ArrowDown"
-                                  ) {
+                                  if (e.key === "ArrowUp" || e.key === "ArrowDown") {
                                     e.preventDefault();
-
                                     let current = opt.score;
-
-                                    // ⭐ Start bei leerem Feld
                                     if (current == null)
                                       current = e.key === "ArrowUp" ? 0 : 6;
                                     else {
-                                      // ⭐ Pfeile gehen bis 6 statt 5
                                       if (e.key === "ArrowUp")
                                         current = Math.min(6, current + 1);
                                       if (e.key === "ArrowDown")
                                         current = Math.max(0, current - 1);
                                     }
-
                                     setOptions(
                                       options.map((o, j) =>
                                         j === i ? { ...o, score: current } : o
@@ -2187,28 +2307,43 @@ export default function ConditionEditor() {
                                 }}
                               />
 
-                              {/* CUSTOM ARROW BUTTONS */}
+                              {/* Custom Arrow Buttons */}
                               <div
                                 className="
-                                      absolute right-1 top-1/2 -translate-y-1/2 
-                                      flex flex-col 
-                                      bg-gray-100 border border-gray-300 
-                                      rounded-md overflow-hidden
-                                    "
-                                style={{ width: "24px", height: "32px" }}
+  absolute right-0.5 top-0.5 bottom-0.5
+  flex flex-col
+  rounded-md
+  overflow-hidden
+  bg-[#e6d8b5]
+  border border-[#d9c18a]
+
+  transition-all
+  hover:bg-[#edd39a]
+
+
+"
+
+                                style={{ width: "26px", height: "30px" }}
                               >
                                 <button
                                   type="button"
-                                  className="flex-1 flex items-center justify-center hover:bg-gray-200"
+                                  className="
+  flex-1 flex items-center justify-center
+  text-[#7a5a00]
+
+  transition-colors
+  hover:bg-[#f3f3f3]
+
+  focus:outline-none
+  focus:ring-0
+  active:outline-none
+  active:ring-0
+"
+
                                   onClick={() => {
                                     let current = opt.score;
-
-                                    // ⭐ Max = 6 statt 5
                                     current =
-                                      current == null
-                                        ? 0
-                                        : Math.min(6, current + 1);
-
+                                      current == null ? 0 : Math.min(6, current + 1);
                                     setOptions(
                                       options.map((o, j) =>
                                         j === i ? { ...o, score: current } : o
@@ -2216,24 +2351,28 @@ export default function ConditionEditor() {
                                     );
                                   }}
                                 >
-                                  <ChevronUp
-                                    size={14}
-                                    className="text-gray-600"
-                                  />
+                                  <ChevronUp size={14} />
                                 </button>
 
                                 <button
                                   type="button"
-                                  className="flex-1 flex items-center justify-center hover:bg-gray-200"
+                                  className="
+  flex-1 flex items-center justify-center
+  text-[#7a5a00]
+
+  transition-colors
+  hover:bg-[#f3f3f3]
+
+  focus:outline-none
+  focus:ring-0
+  active:outline-none
+  active:ring-0
+"
+
                                   onClick={() => {
                                     let current = opt.score;
-
-                                    // ⭐ Wenn leer → start = 6
                                     current =
-                                      current == null
-                                        ? 6
-                                        : Math.max(0, current - 1);
-
+                                      current == null ? 6 : Math.max(0, current - 1);
                                     setOptions(
                                       options.map((o, j) =>
                                         j === i ? { ...o, score: current } : o
@@ -2241,10 +2380,7 @@ export default function ConditionEditor() {
                                     );
                                   }}
                                 >
-                                  <ChevronDown
-                                    size={14}
-                                    className="text-gray-600"
-                                  />
+                                  <ChevronDown size={14} />
                                 </button>
                               </div>
                             </div>
@@ -2255,36 +2391,65 @@ export default function ConditionEditor() {
                             onClick={() =>
                               setOptions(options.filter((_, j) => j !== i))
                             }
-                            className="text-red-500 hover:text-red-400 transition-all"
+                            title="Antwort entfernen"
+                            className="
+    h-9 w-9
+    flex items-center justify-center
+    rounded-lg
+    border border-red-200
+    bg-white
+    text-red-600
+
+    transition-all duration-200
+
+    hover:bg-red-50
+    hover:text-red-700
+    hover:shadow-[0_4px_10px_rgba(220,38,38,0.25)]
+    hover:-translate-y-[1px]
+
+    active:translate-y-0
+    focus:outline-none focus:ring-0
+  "
                           >
-                            <Trash2 size={18} />
+                            <Trash2 size={16} />
                           </button>
+
                         </div>
                       ))}
+
                       {errorOptions && (
-                        <p className="text-red-500 text-xs mt-1">
+                        <p className="text-[10px] text-red-500 font-bold uppercase tracking-wider mt-1 px-1">
                           {errorOptions}
                         </p>
                       )}
+
+                      {/* Neue Option Button */}
                       <button
-                        onClick={() =>
-                          setOptions([...options, { label: "", score: null }])
-                        }
-                        className="
-    flex items-center gap-2
-    mt-3
-    text-sm font-semibold
-    transition
-    hover:underline
-  "
-                        style={{
-                          color: "#b08d2a", // dunkles Gold → sehr gut lesbar
+                        type="button"
+                        onClick={() => {
+                          setHasSubmitted(false);
+                          setOptions([...options, { label: "", score: null }]);
                         }}
+                        className="
+      inline-flex items-center gap-2
+      px-4 py-2
+      mt-3
+      rounded-full
+      border border-[#e6d8b5]
+      bg-white
+      text-sm font-semibold
+      text-[#b08d2a]
+      transition-all
+      hover:bg-[#f6e7c3]
+      hover:-translate-y-[1px]
+      hover:shadow-[0_6px_14px_rgba(0,0,0,0.12)]
+    "
                       >
-                        <Plus size={16} className="text-[#b08d2a]" />
-                        Neue Option hinzufügen
+                        <PlusCircle size={18} className="text-[#b08d2a]" />
+                        Neue Option
                       </button>
                     </div>
+
                   )}
                 </div>
               </div>
@@ -2723,79 +2888,187 @@ export default function ConditionEditor() {
                       >
                         {/* OBERSTE ZEILE */}
                         <div className="grid grid-cols-[130px_1fr_200px_36px] gap-3 items-center">
-                          {/* OPERATOR */}
-                          <select
-                            className="
-    h-10
-    rounded-lg
-    border border-[#e6d8b5]
-    px-3
-    text-sm
-    bg-white
-    transition
-    focus:outline-none
-    focus:ring-1
-    focus:ring-[#E3BB62]
-    focus:border-[#E3BB62]
-  "
-                            value={c.operator}
-                            onChange={(e) =>
-                              setConditions((prev) =>
-                                prev.map((x, i) =>
-                                  i === index
-                                    ? { ...x, operator: e.target.value }
-                                    : x
-                                )
-                              )
-                            }
-                          >
-                            <option value="" disabled hidden>
-                              Operator
-                            </option>
+                          {/* OPERATOR - CUSTOM DROPDOWN */}
+                          <div className="relative">
+                            <div className="relative w-full">
+                              <input
+                                readOnly
+                                disabled={c.persisted}
+                                className={`
+                                  h-10 w-full
+                                  rounded-lg
+                                  border
+                                  pl-3 pr-10
+                                  checkbox-dropdown-trigger
+                                  text-sm
+                                  transition-colors duration-150
+                                  focus:outline-none
+                                  focus:ring-0
+                                  ${isConditionSubmitted && !c.operator ? "border-red-500 bg-red-50 focus:border-red-500 shadow-[0_0_0_1px_rgba(239,68,68,0.2)]" : "border-[#e6d8b5] active:border-[#E3BB62] focus:border-[#E3BB62]"}
+                                  ${c.persisted ? "bg-gray-50 text-gray-500 cursor-not-allowed border-gray-200" : "bg-white text-slate-900 cursor-pointer"}
+                                `}
+                                placeholder="Operator"
+                                value={c.operator || ""}
+                                onClick={(e) => {
+                                  if (c.persisted) return;
+                                  const rect = e.currentTarget.getBoundingClientRect();
+                                  setConditions((prev) =>
+                                    prev.map((x, i) =>
+                                      i === index
+                                        ? {
+                                          ...x,
+                                          _opOpen: !x._opOpen,
+                                          _opDropdownPos: {
+                                            top: rect.bottom + 4,
+                                            left: rect.left,
+                                            width: rect.width,
+                                          },
+                                          _open: false // Close value dropdown if opening operator
+                                        }
+                                        : { ...x, _opOpen: false }
+                                    )
+                                  );
+                                }}
+                              />
+                              <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#b08d2a]">
+                                {c._opOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                              </div>
+                            </div>
 
-                            {remainingOperators.map((op) => (
-                              <option key={op} value={op}>
-                                {op}
-                              </option>
-                            ))}
-                          </select>
+                            {c._opOpen && c._opDropdownPos && createPortal(
+                              <div
+                                className="checkbox-dropdown-container"
+                                style={{
+                                  position: "fixed",
+                                  top: c._opDropdownPos.top,
+                                  left: c._opDropdownPos.left,
+                                  width: c._opDropdownPos.width,
+                                  zIndex: 99999,
+                                }}
+                              >
+                                <div className="rounded-lg border border-[#e6d8b5] bg-white shadow-xl p-2 max-h-48 overflow-auto">
+                                  {remainingOperators.map((op) => {
+                                    const selected = c.operator === op;
+                                    return (
+                                      <div
+                                        key={op}
+                                        className="group flex items-center justify-between gap-2 px-3 py-2 rounded-md cursor-pointer transition-colors duration-150 hover:bg-[#fff4d6]"
+                                        onClick={() => {
+                                          setConditions((prev) =>
+                                            prev.map((x, i) =>
+                                              i === index
+                                                ? { ...x, operator: op, _opOpen: false }
+                                                : x
+                                            )
+                                          );
+                                        }}
+                                      >
+                                        <span className={`text-sm ${selected ? "text-[#b08d2a] font-semibold" : "text-[#264555]"}`}>
+                                          {op}
+                                        </span>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>,
+                              document.body
+                            )}
+                          </div>
 
-                          {/* WERT */}
+
                           {/* WERT */}
                           {conditionSourceQuestion.type === "range" ? (
-                            /* SKALA 0–6 */
-                            <select
-                              className="
-      h-10
-      rounded-lg
-      border border-[#e6d8b5]
-      px-3
-      text-sm
-      bg-white
-      transition
-      focus:outline-none
-      focus:ring-1
-      focus:ring-[#E3BB62]
-      focus:border-[#E3BB62]
-    "
-                              value={c.expectedValue ?? ""}
-                              onChange={(e) =>
-                                setConditions((prev) =>
-                                  prev.map((x, i) =>
-                                    i === index ? { ...x, expectedValue: e.target.value } : x
-                                  )
-                                )
-                              }
-                            >
-                              <option value="" disabled hidden>
-                                Wert auswählen
-                              </option>
-                              {[0, 1, 2, 3, 4, 5, 6].map((v) => (
-                                <option key={v} value={v}>
-                                  {v}
-                                </option>
-                              ))}
-                            </select>
+                            /* SKALA 0–6 → CUSTOM DROPDOWN */
+                            <div className="relative">
+                              <div className="relative w-full">
+                                <input
+                                  readOnly
+                                  className={`
+    h-10 w-full
+    rounded-lg
+    border
+    pl-3 pr-10
+    checkbox-dropdown-trigger
+    text-sm
+    bg-white
+    cursor-pointer
+    transition-colors duration-150
+    focus:outline-none
+    focus:ring-0
+    ${isConditionSubmitted && !c.expectedValue ? "border-red-500 bg-red-50 focus:border-red-500 shadow-[0_0_0_1px_rgba(239,68,68,0.2)]" : "border-[#e6d8b5] active:border-[#E3BB62] focus:border-[#E3BB62]"}
+  `}
+                                  placeholder="Wert wählen…"
+                                  value={c.expectedValue ?? ""}
+                                  onClick={(e) => {
+                                    const rect = e.currentTarget.getBoundingClientRect();
+                                    setConditions((prev) =>
+                                      prev.map((x, i) =>
+                                        i === index
+                                          ? {
+                                            ...x,
+                                            _open: !x._open,
+                                            _opOpen: false, // Close operator dropdown if opening value
+                                            _dropdownPos: {
+                                              top: rect.bottom + 4,
+                                              left: rect.left,
+                                              width: rect.width,
+                                            },
+                                          }
+                                          : { ...x, _open: false }
+                                      )
+                                    );
+                                  }}
+                                />
+                                <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#b08d2a]">
+                                  {c._open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                                </div>
+                              </div>
+
+                              {c._open && c._dropdownPos && createPortal(
+                                <div
+                                  className="checkbox-dropdown-container"
+                                  style={{
+                                    position: "fixed",
+                                    top: c._dropdownPos.top,
+                                    left: c._dropdownPos.left,
+                                    width: c._dropdownPos.width,
+                                    zIndex: 99999,
+                                  }}
+                                >
+                                  <div className="rounded-lg border border-[#e6d8b5] bg-white shadow-xl p-2 max-h-48 overflow-auto">
+                                    {[0, 1, 2, 3, 4, 5, 6].map((v) => {
+                                      const selected = c.expectedValue === String(v);
+                                      return (
+                                        <div
+                                          key={v}
+                                          className={`
+      group flex items-center justify-between gap-2
+      px-3 py-2
+      rounded-md  
+      cursor-pointer  
+      transition-colors duration-150
+hover:bg-[#fff4d6]    `}
+                                          onClick={() => {
+                                            setConditions((prev) =>
+                                              prev.map((x, i) =>
+                                                i === index
+                                                  ? { ...x, expectedValue: String(v), _open: false }
+                                                  : x
+                                              )
+                                            );
+                                          }}
+                                        >
+                                          <span className={`text-sm ${selected ? "text-[#b08d2a] font-semibold" : "text-[#264555]"}`}>
+                                            {v}
+                                          </span>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>,
+                                document.body
+                              )}
+                            </div>
 
                           ) : conditionSourceQuestion.type === "checkbox" ? (
 
@@ -2814,29 +3087,20 @@ export default function ConditionEditor() {
                                     }
                                   }}
                                   readOnly
-                                  className="
-  h-10 w-full
-  rounded-lg
-  border border-[#e6d8b5]
-  pl-3 pr-10
-  checkbox-dropdown-trigger
-  text-sm
-  bg-white
-  cursor-pointer
-  transition-colors duration-150
-
-
-  focus:outline-none
-  focus:ring-0
-
-
-  active:border-[#E3BB62]
-  focus:border-[#E3BB62]
-
-
-  active:shadow-[0_0_0_1px_rgba(227,187,98,0.7)]
-  focus:shadow-[0_0_0_1px_rgba(227,187,98,0.7)]
-"
+                                  className={`
+    h-10 w-full
+    rounded-lg
+    border
+    pl-3 pr-10
+    checkbox-dropdown-trigger
+    text-sm
+    bg-white
+    cursor-pointer
+    transition-colors duration-150
+    focus:outline-none
+    focus:ring-0
+    ${isConditionSubmitted && !c.expectedValue ? "border-red-500 bg-red-50 focus:border-red-500 shadow-[0_0_0_1px_rgba(239,68,68,0.2)]" : "border-[#e6d8b5] active:border-[#E3BB62] focus:border-[#E3BB62]"}
+  `}
 
 
                                   placeholder="Antworten auswählen…"
@@ -2848,12 +3112,13 @@ export default function ConditionEditor() {
                                         i === index ? {
                                           ...x,
                                           _open: !x._open,
+                                          _opOpen: false, // Close operator dropdown if opening value
                                           _dropdownPos: {
                                             top: rect.bottom + 4,
                                             left: rect.left,
                                             width: rect.width
                                           }
-                                        } : x
+                                        } : { ...x, _open: false }
                                       )
                                     );
                                   }}
@@ -2908,13 +3173,13 @@ export default function ConditionEditor() {
                                       return (
                                         <div
                                           key={opt.label}
-                                          className="
-      flex items-center gap-2
+                                          className={`
+      group flex items-center justify-between gap-2
       px-2 py-1.5
       rounded-md  
       cursor-pointer  
-      hover:bg-[#fff4d6]
-    "
+      transition-colors duration-150
+hover:bg-[#fff4d6]    `}
                                           onClick={(e) => {
                                             e.preventDefault();
                                             e.stopPropagation();
@@ -2943,15 +3208,19 @@ export default function ConditionEditor() {
 
                                           }}
                                         >
-                                          <input
-                                            type="checkbox"
-                                            checked={selected}
-                                            readOnly
-                                            className="pointer-events-none accent-[#E3BB62]"
-                                          />
-                                          <span className="text-sm text-[#264555]">
-                                            {opt.label}
-                                          </span>
+                                          <div className="flex items-center gap-2">
+                                            <div className="shrink-0 w-4 h-4 flex items-center justify-center">
+                                              <input
+                                                type="checkbox"
+                                                checked={selected}
+                                                readOnly
+                                                className="pointer-events-none accent-[#E3BB62]"
+                                              />
+                                            </div>
+                                            <span className={`text-sm ${selected ? "text-[#b08d2a] font-medium" : "text-[#264555]"}`}>
+                                              {opt.label}
+                                            </span>
+                                          </div>
                                         </div>
 
                                       );
@@ -2969,39 +3238,95 @@ export default function ConditionEditor() {
                             conditionSourceQuestion.type === "select" ? (
 
                             /* ✅ RADIO / SELECT → NUR ANTWORTOPTIONEN */
-                            <select
-                              className="
-      h-10
-      rounded-lg
-      border border-[#e6d8b5]
-      px-3
-      text-sm
-      bg-white
-      transition
-      focus:outline-none
-      focus:ring-1
-      focus:ring-[#E3BB62]
-      focus:border-[#E3BB62]
-    "
-                              value={c.expectedValue ?? ""}
-                              onChange={(e) =>
-                                setConditions((prev) =>
-                                  prev.map((x, i) =>
-                                    i === index ? { ...x, expectedValue: e.target.value } : x
-                                  )
-                                )
-                              }
-                            >
-                              <option value="" disabled hidden>
-                                Antwort auswählen
-                              </option>
+                            /* ✅ RADIO / SELECT → CUSTOM DROPDOWN MIT RECHTEM PFEIL */
+                            <div className="relative">
+                              <div className="relative w-full">
+                                <input
+                                  readOnly
+                                  className={`
+    h-10 w-full
+    rounded-lg
+    border
+    pl-3 pr-10
+    checkbox-dropdown-trigger
+    text-sm
+    bg-white
+    cursor-pointer
+    transition-colors duration-150
+    focus:outline-none
+    focus:ring-0
+    ${isConditionSubmitted && !c.expectedValue ? "border-red-500 bg-red-50 focus:border-red-500 shadow-[0_0_0_1px_rgba(239,68,68,0.2)]" : "border-[#e6d8b5] active:border-[#E3BB62] focus:border-[#E3BB62]"}
+  `}
+                                  placeholder="Antwort auswählen…"
+                                  value={c.expectedValue ?? ""}
+                                  onClick={(e) => {
+                                    const rect = e.currentTarget.getBoundingClientRect();
+                                    setConditions(prev =>
+                                      prev.map((x, i) =>
+                                        i === index ? {
+                                          ...x,
+                                          _open: !x._open,
+                                          _opOpen: false, // Close operator dropdown if opening value
+                                          _dropdownPos: {
+                                            top: rect.bottom + 4,
+                                            left: rect.left,
+                                            width: rect.width
+                                          }
+                                        } : { ...x, _open: false }
+                                      )
+                                    );
+                                  }}
+                                />
+                                <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#b08d2a]">
+                                  {c._open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                                </div>
+                              </div>
 
-                              {(conditionSourceQuestion.options || []).map((opt: any) => (
-                                <option key={opt.label} value={opt.label}>
-                                  {opt.label}
-                                </option>
-                              ))}
-                            </select>
+                              {c._open && c._dropdownPos && createPortal(
+                                <div
+                                  className="checkbox-dropdown-container"
+                                  style={{
+                                    position: "fixed",
+                                    top: c._dropdownPos.top,
+                                    left: c._dropdownPos.left,
+                                    width: c._dropdownPos.width,
+                                    zIndex: 99999,
+                                  }}
+                                >
+                                  <div className="rounded-lg border border-[#e6d8b5] bg-white shadow-xl p-2 max-h-48 overflow-auto">
+                                    {(conditionSourceQuestion.options || []).map((opt: any) => {
+                                      const selected = c.expectedValue === opt.label;
+                                      return (
+                                        <div
+                                          key={opt.label}
+                                          className={`
+      group flex items-center justify-between gap-2
+      px-3 py-2
+      rounded-md  
+      cursor-pointer  
+      transition-colors duration-150
+hover:bg-[#fff4d6]    `}
+                                          onClick={() => {
+                                            setConditions(prev =>
+                                              prev.map((x, i) =>
+                                                i === index
+                                                  ? { ...x, expectedValue: opt.label, _open: false }
+                                                  : x
+                                              )
+                                            );
+                                          }}
+                                        >
+                                          <span className={`text-sm ${selected ? "text-[#b08d2a] font-semibold" : "text-[#264555]"}`}>
+                                            {opt.label}
+                                          </span>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>,
+                                document.body
+                              )}
+                            </div>
 
                           ) : conditionSourceQuestion.type === "number" ? (
 
@@ -3010,19 +3335,18 @@ export default function ConditionEditor() {
                               type="number"
                               inputMode="numeric"
                               pattern="-?[0-9]*"
-                              className="
-    h-10
-    rounded-lg
-    border border-[#e6d8b5]
-    px-3
-    text-sm
-    bg-white
-    transition
-    focus:outline-none
-    focus:ring-1
-    focus:ring-[#E3BB62]
-    focus:border-[#E3BB62]
-  "
+                              className={`
+     h-10
+     rounded-lg
+     border
+     px-3
+     text-sm
+     bg-white
+     transition
+     focus:outline-none
+     focus:ring-1
+     ${isConditionSubmitted && !c.expectedValue ? "border-red-500 bg-red-50 focus:ring-red-500 focus:border-red-500 shadow-[0_0_0_1px_rgba(239,68,68,0.2)]" : "border-[#e6d8b5] focus:ring-[#E3BB62] focus:border-[#E3BB62]"}
+   `}
                               placeholder="Zahl eingeben"
                               value={c.expectedValue}
                               onKeyDown={(e) => {
@@ -3061,19 +3385,18 @@ export default function ConditionEditor() {
                             /* 📅 DATE → DATUM */
                             <input
                               type="date"
-                              className="
-      h-10
-      rounded-lg
-      border border-[#e6d8b5]
-      px-3
-      text-sm
-      bg-white
-      transition
-      focus:outline-none
-      focus:ring-1
-      focus:ring-[#E3BB62]
-      focus:border-[#E3BB62]
-    "
+                              className={`
+        h-10
+        rounded-lg
+        border
+        px-3
+        text-sm
+        bg-white
+        transition
+        focus:outline-none
+        focus:ring-1
+        ${isConditionSubmitted && !c.expectedValue ? "border-red-500 bg-red-50 focus:ring-red-500 focus:border-red-500 shadow-[0_0_0_1px_rgba(239,68,68,0.2)]" : "border-[#e6d8b5] focus:ring-[#E3BB62] focus:border-[#E3BB62]"}
+      `}
                               value={c.expectedValue}
                               onChange={(e) =>
                                 setConditions((prev) =>
@@ -3088,19 +3411,18 @@ export default function ConditionEditor() {
 
                             /* ✏️ ALLE ANDEREN TYPEN */
                             <input
-                              className="
-      h-10
-      rounded-lg
-      border border-[#e6d8b5]
-      px-3
-      text-sm
-      bg-white
-      transition
-      focus:outline-none
-      focus:ring-1
-      focus:ring-[#E3BB62]
-      focus:border-[#E3BB62]
-    "
+                              className={`
+        h-10
+        rounded-lg
+        border
+        px-3
+        text-sm
+        bg-white
+        transition
+        focus:outline-none
+        focus:ring-1
+        ${isConditionSubmitted && !c.expectedValue ? "border-red-500 bg-red-50 focus:ring-red-500 focus:border-red-500 shadow-[0_0_0_1px_rgba(239,68,68,0.2)]" : "border-[#e6d8b5] focus:ring-[#E3BB62] focus:border-[#E3BB62]"}
+      `}
                               placeholder="Wert eingeben"
                               value={c.expectedValue}
                               onChange={(e) =>
@@ -3137,25 +3459,23 @@ export default function ConditionEditor() {
                             </div>
                           ) : (
                             <button
-                              className="
-                            h-10
-                            inline-flex items-center gap-2
-                            px-3
-                            rounded-lg
-                            border
-                            text-sm font-semibold
-                            text-[#264555]
-                            bg-white
-                            hover:bg-[#fff4d6]
-                            transition
-                          "
+                              className={`
+                             h-10
+                             inline-flex items-center gap-2
+                             px-3
+                             rounded-lg
+                             border
+                             text-sm font-semibold
+                             transition
+                             ${isConditionSubmitted && !c.targetNodeId ? "border-red-500 bg-red-50 text-red-600 focus:ring-red-500 shadow-[0_0_0_1px_rgba(239,68,68,0.2)]" : "border-[#e6d8b5] bg-white text-[#264555] focus:ring-[#E3BB62] hover:bg-[#fff4d6]"}
+                           `}
                               onClick={() => {
                                 setPendingConditionIndex(index);
                                 setIsPickingTarget(true);
                                 setIsConditionModalOpen(false);
                               }}
                             >
-                              <Target size={18} className="text-[#b08d2a]" />
+                              <Target size={18} className={isConditionSubmitted && !c.targetNodeId ? "text-red-500" : "text-[#b08d2a]"} />
                               Ziel auswählen
                             </button>
                           )}
@@ -3217,10 +3537,27 @@ export default function ConditionEditor() {
 
                         </div>
 
+                        {/* ERROR LABELS */}
+                        {isConditionSubmitted && (!c.operator || !c.expectedValue || !c.targetNodeId) && (
+                          <div className="grid grid-cols-[130px_1fr_200px_36px] gap-3 px-1 mt-[-8px]">
+                            <div className="text-[10px] text-red-500 font-bold uppercase tracking-wider">
+                              {!c.operator && "Operator fehlt"}
+                            </div>
+                            <div className="text-[10px] text-red-500 font-bold uppercase tracking-wider">
+                              {!c.expectedValue && "Wert fehlt"}
+                            </div>
+                            <div className="text-[10px] text-red-500 font-bold uppercase tracking-wider">
+                              {!c.targetNodeId && "Ziel fehlt"}
+                            </div>
+                            <div></div>
+                          </div>
+                        )}
+
                         {/* ZIEL-FRAGE – VOLLE BREITE */}
-                        {c.targetNodeId && (
-                          <div
-                            className="
+                        {
+                          c.targetNodeId && (
+                            <div
+                              className="
                           w-full
                           rounded-xl
                           border
@@ -3229,23 +3566,23 @@ export default function ConditionEditor() {
                           shadow-sm
                           flex flex-col gap-3
                         "
-                            style={{ borderColor: "#eddcb8" }}
-                          >
-                            {/* HEADER */}
-                            <div className="flex items-center justify-between">
-                              <div className="text-xs font-semibold tracking-wide text-[#b08d2a]">
-                                Ziel-Frage
-                              </div>
+                              style={{ borderColor: "#eddcb8" }}
+                            >
+                              {/* HEADER */}
+                              <div className="flex items-center justify-between">
+                                <div className="text-xs font-semibold tracking-wide text-[#b08d2a]">
+                                  Ziel-Frage
+                                </div>
 
-                              {/* ZIEL ÄNDERN BUTTON */}
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setPendingConditionIndex(index);
-                                  setIsPickingTarget(true);
-                                  setIsConditionModalOpen(false);
-                                }}
-                                className="
+                                {/* ZIEL ÄNDERN BUTTON */}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setPendingConditionIndex(index);
+                                    setIsPickingTarget(true);
+                                    setIsConditionModalOpen(false);
+                                  }}
+                                  className="
                               inline-flex items-center gap-2
                               text-xs font-semibold
                               text-[#264555]
@@ -3257,19 +3594,19 @@ export default function ConditionEditor() {
                               hover:bg-[#fff4d6]
                               hover:-translate-y-[1px]
                             "
-                                style={{ borderColor: "#e6d8b5" }}
-                              >
-                                <RefreshCcw
-                                  size={14}
-                                  className="text-[#b08d2a]"
-                                />
-                                Ziel ändern
-                              </button>
-                            </div>
+                                  style={{ borderColor: "#e6d8b5" }}
+                                >
+                                  <RefreshCcw
+                                    size={14}
+                                    className="text-[#b08d2a]"
+                                  />
+                                  Ziel ändern
+                                </button>
+                              </div>
 
-                            {/* CONTENT */}
-                            <div
-                              className="
+                              {/* CONTENT */}
+                              <div
+                                className="
                             w-full
                             rounded-lg
                             bg-white
@@ -3279,12 +3616,13 @@ export default function ConditionEditor() {
                             text-[#264555]
                             break-all
                           "
-                              style={{ borderColor: "#e6e0d2" }}
-                            >
-                              {c.targetLabel}
+                                style={{ borderColor: "#e6e0d2" }}
+                              >
+                                {c.targetLabel}
+                              </div>
                             </div>
-                          </div>
-                        )}
+                          )
+                        }
                       </div>
                     );
                   })}
@@ -3297,30 +3635,52 @@ export default function ConditionEditor() {
                         <button
                           type="button"
                           title="Neue Bedingung hinzufügen"
-                          onClick={() =>
-                            setConditions((prev) => [
-                              ...prev,
-                              {
-                                operator: "",
-                                expectedValue: "",
-                                targetNodeId: undefined,
-                                targetLabel: "",
-                              },
-                            ])
-                          }
+                          onClick={() => {
+                            setIsConditionSubmitted(false);
+                            setConditions((prev) => {
+                              let nextOp = "";
+                              let nextVal = "";
+
+                              // 💡 Komfort-Logik: Falls wir kurz davor sind, alle Operatoren zu benutzen
+                              // und nur noch einer übrig ist, wählen wir diesen und den Wert automatisch.
+                              const used = prev.map((c) => c.operator).filter(Boolean);
+                              const remaining = allowedOperators.filter((op) => !used.includes(op));
+
+                              if (remaining.length === 1 && prev.length > 0) {
+                                nextOp = remaining[0];
+                                // Wert nur kopieren, wenn es nur 2 Operatoren insgesamt gibt (== / != Logik)
+                                // Bei 3 Operatoren (Zahlen/Datum) soll der Wert leer bleiben.
+                                if (allowedOperators.length === 2) {
+                                  nextVal = prev[0].expectedValue;
+                                }
+                              }
+
+                              return [
+                                ...prev,
+                                {
+                                  operator: nextOp,
+                                  expectedValue: nextVal,
+                                  targetNodeId: undefined,
+                                  targetLabel: "",
+                                  persisted: false,
+                                  createdAt: new Date().toISOString(),
+                                },
+                              ];
+                            });
+                          }}
                           className="
-          inline-flex items-center gap-2
-          px-4 py-2
-          rounded-full
-          border
-          bg-white
-          text-sm font-semibold
-          text-[#264555]
-          transition-all
-          hover:bg-[#fff4d6]
-          hover:-translate-y-[1px]
-          hover:shadow-[0_6px_14px_rgba(0,0,0,0.12)]
-        "
+                                inline-flex items-center gap-2
+                                px-4 py-2
+                                rounded-full
+                                border
+                                bg-white
+                                text-sm font-semibold
+                                text-[#264555]
+                                transition-all
+                                hover:bg-[#fff4d6]
+                                hover:-translate-y-[1px]
+                                hover:shadow-[0_6px_14px_rgba(0,0,0,0.12)]
+                              "
                           style={{ borderColor: "#e6d8b5" }}
                         >
                           <PlusCircle size={18} className="text-[#b08d2a]" />
@@ -3425,8 +3785,12 @@ export default function ConditionEditor() {
                         targetNodeId: undefined,
                         targetLabel: "",
                         persisted: false,
+                        createdAt: new Date().toISOString(),
                       },
                     ]);
+
+                    // 🔄 Badge aktualisieren
+                    setQuestions(prev => updateHasConditionsInTree(prev, conditionSourceQuestion.questionId, false));
 
                     setIsDeleteAllConditionsOpen(false);
                   }}
@@ -3489,23 +3853,22 @@ export default function ConditionEditor() {
                     }
 
                     // 🔹 UI aktualisieren
-                    setConditions((prev) => {
-                      const next = prev.filter(
-                        (_, i) => i !== conditionToDeleteIndex
-                      );
+                    const nextConditions = conditions.filter((_, i) => i !== conditionToDeleteIndex);
+                    setConditions(nextConditions.length > 0 ? nextConditions : [
+                      {
+                        operator: "",
+                        expectedValue: "",
+                        targetNodeId: undefined,
+                        targetLabel: "",
+                        persisted: false,
+                        createdAt: new Date().toISOString(),
+                      },
+                    ]);
 
-                      return next.length > 0
-                        ? next
-                        : [
-                          {
-                            operator: "",
-                            expectedValue: "",
-                            targetNodeId: undefined,
-                            targetLabel: "",
-                            persisted: false,
-                          },
-                        ];
-                    });
+                    // 🔄 Badge aktualisieren (falls alle weg sind)
+                    if (nextConditions.filter(c => c.persisted).length === 0) {
+                      setQuestions(prev => updateHasConditionsInTree(prev, conditionSourceQuestion.questionId, false));
+                    }
 
                     setIsDeleteConditionOpen(false);
                     setConditionToDelete(null);
@@ -3531,29 +3894,33 @@ export default function ConditionEditor() {
       hover:-translate-y-[1px]
     "
                   onClick={async () => {
+                    setIsConditionSubmitted(true);
+                    const hasError = conditions.some(c => !c.operator || !c.expectedValue || !c.targetNodeId);
+
+                    if (hasError) {
+                      return;
+                    }
+
                     try {
                       const sourceQuestionId = conditionSourceQuestion.questionId;
 
+                      // 1. Alle bestehenden Bedingungen für diese Frage löschen (Tabula Rasa)
+                      await deleteAllQuestionConditions(sourceQuestionId);
+
+                      // 2. Alle aktuellen Bedingungen neu anlegen (Immer POST)
                       for (const c of conditions) {
                         if (!c.operator || !c.expectedValue || !c.targetNodeId) continue;
 
-                        if (c.persisted) {
-                          // ✅ UPDATE
-                          await updateQuestionCondition(sourceQuestionId, c.operator, {
-                            targetNodeId: c.targetNodeId,
-                            expectedValue: String(c.expectedValue),
-                            operator: c.operator,
-                          });
-                        } else {
-                          // ✅ CREATE
-                          const payload = {
-                            targetNodeId: c.targetNodeId,
-                            operator: c.operator as "==" | "!=" | "<" | ">",
-                            expectedValue: String(c.expectedValue),
-                          };
-                          await createQuestionCondition(sourceQuestionId, payload);
-                        }
+                        const payload = {
+                          targetNodeId: c.targetNodeId,
+                          operator: c.operator as "==" | "!=" | "<" | ">",
+                          expectedValue: String(c.expectedValue),
+                        };
+                        await createQuestionCondition(sourceQuestionId, payload);
                       }
+
+                      // 🔄 Badge aktualisieren
+                      setQuestions(prev => updateHasConditionsInTree(prev, sourceQuestionId, true));
 
                       showSuccess("Bedingungen erfolgreich gespeichert.");
                       setIsConditionModalOpen(false);
@@ -3572,7 +3939,7 @@ export default function ConditionEditor() {
           </div>
         )}
       </main>
-    </AdminLayout>
+    </AdminLayout >
   );
 }
 
