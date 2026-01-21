@@ -4,6 +4,8 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useToast } from "@/shared/contexts/ToastContext";
 import PageHeader from "./PageHeader";
 import ConfirmModal from "@/shared/components/ConfirmModal";
+import { useHasPermission } from "@/shared/hooks/useHasPermission";
+import { PermissionButton } from "@/shared/components/permission/PermissionButton";
 
 // Icons
 import AdminLayout from "@/apps/app/AdminLayout";
@@ -190,6 +192,8 @@ export default function ConditionEditor() {
 
   const isOrderType = selectedType?.value === "order";
   const { showSuccess, showError } = useToast();
+  const { has } = useHasPermission();
+  const canEditQuestion = has("questions.edit");
   const [isDeleteAllConditionsOpen, setIsDeleteAllConditionsOpen] = useState(false);
 
 
@@ -3481,8 +3485,10 @@ hover:bg-[#fff4d6]    `}
                           )}
 
                           {/* DELETE */}
-                          <button
+                          <PermissionButton
                             type="button"
+                            allowed={canEditQuestion}
+                            tooltip="Du brauchst die Berechtigung: questions.edit"
                             title="Bedingung löschen"
                             onClick={() => {
                               const c = conditions[index];
@@ -3532,7 +3538,7 @@ hover:bg-[#fff4d6]    `}
   "
                           >
                             <Trash2 size={18} />
-                          </button>
+                          </PermissionButton>
 
 
                         </div>
@@ -3695,8 +3701,10 @@ hover:bg-[#fff4d6]    `}
                       <div className="flex-1" />
 
                       {/* RECHTE SEITE – IMMER GLEICH */}
-                      <button
+                      <PermissionButton
                         type="button"
+                        allowed={canEditQuestion}
+                        tooltip="Du brauchst die Berechtigung: questions.edit"
                         onClick={() => {
                           setIsDeleteAllConditionsOpen(true);
                         }}
@@ -3714,7 +3722,7 @@ hover:bg-[#fff4d6]    `}
                       >
                         <Trash2 size={18} />
                         Bedingungen entfernen
-                      </button>
+                      </PermissionButton>
 
                     </div>
                   )}

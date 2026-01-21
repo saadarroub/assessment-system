@@ -5,6 +5,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -19,6 +20,30 @@ public class PublicQueryUtil {
                 "SELECT COUNT(*) FROM public.question_node WHERE thema_id = ?",
                 Integer.class, themaId
         );
+        return c != null ? c : 0;
+    }
+    
+    /**
+     * Zählt Fragen eines Themas, exklusive der ignorierten Nodes (Condition-Sprünge)
+     */
+    public int countQuestionsByThema(UUID themaId, List<UUID> ignoredNodeIds) {
+        if (ignoredNodeIds == null || ignoredNodeIds.isEmpty()) {
+            return countQuestionsByThema(themaId);
+        }
+        
+        String ignoredPlaceholders = ignoredNodeIds.stream()
+                .map(id -> "?")
+                .collect(java.util.stream.Collectors.joining(","));
+        
+        String sql = "SELECT COUNT(*) FROM public.question_node WHERE thema_id = ? AND id NOT IN (" + ignoredPlaceholders + ")";
+        
+        Object[] params = new Object[1 + ignoredNodeIds.size()];
+        params[0] = themaId;
+        for (int i = 0; i < ignoredNodeIds.size(); i++) {
+            params[i + 1] = ignoredNodeIds.get(i);
+        }
+        
+        Integer c = jdbcTemplate.queryForObject(sql, Integer.class, params);
         return c != null ? c : 0;
     }
 
@@ -51,6 +76,82 @@ public class PublicQueryUtil {
                 Boolean.class, questionId
         );
         return scorable == null || scorable; // NULL = true (Standard)
+    }
+
+    /**
+     * Findet alle Node-IDs zwischen sourceNodeId und targetNodeId (exklusiv)
+     * basierend auf sort_path innerhalb desselben Themas.
+     * Diese Nodes werden bei einem Condition-Jump übersprungen.
+     * 
+     * @param themaId UUID des Themas
+     * @param sourceQuestionId UUID der Quell-Frage (von der gesprungen wird) - wird für Kontext verwendet
+     * @param targetNodeId UUID des Ziel-Nodes (zu dem gesprungen wird)
+     * @return Liste der Node-IDs die übersprungen werden sollen (Geschwister des Targets und deren Nachkommen)
+     */
+    public List<UUID> findNodesBetweenByCondition(UUID themaId, UUID sourceQuestionId, UUID targetNodeId) {
+        // Die Logik:
+        // 1. Finde den Parent des Target-Nodes
+        // 2. Finde alle Geschwister des Targets (Kinder des Parents, die NICHT das Target sind)
+        // 3. Finde alle Nachkommen dieser Geschwister
+        // 4. Diese Geschwister + Nachkommen werden ignoriert
+        
+        return jdbcTemplate.query(
+                """
+                -- Finde alle Geschwister des Target-Nodes und deren Nachkommen
+                -- Diese werden ignoriert, weil die Condition zum Target springt
+                WITH RECURSIVE 
+                -- Erst: Parent des Targets finden
+                target_info AS (
+                  SELECT id, parent_node_id
+                  FROM public.question_node 
+                  WHERE id = ? AND thema_id = ?
+                ),
+                -- Alle Geschwister (Kinder des gleichen Parents, aber NICHT das Target selbst)
+                siblings AS (
+                  SELECT qn.id as node_id
+                  FROM public.question_node qn, target_info ti
+                  WHERE qn.thema_id = ?
+                    AND qn.parent_node_id = ti.parent_node_id
+                    AND qn.id != ti.id
+                ),
+                -- Rekursiv alle Nachkommen der Geschwister finden
+                sibling_descendants AS (
+                  -- Basis: Die Geschwister selbst
+                  SELECT node_id FROM siblings
+                  
+                  UNION ALL
+                  
+                  -- Rekursion: Kinder der bereits gefundenen Nodes
+                  SELECT child.id
+                  FROM public.question_node child
+                  INNER JOIN sibling_descendants sd ON child.parent_node_id = sd.node_id
+                  WHERE child.thema_id = ?
+                )
+                SELECT node_id FROM sibling_descendants
+                """,
+                ps -> { 
+                    ps.setObject(1, targetNodeId);
+                    ps.setObject(2, themaId);
+                    ps.setObject(3, themaId);
+                    ps.setObject(4, themaId);
+                },
+                (rs, rowNum) -> UUID.fromString(rs.getString("node_id"))
+        );
+    }
+    
+    /**
+     * Holt die Node-ID für eine gegebene Question-ID innerhalb eines Themas
+     */
+    @Nullable
+    public UUID getNodeIdByQuestionId(UUID themaId, UUID questionId) {
+        return jdbcTemplate.query(
+                "SELECT id FROM public.question_node WHERE thema_id = ? AND question_id = ? LIMIT 1",
+                ps -> { 
+                    ps.setObject(1, themaId); 
+                    ps.setObject(2, questionId); 
+                },
+                rs -> rs.next() ? UUID.fromString(rs.getString("id")) : null
+        );
     }
 
     @Nullable
@@ -136,6 +237,175 @@ public class PublicQueryUtil {
                     result.put("scoringSchema", scoringSchema);
                     
                     // Noch nicht beantwortet
+                    result.put("answered", false);
+                    
+                    return result;
+                }
+        );
+    }
+
+    /**
+     * Findet die nächste unbeantwortete Frage, die NICHT in der Liste der ignorierten Nodes ist.
+     * Verwendet für Condition-basierte Navigation.
+     * 
+     * @param sessionId Session UUID
+     * @param themaId Thema UUID
+     * @param ignoredNodeIds Liste von Node-IDs die übersprungen werden sollen
+     * @return Map mit Frage-Details oder null
+     */
+    @Nullable
+    public Map<String, Object> findNextQuestion(UUID sessionId, UUID themaId, List<UUID> ignoredNodeIds) {
+        // Wenn keine ignorierten Nodes, verwende die einfache Version
+        if (ignoredNodeIds == null || ignoredNodeIds.isEmpty()) {
+            return findNextQuestion(sessionId, themaId);
+        }
+        
+        // Baue IN-Clause für ignorierte Nodes
+        String ignoredPlaceholders = ignoredNodeIds.stream()
+                .map(id -> "?")
+                .collect(java.util.stream.Collectors.joining(","));
+        
+        String sql = """
+                -- Recursive CTE für hierarchische Fragenreihenfolge
+                -- Sortiert nach: Vater -> Kinder -> Enkel -> ... (beliebig tief)
+                WITH RECURSIVE question_hierarchy AS (
+                  -- Basis: Root-Fragen (ohne Parent)
+                  SELECT 
+                    qn.id as node_id,
+                    qn.question_id,
+                    qn.order_index,
+                    qn.parent_node_id,
+                    qn.is_required,
+                    0 as depth,
+                    LPAD(qn.order_index::TEXT, 4, '0') as sort_path
+                  FROM public.question_node qn
+                  WHERE qn.thema_id = ? 
+                    AND qn.parent_node_id IS NULL
+                  
+                  UNION ALL
+                  
+                  -- Rekursion: Kinder der bereits gefundenen Nodes
+                  SELECT 
+                    child.id,
+                    child.question_id,
+                    child.order_index,
+                    child.parent_node_id,
+                    child.is_required,
+                    qh.depth + 1,
+                    qh.sort_path || '.' || LPAD(child.order_index::TEXT, 4, '0')
+                  FROM public.question_node child
+                  INNER JOIN question_hierarchy qh ON child.parent_node_id = qh.node_id
+                  WHERE child.thema_id = ?
+                )
+                SELECT 
+                  qh.node_id,
+                  qh.question_id,
+                  qh.order_index,
+                  qh.is_required,
+                  q.text AS question_text,
+                  q.options,
+                  q.scoring_schema,
+                  qt.input_type,
+                  qt.name AS question_type_name
+                FROM question_hierarchy qh
+                JOIN public.question q ON q.id = qh.question_id
+                JOIN public.question_type qt ON qt.id = q.type_id
+                WHERE qh.question_id NOT IN (
+                  -- Bereits beantwortete Fragen ausschließen
+                  SELECT a.question_id 
+                  FROM public.answer a 
+                  WHERE a.session_id = ?
+                )
+                -- Condition-ignorierte Nodes ausschließen
+                AND qh.node_id NOT IN (
+                """ + ignoredPlaceholders + """
+                )
+                ORDER BY qh.sort_path ASC
+                LIMIT 1
+                """;
+        
+        return jdbcTemplate.query(
+                sql,
+                ps -> { 
+                    ps.setObject(1, themaId);  // Root-Fragen Filter
+                    ps.setObject(2, themaId);  // Kinder Filter (Rekursion)
+                    ps.setObject(3, sessionId); // Bereits beantwortet Filter
+                    // Ignorierte Node-IDs
+                    int paramIndex = 4;
+                    for (UUID nodeId : ignoredNodeIds) {
+                        ps.setObject(paramIndex++, nodeId);
+                    }
+                },
+                rs -> {
+                    if (!rs.next()) return null;
+                    
+                    Map<String, Object> result = new java.util.HashMap<>();
+                    result.put("nodeId", UUID.fromString(rs.getString("node_id")));
+                    result.put("questionId", UUID.fromString(rs.getString("question_id")));
+                    result.put("index", rs.getInt("order_index"));
+                    result.put("text", rs.getString("question_text"));
+                    result.put("inputType", rs.getString("input_type"));
+                    result.put("questionTypeName", rs.getString("question_type_name"));
+                    result.put("isRequired", rs.getBoolean("is_required"));
+                    
+                    String options = rs.getString("options");
+                    result.put("options", options);
+                    
+                    String scoringSchema = rs.getString("scoring_schema");
+                    result.put("scoringSchema", scoringSchema);
+                    
+                    result.put("answered", false);
+                    
+                    return result;
+                }
+        );
+    }
+    
+    /**
+     * Holt eine Frage anhand der Node-ID (für Condition-Jumps)
+     * 
+     * @param nodeId UUID des Ziel-Nodes
+     * @return Map mit Frage-Details oder null
+     */
+    @Nullable
+    public Map<String, Object> findQuestionByNodeId(UUID nodeId) {
+        return jdbcTemplate.query(
+                """
+                SELECT 
+                  qn.id as node_id,
+                  qn.question_id,
+                  qn.order_index,
+                  qn.is_required,
+                  q.text AS question_text,
+                  q.options,
+                  q.scoring_schema,
+                  qt.input_type,
+                  qt.name AS question_type_name
+                FROM public.question_node qn
+                JOIN public.question q ON q.id = qn.question_id
+                JOIN public.question_type qt ON qt.id = q.type_id
+                WHERE qn.id = ?
+                LIMIT 1
+                """,
+                ps -> ps.setObject(1, nodeId),
+                rs -> {
+                    if (!rs.next()) return null;
+                    
+                    Map<String, Object> result = new java.util.HashMap<>();
+                    result.put("nodeId", UUID.fromString(rs.getString("node_id")));
+                    result.put("questionId", UUID.fromString(rs.getString("question_id")));
+                    result.put("index", rs.getInt("order_index"));
+                    result.put("text", rs.getString("question_text"));
+                    result.put("inputType", rs.getString("input_type"));
+                    result.put("questionTypeName", rs.getString("question_type_name"));
+                    result.put("isRequired", rs.getBoolean("is_required"));
+                    
+                    String options = rs.getString("options");
+                    result.put("options", options);
+                    
+                    String scoringSchema = rs.getString("scoring_schema");
+                    result.put("scoringSchema", scoringSchema);
+                    
                     result.put("answered", false);
                     
                     return result;
@@ -356,9 +626,25 @@ public class PublicQueryUtil {
      * Berechnet max_possible_score NUR für required=true UND isScorable=true Fragen eines Themas
      */
     public java.math.BigDecimal calculateMaxPossibleScoreForRequiredQuestions(UUID themaId) {
-        return jdbcTemplate.query(
-                """
+        return calculateMaxPossibleScoreForRequiredQuestions(themaId, null);
+    }
+    
+    /**
+     * Berechnet max_possible_score NUR für required=true UND isScorable=true Fragen eines Themas,
+     * unter Ausschluss der ignorierten Nodes (Condition-Sprünge)
+     */
+    public java.math.BigDecimal calculateMaxPossibleScoreForRequiredQuestions(UUID themaId, List<UUID> ignoredNodeIds) {
+        String ignoredCondition = "";
+        if (ignoredNodeIds != null && !ignoredNodeIds.isEmpty()) {
+            String placeholders = ignoredNodeIds.stream()
+                    .map(id -> "?")
+                    .collect(java.util.stream.Collectors.joining(","));
+            ignoredCondition = " AND qn.id NOT IN (" + placeholders + ")";
+        }
+        
+        final String sql = """
                 SELECT 
+                    qn.id as node_id,
                     q.id,
                     qt.input_type,
                     q.scoring_schema,
@@ -367,9 +653,23 @@ public class PublicQueryUtil {
                 JOIN public.question q ON q.id = qn.question_id
                 JOIN public.question_type qt ON qt.id = q.type_id
                 WHERE qn.thema_id = ? AND qn.is_required = true
+                """ + ignoredCondition + """
                 ORDER BY qn.order_index
-                """,
-                ps -> ps.setObject(1, themaId),
+                """;
+        
+        final List<UUID> finalIgnoredNodeIds = ignoredNodeIds;
+        
+        return jdbcTemplate.query(
+                sql,
+                ps -> {
+                    ps.setObject(1, themaId);
+                    if (finalIgnoredNodeIds != null && !finalIgnoredNodeIds.isEmpty()) {
+                        int paramIndex = 2;
+                        for (UUID nodeId : finalIgnoredNodeIds) {
+                            ps.setObject(paramIndex++, nodeId);
+                        }
+                    }
+                },
                 rs -> {
                     java.math.BigDecimal total = java.math.BigDecimal.ZERO;
                     while (rs.next()) {

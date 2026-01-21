@@ -108,10 +108,30 @@ public class AssessmentSessionService {
         var s = repository.findById(sessionId).orElseThrow();
         s.setTotalScore(sum != null ? sum : BigDecimal.ZERO);
         
-        // Max Possible Score auch neu berechnen (falls Fragen geändert wurden)
-        BigDecimal maxScore = publicQueryUtil.calculateMaxPossibleScoreForRequiredQuestions(s.getThemaId());
+        // Max Possible Score unter Berücksichtigung der ignorierten Nodes berechnen
+        java.util.List<java.util.UUID> ignoredNodeIds = s.getConditionIgnoredNodeIds();
+        BigDecimal maxScore = publicQueryUtil.calculateMaxPossibleScoreForRequiredQuestions(s.getThemaId(), ignoredNodeIds);
         s.setMaxPossibleScore(maxScore);
         
         repository.save(s);
+    }
+    
+    /**
+     * Fügt Node-IDs zur Liste der condition-ignorierten Nodes hinzu und speichert die Session
+     */
+    @Transactional
+    public AssessmentSession addConditionIgnoredNodes(UUID sessionId, java.util.List<java.util.UUID> nodeIds) {
+        var s = repository.findById(sessionId).orElseThrow();
+        s.addConditionIgnoredNodeIds(nodeIds);
+        return repository.save(s);
+    }
+    
+    /**
+     * Holt die Liste der ignorierten Node-IDs für eine Session
+     */
+    @Transactional(readOnly = true)
+    public java.util.List<java.util.UUID> getConditionIgnoredNodeIds(UUID sessionId) {
+        var s = repository.findById(sessionId).orElseThrow();
+        return s.getConditionIgnoredNodeIds();
     }
 }

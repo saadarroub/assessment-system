@@ -7,6 +7,7 @@ import com.assessment.backend.service.ThemeAnalyticsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -82,6 +83,7 @@ public class DashboardController {
      * Get list of completed sessions for analytics selection
      */
     @GetMapping("/analytics/completed-sessions")
+    @PreAuthorize("hasAuthority('analytics.analyze')")
     public ResponseEntity<List<CompletedSessionOptionDto>> getCompletedSessionsForAnalytics() {
         return ResponseEntity.ok(sessionAnalyticsService.getCompletedSessions());
     }
@@ -90,6 +92,7 @@ public class DashboardController {
      * Get time series data for selected sessions
      */
     @GetMapping("/analytics/session-timeseries")
+    @PreAuthorize("hasAuthority('analytics.analyze')")
     public ResponseEntity<SessionTimeSeriesResponseDto> getSessionTimeSeries(
             @RequestParam List<UUID> sessionIds,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
@@ -105,6 +108,7 @@ public class DashboardController {
      * Get best and worst questions for selected sessions
      */
     @GetMapping("/analytics/question-extremes")
+    @PreAuthorize("hasAuthority('analytics.analyze')")
     public ResponseEntity<List<SessionQuestionExtremesDto>> getQuestionExtremes(
             @RequestParam List<UUID> sessionIds,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
@@ -123,6 +127,7 @@ public class DashboardController {
      * Returns themes with their total session count and average score.
      */
     @GetMapping("/analytics/themes")
+    @PreAuthorize("hasAuthority('analytics.analyze')")
     public ResponseEntity<List<ThemeOptionDto>> getThemesForAnalytics() {
         return ResponseEntity.ok(themeAnalyticsService.getThemesWithCompletedSessions());
     }
@@ -132,6 +137,7 @@ public class DashboardController {
      * Shows average scores per time bucket aggregated across all sessions of each theme.
      */
     @GetMapping("/analytics/theme-timeseries")
+    @PreAuthorize("hasAuthority('analytics.analyze')")
     public ResponseEntity<ThemeTimeSeriesResponseDto> getThemeTimeSeries(
             @RequestParam List<UUID> themeIds,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
@@ -148,6 +154,7 @@ public class DashboardController {
      * Questions are ranked by their average score across all sessions of each theme.
      */
     @GetMapping("/analytics/theme-question-extremes")
+    @PreAuthorize("hasAuthority('analytics.analyze')")
     public ResponseEntity<List<ThemeQuestionExtremesDto>> getThemeQuestionExtremes(
             @RequestParam List<UUID> themeIds,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,

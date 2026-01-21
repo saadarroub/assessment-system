@@ -10,6 +10,8 @@ import type { ExportOptions } from "@/features/admin-area/components/PdfExportMo
 import { generateCatalogPdf } from "@/features/admin-area/services/pdfExportService";
 import type { PdfExportData } from "@/features/admin-area/services/pdfExportService";
 import { getQuestionsTimeline } from "@/api/scoringApi";
+import { useHasPermission } from "@/shared/hooks/useHasPermission";
+import { PermissionButton } from "@/shared/components/permission/PermissionButton";
 
 import {
   ArrowLeft,
@@ -74,6 +76,9 @@ const BRAND = {
 export default function EmployeeCatalogsPage() {
   const { workerId } = useParams();
   const navigate = useNavigate();
+  const { has } = useHasPermission();
+  
+  const canViewAnalytics = has("analytics.view");
 
   const [employee, setEmployee] = useState<EmployeeData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -585,7 +590,9 @@ export default function EmployeeCatalogsPage() {
                         </div>
 
                         {/* Export Button (Gold Style wie UsersPage View) */}
-                        <button
+                        <PermissionButton
+                          allowed={canViewAnalytics}
+                          tooltip="Sie benötigen die Berechtigung 'analytics.view' für den PDF Export."
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
@@ -612,7 +619,7 @@ export default function EmployeeCatalogsPage() {
                         >
                           <FileText size={15} />
                           <span>PDF Export</span>
-                        </button>
+                        </PermissionButton>
 
                         <ChevronRight
                           size={20}

@@ -20,6 +20,7 @@ public class QuestionConditionController {
   private QuestionConditionService questionConditionService;
 
   @PostMapping("/create/{sourceQuestionId}")
+  @PreAuthorize("hasAuthority('questions.edit')")
   public ResponseEntity<String> createQuestionCondition(
       @PathVariable UUID sourceQuestionId,
       @RequestBody HandleRequest requestBody
@@ -86,7 +87,7 @@ public class QuestionConditionController {
 
 
   @PutMapping("/update/{sourceQuestionId}/{operator}")
-  //@PreAuthorize("hasAuthority('questionCondition.edit')")
+  @PreAuthorize("hasAuthority('questions.edit')")
   public ResponseEntity<String> updateQuestionCondition(@PathVariable UUID sourceQuestionId,
                                                         @PathVariable String operator,
                                                         @RequestBody HandleRequest requestBody){
@@ -107,7 +108,7 @@ public class QuestionConditionController {
 
 
   @DeleteMapping("/deleteOne/{sourceQuestionId}/{operator}")
-  //@PreAuthorize("hasAuthority('questionCondition.delete')")
+  @PreAuthorize("hasAuthority('questions.edit')")
   public ResponseEntity<String> deleteOneQuestionCondition(@PathVariable UUID sourceQuestionId,
                                                            @PathVariable String operator){
     try {
@@ -124,7 +125,7 @@ public class QuestionConditionController {
 
 
   @DeleteMapping("/deleteAll/{sourceQuestionId}")
-  //@PreAuthorize("hasAuthority('questionCondition.delete')")
+  @PreAuthorize("hasAuthority('questions.edit')")
   public ResponseEntity<String> deleteAllQuestionCondition(@PathVariable UUID sourceQuestionId){
     try {
 

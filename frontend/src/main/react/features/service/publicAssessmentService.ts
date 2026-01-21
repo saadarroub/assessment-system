@@ -284,12 +284,23 @@ export const calcProgressPct = (s: ApiState) =>
   s.totalCount ? Math.round((s.answeredCount / s.totalCount) * 100) : 0;
 
 // Antwort speichern 
+export type SaveAnswerResponse = {
+  saved: boolean;
+  answerId?: string;
+  score?: number;
+  answeredCount?: number;
+  maxPossibleScore?: number;   // Dynamisch aktualisierter Max-Score (Condition-basiert)
+  totalQuestions?: number;     // Dynamisch aktualisierte Gesamtanzahl (Condition-basiert)
+  nextQuestionId?: string;     // Nächste Frage (kann durch Condition abweichen)
+  nextNodeId?: string;         // Node-ID der nächsten Frage
+};
+
 export async function saveAnswer(
   accessToken: string,
   sessionId: string,
   questionId: string,
   value: string | number | string[]
-): Promise<{ saved: boolean; answerId?: string; score?: number; answeredCount?: number }> {
+): Promise<SaveAnswerResponse> {
   const url = join(
     accessRoot(accessToken),
     `/sessions/${encodeURIComponent(sessionId)}/answers/${encodeURIComponent(questionId)}`

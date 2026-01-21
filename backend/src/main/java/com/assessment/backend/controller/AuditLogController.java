@@ -24,7 +24,7 @@ public class AuditLogController {
     private AuditLogService auditLogService;
 
     @GetMapping
-    //@PreAuthorize("hasAuthority('audit.view')")
+    @PreAuthorize("hasAuthority('auditlogs.view')")
     public ResponseEntity<List<AuditLogDTO>> getAuditLogs(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "100") int size) {

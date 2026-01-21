@@ -3,7 +3,12 @@ package com.assessment.backend.entity;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
+
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "assessment_session")
@@ -37,6 +42,11 @@ public class AssessmentSession {
     @Column(name = "max_possible_score")
     private BigDecimal maxPossibleScore = BigDecimal.ZERO;
 
+    // Node-IDs die aufgrund von Conditions übersprungen werden (JSONB Array)
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "condition_ignored_node_ids", columnDefinition = "jsonb")
+    private List<UUID> conditionIgnoredNodeIds = new ArrayList<>();
+
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
 
@@ -63,4 +73,43 @@ public class AssessmentSession {
 
     public BigDecimal getMaxPossibleScore() { return maxPossibleScore; }
     public void setMaxPossibleScore(BigDecimal maxPossibleScore) { this.maxPossibleScore = maxPossibleScore; }
+
+    public List<UUID> getConditionIgnoredNodeIds() { 
+        return conditionIgnoredNodeIds != null ? conditionIgnoredNodeIds : new ArrayList<>(); 
+    }
+    public void setConditionIgnoredNodeIds(List<UUID> conditionIgnoredNodeIds) { 
+        this.conditionIgnoredNodeIds = conditionIgnoredNodeIds != null ? conditionIgnoredNodeIds : new ArrayList<>(); 
+    }
+    
+    /**
+     * Fügt Node-IDs zur Liste der ignorierten Nodes hinzu (keine Duplikate)
+     */
+    public void addConditionIgnoredNodeIds(List<UUID> nodeIds) {
+        if (nodeIds == null || nodeIds.isEmpty()) return;
+        if (this.conditionIgnoredNodeIds == null) {
+            this.conditionIgnoredNodeIds = new ArrayList<>();
+        }
+        for (UUID nodeId : nodeIds) {
+            if (!this.conditionIgnoredNodeIds.contains(nodeId)) {
+                this.conditionIgnoredNodeIds.add(nodeId);
+            }
+        }
+    }
+    
+    /**
+     * Entfernt Node-IDs aus der Liste der ignorierten Nodes
+     */
+    public void removeConditionIgnoredNodeIds(List<UUID> nodeIds) {
+        if (nodeIds == null || nodeIds.isEmpty() || this.conditionIgnoredNodeIds == null) return;
+        this.conditionIgnoredNodeIds.removeAll(nodeIds);
+    }
+    
+    /**
+     * Leert die Liste der ignorierten Nodes komplett
+     */
+    public void clearConditionIgnoredNodeIds() {
+        if (this.conditionIgnoredNodeIds != null) {
+            this.conditionIgnoredNodeIds.clear();
+        }
+    }
 }

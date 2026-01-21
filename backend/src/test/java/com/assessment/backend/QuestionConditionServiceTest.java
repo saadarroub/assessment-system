@@ -83,27 +83,30 @@ class QuestionConditionServiceTest {
     UUID neTarget = UUID.randomUUID();
     String expectedValue = "Yes";
 
+    List<QuestionCondition> conditions = List.of(
+        qc(sourceQuestionId, "==", eqTarget, expectedValue),
+        qc(sourceQuestionId, "!=", neTarget, expectedValue)
+    );
+
     when(questionConditionRepository.findAllBySourceQuestionIdOrderByCreatedAtAsc(sourceQuestionId))
-        .thenReturn(List.of(
-            qc(sourceQuestionId, "==", eqTarget, expectedValue),
-            qc(sourceQuestionId, "!=", neTarget, expectedValue)
-        ));
+        .thenReturn(conditions);
 
     when(questionConditionRepository.findQuestionBySourceQuestionId(sourceQuestionId))
         .thenReturn(questionWithTypeName("Multiple Choice"));
 
-    doReturn(eqTarget).when(service).handleQuestion(eq(sourceQuestionId), anyMap(), eq(sessionId), eq(expectedValue));
+    doReturn(eqTarget).when(service).handleQuestion(eq(sourceQuestionId), anyList(), eq(sessionId));
 
     service.handleQuestionByType(sourceQuestionId, sessionId);
 
     @SuppressWarnings("unchecked")
-    ArgumentCaptor<Map<String, UUID>> mapCaptor = ArgumentCaptor.forClass(Map.class);
+    ArgumentCaptor<List<QuestionCondition>> listCaptor = ArgumentCaptor.forClass(List.class);
 
-    verify(service).handleQuestion(eq(sourceQuestionId), mapCaptor.capture(), eq(sessionId), eq(expectedValue));
+    verify(service).handleQuestion(eq(sourceQuestionId), listCaptor.capture(), eq(sessionId));
 
-    Map<String, UUID> map = mapCaptor.getValue();
-    assertEquals(eqTarget, map.get("=="));
-    assertEquals(neTarget, map.get("!="));
+    List<QuestionCondition> capturedList = listCaptor.getValue();
+    assertEquals(2, capturedList.size());
+    assertEquals(eqTarget, capturedList.get(0).getTargetNodeId());
+    assertEquals(neTarget, capturedList.get(1).getTargetNodeId());
   }
 
   @Test
@@ -115,27 +118,30 @@ class QuestionConditionServiceTest {
     UUID neTarget = UUID.randomUUID();
     String expectedValue = "A, b";
 
+    List<QuestionCondition> conditions = List.of(
+        qc(sourceQuestionId, "==", eqTarget, expectedValue),
+        qc(sourceQuestionId, "!=", neTarget, expectedValue)
+    );
+
     when(questionConditionRepository.findAllBySourceQuestionIdOrderByCreatedAtAsc(sourceQuestionId))
-        .thenReturn(List.of(
-            qc(sourceQuestionId, "==", eqTarget, expectedValue),
-            qc(sourceQuestionId, "!=", neTarget, expectedValue)
-        ));
+        .thenReturn(conditions);
 
     when(questionConditionRepository.findQuestionBySourceQuestionId(sourceQuestionId))
         .thenReturn(questionWithTypeName("Multiple Select"));
 
-    doReturn(eqTarget).when(service).handleMultipleSelectQuestion(eq(sourceQuestionId), anyMap(), eq(sessionId), eq(expectedValue));
+    doReturn(eqTarget).when(service).handleMultipleSelectQuestion(eq(sourceQuestionId), anyList(), eq(sessionId));
 
     service.handleQuestionByType(sourceQuestionId, sessionId);
 
     @SuppressWarnings("unchecked")
-    ArgumentCaptor<Map<String, UUID>> mapCaptor = ArgumentCaptor.forClass(Map.class);
+    ArgumentCaptor<List<QuestionCondition>> listCaptor = ArgumentCaptor.forClass(List.class);
 
-    verify(service).handleMultipleSelectQuestion(eq(sourceQuestionId), mapCaptor.capture(), eq(sessionId), eq(expectedValue));
+    verify(service).handleMultipleSelectQuestion(eq(sourceQuestionId), listCaptor.capture(), eq(sessionId));
 
-    Map<String, UUID> map = mapCaptor.getValue();
-    assertEquals(eqTarget, map.get("=="));
-    assertEquals(neTarget, map.get("!="));
+    List<QuestionCondition> capturedList = listCaptor.getValue();
+    assertEquals(2, capturedList.size());
+    assertEquals(eqTarget, capturedList.get(0).getTargetNodeId());
+    assertEquals(neTarget, capturedList.get(1).getTargetNodeId());
   }
 
   @Test
@@ -148,29 +154,32 @@ class QuestionConditionServiceTest {
     UUID gtTarget = UUID.randomUUID();
     String expectedValue = "10";
 
+    List<QuestionCondition> conditions = List.of(
+        qc(sourceQuestionId, "==", eqTarget, expectedValue),
+        qc(sourceQuestionId, "<", ltTarget, expectedValue),
+        qc(sourceQuestionId, ">", gtTarget, expectedValue)
+    );
+
     when(questionConditionRepository.findAllBySourceQuestionIdOrderByCreatedAtAsc(sourceQuestionId))
-        .thenReturn(List.of(
-            qc(sourceQuestionId, "==", eqTarget, expectedValue),
-            qc(sourceQuestionId, "<", ltTarget, expectedValue),
-            qc(sourceQuestionId, ">", gtTarget, expectedValue)
-        ));
+        .thenReturn(conditions);
 
     when(questionConditionRepository.findQuestionBySourceQuestionId(sourceQuestionId))
         .thenReturn(questionWithTypeName("Number Input"));
 
-    doReturn(ltTarget).when(service).handleNumberQuestion(eq(sourceQuestionId), anyMap(), eq(sessionId), eq(expectedValue));
+    doReturn(ltTarget).when(service).handleNumberQuestion(eq(sourceQuestionId), anyList(), eq(sessionId));
 
     service.handleQuestionByType(sourceQuestionId, sessionId);
 
     @SuppressWarnings("unchecked")
-    ArgumentCaptor<Map<String, UUID>> mapCaptor = ArgumentCaptor.forClass(Map.class);
+    ArgumentCaptor<List<QuestionCondition>> listCaptor = ArgumentCaptor.forClass(List.class);
 
-    verify(service).handleNumberQuestion(eq(sourceQuestionId), mapCaptor.capture(), eq(sessionId), eq(expectedValue));
+    verify(service).handleNumberQuestion(eq(sourceQuestionId), listCaptor.capture(), eq(sessionId));
 
-    Map<String, UUID> map = mapCaptor.getValue();
-    assertEquals(eqTarget, map.get("=="));
-    assertEquals(ltTarget, map.get("<"));
-    assertEquals(gtTarget, map.get(">"));
+    List<QuestionCondition> capturedList = listCaptor.getValue();
+    assertEquals(3, capturedList.size());
+    assertEquals(eqTarget, capturedList.get(0).getTargetNodeId());
+    assertEquals(ltTarget, capturedList.get(1).getTargetNodeId());
+    assertEquals(gtTarget, capturedList.get(2).getTargetNodeId());
   }
 
   @Test
@@ -183,21 +192,23 @@ class QuestionConditionServiceTest {
     UUID gtTarget = UUID.randomUUID();
     String expectedValue = "3";
 
+    List<QuestionCondition> conditions = List.of(
+        qc(sourceQuestionId, "==", eqTarget, expectedValue),
+        qc(sourceQuestionId, "<", ltTarget, expectedValue),
+        qc(sourceQuestionId, ">", gtTarget, expectedValue)
+    );
+
     when(questionConditionRepository.findAllBySourceQuestionIdOrderByCreatedAtAsc(sourceQuestionId))
-        .thenReturn(List.of(
-            qc(sourceQuestionId, "==", eqTarget, expectedValue),
-            qc(sourceQuestionId, "<", ltTarget, expectedValue),
-            qc(sourceQuestionId, ">", gtTarget, expectedValue)
-        ));
+        .thenReturn(conditions);
 
     when(questionConditionRepository.findQuestionBySourceQuestionId(sourceQuestionId))
         .thenReturn(questionWithTypeName("Rating Scale"));
 
-    doReturn(eqTarget).when(service).handleNumberQuestion(eq(sourceQuestionId), anyMap(), eq(sessionId), eq(expectedValue));
+    doReturn(eqTarget).when(service).handleNumberQuestion(eq(sourceQuestionId), anyList(), eq(sessionId));
 
     service.handleQuestionByType(sourceQuestionId, sessionId);
 
-    verify(service).handleNumberQuestion(eq(sourceQuestionId), anyMap(), eq(sessionId), eq(expectedValue));
+    verify(service).handleNumberQuestion(eq(sourceQuestionId), anyList(), eq(sessionId));
   }
 
   @Test
@@ -210,21 +221,23 @@ class QuestionConditionServiceTest {
     UUID gtTarget = UUID.randomUUID();
     String expectedValue = "02.01.2026";
 
+    List<QuestionCondition> conditions = List.of(
+        qc(sourceQuestionId, "==", eqTarget, expectedValue),
+        qc(sourceQuestionId, "<", ltTarget, expectedValue),
+        qc(sourceQuestionId, ">", gtTarget, expectedValue)
+    );
+
     when(questionConditionRepository.findAllBySourceQuestionIdOrderByCreatedAtAsc(sourceQuestionId))
-        .thenReturn(List.of(
-            qc(sourceQuestionId, "==", eqTarget, expectedValue),
-            qc(sourceQuestionId, "<", ltTarget, expectedValue),
-            qc(sourceQuestionId, ">", gtTarget, expectedValue)
-        ));
+        .thenReturn(conditions);
 
     when(questionConditionRepository.findQuestionBySourceQuestionId(sourceQuestionId))
         .thenReturn(questionWithTypeName("Date Input"));
 
-    doReturn(gtTarget).when(service).handleDateQuestion(eq(sourceQuestionId), anyMap(), eq(sessionId), eq(expectedValue));
+    doReturn(gtTarget).when(service).handleDateQuestion(eq(sourceQuestionId), anyList(), eq(sessionId));
 
     service.handleQuestionByType(sourceQuestionId, sessionId);
 
-    verify(service).handleDateQuestion(eq(sourceQuestionId), anyMap(), eq(sessionId), eq(expectedValue));
+    verify(service).handleDateQuestion(eq(sourceQuestionId), anyList(), eq(sessionId));
   }
 
   @Test

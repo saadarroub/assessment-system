@@ -118,7 +118,7 @@ public class QuestionConditionService {
   public UUID handleQuestionByType(UUID sourceQuestionId,UUID sessionId) {
 
     List<QuestionCondition> qc = loadQuestionCondition(sourceQuestionId);
-    if (qc == null) {
+    if (qc == null || qc.isEmpty()) {
       throw new IllegalStateException("QuestionCondition konnte nicht gefunden werden für " + "Question Id: " + sourceQuestionId + ".");
     }
 
@@ -129,39 +129,18 @@ public class QuestionConditionService {
     }
     QuestionType questionType = question.getQuestionType();
     String questionTypeName = questionType.getName();
-    String expectedValue = qc.get(0).getExpectedValue();
-
-    Map<String, UUID> targetNodeId = new HashMap<>();
 
     if ("Multiple Choice".equals(questionTypeName)||"Dropdown".equals(questionTypeName)) {
-
-      targetNodeId.put("==", findTargetNodeIdByOperator(qc,"=="));
-      targetNodeId.put("!=", findTargetNodeIdByOperator(qc,"!="));
-
-      return handleQuestion(sourceQuestionId, targetNodeId, sessionId, expectedValue);
+      return handleQuestion(sourceQuestionId, qc, sessionId);
 
     } else if ("Multiple Select".equals(questionTypeName)) {
-
-      targetNodeId.put("==", findTargetNodeIdByOperator(qc,"=="));
-      targetNodeId.put("!=", findTargetNodeIdByOperator(qc,"!="));
-
-      return handleMultipleSelectQuestion(sourceQuestionId, targetNodeId, sessionId, expectedValue);
+      return handleMultipleSelectQuestion(sourceQuestionId, qc, sessionId);
 
     } else if ("Number Input".equals(questionTypeName)||"Rating Scale".equals(questionTypeName)) {
-
-      targetNodeId.put("==", findTargetNodeIdByOperator(qc,"=="));
-      targetNodeId.put("<", findTargetNodeIdByOperator(qc,"<"));
-      targetNodeId.put(">", findTargetNodeIdByOperator(qc,">"));
-
-      return handleNumberQuestion(sourceQuestionId, targetNodeId, sessionId, expectedValue);
+      return handleNumberQuestion(sourceQuestionId, qc, sessionId);
 
     } else if ("Date Input".equals(questionTypeName)) {
-
-      targetNodeId.put("==", findTargetNodeIdByOperator(qc,"=="));
-      targetNodeId.put("<", findTargetNodeIdByOperator(qc,"<"));
-      targetNodeId.put(">", findTargetNodeIdByOperator(qc,">"));
-
-      return handleDateQuestion(sourceQuestionId, targetNodeId, sessionId, expectedValue);
+      return handleDateQuestion(sourceQuestionId, qc, sessionId);
 
     } else { // Fallback, falls kein bekannter Typ
       throw new IllegalArgumentException("Unknown question type: " + questionTypeName);
@@ -170,8 +149,7 @@ public class QuestionConditionService {
   }
 
   //Multiple Choice + Dropdown
-  public UUID handleQuestion(UUID sourceQuestionID, Map<String, UUID> targetNodeId, UUID sessionId,
-                          String expectedValue) {
+  public UUID handleQuestion(UUID sourceQuestionID, List<QuestionCondition> conditions, UUID sessionId) {
 
     String jsonB = questionConditionRepository.findValueByQuestionIdAndSessionId(sourceQuestionID,sessionId);
 
@@ -179,57 +157,53 @@ public class QuestionConditionService {
       throw new IllegalStateException("Antwortwert ist null oder leer für QuestionId: " + sourceQuestionID + "und Session Id:" + sessionId);
     }
 
-    String answer = parseString(jsonB);
+    String answer = parseString(jsonB).trim().toLowerCase();
 
-    String expectedAnswer = expectedValue.trim();
-
-    if (expectedAnswer == null || expectedAnswer.isBlank()) {
-      throw new IllegalArgumentException("ExpectedValue darf nicht null oder leer sein für " + "QuestionConditionId: " + sourceQuestionID);
+    // Prüfe jede Condition einzeln mit ihrem eigenen expectedValue
+    for (QuestionCondition cond : conditions) {
+      String expectedAnswer = cond.getExpectedValue() != null ? cond.getExpectedValue().trim().toLowerCase() : "";
+      String operator = cond.getOperator();
+      
+      if ("==".equals(operator) && answer.equalsIgnoreCase(expectedAnswer)) {
+        return cond.getTargetNodeId();
+      } else if ("!=".equals(operator) && !answer.equalsIgnoreCase(expectedAnswer)) {
+        return cond.getTargetNodeId();
+      }
     }
-
-    // Nur eine Bedingung pro Durchlauf trifft zu, daher if-else statt Schleife
-    if (answer.equalsIgnoreCase(expectedAnswer)) {
-
-      return targetNodeId.get("==");
-
-    } else {
-
-      return targetNodeId.get("!=");
-
-    }
+    
+    return null; // Keine Condition erfüllt
 
   }
 
 
   //Multiple Select
-  public UUID handleMultipleSelectQuestion(UUID sourceQuestionID, Map<String, UUID> targetNodeId, UUID sessionId, String expectedValue) {
+  public UUID handleMultipleSelectQuestion(UUID sourceQuestionID, List<QuestionCondition> conditions, UUID sessionId) {
 
     String jsonB = questionConditionRepository.findValueByQuestionIdAndSessionId(sourceQuestionID,sessionId);
 
-    Set<String> answers =   parseStringSet(jsonB).stream().map(String::trim).map(String::toLowerCase).collect(Collectors.toSet());
+    Set<String> answers = parseStringSet(jsonB).stream().map(String::trim).map(String::toLowerCase).collect(Collectors.toSet());
     if (answers == null) {
       answers = new HashSet<>();
     }
 
-    String expectedAnswer = expectedValue;
-    Set<String> expectedAnswers = Arrays.stream(expectedAnswer.split(",")).map(String::trim).map(String::toLowerCase).collect(Collectors.toSet());
-    if (expectedAnswers == null) {
-      answers = new HashSet<>();
+    // Prüfe jede Condition einzeln
+    for (QuestionCondition cond : conditions) {
+      String expectedAnswer = cond.getExpectedValue();
+      Set<String> expectedAnswers = Arrays.stream(expectedAnswer.split(",")).map(String::trim).map(String::toLowerCase).collect(Collectors.toSet());
+      String operator = cond.getOperator();
+      
+      if ("==".equals(operator) && answers.equals(expectedAnswers)) {
+        return cond.getTargetNodeId();
+      } else if ("!=".equals(operator) && !answers.equals(expectedAnswers)) {
+        return cond.getTargetNodeId();
+      }
     }
-
-    if (answers.equals(expectedAnswers)) {
-
-      return targetNodeId.get("==");
-
-    } else {
-
-      return targetNodeId.get("!=");
-
-    }
+    
+    return null; // Keine Condition erfüllt
   }
 
   //Number Input + Rating Scale
-  public UUID handleNumberQuestion(UUID sourceQuestionID, Map<String, UUID> targetNodeId, UUID sessionId, String expectedValue) {
+  public UUID handleNumberQuestion(UUID sourceQuestionID, List<QuestionCondition> conditions, UUID sessionId) {
 
     String jsonB = questionConditionRepository.findValueByQuestionIdAndSessionId(sourceQuestionID,sessionId);
     if (jsonB == null || jsonB.isBlank()) {
@@ -243,35 +217,36 @@ public class QuestionConditionService {
       throw new IllegalArgumentException("Antwortwert ist keine gültige Zahl: " + jsonB);
     }
 
-    String expected = expectedValue;
-    if (expected == null || expected.isBlank()) {
-      throw new IllegalArgumentException("ExpectedValue darf nicht null oder leer sein für " + "QuestionConditionId: " + sourceQuestionID);
+    // Prüfe jede Condition einzeln mit ihrem eigenen expectedValue
+    for (QuestionCondition cond : conditions) {
+      String expected = cond.getExpectedValue();
+      if (expected == null || expected.isBlank()) {
+        continue; // Überspringe ungültige Conditions
+      }
+      
+      long expectedAnswer;
+      try {
+        expectedAnswer = Long.parseLong(expected.trim());
+      } catch (NumberFormatException e) {
+        continue; // Überspringe ungültige Conditions
+      }
+      
+      String operator = cond.getOperator();
+      
+      if ("==".equals(operator) && answer == expectedAnswer) {
+        return cond.getTargetNodeId();
+      } else if ("<".equals(operator) && answer < expectedAnswer) {
+        return cond.getTargetNodeId();
+      } else if (">".equals(operator) && answer > expectedAnswer) {
+        return cond.getTargetNodeId();
+      }
     }
-
-    long expectedAnswer;
-    try {
-      expectedAnswer = Long.parseLong(expected);
-    } catch (NumberFormatException e) {
-      throw new IllegalArgumentException("ExpectedValue ist keine gültige Zahl: " + expected);
-    }
-
-    if (answer == expectedAnswer) {
-
-      return targetNodeId.get("==");
-
-    } else if (answer < expectedAnswer) {
-
-      return targetNodeId.get("<");
-
-    } else {
-
-      return targetNodeId.get(">");
-
-    }
+    
+    return null; // Keine Condition erfüllt
   }
 
   //Date Input
-  public UUID handleDateQuestion(UUID sourceQuestionID, Map<String, UUID> targetNodeId, UUID sessionId, String expectedValue) {
+  public UUID handleDateQuestion(UUID sourceQuestionID, List<QuestionCondition> conditions, UUID sessionId) {
 
     String jsonB = questionConditionRepository.findValueByQuestionIdAndSessionId(sourceQuestionID,sessionId);
     if (jsonB == null || jsonB.isBlank()) {
@@ -285,32 +260,34 @@ public class QuestionConditionService {
       throw new IllegalArgumentException("Antwortwert ist kein gültiges Datum: " + jsonB);
     }
 
-    String expected = expectedValue;
-    if (expected == null || expected.isBlank()) {
-      throw new IllegalArgumentException("ExpectedValue darf nicht null oder leer sein für " + "QuestionConditionId: " + sourceQuestionID);
-    }
-
-    LocalDate expectedDate;
     DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd.MM.yyyy");
-    try {
-      expectedDate = LocalDate.parse(expected, formatter);
-    } catch (Exception e) {
-      throw new IllegalArgumentException("ExpectedValue ist kein gültiges Datum: " + expected);
+
+    // Prüfe jede Condition einzeln mit ihrem eigenen expectedValue
+    for (QuestionCondition cond : conditions) {
+      String expected = cond.getExpectedValue();
+      if (expected == null || expected.isBlank()) {
+        continue; // Überspringe ungültige Conditions
+      }
+
+      LocalDate expectedDate;
+      try {
+        expectedDate = LocalDate.parse(expected.trim(), formatter);
+      } catch (Exception e) {
+        continue; // Überspringe ungültige Conditions
+      }
+
+      String operator = cond.getOperator();
+
+      if ("==".equals(operator) && date.equals(expectedDate)) {
+        return cond.getTargetNodeId();
+      } else if ("<".equals(operator) && date.isBefore(expectedDate)) {
+        return cond.getTargetNodeId();
+      } else if (">".equals(operator) && date.isAfter(expectedDate)) {
+        return cond.getTargetNodeId();
+      }
     }
-
-    if (date.equals(expectedDate)) {
-
-      return targetNodeId.get("==");
-
-    } else if (date.isBefore(expectedDate)) {
-
-      return targetNodeId.get("<");
-
-    } else { // date.isAfter(expectedDate)
-
-      return targetNodeId.get(">");
-
-    }
+    
+    return null; // Keine Condition erfüllt
   }
 
   //Update a existing Question Condition Object

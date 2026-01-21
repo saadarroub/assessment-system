@@ -1,5 +1,6 @@
 package com.assessment.backend.security;
 
+import com.assessment.backend.entity.User;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -28,42 +29,22 @@ public class UserSecurityService {
 
         Object principal = authentication.getPrincipal();
         
-        // Check if principal contains user ID information
-        if (principal instanceof org.springframework.security.core.userdetails.UserDetails) {
-            String username = ((org.springframework.security.core.userdetails.UserDetails) principal).getUsername();
-            // Username is the email, we need to check if it corresponds to the userId
-            // This requires looking up the user - for simplicity, we'll handle this via JWT claims
+        // Check if principal is User entity (set by JwtAuthenticationFilter)
+        if (principal instanceof User) {
+            User currentUser = (User) principal;
+            boolean isMatch = userId.equals(currentUser.getId());
+            System.out.println("[UserSecurityService] Checking isCurrentUser: userId=" + userId + ", currentUserId=" + currentUser.getId() + ", match=" + isMatch);
+            return isMatch;
         }
         
-        // If using JWT with user ID in claims
-        if (principal instanceof String) {
-            try {
-                // The principal might be the user ID as a string
-                return userId.toString().equals(principal);
-            } catch (Exception e) {
-                return false;
-            }
+        // Fallback: check authentication name (might be UUID string)
+        String name = authentication.getName();
+        try {
+            UUID authUserId = UUID.fromString(name);
+            return userId.equals(authUserId);
+        } catch (IllegalArgumentException e) {
+            // Name is not a UUID
+            return false;
         }
-
-        // Check if there's a custom authentication with user details
-        if (authentication.getDetails() instanceof UUID) {
-            return userId.equals(authentication.getDetails());
-        }
-
-        // Fallback: check claims if available
-        Object credentials = authentication.getCredentials();
-        if (credentials instanceof String) {
-            // JWT token - the ID should be in the authentication name or details
-            String name = authentication.getName();
-            try {
-                UUID authUserId = UUID.fromString(name);
-                return userId.equals(authUserId);
-            } catch (IllegalArgumentException e) {
-                // Name is not a UUID, might be email
-                return false;
-            }
-        }
-
-        return false;
     }
 }

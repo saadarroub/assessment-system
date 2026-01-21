@@ -8,6 +8,8 @@ import {
   getQuestionsTimeline,
 } from "@/api/scoringApi";
 import type { SessionQuestionsTimeline } from "@/api/scoringApi";
+import { useHasPermission } from "@/shared/hooks/useHasPermission";
+import { PermissionButton } from "@/shared/components/permission/PermissionButton";
 
 import {
   AlertTriangle,
@@ -81,6 +83,10 @@ const formatAnswer = (answer: string | number | object | null): string => {
 export default function ResultsPage() {
   const { sessionId } = useParams();
   const navigate = useNavigate();
+  const { has } = useHasPermission();
+  
+  const canAnalyze = has("analytics.analyze");
+  const canViewAnalytics = has("analytics.view");
 
   const [timelineQuestions, setTimelineQuestions] = useState<Question[]>([]);
   const [manualQuestions, setManualQuestions] = useState<Question[]>([]);
@@ -328,7 +334,9 @@ export default function ResultsPage() {
           </nav>
 
           <div className="flex items-center gap-2">
-            <button
+            <PermissionButton
+              allowed={canViewAnalytics}
+              tooltip="Sie benötigen die Berechtigung 'analytics.view' für den PDF Export."
               onClick={() => alert("PDF Export kommt bald")}
               className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition hover:-translate-y-[1px]"
               style={{
@@ -340,7 +348,7 @@ export default function ResultsPage() {
             >
               <FileText size={16} />
               PDF
-            </button>
+            </PermissionButton>
           </div>
         </div>
 
@@ -667,7 +675,9 @@ export default function ResultsPage() {
 
                     {/* Save Button (Logik bleibt 1:1) */}
                     <div className="pt-4 border-t" style={{ borderColor: BRAND.sand }}>
-                      <button
+                      <PermissionButton
+                        allowed={canAnalyze}
+                        tooltip="Sie benötigen die Berechtigung 'analytics.analyze' um Bewertungen zu speichern."
                         onClick={() => void onSave()}
                         disabled={!canSave || isSaving}
                         className="
@@ -684,7 +694,7 @@ export default function ResultsPage() {
                       >
                         <Save size={18} />
                         {isSaving ? "Speichern…" : isSaved ? "✓ Gespeichert" : `Alle ${openCount} Bewertungen speichern`}
-                      </button>
+                      </PermissionButton>
 
                       {!canSave && openCount > 0 && (
                         <p className="text-xs text-center mt-2" style={{ color: "rgb(185,28,28)" }}>

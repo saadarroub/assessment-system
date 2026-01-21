@@ -6,6 +6,7 @@ import { Network, Users } from "lucide-react";
 import PageHeader from "@/features/admin-area/catalogs/PageHeader";
 import { Pencil } from "lucide-react";
 import { useHasPermission } from "@/shared/hooks/useHasPermission";
+import { useAuthCtx } from "@/core/auth/AuthContext";
 import { useScrollLock } from "@/shared/hooks/useScrollLock";
 import ConfirmModal from "@/shared/components/ConfirmModal"
 
@@ -59,7 +60,11 @@ export default function UserDetailsPage() {
   const [statusError, setStatusError] = useState<string | null>(null);
   
   const { has } = useHasPermission();
-  const canChangeUser = has("users.edit");
+  const { user: currentUser } = useAuthCtx();
+  
+  // User can edit if they have users.edit OR if it's their own profile
+  const isOwnProfile = currentUser?.id === id;
+  const canChangeUser = has("users.edit") || isOwnProfile;
 
   useEffect(() => {
     let alive = true;

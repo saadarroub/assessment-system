@@ -5,6 +5,9 @@ import PageHeader from "../../catalogs/PageHeader";
 import ConfirmModal from "@/shared/components/ConfirmModal";
 import { useToast } from "@/shared/contexts/ToastContext";
 import { useScrollLock } from "@/shared/hooks/useScrollLock";
+import { useHasPermission } from "@/shared/hooks/useHasPermission";
+import { PermissionButton } from "@/shared/components/permission/PermissionButton";
+import { WithPermissionCheck } from "@/shared/components/WithPermissionCheck";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
@@ -524,10 +527,17 @@ function ModelUpsertModal({
 
 export default function MaturityModelPage() {
   const { showSuccess, showError } = useToast();
+  const { has } = useHasPermission();
+  
+  const canViewReifegradmodels = has("reifegradmodels.view");
+  const canCreateReifegradmodel = has("reifegradmodels.create");
+  const canEditReifegradmodel = has("reifegradmodels.edit");
+  const canDeleteReifegradmodel = has("reifegradmodels.delete");
 
   // State
   const [models, setModels] = useState<MaturityModel[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
   // Create/Edit modal state
@@ -561,8 +571,12 @@ export default function MaturityModelPage() {
         })),
       }));
       setModels(converted);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Fehler beim Laden der Reifegradmodelle:", error);
+      // Preserve response.status for 403 detection by WithPermissionCheck
+      const err = error instanceof Error ? error : new Error(error?.message ?? String(error));
+      if (error?.response) (err as any).response = error.response;
+      setError(err);
       showError("Fehler beim Laden der Reifegradmodelle");
     } finally {
       setIsLoading(false);
@@ -696,6 +710,7 @@ export default function MaturityModelPage() {
             "linear-gradient(to bottom, #f3f4f7 0, #e6e9ef 240px, #f4f5f8 100%)",
         }}
       >
+        <WithPermissionCheck error={error} loading={isLoading} minHeight="400px">
         <div className="max-w-[1400px] xl:max-w-[1600px] mx-auto mb-4 flex items-center justify-between">
           <div
             className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 bg-white/80 backdrop-blur-[2px] shadow-[0_4px_10px_rgba(0,0,0,0.06)]"
@@ -712,8 +727,10 @@ export default function MaturityModelPage() {
             </span>
           </div>
 
-          <button
+          <PermissionButton
             type="button"
+            allowed={canCreateReifegradmodel}
+            tooltip="Du brauchst die Berechtigung: reifegradmodels.create"
             onClick={openCreate}
             className="
               inline-flex items-center gap-2
@@ -730,7 +747,7 @@ export default function MaturityModelPage() {
           >
             <Plus size={16} />
             Modell erstellen
-          </button>
+          </PermissionButton>
         </div>
 
         {/* Table Card  */}
@@ -822,8 +839,10 @@ export default function MaturityModelPage() {
                       <td className="px-4 py-4 text-center whitespace-nowrap" style={{ borderBottom: `1px solid ${CSS.border}` }}>
                         <div className="inline-flex items-center justify-center gap-2">
                           {/* Edit */}
-                          <button
+                          <PermissionButton
                             type="button"
+                            allowed={canEditReifegradmodel}
+                            tooltip="Du brauchst die Berechtigung: reifegradmodels.edit"
                             onClick={() => openEdit(m)}
                             className="
                               inline-flex items-center justify-center
@@ -840,11 +859,13 @@ export default function MaturityModelPage() {
                             title="Edit"
                           >
                             Edit
-                          </button>
+                          </PermissionButton>
 
                           {/* Delete */}
-                          <button
+                          <PermissionButton
                             type="button"
+                            allowed={canDeleteReifegradmodel}
+                            tooltip="Du brauchst die Berechtigung: reifegradmodels.delete"
                             onClick={() => askDelete(m)}
                             className="
                               inline-flex items-center justify-center
@@ -861,7 +882,7 @@ export default function MaturityModelPage() {
                             title="Delete"
                           >
                             Delete
-                          </button>
+                          </PermissionButton>
                         </div>
                       </td>
                     </tr>
@@ -871,6 +892,7 @@ export default function MaturityModelPage() {
             </table>
           </div>
         </section>
+        </WithPermissionCheck>
       </main>
 
       {/* Create/Edit Modal */}
