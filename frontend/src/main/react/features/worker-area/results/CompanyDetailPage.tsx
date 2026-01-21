@@ -7,6 +7,9 @@ import AdminLayout from "@/apps/app/AdminLayout";
 import { Search, ArrowLeft, Building2 } from "lucide-react";
 import PageHeader from "@/features/admin-area/catalogs/PageHeader";
 import { Network } from "lucide-react";
+import { getCompanyOverallScore, getCompanyCatalogScoreWithWorkers, getWorkersByCompany }
+  from "@/features/service/companyService";
+
 
 /* ================= Types ================= */
 
@@ -14,11 +17,10 @@ interface Participant {
   id: string;
   sessionId: string;
   name: string;
-  position: string;
-  department: string;
-  completionDate: string;
+  workSpaceRef: string;
   status: "completed" | "pending" | "in-progress";
 }
+
 
 interface CompanyOverall {
   companyId: string;
@@ -67,67 +69,138 @@ export default function CompanyDetailPage() {
   const [q, setQ] = useState("");
 
   useEffect(() => {
+    if (!companyId) return;
+
+    let alive = true;
+
     const fetchCompanyData = async () => {
       try {
         setLoading(true);
 
-        // Demo/Mock (wie in deiner Datei) — hier später echte API rein
-        await new Promise((resolve) => setTimeout(resolve, 500));
+        // 1) Firma Overall (liefert Catalogs)
+        const overall = await getCompanyOverallScore(companyId);
 
-        const mockCompany: CompanyOverall = {
-          companyId: companyId || "C001",
-          companyName: "TechCorp GmbH",
-          averagePercentageScore: 75.5,
-          totalCompletedSessions: 15,
-          totalSessions: 20,
-          totalWorkers: 25,
-          totalCatalogs: 5,
-          catalogScores: [],
-        };
+        // 2) Worker-Liste der Firma (liefert Position/Department etc.)
+        const workers = await getWorkersByCompany(companyId);
 
-        const mockParticipants: Participant[] = [
-          {
-            id: "w1",
-            sessionId: "sess_101",
-            name: "Max Mustermann",
-            position: "IT-Leiter",
-            department: "IT",
-            completionDate: "2025-03-15",
-            status: "completed",
-          },
-          {
-            id: "w2",
-            sessionId: "sess_102",
-            name: "Anna Schmidt",
-            position: "CISO",
-            department: "Security",
-            completionDate: "2025-03-16",
-            status: "completed",
-          },
-          {
-            id: "w3",
-            sessionId: "sess_103",
-            name: "John Doe",
-            position: "DevOps",
-            department: "Engineering",
-            completionDate: "2025-03-18",
-            status: "in-progress",
-          },
-        ];
+        if (!alive) return;
 
-        setCompanyData(mockCompany);
-        setParticipants(mockParticipants);
+        // Company Header/KPIs
+        setCompanyData({
+          companyId: overall.companyId,
+          companyName: overall.companyName,
+          averagePercentageScore: overall.averagePercentageScore ?? 0,
+          totalCompletedSessions: overall.totalCompletedSessions ?? 0,
+          totalSessions: overall.totalSessions ?? 0,
+          totalWorkers: overall.totalWorkers ?? (Array.isArray(workers) ? workers.length : 0),
+          totalCatalogs: overall.totalCatalogs ?? (overall.catalogScores?.length ?? 0),
+          catalogScores: overall.catalogScores ?? [],
+        });
+
+        // Teilnehmer initial aus Worker-API (damit Position/Department da ist)
+        const baseParticipants: Participant[] = (Array.isArray(workers) ? workers : []).map((w: any) => ({
+          id: String(w.id ?? w.workerId ?? ""),
+          sessionId: "",
+          name: (w.name ?? w.workerName ?? w.email ?? "–"),
+          workSpaceRef: (w.workSpaceRef ?? "–"),
+          status: "pending",
+        }));
+
+
+
+        // Map zum schnellen Update pro Worker
+        const byId = new Map<string, Participant>();
+        baseParticipants.forEach((p) => byId.set(p.id, p));
+
+        // 3) Status pro Worker über ALLE Catalogs aggregieren
+        const catalogIds: string[] = (overall.catalogScores ?? [])
+          .map((c: any) => c.catalogId)
+          .filter(Boolean);
+
+        if (catalogIds.length === 0) {
+          setParticipants(baseParticipants);
+          return;
+        }
+
+        // alle Catalog-WorkerScores parallel holen
+        const allCatalogWorkerData = await Promise.all(
+          catalogIds.map((catalogId) =>
+            getCompanyCatalogScoreWithWorkers(companyId, catalogId).catch(() => null)
+          )
+        );
+
+        // Aggregation pro Worker
+        // totalThemas/completedThemas summieren über alle Catalogs
+        const agg = new Map<
+          string,
+          { totalThemas: number; completedThemas: number; anyStarted: boolean; allCompleted: boolean }
+        >();
+
+        for (const catalogData of allCatalogWorkerData) {
+          if (!catalogData) continue;
+
+          const workerScores = catalogData.workerScores ?? [];
+          for (const ws of workerScores) {
+            const workerId = String(ws.workerId ?? "");
+            if (!workerId) continue;
+
+            const totalT = Number(ws.totalThemas ?? 0);
+            const compT = Number(ws.completedThemas ?? 0);
+
+            const statusRaw = String(ws.status ?? "");
+            const started = compT > 0 || statusRaw === "in_progress" || statusRaw === "completed";
+            const completed = statusRaw === "completed" || (totalT > 0 && compT === totalT);
+
+            const prev = agg.get(workerId) ?? {
+              totalThemas: 0,
+              completedThemas: 0,
+              anyStarted: false,
+              allCompleted: true, // wird mit AND verknüpft
+            };
+
+            prev.totalThemas += totalT;
+            prev.completedThemas += compT;
+            prev.anyStarted = prev.anyStarted || started;
+            prev.allCompleted = prev.allCompleted && completed;
+
+            agg.set(workerId, prev);
+          }
+        }
+
+        // status in deine UI-Strings mappen
+        for (const [workerId, a] of agg.entries()) {
+          const p = byId.get(workerId);
+          if (!p) continue;
+
+          if (a.totalThemas === 0) {
+            p.status = "pending";
+          } else if (a.completedThemas === 0 && !a.anyStarted) {
+            p.status = "pending";
+          } else if (a.allCompleted || a.completedThemas === a.totalThemas) {
+            p.status = "completed";
+          } else {
+            p.status = "in-progress";
+          }
+        }
+
+        setParticipants(Array.from(byId.values()));
       } catch (e) {
         console.error(e);
+        if (!alive) return;
         setCompanyData(null);
         setParticipants([]);
       } finally {
-        setLoading(false);
+        if (alive) setLoading(false);
       }
     };
 
     fetchCompanyData();
+
+    return () => {
+      alive = false;
+    };
   }, [companyId]);
+
 
   const filteredParticipants = useMemo(() => {
     const term = q.trim().toLowerCase();
@@ -135,12 +208,12 @@ export default function CompanyDetailPage() {
     return participants.filter((p) => {
       return (
         p.name.toLowerCase().includes(term) ||
-        p.position.toLowerCase().includes(term) ||
-        p.department.toLowerCase().includes(term) ||
+        p.workSpaceRef.toLowerCase().includes(term) ||
         p.status.toLowerCase().includes(term)
       );
     });
   }, [participants, q]);
+
 
   const completedCount = useMemo(
     () => participants.filter((p) => p.status === "completed").length,
@@ -261,7 +334,7 @@ export default function CompanyDetailPage() {
           {/* Back Button – gleicher Pill-Style wie View Button */}
           <button
             type="button"
-            onClick={() => navigate("/app/result/:companyId")}
+            onClick={() => navigate(-1)}
             className="
               inline-flex items-center gap-2
               rounded-full
@@ -360,7 +433,7 @@ export default function CompanyDetailPage() {
 
               <input
                 type="text"
-                placeholder="Suche Teilnehmer (Name, Position, Abteilung, Status)…"
+                placeholder="Suche Teilnehmer (Name, WorkspaceRef, Status)…"
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 className="
@@ -441,10 +514,8 @@ export default function CompanyDetailPage() {
                 <tr>
                   {[
                     { label: "Name", align: "text-left" },
-                    { label: "Position", align: "text-left" },
-                    { label: "Abteilung", align: "text-left" },
+                    { label: "WorkspaceRef", align: "text-left" },
                     { label: "Status", align: "text-left" },
-                    { label: "Abschluss", align: "text-left" },
                     { label: "Aktion", align: "text-center" },
                   ].map((col, idx) => (
                     <th
@@ -461,7 +532,7 @@ export default function CompanyDetailPage() {
               <tbody>
                 {filteredParticipants.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-4 py-10 bg-white">
+                    <td colSpan={4} className="px-4 py-10 bg-white">
                       <div className="flex flex-col items-center justify-center gap-3 text-center">
                         <div
                           className="flex h-12 w-12 items-center justify-center rounded-full bg-[hsla(200,32%,22%,0.06)]"
@@ -502,65 +573,49 @@ export default function CompanyDetailPage() {
                     <tr
                       key={p.id}
                       className="
-                        bg-white
-                        transition
-                        border-l-[4px] border-transparent
-                        hover:border-[#E3BB62]
-                        hover:bg-[#fff9ec]
-                        hover:shadow-[0_4px_10px_rgba(0,0,0,0.04)]
-                      "
+    bg-white
+    transition
+    border-l-[4px] border-transparent
+    hover:border-[#E3BB62]
+    hover:bg-[#fff9ec]
+    hover:shadow-[0_4px_10px_rgba(0,0,0,0.04)]
+  "
                     >
-                      <td
-                        className="px-4 py-4"
-                        style={{ borderBottom: `1px solid ${CSS.border}` }}
-                      >
+                      {/* Name */}
+                      <td className="px-4 py-4" style={{ borderBottom: `1px solid ${CSS.border}` }}>
                         <span className="font-semibold" style={{ color: CSS.fg }}>
                           {p.name}
                         </span>
                       </td>
 
+                      {/* WorkspaceRef */}
                       <td
                         className="px-4 py-4 text-sm"
                         style={{ borderBottom: `1px solid ${CSS.border}`, color: CSS.mutedFg }}
                       >
-                        {p.position}
+                        {p.workSpaceRef}
                       </td>
 
-                      <td
-                        className="px-4 py-4 text-sm"
-                        style={{ borderBottom: `1px solid ${CSS.border}`, color: CSS.mutedFg }}
-                      >
-                        {p.department}
-                      </td>
-
-                      <td
-                        className="px-4 py-4"
-                        style={{ borderBottom: `1px solid ${CSS.border}` }}
-                      >
+                      {/* Status */}
+                      <td className="px-4 py-4" style={{ borderBottom: `1px solid ${CSS.border}` }}>
                         <span
                           className={
                             p.status === "completed"
                               ? "inline-flex items-center rounded-full px-2.5 py-1 text-[12px] font-semibold bg-[rgb(220,252,231)] text-[rgb(22,101,52)]"
                               : p.status === "in-progress"
-                              ? "inline-flex items-center rounded-full px-2.5 py-1 text-[12px] font-semibold bg-[rgb(254,249,195)] text-[rgb(133,77,14)]"
-                              : "inline-flex items-center rounded-full px-2.5 py-1 text-[12px] font-semibold bg-[rgb(254,226,226)] text-[rgb(153,27,27)]"
+                                ? "inline-flex items-center rounded-full px-2.5 py-1 text-[12px] font-semibold bg-[rgb(254,249,195)] text-[rgb(133,77,14)]"
+                                : "inline-flex items-center rounded-full px-2.5 py-1 text-[12px] font-semibold bg-[rgb(254,226,226)] text-[rgb(153,27,27)]"
                           }
                         >
                           {p.status === "completed"
                             ? "Fertig"
                             : p.status === "in-progress"
-                            ? "In Bearbeitung"
-                            : "Ausstehend"}
+                              ? "In Bearbeitung"
+                              : "Ausstehend"}
                         </span>
                       </td>
 
-                      <td
-                        className="px-4 py-4 text-sm"
-                        style={{ borderBottom: `1px solid ${CSS.border}`, color: CSS.mutedFg }}
-                      >
-                        {formatDate(p.completionDate)}
-                      </td>
-
+                      {/* Aktion */}
                       <td
                         className="px-4 py-4 text-center whitespace-nowrap"
                         style={{ borderBottom: `1px solid ${CSS.border}` }}
@@ -569,14 +624,14 @@ export default function CompanyDetailPage() {
                           onClick={() => handleAnalyzeWorker(p.id)}
                           title="Analysieren"
                           className="
-                            inline-flex items-center gap-1.5
-                            rounded-full
-                            px-3 py-1.5
-                            text-[11px] font-semibold
-                            focus:outline-none
-                            transition
-                            hover:-translate-y-[0.5px]
-                          "
+        inline-flex items-center gap-1.5
+        rounded-full
+        px-3 py-1.5
+        text-[11px] font-semibold
+        focus:outline-none
+        transition
+        hover:-translate-y-[0.5px]
+      "
                           style={{
                             background: "hsl(40,60%,63%)",
                             color: "hsl(200,32%,22%)",
@@ -589,6 +644,7 @@ export default function CompanyDetailPage() {
                         </button>
                       </td>
                     </tr>
+
                   ))
                 )}
               </tbody>

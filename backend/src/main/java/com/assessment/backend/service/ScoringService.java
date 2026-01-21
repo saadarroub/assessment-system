@@ -360,6 +360,7 @@ public class ScoringService {
         List<Object[]> results = jdbcTemplate.query(
             """
             SELECT 
+                id,
                 total_score,
                 max_possible_score
             FROM assessment_session
@@ -368,6 +369,7 @@ public class ScoringService {
             LIMIT 1
             """,
             (rs, rowNum) -> new Object[]{
+                UUID.fromString(rs.getString("id")),
                 rs.getBigDecimal("total_score"),
                 rs.getBigDecimal("max_possible_score")
             },
@@ -380,8 +382,9 @@ public class ScoringService {
             );
         }
 
-        BigDecimal totalScore = (BigDecimal) results.get(0)[0];
-        BigDecimal maxPossibleScore = (BigDecimal) results.get(0)[1];
+        UUID sessionId = (UUID) results.get(0)[0];
+        BigDecimal totalScore = (BigDecimal) results.get(0)[1];
+        BigDecimal maxPossibleScore = (BigDecimal) results.get(0)[2];
 
         // Prozentsatz berechnen
         Double percentage = 0.0;
@@ -410,7 +413,8 @@ public class ScoringService {
             maxPossibleScore,
             percentage,
             completedSessions != null ? completedSessions : 0L,
-            totalSessions != null ? totalSessions : 0L
+            totalSessions != null ? totalSessions : 0L,
+            sessionId
         );
     }
 

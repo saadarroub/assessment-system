@@ -37,7 +37,7 @@ import EmployeeProfile from '@/features/profile/ProfilePage';
 import InviteInvalid from '@/public/InviteInvalid';
 
 import Ica3LandingPage from '@/apps/landing/Ica3LandingPage';
-import EmployeeCatalogsPage from '@/features/worker-area/results/EmployeeCatalogsPage'; 
+import EmployeeCatalogsPage from '@/features/worker-area/results/EmployeeCatalogsPage';
 
 export default function AppRoutes() {
   return (

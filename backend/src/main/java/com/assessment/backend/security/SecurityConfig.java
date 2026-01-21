@@ -37,7 +37,8 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 // Public Endpoints (kein Token erforderlich)
                 .requestMatchers("/api/auth/login", "/api/auth/refresh", "/api/auth/logout").permitAll()
-                
+                .requestMatchers("/auth/password-reset/**").permitAll()
+
                 // Public Access Routes - Alle HTTP-Methoden erlaubt (GET, POST, PUT für Assessment Session)
                 .requestMatchers("/public/access/**").permitAll()
                 
@@ -97,10 +98,16 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        // WICHTIG: Bei allowCredentials=true KANN NICHT "*" verwendet werden!
-        configuration.setAllowedOriginPatterns(Arrays.asList("http://localhost:*", "http://127.0.0.1:*"));
+        // Sichere CORS-Konfiguration: Nur explizite Origins erlaubt
+        configuration.setAllowedOrigins(Arrays.asList(
+            "https://ica3.cap-digital.de",
+            "http://localhost:5173",
+            "http://127.0.0.1:5173"
+        ));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
-        configuration.setAllowedHeaders(Arrays.asList("*"));
+        configuration.setAllowedHeaders(Arrays.asList(
+            "Authorization", "Content-Type", "X-Requested-With", "Accept", "Origin", "Cache-Control"
+        ));
         configuration.setAllowCredentials(true); // WICHTIG für httpOnly Cookies!
         configuration.setExposedHeaders(Arrays.asList("Set-Cookie", "Authorization"));
 

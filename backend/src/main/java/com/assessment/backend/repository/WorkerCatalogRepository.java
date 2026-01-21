@@ -45,4 +45,7 @@ public interface WorkerCatalogRepository extends JpaRepository<WorkerCatalog, UU
            "GROUP BY comp.name, cat.title " +
            "ORDER BY comp.name, COUNT(wc) DESC")
     List<Object[]> findCompanyHierarchy();
+
+    // Abgeschlossene Kataloge für Reifegrad-Analyse
+    List<WorkerCatalog> findByStatusOrderByCompletedAtDesc(String status, Pageable pageable);
 }

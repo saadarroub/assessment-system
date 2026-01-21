@@ -4,6 +4,7 @@ import AppHeader from "@/apps/app/AppHeader";
 
 // Nur noch fetchAssignmentByAccessCode nutzen
 import { fetchAssignmentByAccessCode } from "@/features/service/inviteService";
+import { getQuestionCountForThema } from "@/features/service/themaCatalogService";
 
 /* ================== Style-/Card-Texte ================== */
 const DEFAULT_EST = "15–20 Min";
@@ -127,6 +128,7 @@ function CatalogCard({ data, onStart }: { data: TopicCardModel; onStart: () => v
 /* ================== Seite ================== */
 export default function ZugewiesenerKatalog() {
   const [thema, setThema] = useState<{ id: string; name: string; description?: string; assignmentId?: string } | null>(null);
+  const [questionCount, setQuestionCount] = useState<number>(0);
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -161,6 +163,15 @@ export default function ZugewiesenerKatalog() {
           description: first.catalog.description || "",
           assignmentId: first.id,
         });
+        
+        // Anzahl der Fragen laden
+        try {
+          const count = await getQuestionCountForThema(first.catalog.id);
+          if (alive) setQuestionCount(count);
+        } catch (err) {
+          console.error("Fehler beim Laden der Fragenanzahl:", err);
+          if (alive) setQuestionCount(0);
+        }
       } else {
         setThema(null);
       }
@@ -191,7 +202,7 @@ export default function ZugewiesenerKatalog() {
       dashKey,
       tag: "Katalog",
       title: thema.name,
-      questionsLabel: "Katalog",
+      questionsLabel: questionCount > 0 ? `${questionCount} Fragen` : "Katalog",
       subtitle: thema.description || "Keine Beschreibung vorhanden.",
       est: DEFAULT_EST,
       features: DEFAULT_FEATURES,
@@ -201,7 +212,7 @@ export default function ZugewiesenerKatalog() {
       topicName: thema.name,
       assignmentId: thema.assignmentId,
     };
-  }, [thema, assessments]);
+  }, [thema, assessments, questionCount]);
 
   /* --- Button: direkt zum Themen-Snapshot --- */
   const handleStart = (card: TopicCardModel) => {

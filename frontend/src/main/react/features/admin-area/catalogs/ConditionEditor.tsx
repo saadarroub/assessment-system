@@ -1245,14 +1245,14 @@ export default function ConditionEditor() {
             {/* Grip */}
             <GripVertical
               size={20}
-              className={`mt-1 shrink-0 transition-all duration-150 ${isPickingTarget
-                ? "text-gray-300 cursor-not-allowed pointer-events-none"
-                : draggingId === q.id
-                  ? "text-green-500 scale-110 cursor-grab"
-                  : "text-gray-400 cursor-grab"
-                }`}
-              {...(!isPickingTarget ? attributes : {})}
-              onPointerDown={isPickingTarget ? undefined : handleGripDown}
+              className={`cursor-grab mt-1 transition-all duration-150
+                 ${draggingId === q.id
+                  ? "text-green-500 scale-110"
+                  : "text-gray-400"
+                }
+                `}
+              {...attributes}
+              onPointerDown={handleGripDown}
             />
 
             {/* Expander */}

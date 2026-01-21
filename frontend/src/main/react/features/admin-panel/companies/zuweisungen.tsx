@@ -27,6 +27,7 @@ import { useToast } from "@/shared/contexts/ToastContext";
 import ConfirmModal from "@/shared/components/ConfirmModal";
 import { jsPDF } from "jspdf";
 import capConsultingTemplate from "@/assets/cap-template-a4.png"
+import { useScrollLock } from "@/shared/hooks/useScrollLock";
 
 type SortKey =
   | "worker"
@@ -80,7 +81,9 @@ function Badge({ status }: { status?: string | null }) {
       ? "bg-[rgb(220,252,231)] text-[rgb(22,101,52)]"
       : s === "expired"
         ? "bg-[rgb(254,226,226)] text-[rgb(153,27,27)]"
-        : "bg-[rgb(219,234,254)] text-[rgb(30,64,175)]";
+        : s === "blocked"
+          ? "bg-[rgb(226,232,240)] text-[rgb(71,85,105)]"
+          : "bg-[rgb(219,234,254)] text-[rgb(30,64,175)]";
   return (
     <span
       className={`inline-flex items-center rounded-full px-2.5 py-1 text-[12px] font-semibold ${cls}`}
@@ -92,8 +95,12 @@ function Badge({ status }: { status?: string | null }) {
 
 export default function Zuweisungen() {
   const { showSuccess, showError } = useToast();
-  const location = useLocation() as { state?: { assignments?: AssignmentApi[] } };
-  const initial = location?.state?.assignments ?? [];
+type AssignmentsLocationState = { assignments?: AssignmentApi[] };
+
+const location = useLocation();
+const navState = location.state as AssignmentsLocationState | null;
+
+const initial = navState?.assignments ?? [];
 
   const [rows, setRows] = useState<AssignmentApi[]>(initial);
   const [loading, setLoading] = useState(!initial.length);
@@ -678,7 +685,7 @@ export default function Zuweisungen() {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [location.pathname]); // Reload when navigating to this page
 
   useEffect(() => {
     if (loading) return;
@@ -881,6 +888,15 @@ export default function Zuweisungen() {
       setExtending(false);
     }
   }
+ const isAnyModalOpen =
+  !!inviteFor ||
+  !!emailModalFor ||
+  (openDelete && !!deleteFor) ||
+  !!extendFor;
+
+useScrollLock(isAnyModalOpen);
+
+
 
   return (
     <AdminLayout>
@@ -1605,17 +1621,23 @@ export default function Zuweisungen() {
       {/* Invite Modal  */}
       {inviteFor && (
         <div
-          className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/40 backdrop-blur-sm px-4"
-          role="dialog"
-          aria-modal="true"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setInviteFor(null);
-          }}
-        >
-          <div
-            className="w-full max-w-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
+    className="fixed -inset-px z-[1100] px-4"
+    role="dialog"
+    aria-modal="true"
+    onClick={() => setInviteFor(null)} // Klick außerhalb schließt
+  >
+    {/* Overlay als eigenes Layer (verhindert die schwarze Linie/Naht) */}
+    <div
+      className="absolute inset-0 bg-black/40 backdrop-blur-sm [transform:translateZ(0)]"
+      aria-hidden="true"
+    />
+
+    {/* Zentrierung */}
+    <div className="relative flex min-h-screen items-center justify-center">
+      <div
+        className="w-full max-w-xl"
+        onClick={(e) => e.stopPropagation()} // Klick im Modal nicht schließen
+      >
             <div className="relative overflow-hidden rounded-3xl bg-white shadow-2xl border border-slate-200/80">
               {/* Glows */}
               <div
@@ -1870,6 +1892,7 @@ export default function Zuweisungen() {
             </div>
           </div>
         </div>
+        </div>
       )}
 
       {/* Email Options Modal */}
@@ -2087,17 +2110,12 @@ export default function Zuweisungen() {
         }}
         icon={<Trash2 className="text-red-500" />}
       />
-
-      {/* Verlängerung – im Edit-Layout-Stil */}
-      {/* Verlängerung – im Edit-Layout-Stil */}
+      {/* Verlängerung */}
       {extendFor && (
         <div
           className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/40 backdrop-blur-sm px-4"
           role="dialog"
           aria-modal="true"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setExtendFor(null);
-          }}
         >
           <div
             className="w-full max-w-md"

@@ -51,10 +51,10 @@ public class ScoringController {
 
     // Typen die manuelle Bewertung benötigen (gleich wie in PublicAccessController)
     private static final Set<String> MANUAL_REVIEW_TYPES = Set.of(
-        "text_input", 
-        "number_input", 
-        "date_input", 
-        "ordering"
+        "text", 
+        "number", 
+        "date", 
+        "order"
     );
 
     @Autowired
@@ -494,7 +494,7 @@ public class ScoringController {
                     ((java.sql.Timestamp) data.get("answered_at")).toLocalDateTime() : null;
                 
                 q.setAnsweredAt(answeredAt);
-                q.setScore(score != null ? score : BigDecimal.ZERO);
+                q.setScore(score); // null = noch nicht bewertet, Wert = bewertet
                 
                 // Antwort-Wert parsen
                 if (answerValueJson != null && !"null".equals(answerValueJson)) {
@@ -676,7 +676,7 @@ public class ScoringController {
                     ((java.sql.Timestamp) data.get("answered_at")).toLocalDateTime() : null;
                 
                 q.setAnsweredAt(answeredAt);
-                q.setScore(score != null ? score : BigDecimal.ZERO);
+                q.setScore(score); // null = noch nicht bewertet, Wert = bewertet
                 
                 // Antwort-Wert parsen
                 if (answerValueJson != null && !"null".equals(answerValueJson)) {
@@ -705,8 +705,13 @@ public class ScoringController {
                     // Übersprungen: value ist null ODER nicht bewertbar
                     uebersprungen.add(q);
                 } else if (MANUAL_REVIEW_TYPES.contains(q.getInputType())) {
-                    // Manuelle Bewertung erforderlich
-                    manuellZuBewerten.add(q);
+                    // Manuelle Bewertung: Nur wenn Score = null oder 0 (noch nicht bewertet)
+                    // Wenn Score > 0, wurde bereits bewertet → automatischBewertet
+                    if (score == null || score.compareTo(BigDecimal.ZERO) == 0) {
+                        manuellZuBewerten.add(q);
+                    } else {
+                        automatischBewertet.add(q);
+                    }
                 } else {
                     // Automatisch bewertet
                     automatischBewertet.add(q);
@@ -799,7 +804,7 @@ public class ScoringController {
             
             // 4. Score aktualisieren
             answer.setScore(request.getScore());
-            answerRepository.save(answer);
+            answerRepository.saveAndFlush(answer);  // Flush to DB before recalculation
             
             // 5. Session Totals neu berechnen
             assessmentSessionService.recalculateTotals(sessionUuid);
@@ -851,8 +856,19 @@ public class ScoringController {
      * (Gleiche Logik wie in PublicAccessController)
      */
     private BigDecimal calculateMaxScoreForQuestion(String inputType, String scoringSchemaJson) {
+        // Manual review types always get 6 points (0-6 scale)
+        if (MANUAL_REVIEW_TYPES.contains(inputType)) {
+            return BigDecimal.valueOf(6);
+        }
+        
+        // Rating/Slider always get 6 points (0-6 scale), regardless of schema
+        if ("rating".equals(inputType) || "slider".equals(inputType)) {
+            return BigDecimal.valueOf(6);
+        }
+        
         if (scoringSchemaJson == null || scoringSchemaJson.isBlank()) {
-            return BigDecimal.ZERO;
+            // Fallback for types without schema: assume 6 points
+            return BigDecimal.valueOf(6);
         }
 
         try {
@@ -890,15 +906,7 @@ public class ScoringController {
                 return sum;
             }
             
-            // 3. Rating/Slider
-            if ("rating".equals(inputType) || "slider".equals(inputType)) {
-                if (root.has("maxPoints")) {
-                    return BigDecimal.valueOf(root.get("maxPoints").asDouble());
-                }
-                return BigDecimal.ZERO;
-            }
-            
-            // 4. Boolean (Ja/Nein)
+            // 3. Boolean (Ja/Nein)
             if ("boolean".equals(inputType)) {
                 BigDecimal truePoints = root.has("true") ? 
                     BigDecimal.valueOf(root.get("true").asDouble()) : BigDecimal.ZERO;
@@ -907,11 +915,22 @@ public class ScoringController {
                 return truePoints.max(falsePoints);
             }
             
-            // Default
-            return BigDecimal.ZERO;
+            // Default: try to extract max value from schema
+            BigDecimal max = BigDecimal.ZERO;
+            var it = root.fields();
+            while (it.hasNext()) {
+                var entry = it.next();
+                if (entry.getValue().isNumber()) {
+                    BigDecimal val = BigDecimal.valueOf(entry.getValue().asDouble());
+                    if (val.compareTo(max) > 0) {
+                        max = val;
+                    }
+                }
+            }
+            return max.compareTo(BigDecimal.ZERO) > 0 ? max : BigDecimal.valueOf(6);
             
         } catch (Exception e) {
-            return BigDecimal.ZERO;
+            return BigDecimal.valueOf(6);
         }
     }
 }

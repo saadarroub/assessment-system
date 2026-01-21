@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import AdminLayout from "@/apps/app/AdminLayout";
+import { useHasPermission } from "@/shared/hooks/useHasPermission";
+import { PermissionButton } from "@/shared/components/permission/PermissionButton";
+import { useScrollLock } from "@/shared/hooks/useScrollLock";
+
 import {
   getCompany,
   getWorkersByCompany,
@@ -12,6 +16,8 @@ import {
   type AssignmentApi,
   type CompanyApi,
   changeCompanyStatus,
+  changeWorkerStatus,
+  getWorkerAssignmentCount,
 } from "@/features/service/companyService";
 import {
   Pencil,
@@ -97,6 +103,13 @@ export default function CompanyDetails() {
   const [tab, setTab] = useState<TabKey>("users");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { has } = useHasPermission();
+
+  const canChangeCompany = has("companies.change"); // Status toggle
+  const canCreateWorker = has("workers.create");    // Invite Worker
+  const canEditWorker = has("workers.edit");      // Edit Worker
+  const canDeleteWorker = has("workers.delete");    // Delete Worker
+
 
   // Workers
   const [workers, setWorkers] = useState<WorkerApi[]>([]);
@@ -133,13 +146,29 @@ export default function CompanyDetails() {
   const [pendingStatus, setPendingStatus] = useState<"active" | "inactive" | null>(null);
   const [changingStatus, setChangingStatus] = useState(false);
   const [statusError, setStatusError] = useState<string | null>(null);
-  function onStatusClick() {
-    if (!company) return;
-    const next: "active" | "inactive" = company.status === "active" ? "inactive" : "active";
-    setPendingStatus(next);
-    setStatusError(null);
-    setConfirmStatusOpen(true);
-  }
+
+  // Worker Status Toggle
+  const [confirmWorkerStatusOpen, setConfirmWorkerStatusOpen] = useState(false);
+  const [targetWorker, setTargetWorker] = useState<WorkerApi | null>(null);
+  const [pendingWorkerStatus, setPendingWorkerStatus] = useState<"active" | "inactive" | null>(null);
+  const [changingWorkerStatus, setChangingWorkerStatus] = useState(false);
+  const [workerStatusError, setWorkerStatusError] = useState<string | null>(null);
+  const [workerAssignmentCount, setWorkerAssignmentCount] = useState<number>(0);
+
+  // Scroll Lock für alle Modals
+  const anyModalOpen = openInvite || !!editing || !!toDelete || confirmStatusOpen || confirmWorkerStatusOpen;
+  useScrollLock(anyModalOpen);
+
+function onStatusClick() {
+  if (!company) return;
+  if (!canChangeCompany || changingStatus) return; // <-- neu
+
+  const next: "active" | "inactive" = company.status === "active" ? "inactive" : "active";
+  setPendingStatus(next);
+  setStatusError(null);
+  setConfirmStatusOpen(true);
+}
+
 
 
 
@@ -153,6 +182,8 @@ export default function CompanyDetails() {
       return "bg-[rgb(254,243,199)] text-[rgb(146,64,14)]";
     if (s === "expired")
       return "bg-[rgb(254,226,226)] text-[rgb(153,27,27)]";
+    if (s === "blocked")
+      return "bg-[rgb(226,232,240)] text-[rgb(71,85,105)]"; // slate colors
     return "bg-[rgb(229,231,235)] text-[rgb(55,65,81)]"; // assigned
   };
 
@@ -222,56 +253,70 @@ export default function CompanyDetails() {
     };
   }, [id]);
 
-  function StatusToggle({
-    value,
-    disabled,
-    onToggle,
-  }: {
-    value: "active" | "inactive";
-    disabled?: boolean;
-    onToggle: () => void;
-  }) {
-    const isActive = value === "active";
+function StatusToggle({
+  value,
+  disabled,
+  disabledReason,
+  onToggle,
+}: {
+  value: "active" | "inactive";
+  disabled?: boolean;
+  disabledReason?: string;
+  onToggle: () => void;
+}) {
+  const isActive = value === "active";
 
-    return (
-      <button
-        type="button"
-        onClick={onToggle}
-        disabled={disabled}
-        className={[
-          "inline-flex items-center gap-2 rounded-full px-3 py-1.5",
-          "transition-all select-none",
-          disabled ? "opacity-60 cursor-not-allowed" : "hover:brightness-[1.03]",
-        ].join(" ")}
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        if (disabled) {
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
+        onToggle();
+      }}
+      disabled={disabled}
+      className={[
+        "inline-flex items-center gap-2 rounded-full px-3 py-1.5",
+        "transition-all select-none",
+        disabled ? "opacity-60 cursor-not-allowed" : "hover:brightness-[1.03]",
+      ].join(" ")}
+      style={{
+        background: isActive ? "rgba(34,197,94,0.18)" : "rgba(148,163,184,0.22)",
+        color: isActive ? "#16a34a" : "#64748b",
+      }}
+      title={
+        disabled
+          ? (disabledReason ?? "Du hast keine Berechtigung.")
+          : (isActive ? "Firma ist aktiv" : "Firma ist inaktiv")
+      }
+    >
+      <span className="text-[12px] font-semibold">
+        {isActive ? "aktiv" : "inaktiv"}
+      </span>
+
+      <span
+        className="relative h-5 w-9 rounded-full border"
         style={{
-          background: isActive ? "rgba(34,197,94,0.18)" : "rgba(148,163,184,0.22)",
-          color: isActive ? "#16a34a" : "#64748b",
+          background: isActive ? "#22c55e" : "#94a3b8",
+          borderColor: "rgba(0,0,0,0.10)",
         }}
-        title={isActive ? "Firma ist aktiv" : "Firma ist inaktiv"}
+        aria-hidden
       >
-        <span className="text-[12px] font-semibold">
-          {isActive ? "aktiv" : "inaktiv"}
-        </span>
-
         <span
-          className="relative h-5 w-9 rounded-full border"
-          style={{
-            background: isActive ? "#22c55e" : "#94a3b8",
-            borderColor: "rgba(0,0,0,0.10)",
-          }}
-          aria-hidden
-        >
-          <span
-            className={[
-              "absolute top-1/2 -translate-y-1/2 h-4 w-4 rounded-full bg-white",
-              "transition-all shadow",
-            ].join(" ")}
-            style={{ left: isActive ? "calc(100% - 18px)" : "2px" }}
-          />
-        </span>
-      </button>
-    );
-  }
+          className={[
+            "absolute top-1/2 -translate-y-1/2 h-4 w-4 rounded-full bg-white",
+            "transition-all shadow",
+          ].join(" ")}
+          style={{ left: isActive ? "calc(100% - 18px)" : "2px" }}
+        />
+      </span>
+    </button>
+  );
+}
+
 
 
 
@@ -340,17 +385,13 @@ export default function CompanyDetails() {
       setCreateErr("Bitte Name und Email ausfüllen.");
       return;
     }
-    if (!invWorkspace.trim()) {
-      setCreateErr("Bitte Workspace ausfüllen.");
-      return;
-    }
     setCreating(true);
     setCreateErr(null);
     try {
       const created = await createWorker({
         name: invName.trim(),
         email: invEmail.trim(),
-        workSpaceRef: invWorkspace.trim(),
+        workSpaceRef: invWorkspace.trim() || undefined,
         companyId: id,
       });
       setWorkers((prev) => [created, ...prev]);
@@ -382,10 +423,6 @@ export default function CompanyDetails() {
 
     if (!formName.trim() || !formEmail.trim()) {
       setSaveError("Bitte Name und Email ausfüllen.");
-      return;
-    }
-    if (!formWs.trim()) {
-      setSaveError("Bitte Workspace ausfüllen.");
       return;
     }
 
@@ -448,6 +485,62 @@ export default function CompanyDetails() {
     }
   }
 
+  /* ---------- Worker Status Toggle ---------- */
+  async function onWorkerStatusClick(worker: WorkerApi) {
+    if (!worker || changingWorkerStatus) return;
+    
+    const nextStatus: "active" | "inactive" = 
+      (worker.status === "active" || !worker.status) ? "inactive" : "active";
+    
+    setTargetWorker(worker);
+    setPendingWorkerStatus(nextStatus);
+    setWorkerStatusError(null);
+    
+    // Fetch assignment count
+    try {
+      const count = await getWorkerAssignmentCount(worker.id);
+      setWorkerAssignmentCount(count);
+    } catch (err) {
+      setWorkerAssignmentCount(0);
+    }
+    
+    setConfirmWorkerStatusOpen(true);
+  }
+
+  async function confirmWorkerStatusChange() {
+    if (!targetWorker) return;
+    
+    setChangingWorkerStatus(true);
+    setWorkerStatusError(null);
+    
+    try {
+      const updated = await changeWorkerStatus(targetWorker.id);
+      
+      // Update workers list
+      setWorkers((prev) => 
+        prev.map((w) => w.id === updated.id ? updated : w)
+      );
+      
+      setConfirmWorkerStatusOpen(false);
+      setTargetWorker(null);
+      setPendingWorkerStatus(null);
+    } catch (err: any) {
+      setWorkerStatusError(err?.message ?? String(err));
+    } finally {
+      setChangingWorkerStatus(false);
+    }
+  }
+
+  function cancelWorkerStatusChange() {
+    if (!changingWorkerStatus) {
+      setConfirmWorkerStatusOpen(false);
+      setTargetWorker(null);
+      setPendingWorkerStatus(null);
+      setWorkerStatusError(null);
+      setWorkerAssignmentCount(0);
+    }
+  }
+
   /* ---------- Render ---------- */
   return (
     <AdminLayout>
@@ -468,7 +561,7 @@ export default function CompanyDetails() {
         style={{
           background:
             "radial-gradient(circle at 0 0, rgba(227,187,98,0.13) 0, transparent 40%)," +
-          
+
             "linear-gradient(to bottom, #f3f4f7 0, #e6e9ef 240px, #f4f5f8 100%)",
         }}
       >
@@ -895,6 +988,9 @@ export default function CompanyDetails() {
                                   Workspace
                                 </th>
                                 <th className="px-4 py-3 text-[0.85rem] font-semibold text-left">
+                                  Status
+                                </th>
+                                <th className="px-4 py-3 text-[0.85rem] font-semibold text-left">
                                   Created
                                 </th>
                                 <th className="px-4 py-3 text-[0.85rem] font-semibold text-left">
@@ -945,6 +1041,18 @@ export default function CompanyDetails() {
                                   <td
                                     className="px-4 py-4 text-sm"
                                     style={{
+                                      borderBottom: `1px solid ${CSS.border}`,
+                                    }}
+                                  >
+                                    <StatusToggle
+                                      value={(w.status as "active" | "inactive") || "active"}
+                                      onToggle={() => onWorkerStatusClick(w)}
+                                      disabled={changingWorkerStatus}
+                                    />
+                                  </td>
+                                  <td
+                                    className="px-4 py-4 text-sm"
+                                    style={{
                                       color: CSS.mutedFg,
                                       borderBottom: `1px solid ${CSS.border}`,
                                     }}
@@ -962,31 +1070,32 @@ export default function CompanyDetails() {
                                     }}
                                   >
                                     <div className="flex items-center gap-2">
-                                      <button
+                                      <PermissionButton
                                         type="button"
+                                        allowed={canEditWorker}
+                                        tooltip="Du brauchst: workers.edit"
                                         onClick={() => openEdit(w)}
                                         className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-sm font-semibold hover:bg-slate-50"
-                                        style={{
-                                          borderColor: CSS.border,
-                                          color: CSS.fg,
-                                        }}
+                                        style={{ borderColor: CSS.border, color: CSS.fg }}
                                         title="Bearbeiten"
                                       >
                                         <Pencil size={14} />
                                         Edit
-                                      </button>
-                                      <button
+                                      </PermissionButton>
+
+                                      <PermissionButton
                                         type="button"
+                                        allowed={canDeleteWorker}
+                                        tooltip="Du brauchst: workers.delete"
                                         onClick={() => askDelete(w)}
                                         className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-sm font-semibold text-red-600 hover:bg-red-50"
-                                        style={{
-                                          borderColor: "rgb(254 202 202)",
-                                        }}
+                                        style={{ borderColor: "rgb(254 202 202)" }}
                                         title="Löschen"
                                       >
                                         <Trash2 size={14} />
                                         Delete
-                                      </button>
+                                      </PermissionButton>
+
                                     </div>
                                   </td>
                                 </tr>
@@ -1219,12 +1328,12 @@ export default function CompanyDetails() {
                   </div>
 
                   {/* Status Pill */}
-                  <StatusToggle
-                    value={company.status}
-                    onToggle={onStatusClick}
-                    disabled={changingStatus}
-                  />
-
+                 <StatusToggle
+  value={company.status}
+  onToggle={onStatusClick}
+  disabled={changingStatus || !canChangeCompany}
+  disabledReason={!canChangeCompany ? "Du brauchst: companies.change" : undefined}
+/>
 
                 </div>
 
@@ -1304,8 +1413,10 @@ export default function CompanyDetails() {
                   Actions
                 </h3>
                 <div className="flex flex-col gap-3">
-                  <button
+                  <PermissionButton
                     type="button"
+                    allowed={canCreateWorker}
+                    tooltip="Du brauchst: workers.create"
                     onClick={openInviteModal}
                     className="inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold shadow hover:[filter:brightness(1.05)] focus:outline-none"
                     style={{
@@ -1316,7 +1427,8 @@ export default function CompanyDetails() {
                   >
                     <UserPlus size={16} />
                     Worker hinzufügen
-                  </button>
+                  </PermissionButton>
+
                 </div>
               </section>
             </aside>
@@ -1330,9 +1442,6 @@ export default function CompanyDetails() {
           role="dialog"
           aria-modal="true"
           className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/40 backdrop-blur-sm"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) cancelInvite();
-          }}
         >
           <div
             className="w-full max-w-xl px-4 sm:px-0"
@@ -1427,7 +1536,7 @@ export default function CompanyDetails() {
                       htmlFor="cw-ws"
                       className="block text-sm font-medium text-slate-700 mb-1"
                     >
-                      Workspace (optional)
+                      Workspace
                     </label>
                     <input
                       id="cw-ws"
@@ -1465,22 +1574,25 @@ export default function CompanyDetails() {
               >
                 Abbrechen
               </button>
-              <button
+              <PermissionButton
                 type="submit"
                 form="invite-worker-form"
-                className="
-                  flex-1 h-12 text-sm font-semibold
-                  rounded-xl
-                  bg-[#E3BB62] text-[#264555]
-                  hover:bg-[#d8ac55]
-                  shadow-[0_10px_30px_rgba(0,0,0,0.18)]
-                  transition hover:-translate-y-[1px]
-                  disabled:opacity-60
-                "
+                allowed={canCreateWorker}
+                tooltip="Du brauchst: workers.create"
                 disabled={creating}
+                className="
+    flex-1 h-12 text-sm font-semibold
+    rounded-xl
+    bg-[#E3BB62] text-[#264555]
+    hover:bg-[#d8ac55]
+    shadow-[0_10px_30px_rgba(0,0,0,0.18)]
+    transition hover:-translate-y-[1px]
+    disabled:opacity-60
+  "
               >
                 {creating ? "Erstelle…" : "Einladen"}
-              </button>
+              </PermissionButton>
+
             </div>
           </div>
         </div>
@@ -1492,9 +1604,6 @@ export default function CompanyDetails() {
           role="dialog"
           aria-modal="true"
           className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/40 backdrop-blur-sm"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) cancelEdit();
-          }}
         >
           <div
             className="w-full max-w-xl px-4 sm:px-0"
@@ -1621,22 +1730,25 @@ export default function CompanyDetails() {
               >
                 Abbrechen
               </button>
-              <button
+              <PermissionButton
                 type="submit"
                 form="edit-worker-form"
-                className="
-                  flex-1 h-12 text-sm font-semibold
-                  rounded-xl
-                  bg-[#E3BB62] text-[#264555]
-                  hover:bg-[#d8ac55]
-                  shadow-[0_10px_30px_rgba(0,0,0,0.18)]
-                  transition hover:-translate-y-[1px]
-                  disabled:opacity-60
-                "
+                allowed={canEditWorker}
+                tooltip="Du brauchst: workers.edit"
                 disabled={saving}
+                className="
+    flex-1 h-12 text-sm font-semibold
+    rounded-xl
+    bg-[#E3BB62] text-[#264555]
+    hover:bg-[#d8ac55]
+    shadow-[0_10px_30px_rgba(0,0,0,0.18)]
+    transition hover:-translate-y-[1px]
+    disabled:opacity-60
+  "
               >
                 {saving ? "Speichere…" : "Speichern"}
-              </button>
+              </PermissionButton>
+
             </div>
           </div>
         </div>
@@ -1676,10 +1788,11 @@ export default function CompanyDetails() {
         confirmLabel={deleting ? "Lösche…" : "Ja, löschen"}
         onCancel={cancelDelete}
         onConfirm={() => {
-          if (!deleting) {
-            void confirmDelete();
-          }
+          if (deleting) return;
+          if (!canDeleteWorker) return; // block
+          void confirmDelete();
         }}
+
         icon={<Trash2 className="text-red-500" />}
       />
 
@@ -1714,7 +1827,6 @@ export default function CompanyDetails() {
         onConfirm={async () => {
           if (!id || !pendingStatus || changingStatus) return;
 
-          // ✅ optimistic update
           const snapshot = company;
           setCompany({ ...company, status: pendingStatus });
 
@@ -1733,6 +1845,41 @@ export default function CompanyDetails() {
             setChangingStatus(false);
           }
         }}
+      />
+
+      <ConfirmModal
+        open={confirmWorkerStatusOpen}
+        title={
+          pendingWorkerStatus === "inactive" 
+            ? "Worker deaktivieren?" 
+            : "Worker aktivieren?"
+        }
+        description={
+          pendingWorkerStatus === "inactive"
+            ? `Bist du sicher, dass du "${targetWorker?.name}" deaktivieren willst?`
+            : `Bist du sicher, dass du "${targetWorker?.name}" aktivieren willst?`
+        }
+        hintTitle="Hinweis"
+        hintText={
+          pendingWorkerStatus === "inactive"
+            ? workerAssignmentCount > 0
+              ? `${workerAssignmentCount} aktive Zuweisungen werden blockiert. Der Worker kann nicht mehr auf Kataloge und Assessments zugreifen.`
+              : "Der Worker kann nicht mehr auf Kataloge und Assessments zugreifen und kann nicht mehr zu neuen Katalogen eingeladen werden."
+            : workerAssignmentCount > 0
+              ? `${workerAssignmentCount} blockierte Zuweisungen werden wiederhergestellt.`
+              : "Der Worker kann wieder zu Katalogen eingeladen werden."
+        }
+        cancelLabel="Abbrechen"
+        confirmLabel={
+          changingWorkerStatus
+            ? "Ändere…"
+            : pendingWorkerStatus === "inactive"
+              ? "Ja, deaktivieren"
+              : "Ja, aktivieren"
+        }
+        onCancel={cancelWorkerStatusChange}
+        onConfirm={confirmWorkerStatusChange}
+        error={workerStatusError}
       />
 
 

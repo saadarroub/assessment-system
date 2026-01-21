@@ -200,4 +200,23 @@ public class UserController {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
+
+    /**
+     * Toggle user status between active and inactive.
+     * 
+     * @param id the user ID
+     * @return the updated user
+     */
+    @PreAuthorize("hasAuthority('users.edit')")
+    @PatchMapping("/status/change/{id}")
+    public ResponseEntity<UserSummaryDTO> changeUserStatus(@PathVariable UUID id) {
+        try {
+            User updatedUser = userService.changeStatus(id);
+            return ResponseEntity.ok(UserSummaryDTO.fromEntity(updatedUser, rolePermissionService));
+        } catch (RuntimeException e) {
+            return ResponseEntity.notFound().build();
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
 }

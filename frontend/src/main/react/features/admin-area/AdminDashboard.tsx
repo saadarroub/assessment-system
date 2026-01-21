@@ -380,15 +380,15 @@ export default function AdminDashboard() {
       />
 
       {/* BODY */}
-      <main
-        className="min-h-[calc(100vh-64px)] mt-0 px-6 pb-8 pt-20"
-        style={{
-          background:
-            "radial-gradient(circle at 0 0, rgba(227,187,98,0.13) 0, transparent 40%)," +
-            "radial-gradient(circle at 100% 0, rgba(56,189,248,0.10) 0, transparent 42%)," +
-            "linear-gradient(to bottom, #f3f4f7 0, #e6e9ef 240px, #f4f5f8 100%)",
-        }}
-      >
+    <main
+          className="min-h-[calc(100vh-64px)] mt-0 px-6 pb-8 pt-20"
+          style={{
+            background:
+              "radial-gradient(circle at 0 0, rgba(227,187,98,0.13) 0, transparent 40%)," +
+              
+              "linear-gradient(to bottom, #f3f4f7 0, #e6e9ef 240px, #f4f5f8 100%)",
+          }}
+        >
         {/* Top-Bar: Admin-Panel Button links + Neues Thema Button rechts */}
         <div className="max-w-[1400px] xl:max-w-[1600px] mx-auto mb-3 flex items-center justify-between">
           {/* Admin-Panel Button links (wie Breadcrumb in UserList) */}

@@ -5,6 +5,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -22,6 +23,13 @@ public interface AssessmentSessionRepository extends JpaRepository<AssessmentSes
     
     // Dashboard queries
     List<AssessmentSession> findByStatusOrderByCompletedAtDesc(String status, Pageable pageable);
+    
+    // Find all sessions by status (for theme analytics)
+    List<AssessmentSession> findByStatus(String status);
+    
+    // Find sessions by theme, status, and date range (for theme analytics)
+    List<AssessmentSession> findByThemaIdAndStatusAndCompletedAtBetween(
+            UUID themaId, String status, LocalDateTime startDate, LocalDateTime endDate);
     
     Long countByStatus(String status);
     
@@ -47,4 +55,7 @@ public interface AssessmentSessionRepository extends JpaRepository<AssessmentSes
     // Count completed sessions for a worker with specific thema IDs
     @Query("SELECT COUNT(s) FROM AssessmentSession s WHERE s.workerId = :workerId AND s.themaId IN :themaIds AND s.status = :status")
     Long countByWorkerIdAndThemaIdInAndStatus(UUID workerId, Collection<UUID> themaIds, String status);
+    
+    // Find sessions by worker and status (for aggregated scores)
+    List<AssessmentSession> findByWorkerIdAndStatus(UUID workerId, String status);
 }

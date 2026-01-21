@@ -21,6 +21,9 @@ public class QuestionService {
     @Autowired
     private QuestionTypeRepository questionTypeRepository;
 
+    @Autowired
+    private AuditLogService auditLogService;
+
     // Create
     @Transactional
     public Question createQuestion(Question question) {
@@ -38,7 +41,12 @@ public class QuestionService {
             }
         }
         
-        return questionRepository.save(question);
+        Question saved = questionRepository.save(question);
+        String details = String.format("Text: %.50s..., Type: %s", 
+            saved.getText(), 
+            saved.getQuestionType() != null ? saved.getQuestionType().getName() : "N/A");
+        auditLogService.log("CREATE", "question", saved.getId(), details, null);
+        return saved;
     }
 
     // Read - All
@@ -84,7 +92,10 @@ public class QuestionService {
     // Update (für DTO-basiertes Update)
     @Transactional
     public Question updateQuestionEntity(Question question) {
-        return questionRepository.save(question);
+        Question updated = questionRepository.save(question);
+        String details = String.format("Text: %.50s...", updated.getText());
+        auditLogService.log("UPDATE", "question", updated.getId(), details, null);
+        return updated;
     }
 
     // Delete
@@ -93,6 +104,8 @@ public class QuestionService {
         Question question = questionRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Question not found with id: " + id));
         
+        String details = String.format("Deleted question: %.50s...", question.getText());
+        auditLogService.log("DELETE", "question", id, details, null);
         questionRepository.delete(question);
     }
 
