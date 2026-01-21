@@ -1,14 +1,21 @@
 package com.assessment.backend.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import static com.assessment.backend.util.JsonbParser.parseDate;
 import static com.assessment.backend.util.JsonbParser.parseLong;
 import static com.assessment.backend.util.JsonbParser.parseStringSet;
 import static com.assessment.backend.util.JsonbParser.parseString;
+import static com.assessment.backend.util.JsonbParser.readTargetFromDbJson;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+import java.time.format.ResolverStyle;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -19,6 +26,7 @@ import com.assessment.backend.entity.QuestionType;
 import com.assessment.backend.repository.QuestionConditionRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class QuestionConditionService {
@@ -27,32 +35,27 @@ public class QuestionConditionService {
   @Autowired
   private QuestionConditionRepository questionConditionRepository;
 
+  private final ObjectMapper objectMapper;
 
-  //Create or Load QuestionCondition
-  public QuestionCondition createOrLoadQuestionCondition(UUID sourceQuestionId) {
-
-    QuestionCondition qc = questionConditionRepository.findBySourceQuestionId(sourceQuestionId);
-
-    if (qc == null) {
-      qc = new QuestionCondition();
-      qc.setSourceQuestionId(sourceQuestionId);
-    }
-
-    return qc;
-
+  public QuestionConditionService(ObjectMapper objectMapper) {
+    this.objectMapper = objectMapper;
   }
 
-  //Read - Decide by QuestionType which method will be started
-  public void handleQuestionByType(UUID sourceQuestionId, String expectedValue,
-                                   Map<String, UUID> target) {
 
-    QuestionCondition qc = createOrLoadQuestionCondition(sourceQuestionId);
-    if (qc == null) {
-      throw new IllegalStateException("QuestionCondition konnte nicht erstellt oder gefunden " +
-          "werden für Id: " + sourceQuestionId);
-    }
+  //Create a Question Object
+  public QuestionCondition createQuestionCondition(UUID sourceQuestionId,UUID targetNodeId, String operator, String expectedValue){
+
+    QuestionCondition qc = new QuestionCondition();
+
+    qc.setSourceQuestionId(sourceQuestionId);
+    qc.setTargetNodeId(targetNodeId);
+    qc.setOperator(operator);
     qc.setExpectedValue(expectedValue);
 
+    if (questionConditionRepository.existsBySourceQuestionIdAndOperatorAndExpectedValue(
+        sourceQuestionId, operator, expectedValue)) {
+      throw new IllegalArgumentException("Diese QuestionCondition existiert bereits.");
+    }
 
     Question question = questionConditionRepository.findQuestionBySourceQuestionId(sourceQuestionId);
     if (question == null) {
@@ -60,125 +63,177 @@ public class QuestionConditionService {
     }
     QuestionType questionType = question.getQuestionType();
 
-    Map<String, UUID> targetNodeId = new HashMap<>();
+    String questionTypeName = questionType.getName();
 
-    if ("Multiple Choice".equals(questionType.getName())) {
+    String sign = qc.getOperator();
 
-      qc.setOperator("==,!=");
+    Set<String> wordAllowed = Set.of("==", "!=");
 
-      targetNodeId.put("==", target.get("=="));
-      targetNodeId.put("!=", target.get("!="));
+    Set<String> numberAllowed = Set.of("==", "<", ">");
 
-      handleQuestion(qc, targetNodeId);
 
-    } else if ("Multiple Select".equals(questionType.getName())) {
+    if ("Multiple Choice".equals(questionTypeName)||"Multiple Select".equals(questionTypeName)|| "Dropdown".equals(questionTypeName)) {
 
-      qc.setOperator("==,!=");
+      if(!wordAllowed.contains(sign)){
 
-      targetNodeId.put("==", target.get("=="));
-      targetNodeId.put("!=", target.get("!="));
+        throw new IllegalArgumentException("Der übergebene Operator ist für den Question Type: " + questionTypeName + " nicht gestattet.");
 
-      handleMultipleSelectQuestion(qc, targetNodeId);
+      }
 
-    } else if ("Number Input".equals(questionType.getName())) {
+    } else if ("Number Input".equals(questionTypeName)||"Date Input".equals(questionTypeName)||"Rating Scale".equals(questionTypeName)) {
 
-      qc.setOperator("==,<,>");
+      if(!numberAllowed.contains(sign)){
 
-      targetNodeId.put("==", target.get("=="));
-      targetNodeId.put("<", target.get("<"));
-      targetNodeId.put(">", target.get(">"));
+        throw new IllegalArgumentException("Der übergebene Operator ist für den Question Type: " + questionTypeName + " nicht gestattet.");
 
-      handleNumberQuestion(qc, targetNodeId);
-
-    } else if ("Date Input".equals(questionType.getName())) {
-
-      qc.setOperator("==,<,>");
-
-      targetNodeId.put("==", target.get("=="));
-      targetNodeId.put("<", target.get("<"));
-      targetNodeId.put(">", target.get(">"));
-
-      handleDateQuestion(qc, targetNodeId);
-
-    } else if ("Rating Scale".equals(questionType.getName())) {
-
-      qc.setOperator("==,!=");
-
-      targetNodeId.put("==", target.get("=="));
-      targetNodeId.put("<", target.get("<"));
-      targetNodeId.put(">", target.get(">"));
-
-      handleNumberQuestion(qc, targetNodeId);
+      }
 
     } else { // Fallback, falls kein bekannter Typ
-      throw new IllegalArgumentException("Unknown question type: " + questionType.getName());
+      throw new IllegalArgumentException("Unknown question type: " + questionTypeName);
+    }
+
+    return questionConditionRepository.save(qc);
+
+  }
+
+    //Load QuestionCondition
+  public List<QuestionCondition> loadQuestionCondition(UUID sourceQuestionId) {
+
+    List<QuestionCondition> qc = questionConditionRepository.findAllBySourceQuestionIdOrderByCreatedAtAsc(sourceQuestionId);
+
+    return qc;
+
+  }
+
+  //TargetNodeId aus Liste lesen abhängig vom Operator
+  public UUID findTargetNodeIdByOperator(List<QuestionCondition> list, String operator) {
+    return list.stream()
+        .filter(qc -> operator.equals(qc.getOperator()))
+        .map(QuestionCondition::getTargetNodeId)
+        .findFirst()
+        .orElse(null);
+  }
+
+  //Read - Decide by QuestionType which method will be started
+  public UUID handleQuestionByType(UUID sourceQuestionId,UUID sessionId) {
+
+    List<QuestionCondition> qc = loadQuestionCondition(sourceQuestionId);
+    if (qc == null) {
+      throw new IllegalStateException("QuestionCondition konnte nicht gefunden werden für " + "Question Id: " + sourceQuestionId + ".");
+    }
+
+
+    Question question = questionConditionRepository.findQuestionBySourceQuestionId(sourceQuestionId);
+    if (question == null) {
+      throw new IllegalStateException("Zugehörige Question nicht gefunden für Id: " + sourceQuestionId);
+    }
+    QuestionType questionType = question.getQuestionType();
+    String questionTypeName = questionType.getName();
+    String expectedValue = qc.get(0).getExpectedValue();
+
+    Map<String, UUID> targetNodeId = new HashMap<>();
+
+    if ("Multiple Choice".equals(questionTypeName)||"Dropdown".equals(questionTypeName)) {
+
+      targetNodeId.put("==", findTargetNodeIdByOperator(qc,"=="));
+      targetNodeId.put("!=", findTargetNodeIdByOperator(qc,"!="));
+
+      return handleQuestion(sourceQuestionId, targetNodeId, sessionId, expectedValue);
+
+    } else if ("Multiple Select".equals(questionTypeName)) {
+
+      targetNodeId.put("==", findTargetNodeIdByOperator(qc,"=="));
+      targetNodeId.put("!=", findTargetNodeIdByOperator(qc,"!="));
+
+      return handleMultipleSelectQuestion(sourceQuestionId, targetNodeId, sessionId, expectedValue);
+
+    } else if ("Number Input".equals(questionTypeName)||"Rating Scale".equals(questionTypeName)) {
+
+      targetNodeId.put("==", findTargetNodeIdByOperator(qc,"=="));
+      targetNodeId.put("<", findTargetNodeIdByOperator(qc,"<"));
+      targetNodeId.put(">", findTargetNodeIdByOperator(qc,">"));
+
+      return handleNumberQuestion(sourceQuestionId, targetNodeId, sessionId, expectedValue);
+
+    } else if ("Date Input".equals(questionTypeName)) {
+
+      targetNodeId.put("==", findTargetNodeIdByOperator(qc,"=="));
+      targetNodeId.put("<", findTargetNodeIdByOperator(qc,"<"));
+      targetNodeId.put(">", findTargetNodeIdByOperator(qc,">"));
+
+      return handleDateQuestion(sourceQuestionId, targetNodeId, sessionId, expectedValue);
+
+    } else { // Fallback, falls kein bekannter Typ
+      throw new IllegalArgumentException("Unknown question type: " + questionTypeName);
     }
 
   }
 
-  //Multiple Choice
-  public void handleQuestion(QuestionCondition qc, Map<String, UUID> targetNodeId) {
+  //Multiple Choice + Dropdown
+  public UUID handleQuestion(UUID sourceQuestionID, Map<String, UUID> targetNodeId, UUID sessionId,
+                          String expectedValue) {
 
-
-    String jsonB = questionConditionRepository.findValueByQuestionId(qc.getSourceQuestionId());
+    String jsonB = questionConditionRepository.findValueByQuestionIdAndSessionId(sourceQuestionID,sessionId);
 
     if (jsonB == null || jsonB.isBlank()) {
-      throw new IllegalStateException("Antwortwert ist null oder leer für QuestionId: " + qc.getSourceQuestionId());
+      throw new IllegalStateException("Antwortwert ist null oder leer für QuestionId: " + sourceQuestionID + "und Session Id:" + sessionId);
     }
 
     String answer = parseString(jsonB);
 
-    String expectedAnswer = qc.getExpectedValue().trim();
+    String expectedAnswer = expectedValue.trim();
 
     if (expectedAnswer == null || expectedAnswer.isBlank()) {
-      throw new IllegalArgumentException("ExpectedValue darf nicht null oder leer sein für QuestionConditionId: " + qc.getId());
+      throw new IllegalArgumentException("ExpectedValue darf nicht null oder leer sein für " + "QuestionConditionId: " + sourceQuestionID);
     }
 
     // Nur eine Bedingung pro Durchlauf trifft zu, daher if-else statt Schleife
     if (answer.equalsIgnoreCase(expectedAnswer)) {
 
-      qc.setTargetNodeId(targetNodeId.get("=="));
+      return targetNodeId.get("==");
 
     } else {
 
-      qc.setTargetNodeId(targetNodeId.get("!="));
+      return targetNodeId.get("!=");
 
     }
 
-    questionConditionRepository.save(qc);
   }
 
 
   //Multiple Select
-  public void handleMultipleSelectQuestion(QuestionCondition qc, Map<String, UUID> targetNodeId) {
+  public UUID handleMultipleSelectQuestion(UUID sourceQuestionID, Map<String, UUID> targetNodeId, UUID sessionId, String expectedValue) {
 
-    String jsonB = questionConditionRepository.findValueByQuestionId(qc.getSourceQuestionId());
+    String jsonB = questionConditionRepository.findValueByQuestionIdAndSessionId(sourceQuestionID,sessionId);
+
     Set<String> answers =   parseStringSet(jsonB).stream().map(String::trim).map(String::toLowerCase).collect(Collectors.toSet());
     if (answers == null) {
       answers = new HashSet<>();
     }
 
-    String expectedAnswer = qc.getExpectedValue();
+    String expectedAnswer = expectedValue;
     Set<String> expectedAnswers = Arrays.stream(expectedAnswer.split(",")).map(String::trim).map(String::toLowerCase).collect(Collectors.toSet());
     if (expectedAnswers == null) {
       answers = new HashSet<>();
     }
 
     if (answers.equals(expectedAnswers)) {
-      qc.setTargetNodeId(targetNodeId.get("=="));
-    } else {
-      qc.setTargetNodeId(targetNodeId.get("!="));
-    }
 
-    questionConditionRepository.save(qc);
+      return targetNodeId.get("==");
+
+    } else {
+
+      return targetNodeId.get("!=");
+
+    }
   }
 
   //Number Input + Rating Scale
-  public void handleNumberQuestion(QuestionCondition qc, Map<String, UUID> targetNodeId) {
+  public UUID handleNumberQuestion(UUID sourceQuestionID, Map<String, UUID> targetNodeId, UUID sessionId, String expectedValue) {
 
-    String jsonB = questionConditionRepository.findValueByQuestionId(qc.getSourceQuestionId());
+    String jsonB = questionConditionRepository.findValueByQuestionIdAndSessionId(sourceQuestionID,sessionId);
     if (jsonB == null || jsonB.isBlank()) {
-      throw new IllegalStateException("Antwortwert ist null oder leer für QuestionId: " + qc.getSourceQuestionId());
+      throw new IllegalStateException("Antwortwert ist null oder leer für QuestionId: " + sourceQuestionID + "und Session Id:" + sessionId);
     }
 
     long answer;
@@ -188,9 +243,9 @@ public class QuestionConditionService {
       throw new IllegalArgumentException("Antwortwert ist keine gültige Zahl: " + jsonB);
     }
 
-    String expected = qc.getExpectedValue();
+    String expected = expectedValue;
     if (expected == null || expected.isBlank()) {
-      throw new IllegalArgumentException("ExpectedValue darf nicht null oder leer sein für QuestionConditionId: " + qc.getId());
+      throw new IllegalArgumentException("ExpectedValue darf nicht null oder leer sein für " + "QuestionConditionId: " + sourceQuestionID);
     }
 
     long expectedAnswer;
@@ -201,22 +256,26 @@ public class QuestionConditionService {
     }
 
     if (answer == expectedAnswer) {
-      qc.setTargetNodeId(targetNodeId.get("=="));
-    } else if (answer < expectedAnswer) {
-      qc.setTargetNodeId(targetNodeId.get("<"));
-    } else {
-      qc.setTargetNodeId(targetNodeId.get(">"));
-    }
 
-    questionConditionRepository.save(qc);
+      return targetNodeId.get("==");
+
+    } else if (answer < expectedAnswer) {
+
+      return targetNodeId.get("<");
+
+    } else {
+
+      return targetNodeId.get(">");
+
+    }
   }
 
   //Date Input
-  public void handleDateQuestion(QuestionCondition qc, Map<String, UUID> targetNodeId) {
+  public UUID handleDateQuestion(UUID sourceQuestionID, Map<String, UUID> targetNodeId, UUID sessionId, String expectedValue) {
 
-    String jsonB = questionConditionRepository.findValueByQuestionId(qc.getSourceQuestionId());
+    String jsonB = questionConditionRepository.findValueByQuestionIdAndSessionId(sourceQuestionID,sessionId);
     if (jsonB == null || jsonB.isBlank()) {
-      throw new IllegalStateException("Antwortwert ist null oder leer für QuestionId: " + qc.getSourceQuestionId());
+      throw new IllegalStateException("Antwortwert ist null oder leer für QuestionId: " + sourceQuestionID + "und Session Id:" + sessionId);
     }
 
     LocalDate date;
@@ -226,9 +285,9 @@ public class QuestionConditionService {
       throw new IllegalArgumentException("Antwortwert ist kein gültiges Datum: " + jsonB);
     }
 
-    String expected = qc.getExpectedValue();
+    String expected = expectedValue;
     if (expected == null || expected.isBlank()) {
-      throw new IllegalArgumentException("ExpectedValue darf nicht null oder leer sein für QuestionConditionId: " + qc.getId());
+      throw new IllegalArgumentException("ExpectedValue darf nicht null oder leer sein für " + "QuestionConditionId: " + sourceQuestionID);
     }
 
     LocalDate expectedDate;
@@ -240,14 +299,110 @@ public class QuestionConditionService {
     }
 
     if (date.equals(expectedDate)) {
-      qc.setTargetNodeId(targetNodeId.get("=="));
+
+      return targetNodeId.get("==");
+
     } else if (date.isBefore(expectedDate)) {
-      qc.setTargetNodeId(targetNodeId.get("<"));
+
+      return targetNodeId.get("<");
+
     } else { // date.isAfter(expectedDate)
-      qc.setTargetNodeId(targetNodeId.get(">"));
+
+      return targetNodeId.get(">");
+
+    }
+  }
+
+  //Update a existing Question Condition Object
+  @Transactional
+  public QuestionCondition updateQuestionConditionEntity(UUID sourceQuestionId, String operator,
+                                                         String expectedValue, UUID targetNodeId) {
+
+    DateTimeFormatter EU_DATE = DateTimeFormatter.ofPattern("dd.MM.uuuu", Locale.GERMANY)
+        .withResolverStyle(ResolverStyle.STRICT);
+
+    QuestionCondition qc =
+        questionConditionRepository.findBySourceQuestionIdAndOperator(sourceQuestionId, operator);
+
+    Question question = questionConditionRepository.findQuestionBySourceQuestionId(sourceQuestionId);
+    QuestionType qT = question.getQuestionType();
+    String questionType = qT.getName();
+
+    if ("Number Input".equals(questionType) || "Rating Scale".equals(questionType)) {
+      if (expectedValue == null || expectedValue.isBlank()) {
+        throw new IllegalArgumentException("expectedValue darf nicht leer sein");
+      }
+      if (expectedValue.contains(",")) {
+        throw new IllegalArgumentException("expectedValue muss eine ganze Zahl ohne Komma sein");
+      }
+      try {
+        Long.parseLong(expectedValue.replace(".", ""));
+      } catch (NumberFormatException e) {
+        throw new IllegalArgumentException("expectedValue muss eine ganze Zahl sein");
+      }
+
+    } else if ("Multiple Choice".equals(questionType)||"Dropdown".equals(questionType)) {
+      if (expectedValue == null || expectedValue.trim().isEmpty()) {
+        throw new IllegalArgumentException("expectedValue darf nicht leer sein");
+      }
+      expectedValue = expectedValue.trim();
+      if (expectedValue.length() > 255) {
+        throw new IllegalArgumentException("expectedValue ist zu lang (max 255 Zeichen)");
+      }
+
+    } else if ("Multiple Select".equals(questionType)) {
+      if (expectedValue == null || expectedValue.trim().isEmpty()) {
+        throw new IllegalArgumentException("expectedValue darf nicht leer sein");
+      }
+      List<String> values = Arrays.stream(expectedValue.split(","))
+          .map(String::trim)
+          .filter(s -> !s.isEmpty())
+          .toList();
+
+      if (values.size() < 2) {
+        throw new IllegalArgumentException("expectedValue muss mindestens 2 Werte enthalten " +
+            "getrennt mit einen Komma");
+      }
+
+    } else if ("Date Input".equals(questionType)) {
+      if (expectedValue == null || expectedValue.trim().isEmpty()) {
+        throw new IllegalArgumentException("expectedValue darf nicht leer sein");
+      }
+      try {
+        LocalDate.parse(expectedValue.trim(), EU_DATE);
+      } catch (DateTimeParseException e) {
+        throw new IllegalArgumentException("expectedValue muss ein Datum sein");
+      }
+
+    } else {
+      if (expectedValue == null) {
+        throw new IllegalArgumentException("expectedValue darf nicht null sein");
+      }
     }
 
-    questionConditionRepository.save(qc);
+    qc.setExpectedValue(expectedValue);
+    qc.setTargetNodeId(targetNodeId);
+    return questionConditionRepository.save(qc);
+  }
+
+  //Delete a Single Question Condition Object
+  @Transactional
+  public void deleteASingleQuestionCondition(UUID sourceQuestionId, String operator){
+
+    QuestionCondition qc = questionConditionRepository.findBySourceQuestionIdAndOperator(sourceQuestionId,operator);
+
+    questionConditionRepository.delete(qc);
+
+  }
+
+  //Delete All Question Conditions for a Source Question ID
+  @Transactional
+  public void deleteAllQuestionConditions(UUID sourceQuestionId){
+
+    List<QuestionCondition> qc = questionConditionRepository.findAllBySourceQuestionIdOrderByCreatedAtAsc(sourceQuestionId);
+
+    questionConditionRepository.deleteAll(qc);
+
   }
 
 }
