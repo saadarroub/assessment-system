@@ -1,6 +1,33 @@
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import type { ExportOptions } from "../components/PdfExportModal";
+import capConsultingTemplate from "@/assets/cap-template-a4.png";
+
+// ===== CAP Template Background helpers =====
+
+async function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = (e) => reject(e);
+    img.src = src;
+  });
+}
+
+function drawCapTemplateBackground(doc: jsPDF, bg: HTMLImageElement) {
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  doc.addImage(bg, "PNG", 0, 0, pageWidth, pageHeight);
+}
+
+// Ab Seite 2 anwenden
+function shouldDrawTemplate(doc: jsPDF): boolean {
+  const pageNo =
+    (doc as any).internal?.getCurrentPageInfo?.()?.pageNumber ??
+    doc.getCurrentPageInfo?.()?.pageNumber ??
+    1;
+  return pageNo >= 2;
+}
 
 const BRAND = {
   navy: "#264555",
@@ -9,7 +36,7 @@ const BRAND = {
   sand: "#d2c9b9",
   fog: "#ebebec",
   gold: "#E3BB62",
-  green: "#2ecc71",
+  green: "#297147",
   yellow: "#f1c40f",
   red: "#e74c3c",
   lightBlue: "#3498db",
@@ -24,7 +51,7 @@ const BRAND_RGB = {
   gray: [128, 128, 128] as [number, number, number],
   sand: [210, 201, 185] as [number, number, number],
   gold: [227, 187, 98] as [number, number, number],
-  green: [46, 204, 113] as [number, number, number],
+  green: [41, 113, 71] as [number, number, number],
   yellow: [241, 196, 15] as [number, number, number],
   red: [231, 76, 60] as [number, number, number],
   lightBlue: [52, 152, 219] as [number, number, number],
@@ -44,6 +71,22 @@ const CHART_COLORS: [number, number, number][] = [
   [26, 188, 156],   // Teal
   [149, 165, 166],  // Gray
 ];
+function withOpacity(doc: jsPDF, opacity: number, draw: () => void) {
+  const GState = (doc as any).GState;
+  if (!GState || !(doc as any).setGState) {
+    // Fallback: wenn GState nicht verfügbar ist -> einfach normal zeichnen
+    draw();
+    return;
+  }
+
+  const gs = new GState({ opacity, fillOpacity: opacity, strokeOpacity: opacity });
+  (doc as any).setGState(gs);
+  draw();
+
+  const gsReset = new GState({ opacity: 1, fillOpacity: 1, strokeOpacity: 1 });
+  (doc as any).setGState(gsReset);
+}
+
 
 interface Topic {
   id: string;
@@ -117,6 +160,7 @@ export interface PdfExportData {
 export async function generateCatalogPdf(data: PdfExportData): Promise<void> {
   const { employee, catalog, sessionData, reifegradModel, options } = data;
   const doc = new jsPDF();
+  const bg = await loadImage(capConsultingTemplate);
 
   // =====================================================
   // DECKBLATT / COVER PAGE
@@ -127,6 +171,7 @@ export async function generateCatalogPdf(data: PdfExportData): Promise<void> {
   // EXECUTIVE SUMMARY
   // =====================================================
   doc.addPage();
+  drawCapTemplateBackground(doc, bg);
   addExecutiveSummary(doc, catalog, sessionData, reifegradModel);
 
   // =====================================================
@@ -134,6 +179,8 @@ export async function generateCatalogPdf(data: PdfExportData): Promise<void> {
   // =====================================================
   if (reifegradModel) {
     doc.addPage();
+    drawCapTemplateBackground(doc, bg);
+
     addReifegradSection(doc, reifegradModel, catalog.overallScore, catalog.topics);
   }
 
@@ -142,6 +189,8 @@ export async function generateCatalogPdf(data: PdfExportData): Promise<void> {
   // =====================================================
   if (options.includeScoring) {
     doc.addPage();
+    drawCapTemplateBackground(doc, bg);
+
     addScoringSection(doc, catalog);
   }
 
@@ -150,10 +199,14 @@ export async function generateCatalogPdf(data: PdfExportData): Promise<void> {
   // =====================================================
   if (options.includeCharts) {
     doc.addPage();
+    drawCapTemplateBackground(doc, bg);
+
     addChartsSection(doc, catalog);
-    
+
     // Add radar chart on new page
     doc.addPage();
+    drawCapTemplateBackground(doc, bg);
+
     addRadarChartSection(doc, catalog);
   }
 
@@ -162,6 +215,8 @@ export async function generateCatalogPdf(data: PdfExportData): Promise<void> {
   // =====================================================
   if (options.includeScoring || options.includeCharts) {
     doc.addPage();
+    drawCapTemplateBackground(doc, bg);
+
     addStrengthsWeaknessesSection(doc, catalog);
   }
 
@@ -170,6 +225,8 @@ export async function generateCatalogPdf(data: PdfExportData): Promise<void> {
   // =====================================================
   if (options.includeAnswers && sessionData && sessionData.length > 0) {
     doc.addPage();
+    drawCapTemplateBackground(doc, bg);
+
     addAnswersSection(doc, sessionData);
   }
 
@@ -178,6 +235,8 @@ export async function generateCatalogPdf(data: PdfExportData): Promise<void> {
   // =====================================================
   if (sessionData && sessionData.length > 0) {
     doc.addPage();
+    drawCapTemplateBackground(doc, bg);
+
     addStatisticsSection(doc, sessionData, catalog);
   }
 
@@ -186,6 +245,8 @@ export async function generateCatalogPdf(data: PdfExportData): Promise<void> {
   // =====================================================
   if (options.notes && options.notes.trim()) {
     doc.addPage();
+    drawCapTemplateBackground(doc, bg);
+
     addNotesSection(doc, options.notes);
   }
 
@@ -204,17 +265,30 @@ export async function generateCatalogPdf(data: PdfExportData): Promise<void> {
  */
 function addCoverPage(doc: jsPDF, employee: EmployeeData, catalog: Catalog, reifegradModel?: ReifegradModel): void {
   // Background gradient effect (simulated with rectangles)
-  doc.setFillColor(...BRAND_RGB.navy);
+  // ===== LIGHT COVER (passt zu weißen Seiten) =====
+
+  // Ganzes Blatt hell (fast weiß)
+  doc.setFillColor(248, 248, 248);
   doc.rect(0, 0, 210, 297, "F");
 
-  // Decorative circles
-  doc.setFillColor(255, 255, 255, 0.05);
-  doc.circle(180, 30, 60, "F");
-  doc.circle(30, 250, 40, "F");
+  // Oben ein navy Header-Bereich (nicht zu hoch, nicht zu dunkel)
+  doc.setFillColor(...BRAND_RGB.navy);
+  doc.rect(0, 0, 210, 95, "F");
+
+  // Sehr dezente Deko im Header (nicht schwarz, sondern leicht)
+  doc.setFillColor(255, 255, 255, 0.08);
+  doc.circle(175, 25, 55, "F");
+  doc.circle(40, 70, 35, "F");
+
+  // Unten rechts/links ganz leichte Shapes (optional, super dezent)
+  doc.setFillColor(0, 0, 0, 0.06);
+  doc.circle(185, 250, 55, "F");
+  doc.circle(25, 260, 45, "F");
+
 
   // Gold accent bar
   doc.setFillColor(...BRAND_RGB.gold);
-  doc.rect(0, 90, 210, 8, "F");
+  doc.rect(0, 90, 210, 5, "F");
 
   // Title
   doc.setTextColor(255, 255, 255);
@@ -242,11 +316,11 @@ function addCoverPage(doc: jsPDF, employee: EmployeeData, catalog: Catalog, reif
   // Outer ring
   doc.setFillColor(...BRAND_RGB.steel);
   doc.circle(centerX, centerY, radius + 5, "F");
-  
+
   // Score circle
   doc.setFillColor(...scoreColor);
   doc.circle(centerX, centerY, radius, "F");
-  
+
   // Inner white circle
   doc.setFillColor(255, 255, 255);
   doc.circle(centerX, centerY, radius - 8, "F");
@@ -256,7 +330,7 @@ function addCoverPage(doc: jsPDF, employee: EmployeeData, catalog: Catalog, reif
   doc.setFontSize(28);
   doc.setFont("helvetica", "bold");
   doc.text(`${catalog.overallScore}%`, centerX, centerY + 5, { align: "center" });
-  
+
   doc.setFontSize(10);
   doc.setTextColor(...BRAND_RGB.navy);
   doc.text("GESAMT-SCORE", centerX, centerY + 15, { align: "center" });
@@ -284,7 +358,7 @@ function addCoverPage(doc: jsPDF, employee: EmployeeData, catalog: Catalog, reif
   doc.text("MITARBEITER", 35, 262);
   doc.setFont("helvetica", "normal");
   doc.text(employee.name, 35, 272);
-  
+
   if (employee.workSpaceRef) {
     doc.setFont("helvetica", "bold");
     doc.text("ABTEILUNG", 120, 262);
@@ -292,11 +366,22 @@ function addCoverPage(doc: jsPDF, employee: EmployeeData, catalog: Catalog, reif
     doc.text(employee.workSpaceRef, 120, 272);
   }
 
-  // Footer
-  doc.setTextColor(255, 255, 255, 0.7);
+  // Footer (rechts unten)
+  doc.setTextColor(255, 255, 255);
   doc.setFontSize(8);
-  const today = new Date().toLocaleDateString("de-DE", { day: "2-digit", month: "long", year: "numeric" });
-  doc.text(`Erstellt am ${today}`, 105, 292, { align: "center" });
+
+  const today = new Date().toLocaleDateString("de-DE", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  });
+
+  const pageW = doc.internal.pageSize.getWidth();  // A4 = 210
+  const pageH = doc.internal.pageSize.getHeight(); // A4 = 297
+  const marginRight = 10;
+
+  doc.text(`Erstellt am ${today}`, pageW - marginRight, pageH - 5, { align: "right" });
+
 }
 
 /**
@@ -317,18 +402,18 @@ function addExecutiveSummary(doc: jsPDF, catalog: Catalog, _sessionData?: Sessio
 
   const boxWidth = 55;
   const startX = 20;
-  
+
   metrics.forEach((metric, index) => {
     const x = startX + (index * (boxWidth + 10));
-    
+
     doc.setFillColor(...metric.color);
     doc.roundedRect(x, yPos, boxWidth, 40, 4, 4, "F");
-    
+
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(20);
     doc.setFont("helvetica", "bold");
     doc.text(metric.value, x + boxWidth / 2, yPos + 22, { align: "center" });
-    
+
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
     doc.text(metric.label, x + boxWidth / 2, yPos + 34, { align: "center" });
@@ -387,13 +472,16 @@ function addExecutiveSummary(doc: jsPDF, catalog: Catalog, _sessionData?: Sessio
     const insights = generateInsights(catalog, reifegradModel);
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
-    
+
     insights.forEach((insight) => {
       if (yPos > 270) return;
       doc.setTextColor(...insight.color);
-      doc.text("●", 22, yPos);
       doc.setTextColor(...BRAND_RGB.navy);
       const lines = doc.splitTextToSize(insight.text, 160);
+      doc.setFillColor(...insight.color);     // oder BRAND_RGB.gold etc.
+      doc.circle(22, yPos - 1.5, 1.5, "F");   // kleiner Punkt
+      doc.setTextColor(...BRAND_RGB.navy);
+      doc.text(lines, 30, yPos);
       doc.text(lines, 30, yPos);
       yPos += lines.length * 5 + 5;
     });
@@ -404,14 +492,42 @@ function addExecutiveSummary(doc: jsPDF, catalog: Catalog, _sessionData?: Sessio
  * Add section header
  */
 function addSectionHeader(doc: jsPDF, title: string, subtitle?: string): void {
-  doc.setFillColor(...BRAND_RGB.navy);
-  doc.rect(0, 0, 210, 45, "F");
+  const useTemplate = shouldDrawTemplate(doc);
 
-  // Gold accent line
+  // ===== Seite 1 (Cover): bleibt kräftig =====
+  if (!useTemplate) {
+    doc.setFillColor(...BRAND_RGB.navy);
+    doc.rect(0, 0, 210, 45, "F");
+
+    doc.setFillColor(...BRAND_RGB.gold);
+    doc.rect(20, 38, 60, 3, "F");
+
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(22);
+    doc.setFont("helvetica", "bold");
+    doc.text(title, 20, 25);
+
+    if (subtitle) {
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(255, 255, 255, 0.8);
+      doc.text(subtitle, 20, 35);
+    }
+    return;
+  }
+
+  // ===== Ab Seite 2: transparentes Blau, Template (Logo) bleibt sichtbar =====
+  withOpacity(doc, 0.0, () => { // <- 0.08 bis 0.18 testen
+    doc.setFillColor(...BRAND_RGB.navy);
+    doc.rect(0, 0, 210, 45, "F");
+  });
+
+  // Gold-Linie ruhig “normal” (nicht transparent)
   doc.setFillColor(...BRAND_RGB.gold);
-  doc.rect(20, 38, 60, 3, "F");
+  doc.rect(20, 38, 60, 1, "F");
 
-  doc.setTextColor(255, 255, 255);
+  // Text weiterhin weiß (gut lesbar auf Navy-Overlay)
+  doc.setTextColor(38, 69, 85); // navy
   doc.setFontSize(22);
   doc.setFont("helvetica", "bold");
   doc.text(title, 20, 25);
@@ -419,10 +535,11 @@ function addSectionHeader(doc: jsPDF, title: string, subtitle?: string): void {
   if (subtitle) {
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
-    doc.setTextColor(255, 255, 255, 0.8);
+    doc.setTextColor(255, 255, 255, 0.85);
     doc.text(subtitle, 20, 35);
   }
 }
+
 
 /**
  * Add scoring overview section
@@ -531,7 +648,7 @@ function addChartsSection(doc: jsPDF, catalog: Catalog): void {
     if (yPos > 240) return;
 
     const color = CHART_COLORS[index % CHART_COLORS.length];
-    
+
     // Label
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
@@ -548,7 +665,7 @@ function addChartsSection(doc: jsPDF, catalog: Catalog): void {
     if (scoreWidth > 0) {
       doc.setFillColor(...color);
       doc.roundedRect(20 + labelWidth, yPos, scoreWidth, barHeight, 2, 2, "F");
-      
+
       // Lighter overlay for 3D effect
       doc.setFillColor(255, 255, 255, 0.2);
       doc.rect(20 + labelWidth, yPos, scoreWidth, barHeight / 2, "F");
@@ -576,24 +693,24 @@ function addChartsSection(doc: jsPDF, catalog: Catalog): void {
     const pieX = 60;
     const pieY = yPos + 35;
     const pieRadius = 30;
-    
+
     drawPieChart(doc, pieX, pieY, pieRadius, catalog.topics);
 
     // Legend
     let legendY = yPos + 5;
     catalog.topics.forEach((topic, index) => {
       if (legendY > 270) return;
-      
+
       const color = CHART_COLORS[index % CHART_COLORS.length];
       doc.setFillColor(...color);
       doc.rect(110, legendY, 8, 8, "F");
-      
+
       doc.setFontSize(8);
       doc.setFont("helvetica", "normal");
       doc.setTextColor(...BRAND_RGB.navy);
       const name = topic.name.length > 20 ? topic.name.substring(0, 17) + "..." : topic.name;
       doc.text(`${name} (${topic.score}%)`, 122, legendY + 6);
-      
+
       legendY += 12;
     });
   }
@@ -605,24 +722,80 @@ function addChartsSection(doc: jsPDF, catalog: Catalog): void {
 function addRadarChartSection(doc: jsPDF, catalog: Catalog): void {
   addSectionHeader(doc, "Kompetenz-Radar", "Stärken und Schwächen auf einen Blick");
 
+  const topics = catalog.topics ?? [];
+
+  // CASE 0: keine Themen
+  if (topics.length === 0) {
+    doc.setTextColor(...BRAND_RGB.gray);
+    doc.setFontSize(11);
+    doc.text("Keine Themen vorhanden – Radar kann nicht dargestellt werden.", 20, 70);
+
+    // optional: Donut mit overallScore
+    drawDonutChart(doc, 105, 150, 35, catalog.overallScore ?? 0, "Gesamt");
+    return;
+  }
+
+  // CASE 1-2: Fallback (Balken + Donut)
+  if (topics.length < 3) {
+
+    // Themen-Übersicht (Balken)
+    let y = 85;
+    doc.setTextColor(...BRAND_RGB.navy);
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text("Themen-Übersicht", 20, y);
+    y += 12;
+
+    topics.forEach((t, i) => {
+      const barX = 60;
+      const barW = 110;
+      const barH = 10;
+
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(...BRAND_RGB.navy);
+      doc.text(t.name.length > 18 ? t.name.slice(0, 15) + "..." : t.name, 20, y + 7);
+
+      // background
+      doc.setFillColor(240, 240, 240);
+      doc.roundedRect(barX, y, barW, barH, 2, 2, "F");
+
+      // fill
+      const color = CHART_COLORS[i % CHART_COLORS.length];
+      doc.setFillColor(...color);
+      doc.roundedRect(barX, y, (barW * t.score) / 100, barH, 2, 2, "F");
+
+      // percent
+      doc.setFont("helvetica", "bold");
+      doc.text(`${t.score}%`, barX + barW + 5, y + 8);
+
+      y += 18;
+    });
+
+    // optional Hinweis
+    doc.setTextColor(...BRAND_RGB.gray);
+    doc.setFontSize(9);
+    doc.text("Radar-Diagramm wird ab 3 Themen angezeigt.", 105, 250, { align: "center" });
+
+    return;
+  }
+
+  // CASE >=3: echtes Radar
   const centerX = 105;
   const centerY = 150;
   const maxRadius = 55;
+  drawRadarChart(doc, centerX, centerY, maxRadius, topics);
 
-  // Draw radar chart
-  drawRadarChart(doc, centerX, centerY, maxRadius, catalog.topics);
-
-  // Legend below
+  // Legend below (wie du schon hast)
   let legendY = 220;
   const cols = 2;
   const colWidth = 85;
 
-  catalog.topics.forEach((topic, index) => {
+  topics.forEach((topic, index) => {
     const col = index % cols;
     const row = Math.floor(index / cols);
     const x = 25 + col * colWidth;
     const y = legendY + row * 14;
-
     if (y > 275) return;
 
     const color = CHART_COLORS[index % CHART_COLORS.length];
@@ -636,6 +809,7 @@ function addRadarChartSection(doc: jsPDF, catalog: Catalog): void {
     doc.text(`${name}: ${topic.score}%`, x + 10, y);
   });
 }
+
 
 /**
  * Add strengths and weaknesses analysis
@@ -701,7 +875,7 @@ function addStrengthsWeaknessesSection(doc: jsPDF, catalog: Catalog): void {
     doc.setTextColor(...BRAND_RGB.gray);
     doc.setFontSize(10);
     doc.setFont("helvetica", "italic");
-    doc.text("Keine Schwächen identifiziert (alle Scores ≥ 70%)", 25, yPos);
+    doc.text("Keine Schwächen identifiziert (alle Scores > 70%)", 20, yPos);
     yPos += 15;
   } else {
     weaknesses.forEach((topic) => {
@@ -736,7 +910,7 @@ function addStrengthsWeaknessesSection(doc: jsPDF, catalog: Catalog): void {
 
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
-    
+
     const recommendations = [
       `Fokussieren Sie auf die Verbesserung in "${weaknesses[0]?.name || 'Schwachstellen'}"`,
       "Regelmäßige Schulungen und Nachbesprechungen durchführen",
@@ -773,7 +947,7 @@ function addAnswersSection(doc: jsPDF, sessionData: SessionData[]): void {
     // Session header card
     doc.setFillColor(248, 249, 250);
     doc.roundedRect(20, yPos - 5, 170, 25, 4, 4, "F");
-    
+
     doc.setTextColor(...BRAND_RGB.navy);
     doc.setFontSize(14);
     doc.setFont("helvetica", "bold");
@@ -794,7 +968,7 @@ function addAnswersSection(doc: jsPDF, sessionData: SessionData[]): void {
       const answer = q.answeredValue || "–";
       const scoreText = q.score !== null ? `${q.score}/${q.maxScore}` : "–";
       const statusIcon = q.status === "automatic" ? "✓" : q.status === "manual" ? "◉" : q.status === "skipped" ? "○" : "–";
-      
+
       return [
         `${index + 1}`,
         q.questionText.length > 50 ? q.questionText.substring(0, 47) + "..." : q.questionText,
@@ -859,8 +1033,8 @@ function addStatisticsSection(doc: jsPDF, sessionData: SessionData[], catalog: C
   const totalSkipped = sessionData.reduce((sum, s) => sum + s.questions.filter(q => q.status === "skipped").length, 0);
   const totalAutomatic = sessionData.reduce((sum, s) => sum + s.questions.filter(q => q.status === "automatic").length, 0);
   const totalManual = sessionData.reduce((sum, s) => sum + s.questions.filter(q => q.status === "manual").length, 0);
-  const avgScore = catalog.topics.length > 0 
-    ? Math.round(catalog.topics.reduce((sum, t) => sum + t.score, 0) / catalog.topics.length) 
+  const avgScore = catalog.topics.length > 0
+    ? Math.round(catalog.topics.reduce((sum, t) => sum + t.score, 0) / catalog.topics.length)
     : 0;
 
   // Stats grid
@@ -877,15 +1051,15 @@ function addStatisticsSection(doc: jsPDF, sessionData: SessionData[], catalog: C
 
   statsBoxes.forEach((stat, index) => {
     const x = startX + index * (boxWidth + 5);
-    
+
     doc.setFillColor(...stat.color);
     doc.roundedRect(x, yPos, boxWidth, boxHeight, 4, 4, "F");
-    
+
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(18);
     doc.setFont("helvetica", "bold");
     doc.text(stat.value, x + boxWidth / 2, yPos + 25, { align: "center" });
-    
+
     doc.setFontSize(7);
     doc.setFont("helvetica", "normal");
     doc.text(stat.label, x + boxWidth / 2, yPos + 40, { align: "center" });
@@ -908,7 +1082,7 @@ function addStatisticsSection(doc: jsPDF, sessionData: SessionData[], catalog: C
 
   distribution.forEach((item) => {
     const percentage = totalQuestions > 0 ? Math.round((item.value / totalQuestions) * 100) : 0;
-    
+
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(...BRAND_RGB.navy);
@@ -949,7 +1123,7 @@ function addStatisticsSection(doc: jsPDF, sessionData: SessionData[], catalog: C
 
     scoreRanges.forEach((range) => {
       const count = catalog.topics.filter(t => t.score >= range.min && t.score <= range.max).length;
-      
+
       doc.setFillColor(...range.color);
       doc.circle(25, yPos - 2, 4, "F");
 
@@ -976,7 +1150,7 @@ function addReifegradSection(doc: jsPDF, model: ReifegradModel, currentScore: nu
 
   // Current level highlight
   const currentInterval = findCurrentInterval(model.intervals, currentScore);
-  
+
   if (currentInterval) {
     // Large highlight box for current level
     doc.setFillColor(...hexToRgb(currentInterval.color || BRAND.steel));
@@ -1046,7 +1220,7 @@ function addReifegradSection(doc: jsPDF, model: ReifegradModel, currentScore: nu
 
   // Draw current score marker (triangle pointer)
   const markerX = scaleX + (scaleWidth * currentScore) / 100;
-  
+
   // Draw pointer triangle above scale
   doc.setFillColor(...BRAND_RGB.gold);
   doc.triangle(
@@ -1055,7 +1229,7 @@ function addReifegradSection(doc: jsPDF, model: ReifegradModel, currentScore: nu
     markerX + 6, scaleY - 12,
     "F"
   );
-  
+
   // Score label above pointer
   doc.setFillColor(...BRAND_RGB.gold);
   doc.roundedRect(markerX - 15, scaleY - 28, 30, 14, 3, 3, "F");
@@ -1126,20 +1300,20 @@ function addReifegradSection(doc: jsPDF, model: ReifegradModel, currentScore: nu
       const topicsInInterval = topics.filter(t => t.score >= interval.start && t.score <= interval.end);
       if (topicsInInterval.length > 0 && yPos < 270) {
         const rgb = hexToRgb(interval.color || BRAND.steel);
-        
+
         doc.setFillColor(...rgb);
         doc.circle(25, yPos + 2, 3, "F");
-        
+
         doc.setFontSize(9);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(...BRAND_RGB.navy);
         doc.text(`${interval.name}:`, 32, yPos + 4);
-        
+
         doc.setFont("helvetica", "normal");
         const topicNames = topicsInInterval.map(t => t.name).join(", ");
         const truncated = topicNames.length > 80 ? topicNames.substring(0, 77) + "..." : topicNames;
         doc.text(truncated, 70, yPos + 4);
-        
+
         yPos += 12;
       }
     });
@@ -1178,15 +1352,10 @@ function addNotesSection(doc: jsPDF, notes: string): void {
  */
 function addPageNumbers(doc: jsPDF): void {
   const pageCount = doc.getNumberOfPages();
-  
+
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
-    
-    // Footer line
-    doc.setDrawColor(...BRAND_RGB.sand);
-    doc.setLineWidth(0.5);
-    doc.line(20, 285, 190, 285);
-    
+
     // Page number
     doc.setTextColor(...BRAND_RGB.gray);
     doc.setFontSize(9);
@@ -1204,25 +1373,25 @@ function addPageNumbers(doc: jsPDF): void {
  */
 function drawDonutChart(doc: jsPDF, x: number, y: number, radius: number, score: number, label: string): void {
   const scoreColor = getScoreColor(score);
-  
+
   // Background circle (gray)
   doc.setFillColor(230, 230, 230);
   doc.circle(x, y, radius, "F");
-  
+
   // Score arc (simplified as filled circle with white center)
   doc.setFillColor(...scoreColor);
   doc.circle(x, y, radius, "F");
-  
+
   // White center for donut effect
   doc.setFillColor(255, 255, 255);
   doc.circle(x, y, radius - 8, "F");
-  
+
   // Score text
   doc.setTextColor(...scoreColor);
   doc.setFontSize(18);
   doc.setFont("helvetica", "bold");
   doc.text(`${score}%`, x, y + 3, { align: "center" });
-  
+
   // Label
   doc.setTextColor(...BRAND_RGB.gray);
   doc.setFontSize(8);
@@ -1236,18 +1405,18 @@ function drawDonutChart(doc: jsPDF, x: number, y: number, radius: number, score:
 function drawPieChart(doc: jsPDF, x: number, y: number, radius: number, topics: Topic[]): void {
   const total = topics.reduce((sum, t) => sum + t.score, 0);
   let currentAngle = -Math.PI / 2; // Start from top
-  
+
   topics.forEach((topic, index) => {
     const color = CHART_COLORS[index % CHART_COLORS.length];
     const sliceAngle = (topic.score / total) * 2 * Math.PI;
-    
+
     // Draw slice
     doc.setFillColor(...color);
-    
+
     // Approximate arc with polygon
     const segments = 20;
     const points: [number, number][] = [[x, y]];
-    
+
     for (let i = 0; i <= segments; i++) {
       const angle = currentAngle + (sliceAngle * i) / segments;
       points.push([
@@ -1255,7 +1424,7 @@ function drawPieChart(doc: jsPDF, x: number, y: number, radius: number, topics: 
         y + radius * Math.sin(angle)
       ]);
     }
-    
+
     // Draw as filled polygon (simplified)
     if (points.length >= 3) {
       const [first, ...rest] = points;
@@ -1265,10 +1434,10 @@ function drawPieChart(doc: jsPDF, x: number, y: number, radius: number, topics: 
       });
       doc.fill();
     }
-    
+
     currentAngle += sliceAngle;
   });
-  
+
   // White center for donut effect
   doc.setFillColor(255, 255, 255);
   doc.circle(x, y, radius * 0.5, "F");
@@ -1305,11 +1474,11 @@ function drawRadarChart(doc: jsPDF, centerX: number, centerY: number, maxRadius:
     const labelRadius = maxRadius + 12;
     const labelX = centerX + labelRadius * Math.cos(angle);
     const labelY = centerY + labelRadius * Math.sin(angle);
-    
+
     doc.setTextColor(...BRAND_RGB.navy);
     doc.setFontSize(7);
     doc.setFont("helvetica", "normal");
-    
+
     const name = topic.name.length > 12 ? topic.name.substring(0, 10) + ".." : topic.name;
     doc.text(name, labelX, labelY + 2, { align: "center" });
   });
@@ -1330,7 +1499,7 @@ function drawRadarChart(doc: jsPDF, centerX: number, centerY: number, maxRadius:
     doc.setFillColor(52, 152, 219, 0.3);
     doc.setDrawColor(52, 152, 219);
     doc.setLineWidth(2);
-    
+
     // Draw polygon
     doc.moveTo(points[0][0], points[0][1]);
     points.slice(1).forEach(([px, py]) => doc.lineTo(px, py));
@@ -1348,7 +1517,7 @@ function drawRadarChart(doc: jsPDF, centerX: number, centerY: number, maxRadius:
   // Center score
   doc.setFillColor(255, 255, 255);
   doc.circle(centerX, centerY, 15, "F");
-  
+
   const avgScore = Math.round(topics.reduce((sum, t) => sum + t.score, 0) / topics.length);
   doc.setTextColor(...BRAND_RGB.navy);
   doc.setFontSize(12);
@@ -1383,25 +1552,25 @@ function getScoreExplanation(score: number): string {
  */
 function generateInsights(catalog: Catalog, reifegradModel?: ReifegradModel): Array<{ text: string; color: [number, number, number] }> {
   const insights: Array<{ text: string; color: [number, number, number] }> = [];
-  
+
   const sortedTopics = [...catalog.topics].sort((a, b) => b.score - a.score);
   const best = sortedTopics[0];
   const worst = sortedTopics[sortedTopics.length - 1];
-  
+
   if (best && best.score >= 70) {
     insights.push({
       text: `Stärkstes Thema: "${best.name}" mit ${best.score}%`,
       color: BRAND_RGB.green
     });
   }
-  
+
   if (worst && worst.score < 60) {
     insights.push({
       text: `Verbesserungsbedarf: "${worst.name}" mit nur ${worst.score}%`,
       color: BRAND_RGB.red
     });
   }
-  
+
   const avgScore = Math.round(catalog.topics.reduce((s, t) => s + t.score, 0) / catalog.topics.length);
   if (avgScore >= catalog.overallScore) {
     insights.push({
@@ -1409,7 +1578,7 @@ function generateInsights(catalog: Catalog, reifegradModel?: ReifegradModel): Ar
       color: BRAND_RGB.lightBlue
     });
   }
-  
+
   if (reifegradModel) {
     const currentInterval = findCurrentInterval(reifegradModel.intervals, catalog.overallScore);
     if (currentInterval) {
@@ -1419,7 +1588,7 @@ function generateInsights(catalog: Catalog, reifegradModel?: ReifegradModel): Ar
       });
     }
   }
-  
+
   return insights;
 }
 

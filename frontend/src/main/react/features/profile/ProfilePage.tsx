@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { useToast } from "@/shared/contexts/ToastContext";
 import { createPortal } from "react-dom";
 import { logoutApi } from "@/features/auth/logoutService";
+import { useScrollLock } from "@/shared/hooks/useScrollLock";
 
 import AdminLayout from "@/apps/app/AdminLayout";
 import { User, MapPin, Phone, Mail, Lock, Trash2 } from "lucide-react";
@@ -134,6 +135,10 @@ const PasswordSection: React.FC<PasswordSectionProps> = ({ onReset }) => {
   const [resetError, setResetError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const anyModalOpen =
+   showResetModal;
+
+useScrollLock(anyModalOpen);
 
   const openResetModal = () => {
     setResetCurrent("");
@@ -221,9 +226,6 @@ const PasswordSection: React.FC<PasswordSectionProps> = ({ onReset }) => {
               role="dialog"
               aria-modal="true"
               className="fixed inset-0 z-[1200] flex items-center justify-center bg-black/40 backdrop-blur-sm"
-              onClick={(e) => {
-                if (e.target === e.currentTarget) closeResetModal();
-              }}
             >
               <div
                 className="w-full max-w-xl px-4 sm:px-0"
@@ -460,6 +462,11 @@ const EmployeeProfile: React.FC = () => {
   const [avatarUploading, setAvatarUploading] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const anyModalOpen =
+    showLeaveEditConfirm || showUploadModal; 
+
+  useScrollLock(anyModalOpen);
+
 
   useEffect(() => {
     const auth = getAuthSession();
@@ -1143,9 +1150,6 @@ const EmployeeProfile: React.FC = () => {
         {showUploadModal && (
           <div
             className="fixed inset-0 z-40 flex items-center justify-center bg-black/50"
-            onClick={(e) => {
-              if (e.target === e.currentTarget) closeUploadModal();
-            }}
           >
             <div className="w-[90%] max-w-md rounded-2xl bg-white p-6 shadow-2xl">
               <div className="mb-4">
@@ -1191,52 +1195,96 @@ const EmployeeProfile: React.FC = () => {
       </main>
       {showLeaveEditConfirm && (
         <div
+          role="dialog"
+          aria-modal="true"
           className="fixed inset-0 z-[1200] flex items-center justify-center bg-black/40 backdrop-blur-sm"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setShowLeaveEditConfirm(false);
-          }}
         >
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
-            <h3 className="text-base font-semibold text-slate-900 mb-2">
-              Änderungen übernehmen?
-            </h3>
-            <p className="text-sm text-slate-600 mb-4">
-              Du hast Änderungen vorgenommen. Um sie zu speichern, gib bitte dein aktuelles Passwort ein.
-            </p>
-
-            <div className="mb-3 flex flex-col gap-1">
-              <label className="text-xs font-semibold text-slate-600">
-                Aktuelles Passwort
-              </label>
-              <input
-                type="password"
-                className="h-10 rounded-xl border px-3 text-sm outline-none bg-slate-50
-                     focus:bg-white focus:border-[#56768f] focus:ring-2 focus:ring-[#56768f]/20"
-                value={profilePassword}
-                onChange={(e) => {
-                  setProfilePassword(e.target.value);
-                  if (passwordError) setPasswordError(null);
-                }}
+          <div
+            className="w-full max-w-xl px-4 sm:px-0"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="relative overflow-hidden rounded-3xl bg-white shadow-2xl border border-slate-200/80">
+              {/* Deko-Glows – wie Create/Edit Company */}
+              <div
+                className="pointer-events-none absolute -right-24 -top-24 h-52 w-52 rounded-full bg-gradient-to-br from-[#E3BB62]/40 via-amber-400/20 to-transparent opacity-60"
+                aria-hidden="true"
               />
-              {passwordError && (
-                <p className="mt-1 text-[11px] text-red-600">{passwordError}</p>
-              )}
+              <div
+                className="pointer-events-none absolute -left-24 -bottom-24 h-52 w-52 rounded-full bg-gradient-to-tr from-sky-500/20 via-indigo-500/10 to-transparent opacity-60"
+                aria-hidden="true"
+              />
+
+              {/* Inhalt */}
+              <div className="relative px-6 pt-6 pb-5">
+                <h3 className="text-lg sm:text-xl font-semibold text-slate-900 mb-1">
+                  Änderungen übernehmen?
+                </h3>
+                <p className="text-xs text-slate-500 mb-4">
+                  Du hast Änderungen vorgenommen. Um sie zu speichern, gib bitte dein aktuelles Passwort ein.
+                </p>
+
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-slate-700">
+                    Aktuelles Passwort
+                  </label>
+
+                  <input
+                    type="password"
+                    className="
+                w-full rounded-xl border px-3 py-2.5 text-sm
+                bg-slate-50 border-slate-200
+                outline-none
+                focus:bg-white focus:border-[#E3BB62]
+                focus:ring-2 focus:ring-[rgba(227,187,98,0.45)]
+                transition
+              "
+                    value={profilePassword}
+                    onChange={(e) => {
+                      setProfilePassword(e.target.value);
+                      if (passwordError) setPasswordError(null);
+                    }}
+                    placeholder="••••••••••••"
+                  />
+
+                  {passwordError && (
+                    <div
+                      className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+                      role="alert"
+                    >
+                      {passwordError}
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
 
-            <div className="flex justify-end gap-2">
+            {/* Footer-Buttons – wie Create/Edit Company */}
+            <div className="h-3" />
+            <div className="mt-1 flex gap-2">
               <button
                 type="button"
                 onClick={handleConfirmDiscard}
-                className="h-9 px-3 rounded-xl border text-xs font-medium
-                     bg-[#f3f3f3] hover:bg-[#e5e5e5] text-slate-700"
+                className="
+            flex-1 h-12 text-sm font-medium
+            text-slate-800 bg-[#f3f3f3]
+            hover:bg-[#e5e5e5]
+            border border-slate-200
+            rounded-xl
+          "
               >
                 Nein, verwerfen
               </button>
+
               <button
                 type="button"
                 onClick={handleConfirmSave}
-                className="h-9 px-4 rounded-xl text-xs font-semibold shadow
-                     bg-[#56768f] text-white hover:bg-[#264555]"
+                className="
+            flex-1 h-12 text-sm font-semibold
+            rounded-xl bg-[#E3BB62] text-[#264555]
+            hover:bg-[#d8ac55]
+            shadow-[0_10px_30px_rgba(0,0,0,0.18)]
+            transition hover:-translate-y-[1px]
+          "
               >
                 Ja, speichern
               </button>
@@ -1244,6 +1292,7 @@ const EmployeeProfile: React.FC = () => {
           </div>
         </div>
       )}
+
 
 
 

@@ -234,15 +234,47 @@ export default function CompanyDetailPage() {
     navigate(`/app/employee/${id}`);
   };
 
-  if (loading) {
-    return (
-      <AdminLayout>
-        <div className="p-10 text-center" style={{ color: CSS.mutedFg }}>
+ if (loading) {
+  return (
+    <AdminLayout>
+      <div className="min-h-[40vh] flex flex-col items-center justify-center gap-3 p-10">
+        <svg width="34" height="34" viewBox="0 0 50 50" aria-label="Lädt">
+          <circle
+            cx="25"
+            cy="25"
+            r="20"
+            fill="none"
+            stroke="rgba(210,201,185,0.7)"
+            strokeWidth="4"
+            strokeLinecap="round"
+          />
+          <path
+            d="M25 5 a20 20 0 0 1 0 40 a20 20 0 0 1 0 -40"
+            fill="none"
+            stroke="#E3BB62"
+            strokeWidth="4"
+            strokeLinecap="round"
+            strokeDasharray="60 200"
+          >
+            <animateTransform
+              attributeName="transform"
+              type="rotate"
+              from="0 25 25"
+              to="360 25 25"
+              dur="0.9s"
+              repeatCount="indefinite"
+            />
+          </path>
+        </svg>
+
+        <div className="text-sm" style={{ color: CSS.mutedFg }}>
           Laden…
         </div>
-      </AdminLayout>
-    );
-  }
+      </div>
+    </AdminLayout>
+  );
+}
+
 
   if (!companyData) {
     return (

@@ -272,36 +272,33 @@ function CatalogCard({ data, onStart }: { data: TopicCardModel; onStart: () => v
   );
 }
 
-function StatsCard({
-  value,
-  label,
-}: {
-  value: number;
-  label: string;
-}) {
+function StatsCard({ value, label }: { value: number; label: string }) {
   return (
     <div
       className="
-        rounded-xl border border-[hsla(215,20%,88%,0.6)]
+        min-w-0
+        rounded-2xl border border-[hsla(215,20%,88%,0.65)]
         bg-white/80 backdrop-blur-md
-        px-6 py-5 text-center
-        shadow-[0_10px_25px_-8px_rgba(15,23,42,.10)]
-transition-all duration-300
+        px-4 py-4 sm:px-6 sm:py-5
+        text-center
+        shadow-[0_10px_22px_-10px_rgba(15,23,42,.12)]
+        transition-all duration-300
         hover:-translate-y-1
-
-        hover:border-[hsla(45,60%,55%,0.5)]
-        hover:shadow-[0_20px_40px_-12px_rgba(15,23,42,.18)]
+        hover:border-[hsla(45,60%,55%,0.55)]
+        hover:shadow-[0_18px_38px_-14px_rgba(15,23,42,.18)]
       "
     >
-      <div className="text-[28px] font-extrabold text-[#1e3a8a]">
+      <div className="text-[22px] sm:text-[28px] font-extrabold text-[#1e3a8a] leading-tight">
         {value}
       </div>
-      <div className="mt-1 text-sm font-medium text-[hsl(215_20%_45%)]">
+
+      <div className="mt-1 text-[11px] sm:text-sm font-medium text-[hsl(215_20%_45%)] leading-snug">
         {label}
       </div>
     </div>
   );
 }
+
 
 /* ================== Seite: KatalogThemenPublic ================== */
 export default function KatalogThemenPublic() {
@@ -363,25 +360,90 @@ export default function KatalogThemenPublic() {
 
 
   const bubbleRef = useRef<HTMLDivElement | null>(null);
-
   const [bubbleActive, setBubbleActive] = useState(false);
+  const [mobileTimeExpanded, setMobileTimeExpanded] = useState(false);
+  const EXP_TOTAL_PREFIX = "publicExpireTotalMs:";
+  const [expiresTotalMs, setExpiresTotalMs] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!expiresAt) return;
+
+    const target = new Date(expiresAt).getTime();
+    if (Number.isNaN(target)) return;
+
+    const key = `${EXP_TOTAL_PREFIX}${token || accessCode || assignmentIdEffective || "default"}`;
+
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        const v = Number(raw);
+        if (Number.isFinite(v) && v > 0) {
+          setExpiresTotalMs(v);
+          return;
+        }
+      }
+
+      // erster Besuch: total = Restzeit JETZT
+      const total = Math.max(1, target - Date.now());
+      localStorage.setItem(key, String(total));
+      setExpiresTotalMs(total);
+    } catch {
+      setExpiresTotalMs(Math.max(1, target - Date.now()));
+    }
+  }, [expiresAt, token, accessCode, assignmentIdEffective]);
+
+
+  // ---- neu (Meta/Messenger Verhalten)
+  const PADDING = 8;
+  const DRAG_THRESHOLD = 8;
+
+  // responsive Bubble-Größe
+  const [vw, setVw] = useState(() => window.innerWidth);
+  useEffect(() => {
+    const onResize = () => setVw(window.innerWidth);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  const BUBBLE_SIZE = useMemo(() => {
+    if (vw < 520) return 120;   // sehr klein
+    if (vw < 1024) return 140;  // Tablet
+    return 160;                // Desktop
+  }, [vw]);
 
 
   const [bubblePos, setBubblePos] = useState<{ x: number; y: number }>(() => {
-    // gespeicherte Position laden
+    const fallback = {
+      x: window.innerWidth - 240,
+      y: window.innerHeight - 360,
+    };
+
     try {
       const raw = localStorage.getItem("publicBubblePos");
-      if (raw) return JSON.parse(raw);
+      if (!raw) return clampPos(fallback.x, fallback.y, 160, 160);
+
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed.x === "number" && typeof parsed.y === "number") {
+        return clampPos(parsed.x, parsed.y, 160, 160);
+      }
     } catch { }
-    // Default: wie jetzt ungefähr unten rechts
-    return { x: window.innerWidth - 220, y: window.innerHeight - 320 };
+
+    return clampPos(fallback.x, fallback.y, 160, 160);
   });
 
-  const dragRef = useRef<{
-    dragging: boolean;
-    offsetX: number;
-    offsetY: number;
-  }>({ dragging: false, offsetX: 0, offsetY: 0 });
+
+
+  const dragRef = useRef({
+    dragging: false,
+    pointerId: -1,
+    startX: 0,
+    startY: 0,
+    offsetX: 0,
+    offsetY: 0,
+  });
+
+  const [isDragging, setIsDragging] = useState(false);
+
 
   // Position speichern (damit sie nach Reload bleibt)
   useEffect(() => {
@@ -390,51 +452,92 @@ export default function KatalogThemenPublic() {
     } catch { }
   }, [bubblePos]);
 
+  function clampPos(x: number, y: number, w: number, h: number) {
+    const maxX = window.innerWidth - w - PADDING;
+    const maxY = window.innerHeight - h - PADDING;
+    return {
+      x: Math.max(PADDING, Math.min(maxX, x)),
+      y: Math.max(PADDING, Math.min(maxY, y)),
+    };
+  }
+
+  function snapToEdge(x: number, y: number, w: number, h: number) {
+    const mid = window.innerWidth / 2;
+    const maxX = window.innerWidth - w - PADDING;
+    const targetX = x + w / 2 < mid ? PADDING : maxX;
+    return clampPos(targetX, y, w, h);
+  }
+  useEffect(() => {
+    setBubblePos((p) => clampPos(p.x, p.y, BUBBLE_SIZE, BUBBLE_SIZE));
+  }, [BUBBLE_SIZE]);
+
+
   function onBubblePointerDown(e: React.PointerEvent) {
-    // Nur linke Maustaste
-    if (e.button !== 0) return;
-    setBubbleActive(true);
+    if (e.pointerType === "mouse" && e.button !== 0) return;
 
     const el = bubbleRef.current;
     if (!el) return;
 
     const rect = el.getBoundingClientRect();
 
-    dragRef.current.dragging = true;
+    dragRef.current.pointerId = e.pointerId;
+    dragRef.current.startX = e.clientX;
+    dragRef.current.startY = e.clientY;
     dragRef.current.offsetX = e.clientX - rect.left;
     dragRef.current.offsetY = e.clientY - rect.top;
 
-    // wichtig: damit pointermove auch außerhalb weiter geht
+    dragRef.current.dragging = false; // <- wichtig: erst nach threshold
+    setBubbleActive(true);
+
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   }
 
   function onBubblePointerMove(e: React.PointerEvent) {
-    if (!dragRef.current.dragging) return;
-
     const el = bubbleRef.current;
     if (!el) return;
+    if (dragRef.current.pointerId !== e.pointerId) return;
+
+    const dx = e.clientX - dragRef.current.startX;
+    const dy = e.clientY - dragRef.current.startY;
+    const dist = Math.hypot(dx, dy);
+
+    // erst nach threshold wirklich ziehen
+    if (!dragRef.current.dragging) {
+      if (dist < DRAG_THRESHOLD) return;
+      dragRef.current.dragging = true;
+      setIsDragging(true);
+    }
 
     const w = el.offsetWidth;
     const h = el.offsetHeight;
 
-    // neue Position berechnen
-    let x = e.clientX - dragRef.current.offsetX;
-    let y = e.clientY - dragRef.current.offsetY;
+    const x = e.clientX - dragRef.current.offsetX;
+    const y = e.clientY - dragRef.current.offsetY;
 
-    // im Viewport halten
-    const maxX = window.innerWidth - w - 8;
-    const maxY = window.innerHeight - h - 8;
-
-    x = Math.max(8, Math.min(maxX, x));
-    y = Math.max(8, Math.min(maxY, y));
-
-    setBubblePos({ x, y });
+    setBubblePos(clampPos(x, y, w, h));
   }
 
-  function onBubblePointerUp() {
+  function onBubblePointerUp(e: React.PointerEvent) {
+    const el = bubbleRef.current;
+    if (!el) return;
+    if (dragRef.current.pointerId !== e.pointerId) return;
+
+    const wasDragging = dragRef.current.dragging;
+
+    dragRef.current.pointerId = -1;
     dragRef.current.dragging = false;
+    setIsDragging(false);
+
+    // Snap nur wenn wirklich gezogen wurde
+    if (wasDragging) {
+      const w = el.offsetWidth;
+      const h = el.offsetHeight;
+      setBubblePos((p) => snapToEdge(p.x, p.y, w, h));
+    }
+
     setBubbleActive(false);
   }
+
 
   const remaining = useMemo(() => {
     if (!expiresAt) return null;
@@ -450,8 +553,23 @@ export default function KatalogThemenPublic() {
     const m = Math.floor((totalSec % 3600) / 60);
     const s = totalSec % 60;
 
-    return { d, h, m, s, expired: remainingMs <= 0 };
+    return { d, h, m, s, expired: remainingMs <= 0, remainingMs };
+
   }, [expiresAt, now]);
+
+  const ringPct = useMemo(() => {
+    if (!remaining) return 0;
+    const remainingInDaySec = remaining.h * 3600 + remaining.m * 60 + remaining.s;
+    const pct = 1 - remainingInDaySec / 86400; // 0..1
+    return Math.max(0, Math.min(100, pct * 100));
+  }, [remaining]);
+
+  const mobileRingPct = useMemo(() => {
+    if (!remaining || !expiresTotalMs) return 0;
+    const pct = 1 - remaining.remainingMs / expiresTotalMs; // 0..1
+    return Math.max(0, Math.min(100, pct * 100));
+  }, [remaining, expiresTotalMs]);
+
 
   //in expiresAt muss Z.b: 2025-11-05T18:00:00Z
   useEffect(() => {
@@ -773,6 +891,16 @@ export default function KatalogThemenPublic() {
     /* minimal, nicht “matschig” */
     filter: blur(0.2px);
   }
+     /* ===== Gold Shimmer (für Pill/Bubble) ===== */
+  @keyframes capShimmer {
+    0%   { background-position: 0% 50%; }
+    100% { background-position: 220% 50%; }
+  }
+    @keyframes dialPulse {
+  0%, 100% { filter: drop-shadow(0 0 0 rgba(56,189,248,0.0)); }
+  50%      { filter: drop-shadow(0 10px 22px rgba(56,189,248,0.22)); }
+}
+
 `}</style>
 
 
@@ -808,21 +936,87 @@ export default function KatalogThemenPublic() {
             setBubbleActive(false);
           }
         }}
-        className="
-    hidden lg:block
-    fixed z-[999]
-    select-none
-    cursor-grab active:cursor-grabbing
-  "
+        className={`
+  fixed z-[999] select-none
+  ${isDragging ? "cursor-grabbing" : "cursor-grab"}
+`}
+
         style={{
           left: bubblePos.x,
           top: bubblePos.y,
-          width: 160,
-          height: 160,
+          width: BUBBLE_SIZE,
+          height: BUBBLE_SIZE,
+          transition: isDragging ? "none" : "left 220ms ease, top 220ms ease",
+          touchAction: "none",
+
         }}
       >
         {/* äußerer Ring */}
-        <div className="absolute inset-0 rounded-full border border-[#E3BB62] opacity-90" />
+        {/* Progress-Ring (around the bubble) */}
+        {(() => {
+          const size = BUBBLE_SIZE;
+          const stroke = 3;              // Ring-Dicke
+          const r = (size / 2) - stroke; // Radius
+          const c = 2 * Math.PI * r;     // Umfang
+          const dash = bubbleActive ? (ringPct / 100) * c : 0;
+
+
+          return (
+            <svg
+              className="absolute inset-0"
+              width={size}
+              height={size}
+              viewBox={`0 0 ${size} ${size}`}
+            >
+              {/* Background Ring */}
+              <circle
+                cx={size / 2}
+                cy={size / 2}
+                r={r}
+                fill="none"
+                stroke="rgba(227,187,98,0.22)"
+                strokeWidth={stroke}
+              />
+
+              {/* Progress Ring (only strong on hover) */}
+              <circle
+                cx={size / 2}
+                cy={size / 2}
+                r={r}
+                fill="none"
+                stroke="rgba(227,187,98,0.95)"
+                strokeWidth={stroke}
+                strokeLinecap="round"
+                strokeDasharray={`${dash} ${c - dash}`}
+                transform={`rotate(-90 ${size / 2} ${size / 2})`}
+                style={{
+                  transition: "stroke-dasharray 350ms ease, opacity 250ms ease",
+                  opacity: bubbleActive ? 1 : 0,
+
+                }}
+              />
+            </svg>
+          );
+        })()}
+        {/* äußerer Ring + Glow */}
+        <div
+          className={`
+    absolute inset-0 rounded-full
+   
+    ${bubbleActive ? "shadow-[0_0_0_6px_rgba(227,187,98,0.12),0_18px_60px_rgba(227,187,98,0.22)]" : "shadow-none"}
+    transition-shadow duration-300
+  `}
+        />
+
+        {/* subtiler Shine (nur hover) */}
+        <div
+          className={`
+    pointer-events-none absolute inset-0 rounded-full
+    bg-[radial-gradient(circle_at_30%_25%,rgba(255,255,255,0.28)_0%,rgba(255,255,255,0)_55%)]
+    ${bubbleActive ? "opacity-100" : "opacity-0"}
+    transition-opacity duration-300
+  `}
+        />
 
         {/* innerer Kreis */}
         <div
@@ -845,33 +1039,51 @@ export default function KatalogThemenPublic() {
               /* HOVER: HH:MM:SS */
               <div className="flex flex-col items-center">
                 <div className="text-[26px] font-bold tabular-nums leading-none">
+                  {remaining.d}T{" "}
                   {String(remaining.h).padStart(2, "0")}:
                   {String(remaining.m).padStart(2, "0")}:
                   {String(remaining.s).padStart(2, "0")}
                 </div>
                 <div className="text-[10px] uppercase tracking-[0.18em] opacity-70 mt-1">
-                  verbleibend
+                  bis Ablauf
                 </div>
+
               </div>
             ) : (
               /*  NORMAL: Tage */
+              /* NORMAL: Tage (oder Stunden wenn < 1 Tag) */
               <>
-                <div
-                  className={`
+                {remaining.d > 0 ? (
+                  <>
+                    <div
+                      className={`
           text-[42px] font-extrabold leading-none
           ${remaining.d <= 2
-                      ? "text-red-400"
-                      : remaining.d <= 5
-                        ? "text-[#E3BB62]"
-                        : "text-white"}
+                          ? "text-red-400"
+                          : remaining.d <= 5
+                            ? "text-[#E3BB62]"
+                            : "text-white"
+                        }
         `}
-                >
-                  {remaining.d}
-                </div>
-                <div className="text-[11px] uppercase tracking-[0.2em] opacity-80 mt-1">
-                  Tage
-                </div>
+                    >
+                      {remaining.d}
+                    </div>
+                    <div className="text-[11px] uppercase tracking-[0.2em] opacity-80 mt-1">
+                      Tage
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="text-[34px] font-extrabold leading-none tabular-nums text-white">
+                      {remaining.h}
+                    </div>
+                    <div className="text-[11px] uppercase tracking-[0.2em] opacity-80 mt-1">
+                      Stunden
+                    </div>
+                  </>
+                )}
               </>
+
             )
           ) : (
             <div className="text-xs opacity-60">–</div>
@@ -900,21 +1112,39 @@ export default function KatalogThemenPublic() {
               <GreetingBanner firstName={welcomeName} />
             </div>
 
-            <div className="absolute left-1/2 bottom-3 -translate-x-1/2">
-              <div className="inline-flex items-center gap-2 rounded-full bg-white/85 px-4 py-2 text-sm text-slate-700 border border-slate-200 shadow-sm">
-                <span className="h-2 w-2 rounded-full bg-[#E3BB62]" />
-                Ziehen Sie die Zeit-Bubble nach Wunsch
-              </div>
-            </div>
+           <div className="absolute left-1/2 bottom-3 -translate-x-1/2 w-[calc(100%-24px)] sm:w-auto flex justify-center">
+  <div
+    className="
+      inline-flex items-center justify-center gap-2
+      rounded-full bg-white/85
+      px-3 py-2 sm:px-4
+      text-xs sm:text-sm
+      text-slate-700
+      border border-slate-200
+      shadow-sm
+      backdrop-blur
+      max-w-full
+    "
+  >
+    <span className="h-2 w-2 rounded-full bg-[#E3BB62] shrink-0" />
+    <span className="font-medium text-center whitespace-nowrap">
+      Themen auswählen und starten
+    </span>
+  </div>
+</div>
+
+
+
           </div>
 
 
-          {/* Stats-Cards direkt unter dem Banner */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6">
+          <div className="grid grid-cols-2 min-[520px]:grid-cols-3 gap-3 sm:gap-4 md:gap-6 auto-rows-fr">
             <StatsCard value={available.length} label="Verfügbare Themen" />
             <StatsCard value={planned.length} label="Laufende Themen" />
             <StatsCard value={done.length} label="Abgeschlossene Themen" />
           </div>
+
+
         </div>
       </section>
 

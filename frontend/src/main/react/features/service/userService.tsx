@@ -5,6 +5,7 @@ export type UserApi = {
   name: string;
   email: string;
   roles?: any;
+  phone?: string;
   created_at?: string;
   updatedAt?: string;
   status?: "active" | "inactive" | string;
@@ -62,7 +63,7 @@ export async function getUserRoles(userId: string): Promise<string[]> {
 }
 
 
-export type CreateUserDto = { name: string; email: string; password: string; roleId: string };
+export type CreateUserDto = { name: string; email: string; password: string; phone: string; roleId: string };
 
 export async function createUser(payload: CreateUserDto): Promise<UserApi> {
   const { data } = await apiClient.post<UserApi>("/users", payload, {
