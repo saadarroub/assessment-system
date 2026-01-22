@@ -238,20 +238,28 @@ export default function CompanyListPage() {
     navigate(`/app/result/${companyId}`);
   };
 
-  if (loading) {
-    return (
-      <AdminLayout>
-        <div className="min-h-[calc(100vh-64px)] flex items-center justify-center">
-          <div className="text-center">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2" />
-            <p className="mt-4" style={{ color: CSS.mutedFg }}>
-              Laden…
-            </p>
-          </div>
+ if (loading) {
+  return (
+    <AdminLayout>
+      <div className="min-h-[calc(100vh-64px)] flex items-center justify-center p-10">
+        <div className="flex flex-col items-center justify-center gap-3">
+          <div
+            className="h-10 w-10 rounded-full border-[3px] animate-spin"
+            style={{
+              borderColor: "rgba(210,201,185,0.7)", // sand
+              borderTopColor: BRAND.gold,          // gold akzent
+            }}
+            aria-label="Lädt"
+          />
+          <p className="text-sm" style={{ color: CSS.mutedFg }}>
+            Laden…
+          </p>
         </div>
-      </AdminLayout>
-    );
-  }
+      </div>
+    </AdminLayout>
+  );
+}
+
 
   return (
     <AdminLayout>

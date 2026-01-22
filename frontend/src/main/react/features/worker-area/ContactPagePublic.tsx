@@ -1,15 +1,8 @@
 import React, { useMemo, useState } from "react";
 import AppHeader from "@/apps/app/AppHeader";
 import patternUrl from "@/assets/footer-pattern.svg";
-import {
-  Mail,
-  Phone,
-  MapPin,
-  Clock,
-  Send,
-  ShieldCheck,
-  Loader2,
-} from "lucide-react";
+import { MapPin, Clock, Send, Loader2 } from "lucide-react";
+import { useCallback, useEffect, useRef } from "react";
 
 type Topic =
   | "Allgemeine Anfrage"
@@ -32,43 +25,63 @@ export default function ContactPagePublic() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [message, setMessage] = useState("");
-  const [consent, setConsent] = useState(false);
 
   const [submitting, setSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState<null | "ok" | "error">(null);
 
   // Map Consent (lädt iFrame erst nach Klick)
   const [mapAllowed, setMapAllowed] = useState(false);
+
+  const [toast, setToast] = useState<{
+    visible: boolean;
+    title: string;
+    description: string;
+  }>({
+    visible: false,
+    title: "",
+    description: "",
+  });
+
+  const toastTimerRef = useRef<number | null>(null);
+
+  const showToast = useCallback((title: string, description: string) => {
+    setToast({ visible: true, title, description });
+
+    if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = window.setTimeout(() => {
+      setToast((prev) => ({ ...prev, visible: false }));
+    }, 3000);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+    };
+  }, []);
 
   const canSubmit = useMemo(() => {
     if (!name.trim()) return false;
     if (!email.trim()) return false;
     if (!message.trim()) return false;
-    if (!consent) return false;
     return true;
-  }, [name, email, message, consent]);
+  }, [name, email, message]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setSubmitted(null);
-
+    // Kein Inline-Message mehr – nur Toast
     if (!canSubmit) {
-      setSubmitted("error");
+      showToast("Fehler", "Bitte prüfen Sie die Pflichtfelder: Name, E-Mail, Nachricht.");
       return;
     }
 
-    // TODO: hier an euer Backend / Ticket-System senden
     setSubmitting(true);
     try {
+      // TODO: hier an euer Backend / Ticket-System senden
       await new Promise((r) => setTimeout(r, 700));
-      setSubmitting(false);
-      setSubmitted("ok");
-
-      // optional: Felder leeren
-      // setName(""); setCompany(""); setEmail(""); setPhone(""); setMessage(""); setConsent(false);
+      showToast("Erfolgreich", "Ihre Nachricht wurde gesendet.");
     } catch {
+      showToast("Fehler", "Konnte die Anfrage nicht senden. Bitte erneut versuchen.");
+    } finally {
       setSubmitting(false);
-      setSubmitted("error");
     }
   }
 
@@ -97,6 +110,21 @@ export default function ContactPagePublic() {
 
       <AppHeader />
 
+      {/* ===== Toast wie AssessmentPage (ohne doppelte Inline-Message) ===== */}
+      {toast.visible && (
+        <div className="fixed right-8 top-8 z-[9999]">
+          <div className="flex items-start gap-3 rounded-md border border-[#b7d8ad] bg-[#dff2d8] px-4 py-3 shadow-lg">
+            <div className="mt-0.5 flex h-7 w-7 items-center justify-center rounded-full bg-white/70 text-[#1f3a1f]">
+              ✓
+            </div>
+            <div className="leading-tight text-[#1f3a1f]">
+              <div className="font-semibold">{toast.title}</div>
+              <div className="font-medium">{toast.description}</div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ======= Content ======= */}
       <section className="pt-10 pb-8 px-5">
         <div className="max-w-[1120px] mx-auto flex flex-col gap-6">
@@ -104,7 +132,7 @@ export default function ContactPagePublic() {
           <div className="relative rounded-3xl border-2 border-slate-200/90 bg-white/60 shadow-[0_18px_50px_-28px_rgba(15,23,42,0.22)] overflow-hidden">
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.55)_0%,rgba(255,255,255,0)_55%)]" />
             <div className="relative p-5 sm:p-6">
-              <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+              <div className="flex flex-col gap-4">
                 <div className="max-w-[48rem]">
                   <div className="inline-flex items-center gap-2 rounded-full bg-white/85 px-3 py-1 text-sm text-slate-700 border border-slate-200 shadow-sm">
                     <span className="h-2 w-2 rounded-full bg-[#E3BB62]" />
@@ -123,21 +151,6 @@ export default function ContactPagePublic() {
                     Antwort i. d. R. innerhalb 1–2 Werktage
                   </div>
                 </div>
-
-                <div className="grid gap-3 w-full md:w-[420px]">
-                  <QuickContactCard
-                    icon={<Phone className="h-4 w-4" />}
-                    title="Telefon"
-                    value={CAP.phone}
-                    href={`tel:${CAP.phone.replace(/\s+/g, "")}`}
-                  />
-                  <QuickContactCard
-                    icon={<Mail className="h-4 w-4" />}
-                    title="E-Mail"
-                    value={CAP.email}
-                    href={`mailto:${CAP.email}`}
-                  />
-                </div>
               </div>
             </div>
           </div>
@@ -149,22 +162,11 @@ export default function ContactPagePublic() {
               <div className="p-5 sm:p-6 border-b border-slate-200/70">
                 <h2 className="text-lg font-semibold text-[#264555]">Anfrage senden</h2>
                 <p className="mt-1 text-sm text-slate-600">
-                  Pflichtfelder: Name, E-Mail, Nachricht, Datenschutz.
+                  Pflichtfelder: Name, E-Mail, Nachricht.
                 </p>
               </div>
 
               <form onSubmit={onSubmit} className="p-5 sm:p-6 space-y-4">
-                {submitted === "ok" && (
-                  <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-                    Nachricht wurde vorbereitet. (Backend-Submit kannst du jetzt anbinden.)
-                  </div>
-                )}
-                {submitted === "error" && (
-                  <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
-                    Bitte prüfe die Pflichtfelder und Zustimmung.
-                  </div>
-                )}
-
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Field label="Name *">
                     <input
@@ -228,27 +230,33 @@ export default function ContactPagePublic() {
                   />
                 </Field>
 
-                <label className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white/85 p-4 shadow-sm">
-                  <input
-                    checked={consent}
-                    onChange={(e) => setConsent(e.target.checked)}
-                    type="checkbox"
-                    className="mt-1 h-4 w-4 accent-[#E3BB62]"
-                  />
-                  <span className="text-sm text-slate-700">
-                    <span className="inline-flex items-center gap-2 font-medium text-[#264555]">
-                      <ShieldCheck className="h-4 w-4" />
-                      Ich stimme den Datenschutzbestimmungen zu. *
-                    </span>
-                    <span className="block mt-1 text-xs text-slate-600">
-                      (Link auf eure Datenschutzseite einbauen)
-                    </span>
-                  </span>
-                </label>
-
+                {/* SUBMIT BUTTON (mailto) */}
                 <button
-                  type="submit"
+                  type="button"
                   disabled={!canSubmit || submitting}
+                  onClick={() => {
+                    if (!canSubmit) {
+                      showToast("Fehler", "Bitte prüfen Sie die Pflichtfelder: Name, E-Mail, Nachricht.");
+                      return;
+                    }
+
+                    const mailto = createMailtoUrl({
+                      to: CAP.email,
+                      topic,
+                      name,
+                      company,
+                      email,
+                      phone,
+                      message,
+                    });
+
+                    showToast(
+                      "Erfolgreich",
+                      "Die E-Mail wurde vorbereitet. Bitte senden Sie sie in Ihrem Mailprogramm ab."
+                    );
+
+                    window.location.href = mailto;
+                  }}
                   className="
                     w-full py-3 rounded-xl text-white font-semibold transition-all shadow-sm
                     bg-[linear-gradient(135deg,#315c8c_0%,#264555_100%)]
@@ -260,11 +268,6 @@ export default function ContactPagePublic() {
                   {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                   Anfrage senden
                 </button>
-
-                <p className="text-xs text-slate-500">
-  Alternativ: Telefon {CAP.phone} oder E-Mail {CAP.email}.
-</p>
-
               </form>
             </div>
 
@@ -286,10 +289,6 @@ export default function ContactPagePublic() {
                         <br />
                         {CAP.addressLines[1]}
                       </p>
-                      <p className="mt-2 text-xs text-slate-500">
-  Daten laut cap Kontaktseite.
-</p>
-
                     </div>
                   </div>
 
@@ -297,10 +296,9 @@ export default function ContactPagePublic() {
                   <div className="mt-4 rounded-2xl border border-slate-200 bg-white/85 p-4 shadow-sm">
                     {!mapAllowed ? (
                       <div className="space-y-3">
-                    <p className="text-xs text-slate-600">
-  Google Maps wird erst geladen, wenn du zustimmst (Datenübertragung an Drittanbieter).
-  (Platzhalter bis Zustimmung.)
-</p>
+                        <p className="text-xs text-slate-600">
+                          Google Maps wird erst geladen, wenn du zustimmst (Datenübertragung an Drittanbieter).
+                        </p>
 
                         <button
                           type="button"
@@ -453,35 +451,42 @@ function inputClass(extra?: string) {
   ].join(" ");
 }
 
-function QuickContactCard({
-  icon,
-  title,
-  value,
-  href,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  value: string;
-  href: string;
+const GAP = "\u00A0"; // Non-breaking space (sichtbar als leere Zeile)
+
+function joinWithSpacing(lines: string[]) {
+  // nach jeder Zeile eine "leere" Zeile erzwingen
+  return lines.flatMap((l) => [l, GAP]).join("\r\n");
+}
+
+function createMailtoUrl(args: {
+  to: string;
+  topic: string;
+  name: string;
+  company: string;
+  email: string;
+  phone: string;
+  message: string;
 }) {
-  return (
-    <a
-      href={href}
-      className="
-        flex items-center gap-3 rounded-2xl
-        border border-slate-200 bg-white/85 px-4 py-3
-        shadow-sm hover:bg-white transition
-      "
-    >
-      <div className="grid h-9 w-9 place-items-center rounded-xl bg-[#f7f8fb] border border-slate-200 text-[#264555]">
-        {icon}
-      </div>
-      <div className="min-w-0">
-        <div className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
-          {title}
-        </div>
-        <div className="text-sm font-medium text-slate-800 truncate">{value}</div>
-      </div>
-    </a>
-  );
+  const subject = `Kontaktanfrage: ${args.topic}`;
+
+  const lines = [
+    "Hallo cap consulting Team,",
+    "ich möchte Sie kontaktieren und habe folgende Anfrage:",
+    "",
+    `Thema: ${args.topic}`,
+    `Name: ${args.name}`,
+    args.company?.trim() ? `Unternehmen: ${args.company.trim()}` : "Unternehmen: -",
+    `E-Mail: ${args.email}`,
+    args.phone?.trim() ? `Telefon: ${args.phone.trim()}` : "Telefon: -",
+    "",
+    "Nachricht:",
+    (args.message || "-").trim(),
+    "",
+    "Mit freundlichen Grüßen",
+    args.name,
+  ];
+
+  const body = joinWithSpacing(lines);
+
+  return `mailto:${encodeURIComponent(args.to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }

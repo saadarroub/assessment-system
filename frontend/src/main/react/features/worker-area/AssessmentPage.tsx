@@ -10,7 +10,6 @@ import {
   getNextQuestion,
   saveAnswer,
   completeSession,
-  getPreviousQuestion,
   getState,
   normalizeApiQuestion,
   buildSaveValue,
@@ -255,6 +254,8 @@ export default function AssessmentPage() {
   const [questionsById, setQuestionsById] = useState<Record<string, UiQuestion>>({});
   //const [questionOrder, setQuestionOrder] = useState<string[] | null>(null);
   const [pos, setPos] = useState<number>(-1);           // Index im Trail (aktuelle Frage)
+
+  
   const [completed, setCompleted] = useState(false);
   const [status, setStatus] = useState<"in_progress" | "completed">("in_progress");
   const [progress, setProgress] = useState<{ answered: number; total: number }>({ answered: 0, total: 0 });
@@ -364,7 +365,7 @@ export default function AssessmentPage() {
   ) {
     const uiQ = normalizeApiQuestion(apiQ);
 
-    // currentAnswer → answers-State mappen (dein alter Code)
+    // currentAnswer → answers-State mappen 
     if (apiQ.currentAnswer && apiQ.currentAnswer.value !== undefined) {
       const raw = apiQ.currentAnswer.value;
 
@@ -540,7 +541,7 @@ export default function AssessmentPage() {
         }
         return;
       }
-      //  Keine Session -> neue starten (dein vorhandener Code) 
+      //  Keine Session -> neue starten 
       const s = await startSession(token, tid);
       setSessionId(s.sessionId);
       setStatus(s.status);
@@ -617,37 +618,12 @@ export default function AssessmentPage() {
 
 
   /*  Navigation  */
-  const prev = async () => {
-    if (!sessionId || !q) return;
-    if (!canGoBack) return;  // wenn wir sicher wissen, dass es nichts gibt
+ const prev = () => {
+  if (!sessionId) return;
+  setPos(p => Math.max(0, p - 1));
+};
 
-    try {
-      const prevResp = await getPreviousQuestion(
-        accessToken,
-        sessionId,
-        String(q.id)   // currentQuestionId
-      );
 
-      // Wir sind an der ersten Frage – nichts mehr zum Zurückgehen
-      if (prevResp.atStart && !(prevResp as any).questionId) {
-        setCanGoBack(false);
-        return;
-      }
-
-      const apiQ = prevResp as ApiQuestion;
-
-      applyApiQuestion(apiQ, "replace");
-
-      const uiQ = normalizeApiQuestion(apiQ);
-      setQuestionsById(prev => ({
-        ...prev,
-        [String(uiQ.id)]: uiQ,
-      }));
-      persistUiQuestionMeta(assignmentKeyId, themaId, uiQ);
-    } catch (e) {
-      console.error("getPreviousQuestion failed", e);
-    }
-  };
 
   const next = async () => {
     if (!q || !sessionId) return;
@@ -668,7 +644,6 @@ export default function AssessmentPage() {
 
       await saveAnswer(accessToken, sessionId, String(q.id), valueForApi);
 
-      // ab hier dein bisheriger Code (canGoBack, refreshState, trail, getNextQuestion, Summary, …)
       setCanGoBack(true);
 
       // Fortschritt aktualisieren + LocalStorage
@@ -787,7 +762,7 @@ export default function AssessmentPage() {
 
     let qMeta = questionsById[String(questionId)];
 
-    // Meta ggf. aus summary rekonstruieren (dein Fallback)
+    // Meta ggf. aus summary rekonstruieren 
     if (!qMeta && summary) {
       const row = (summary.answeredQuestions ?? []).find(
         (r: any) => String(r.questionId) === String(questionId)
@@ -1047,8 +1022,8 @@ export default function AssessmentPage() {
         return val === undefined || val === null || val === "";
     }
   }
- 
-  
+
+
 
   /* -------- Render -------- */
   return (
@@ -1363,9 +1338,6 @@ export default function AssessmentPage() {
                 strokeWidth="1"
               />
             </svg>
-
-
-
             {/* Kreis-Logo */}
             <div className="absolute left-1/2 top-[-88px] sm:top-[-100px] md:top-[-108px] -translate-x-1/2">
 
@@ -1624,10 +1596,11 @@ export default function AssessmentPage() {
                     <button
                       className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold bg-white text-[#666] border border-[#ddd] hover:bg-[#f5f5f5] transition disabled:opacity-50 disabled:cursor-not-allowed"
                       onClick={prev}
-                      disabled={!sessionId || !q || !canGoBack}   // nur deaktivieren, wenn wir gar nichts haben
+                      disabled={!sessionId || pos <= 0}
                     >
                       ← Zurück
                     </button>
+
 
                     <button
                       className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold
