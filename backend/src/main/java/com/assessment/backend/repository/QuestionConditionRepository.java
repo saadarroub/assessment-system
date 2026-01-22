@@ -16,16 +16,24 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface QuestionConditionRepository extends JpaRepository<QuestionCondition, UUID> {
 
-  //Find a QuestionCondition Object with the sourceQuestionId
-  QuestionCondition findBySourceQuestionId(UUID sourceQuestionId);
+  //Find all QuestionCondition Object for a sourceQuestionId
+  List<QuestionCondition> findAllBySourceQuestionIdOrderByCreatedAtAsc(UUID sourceQuestionId);
+
+  //Find a QuestionCondition Object with Id and Operator
+  QuestionCondition findBySourceQuestionIdAndOperator(UUID sourceQuestionId, String operator);
+
+//Existiert die QuestionCondition bereits
+  boolean existsBySourceQuestionIdAndOperatorAndExpectedValue(UUID sourceQuestionId, String operator, String expectedValue);
+
 
   //Find Question by SourceQuestionId
   @Query("SELECT q FROM Question q WHERE q.id = :sourceQuestionId")
   Question findQuestionBySourceQuestionId(@Param("sourceQuestionId") UUID sourceQuestionId);
 
-  //Find Answer Value with QuestionID
-  @Query("SELECT a.value FROM Answer a WHERE a.questionId = :questionId")
-  String findValueByQuestionId(@Param("questionId") UUID questionId);
+  //Find Answer Value with QuestionID + SessionID
+  @Query("SELECT a.value FROM Answer a WHERE a.questionId = :questionId AND a.sessionId = :sessionId")
+  String findValueByQuestionIdAndSessionId(@Param("questionId") UUID questionId,
+                                           @Param("sessionId") UUID sessionId);
 
 
 

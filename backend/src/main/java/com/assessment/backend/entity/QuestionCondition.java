@@ -12,18 +12,21 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-import lombok.Getter;
+import jakarta.persistence.UniqueConstraint;
 import org.hibernate.annotations.CreationTimestamp;
 
 @Entity
-@Table(name = "question_condition")
+@Table(name = "question_condition",
+    uniqueConstraints = @UniqueConstraint(
+        name = "uk_question_condition_unique",
+        columnNames = {"source_question_id", "operator", "expected_value"}))
 public class QuestionCondition {
 
   @Id
   @GeneratedValue(strategy = GenerationType.UUID)
   private UUID id;
 
-  @Column(name ="source_question_id")
+  @Column(name = "source_question_id", nullable = false)
   private UUID sourceQuestionId;
 
   @Column(name = "target_node_id")
@@ -35,9 +38,6 @@ public class QuestionCondition {
   @Column(nullable = false, columnDefinition = "TEXT")
   private String expectedValue;
 
-  @Column(name = "order_index", nullable = false)
-  private Integer orderIndex = 0;
-
   @CreationTimestamp
   @Column(name = "created_at", nullable = false, updatable = false)
   private LocalDateTime createdAt;
@@ -48,7 +48,9 @@ public class QuestionCondition {
 
   //Getter
 
-  public UUID getId() {return id;}
+  public UUID getId() {
+    return id;
+  }
 
   public UUID getSourceQuestionId() {
     return sourceQuestionId;
@@ -64,10 +66,6 @@ public class QuestionCondition {
 
   public String getExpectedValue() {
     return expectedValue;
-  }
-
-  public int getOrderIndex() {
-    return orderIndex;
   }
 
   public LocalDateTime getCreatedAt() {
@@ -88,15 +86,15 @@ public class QuestionCondition {
     this.expectedValue = expectedValue;
   }
 
-  public void setOrderIndex(int orderIndex) {
-    this.orderIndex = orderIndex;
-  }
-
   public void setQuestion(Question question) {
     this.question = question;
   }
 
-  public void setSourceQuestionId(UUID sourceQuestionId) { this.sourceQuestionId = sourceQuestionId; }
+  public void setSourceQuestionId(UUID sourceQuestionId) {
+    this.sourceQuestionId = sourceQuestionId;
+  }
 
-  public void setOperator(String operator) {this.operator = operator;}
+  public void setOperator(String operator) {
+    this.operator = operator;
+  }
 }

@@ -47,7 +47,7 @@ public class UserController {
         return ResponseEntity.ok(users);
     }
 
-    @PreAuthorize("hasAuthority('users.view')")
+    @PreAuthorize("hasAuthority('users.view') or @userSecurityService.isCurrentUser(#id)")
     @GetMapping("/{id}")
     public ResponseEntity<UserSummaryDTO> getUserById(@PathVariable UUID id) {
         return userService.getUserById(id)

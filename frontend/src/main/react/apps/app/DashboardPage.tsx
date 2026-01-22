@@ -20,6 +20,8 @@ import type {
 import { StatusDistributionChart } from "@/shared/components/StatusDistributionChart";
 import { TopCompaniesChart } from "@/shared/components/TopCompaniesChart";
 import { SessionAnalyticsSection } from "@/shared/components/SessionAnalyticsSection";
+import { useHasPermission } from "@/shared/hooks/useHasPermission";
+import { PermissionButton } from "@/shared/components/permission/PermissionButton";
 import {
   Building2,
   Folder,
@@ -202,6 +204,9 @@ function SectionHeader({
 
 export function DashboardPage() {
   const navigate = useNavigate();
+  const { has } = useHasPermission();
+  const canAnalyze = has("analytics.analyze");
+  
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recentAssignments, setRecentAssignments] = useState<
     AssignmentSummary[]
@@ -213,7 +218,6 @@ export function DashboardPage() {
   const [topCompanies, setTopCompanies] =
     useState<CompanyActivity[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   // Lazy loading states - show 4 initially, load more on scroll
   const [visibleAssignments, setVisibleAssignments] = useState(4);
@@ -256,7 +260,6 @@ export function DashboardPage() {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
-        setError(null);
 
         const [
           statsData,
@@ -282,7 +285,6 @@ export function DashboardPage() {
         setCompletedWithMaturity(maturityData);
       } catch (err: any) {
         console.error("❌ Dashboard error:", err);
-        setError(`Fehler: ${err?.message || "Unbekannt"}`);
       } finally {
         setLoading(false);
       }
@@ -290,46 +292,6 @@ export function DashboardPage() {
 
     fetchDashboardData();
   }, []);
-
-  if (error) {
-    return (
-      <AdminLayout>
-        <div className="px-6 py-8">
-          <div
-            className="
-              mx-auto max-w-[800px]
-              rounded-2xl border
-              px-6 py-5
-              shadow-lg
-            "
-            style={{
-              background: "#fee2e2",
-              borderColor: "#fca5a5",
-              color: "#991b1b",
-            }}
-          >
-            <h3 className="mb-2 text-lg font-semibold">❌ Fehler</h3>
-            <p className="mb-4 text-sm">{error}</p>
-            <button
-              onClick={() => window.location.reload()}
-              className="
-                inline-flex items-center justify-center
-                rounded-full px-4 py-2
-                text-sm font-semibold
-              "
-              style={{
-                background: BRAND.gold,
-                color: BRAND.navy,
-                boxShadow: "0 8px 20px rgba(0,0,0,0.18)",
-              }}
-            >
-              Neu laden
-            </button>
-          </div>
-        </div>
-      </AdminLayout>
-    );
-  }
 
   return (
     <AdminLayout>
@@ -353,7 +315,6 @@ export function DashboardPage() {
             "linear-gradient(to bottom, #f3f4f7 0, #e6e9ef 240px, #f4f5f8 100%)",
         }}
       >
-
         {/*  Top-Row: KPIs  */}
         <div className="max-w-[1400px] xl:max-w-[1600px] mx-auto">
 
@@ -541,7 +502,7 @@ export function DashboardPage() {
 
 
           {/* ===== Session Analytics (Area Chart) ===== */}
-          <SessionAnalyticsSection />
+          {canAnalyze && <SessionAnalyticsSection />}
 
           {/* ===== Recent Activity ===== */}
           <section className="grid gap-5 grid-cols-3">
@@ -735,7 +696,9 @@ export function DashboardPage() {
                               </span>
                             </div>
                             <div className="flex items-center gap-2">
-                              <button
+                              <PermissionButton
+                                allowed={canAnalyze}
+                                tooltip="Sie benötigen die Berechtigung 'analytics.analyze' um Sessions zu bewerten."
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   navigate(`/app/results/${s.id}`);
@@ -750,7 +713,7 @@ export function DashboardPage() {
                               >
                                 <Award size={12} />
                                 Bewerten
-                              </button>
+                              </PermissionButton>
                             </div>
                           </div>
 

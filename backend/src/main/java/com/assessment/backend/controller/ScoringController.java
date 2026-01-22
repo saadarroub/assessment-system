@@ -589,6 +589,7 @@ public class ScoringController {
      * }
      */
     @GetMapping("/admin/sessions/{sessionId}/manual-scoring")
+    @PreAuthorize("hasAuthority('analytics.analyze')")
     public ResponseEntity<?> getSessionForManualScoring(@PathVariable("sessionId") String sessionId) {
         try {
             UUID sessionUuid = UUID.fromString(sessionId);
@@ -770,6 +771,7 @@ public class ScoringController {
      * }
      */
     @PutMapping("/admin/sessions/{sessionId}/answers/{questionId}/score")
+    @PreAuthorize("hasAuthority('analytics.analyze')")
     @Transactional
     public ResponseEntity<?> updateManualScore(
             @PathVariable("sessionId") String sessionId,

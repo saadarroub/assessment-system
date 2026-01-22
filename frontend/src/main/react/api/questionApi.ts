@@ -7,7 +7,7 @@ const API_BASE = ""; // apiClient verwendet bereits http://localhost:8080/api al
 export async function getAllQuestions() {
   const response = await apiClient.get(`${API_BASE}/questions`);
   return response.data;
-}   
+}
 
 
 
@@ -213,9 +213,59 @@ export async function getInactiveThemas() {
   return response.data;
 }
 
+// 🔧 Condition für eine Frage erstellen
+export async function createQuestionCondition(
+  sourceQuestionId: string,
+  payload: {
+    targetNodeId: string;
+    operator: "==" | "!=" | "<" | ">";
+    expectedValue: string;
+  }
+) {
+  const url = `${API_BASE}question-condition/create/${sourceQuestionId}`;
+  const res = await apiClient.post(url, payload);
+  return res.data;
+}
+
+export async function getQuestionConditions(sourceQuestionId: string) {
+  const res = await apiClient.get(
+    `${API_BASE}question-condition/${sourceQuestionId}`
+  );
+  return res.data;
+}
+
+
+export async function deleteAllQuestionConditions(sourceQuestionId: string) {
+  return apiClient.delete(
+    `${API_BASE}question-condition/deleteAll/${sourceQuestionId}`
+  );
+}
+
+
+export async function deleteQuestionCondition(
+  sourceQuestionId: string,
+  operator: "==" | "!=" | "<" | ">"
+) {
+  return apiClient.delete(
+    `${API_BASE}question-condition/deleteOne/${sourceQuestionId}/${encodeURIComponent(operator)}`
+  );
+}
 
 
 
+export async function updateQuestionCondition(
+  sourceQuestionId: string,
+  operator: string,
+  payload: {
+    targetNodeId: string;
+    expectedValue: string;
+    operator: string;
+  }
+) {
+  const url = `${API_BASE}question-condition/update/${sourceQuestionId}/${encodeURIComponent(operator)}`;
+  const res = await apiClient.put(url, payload);
+  return res.data;
+}
 
 
 

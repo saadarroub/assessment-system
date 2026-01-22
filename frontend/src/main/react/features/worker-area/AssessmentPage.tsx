@@ -642,7 +642,23 @@ export default function AssessmentPage() {
         valueForApi = buildSaveValue(q, uiVal ?? "");
       }
 
-      await saveAnswer(accessToken, sessionId, String(q.id), valueForApi);
+      // saveAnswer gibt jetzt auch condition-basierte Daten zurück
+      const saveResp = await saveAnswer(accessToken, sessionId, String(q.id), valueForApi);
+
+      // Aktualisiere Score/Progress aus der saveAnswer Response (dynamisch durch Conditions)
+      if (saveResp.maxPossibleScore !== undefined || saveResp.totalQuestions !== undefined) {
+        setScore(prev => ({
+          ...prev,
+          maxTotalScore: saveResp.maxPossibleScore ?? prev.maxTotalScore,
+        }));
+        if (saveResp.totalQuestions !== undefined) {
+          setProgress(prev => ({
+            ...prev,
+            total: saveResp.totalQuestions ?? prev.total,
+            answered: saveResp.answeredCount ?? prev.answered,
+          }));
+        }
+      }
 
       setCanGoBack(true);
 
@@ -657,7 +673,8 @@ export default function AssessmentPage() {
       } catch { }
 
       // Wenn wir im Trail noch vorwärts können → nur pos++ (History)
-      if (pos < trail.length - 1) {
+      // ABER: Wenn eine Condition zu einer anderen Frage springt, müssen wir das respektieren
+      if (pos < trail.length - 1 && !saveResp.nextQuestionId) {
         setPos(p => {
           const nextPos = p + 1;
           if (sessionId) {

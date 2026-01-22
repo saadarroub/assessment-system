@@ -163,8 +163,9 @@ export default function CompaniesList() {
         if (alive) setItems(mapped);
       } catch (e: any) {
         if (alive) {
-          const err =
-            e instanceof Error ? e : new Error(e?.message ?? String(e));
+          // Preserve response.status for 403 detection by WithPermissionCheck
+          const err = e instanceof Error ? e : new Error(e?.message ?? String(e));
+          if (e?.response) (err as any).response = e.response;
           setError(err);
         }
       } finally {

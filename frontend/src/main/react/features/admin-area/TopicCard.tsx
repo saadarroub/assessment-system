@@ -223,11 +223,10 @@ const TopicCard = ({
               <span
                 className={`
       px-2 py-1 rounded-full text-xs font-medium
-      ${
-        t.status === "active"
-          ? "bg-[hsl(142_71%_85%)] text-[hsl(142_71%_30%)]"
-          : "bg-[hsl(45_30%_88%)] text-[hsl(30_8%_45%)]"
-      }
+      ${t.status === "active"
+                    ? "bg-[hsl(142_71%_85%)] text-[hsl(142_71%_30%)]"
+                    : "bg-[hsl(45_30%_88%)] text-[hsl(30_8%_45%)]"
+                  }
     `}
               >
                 {t.status === "active" ? "aktiv" : "inaktiv"}
@@ -294,8 +293,8 @@ const TopicCard = ({
                     />
                   </div>
 
-<div
-  className={`
+                  <div
+                    className={`
     ${showTooltipFull ? "opacity-100 visible" : "opacity-0 invisible"}
     absolute right-0 top-9 w-80
     rounded-xl p-3 text-xs
@@ -310,7 +309,7 @@ const TopicCard = ({
     overflow-wrap-anywhere
     whitespace-normal
   `}
->
+                  >
 
 
                     <b>{t.title}</b>
@@ -414,16 +413,17 @@ const TopicCard = ({
               className="
     group/manage flex-1 ml-3
     flex items-center justify-center gap-3
-    h-10 px-6
+    h-10 px-4
     rounded-xl
     font-semibold text-[14.5px]
     transition-colors duration-200
     bg-[hsl(45_80%_55%_/_0.2)]
     hover:bg-[hsl(45_80%_55%_/_0.28)]
     text-[hsl(30_10%_20%)]
+    whitespace-nowrap
   "
             >
-              <span>Fragen Verwalten</span>
+              <span className="whitespace-nowrap">Fragen Verwalten</span>
 
               <ArrowRight
                 size={16}
@@ -431,6 +431,7 @@ const TopicCard = ({
                 className="
       transition-transform duration-200
       group-hover/manage:translate-x-2
+      shrink-0
     "
               />
             </button>
@@ -478,19 +479,19 @@ const TopicCard = ({
                     >
                       Titel <span className="text-red-500">*</span>
                     </label>
-           <textarea
-  id="edit-title"
-  rows={1}
-  maxLength={70}
-  value={editTitle}
-  onChange={(e) => {
-    setEditTitle(e.target.value);
+                    <textarea
+                      id="edit-title"
+                      rows={1}
+                      maxLength={70}
+                      value={editTitle}
+                      onChange={(e) => {
+                        setEditTitle(e.target.value);
 
-    // ⭐ Auto-Resize
-    e.currentTarget.style.height = "auto";
-    e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
-  }}
-  className="
+                        // ⭐ Auto-Resize
+                        e.currentTarget.style.height = "auto";
+                        e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
+                      }}
+                      className="
     w-full
     rounded-xl
     border
@@ -509,7 +510,7 @@ const TopicCard = ({
     focus:ring-2 focus:ring-[rgba(227,187,98,0.45)]
     transition
   "
-/>
+                    />
 
                   </div>
 

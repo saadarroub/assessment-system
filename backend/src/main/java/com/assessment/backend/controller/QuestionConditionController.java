@@ -1,11 +1,14 @@
 package com.assessment.backend.controller;
 
 import com.assessment.backend.dto.QuestionConditionDTO;
+import com.assessment.backend.entity.QuestionCondition;
 import com.assessment.backend.service.QuestionConditionService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -16,15 +19,20 @@ public class QuestionConditionController {
   @Autowired
   private QuestionConditionService questionConditionService;
 
-  // Endpoint zum Erstellen oder Aktualisieren einer QuestionCondition
-  @PostMapping("/handle/{sourceQuestionId}")
-  public ResponseEntity<String> handleQuestionCondition(
+  @PostMapping("/create/{sourceQuestionId}")
+  @PreAuthorize("hasAuthority('questions.edit')")
+  public ResponseEntity<String> createQuestionCondition(
       @PathVariable UUID sourceQuestionId,
       @RequestBody HandleRequest requestBody
   ) {
     try {
-      questionConditionService.handleQuestionByType(sourceQuestionId, requestBody.getExpectedValue(), requestBody.getTarget());
-      return ResponseEntity.ok("QuestionCondition erfolgreich verarbeitet.");
+      questionConditionService.createQuestionCondition(
+          sourceQuestionId,
+          requestBody.getTargetNodeId(),
+          requestBody.getOperator(),
+          requestBody.getExpectedValue()
+      );
+      return ResponseEntity.ok("QuestionCondition erfolgreich erstellt.");
     } catch (IllegalArgumentException e) {
       return ResponseEntity.badRequest().body(e.getMessage());
     } catch (Exception e) {
@@ -32,44 +40,128 @@ public class QuestionConditionController {
     }
   }
 
-  // Endpoint zum Laden einer QuestionCondition
-  @GetMapping("/{sourceQuestionId}")
-  public ResponseEntity<QuestionConditionDTO> getQuestionCondition(@PathVariable UUID sourceQuestionId) {
+
+  @PostMapping("/handle/{sourceQuestionId}/{sessionId}")
+  public ResponseEntity<String> handleQuestionCondition(
+      @PathVariable UUID sourceQuestionId,
+      @PathVariable UUID sessionId)
+       {
     try {
-      var qc = questionConditionService.createOrLoadQuestionCondition(sourceQuestionId);
-      return ResponseEntity.ok(new QuestionConditionDTO(
-          qc.getId(),
-          qc.getSourceQuestionId(),
-          qc.getTargetNodeId(),
-          qc.getOperator(),
-          qc.getExpectedValue(),
-          qc.getOrderIndex(),
-          qc.getCreatedAt()
-      ));
+      UUID nextNodeId = questionConditionService.handleQuestionByType(sourceQuestionId, sessionId);
+      return ResponseEntity.ok("QuestionCondition erfolgreich verarbeitet." + "Der nächste " +
+          "Zielknoten lautet:" + nextNodeId);
+    } catch (IllegalArgumentException e) {
+      return ResponseEntity.badRequest().body(e.getMessage());
+    } catch (Exception e) {
+      return ResponseEntity.internalServerError().body("Interner Fehler: " + e.getMessage());
+    }
+  }
+
+  @GetMapping("/{sourceQuestionId}")
+  public ResponseEntity<List<QuestionConditionDTO>> getQuestionCondition(
+      @PathVariable UUID sourceQuestionId
+  ) {
+    try {
+      List<QuestionCondition> qcList = questionConditionService.loadQuestionCondition(sourceQuestionId);
+
+      if (qcList == null || qcList.isEmpty()) {
+        return ResponseEntity.notFound().build();
+      }
+
+      List<QuestionConditionDTO> dtoList = qcList.stream()
+          .map(qc -> new QuestionConditionDTO(
+              qc.getId(),
+              qc.getSourceQuestionId(),
+              qc.getTargetNodeId(),
+              qc.getOperator(),
+              qc.getExpectedValue(),
+              qc.getCreatedAt()
+          ))
+          .toList();
+
+      return ResponseEntity.ok(dtoList);
     } catch (Exception e) {
       return ResponseEntity.internalServerError().build();
     }
   }
 
+
+  @PutMapping("/update/{sourceQuestionId}/{operator}")
+  @PreAuthorize("hasAuthority('questions.edit')")
+  public ResponseEntity<String> updateQuestionCondition(@PathVariable UUID sourceQuestionId,
+                                                        @PathVariable String operator,
+                                                        @RequestBody HandleRequest requestBody){
+
+    try {
+
+      questionConditionService.updateQuestionConditionEntity(sourceQuestionId, operator,
+          requestBody.getExpectedValue(),requestBody.getTargetNodeId());
+
+      return ResponseEntity.ok("QuestionCondition erfolgreich aktualisiert.");
+    } catch (IllegalArgumentException e) {
+      return ResponseEntity.badRequest().body(e.getMessage());
+    } catch (Exception e) {
+      return ResponseEntity.internalServerError().body("Interner Fehler: " + e.getMessage());
+    }
+
+  }
+
+
+  @DeleteMapping("/deleteOne/{sourceQuestionId}/{operator}")
+  @PreAuthorize("hasAuthority('questions.edit')")
+  public ResponseEntity<String> deleteOneQuestionCondition(@PathVariable UUID sourceQuestionId,
+                                                           @PathVariable String operator){
+    try {
+
+      questionConditionService.deleteASingleQuestionCondition(sourceQuestionId, operator);
+
+      return ResponseEntity.ok("QuestionCondition erfolgreich gelöscht.");
+    } catch (IllegalArgumentException e) {
+      return ResponseEntity.badRequest().body(e.getMessage());
+    } catch (Exception e) {
+      return ResponseEntity.internalServerError().body("Interner Fehler: " + e.getMessage());
+    }
+  }
+
+
+  @DeleteMapping("/deleteAll/{sourceQuestionId}")
+  @PreAuthorize("hasAuthority('questions.edit')")
+  public ResponseEntity<String> deleteAllQuestionCondition(@PathVariable UUID sourceQuestionId){
+    try {
+
+      questionConditionService.deleteAllQuestionConditions(sourceQuestionId);
+
+      return ResponseEntity.ok("Alle QuestionConditions erfolgreich gelöscht.");
+    } catch (IllegalArgumentException e) {
+      return ResponseEntity.badRequest().body(e.getMessage());
+    } catch (Exception e) {
+      return ResponseEntity.internalServerError().body("Interner Fehler: " + e.getMessage());
+    }
+
+  }
+
   // RequestBody-Klasse für POST
   public static class HandleRequest {
     private String expectedValue;
+    private String operator;
+    private UUID targetNodeId;
     private Map<String, UUID> target;
 
     public String getExpectedValue() {
       return expectedValue;
     }
 
-    public void setExpectedValue(String expectedValue) {
-      this.expectedValue = expectedValue;
+    public String getOperator(){
+      return operator;
+
     }
 
-    public Map<String, UUID> getTarget() {
-      return target;
+    public UUID getTargetNodeId() {
+
+      return targetNodeId;
+
     }
 
-    public void setTarget(Map<String, UUID> target) {
-      this.target = target;
-    }
+
   }
 }

@@ -76,6 +76,12 @@ public class PublicAccessController {
 
     @Autowired
     private AutoScoringService autoScoringService;
+    
+    @Autowired
+    private com.assessment.backend.service.QuestionConditionService questionConditionService;
+    
+    @Autowired
+    private com.assessment.backend.repository.QuestionConditionRepository questionConditionRepository;
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -402,12 +408,17 @@ public class PublicAccessController {
                         ? assessmentSessionService.findLatest(workerId, themaId)
                         : null;
 
-                int totalQuestions = publicQueryUtil.countQuestionsByThema(themaId);
+                // Hole ignorierte Nodes für dynamische Berechnung
+                List<UUID> ignoredNodeIds = (session != null) 
+                        ? session.getConditionIgnoredNodeIds() 
+                        : null;
+                
+                int totalQuestions = publicQueryUtil.countQuestionsByThema(themaId, ignoredNodeIds);
                 long answered = (session != null) ? answerService.countAnswered(session.getId()) : 0L;
 
                 Map<String, Object> next = null;
                 if (session != null && !"completed".equals(session.getStatus())) {
-                    next = publicQueryUtil.findNextQuestion(session.getId(), themaId);
+                    next = publicQueryUtil.findNextQuestion(session.getId(), themaId, ignoredNodeIds);
                 }
 
                 Map<String, Object> m = new HashMap<>();
@@ -476,7 +487,9 @@ public class PublicAccessController {
             AssessmentSession session = assessmentSessionService.getOrCreate(companyId, workerId, themaUuid);
             session = assessmentSessionService.advanceToInProgress(session.getId());
 
-            Map<String, Object> next = publicQueryUtil.findNextQuestion(session.getId(), themaUuid);
+            // Hole ignorierte Nodes für condition-aware Navigation
+            List<UUID> ignoredNodeIds = assessmentSessionService.getConditionIgnoredNodeIds(session.getId());
+            Map<String, Object> next = publicQueryUtil.findNextQuestion(session.getId(), themaUuid, ignoredNodeIds);
 
             AccessGuardUtil.touchLastAccess(workerCatalogService, assignment.getId());
 
@@ -518,7 +531,10 @@ public class PublicAccessController {
             if (ownDenied != null) return ownDenied;
 
             long answered = answerService.countAnswered(session.getId());
-            int total = publicQueryUtil.countQuestionsByThema(session.getThemaId());
+            
+            // Hole ignorierte Nodes für dynamische Total-Berechnung
+            List<UUID> ignoredNodeIds = assessmentSessionService.getConditionIgnoredNodeIds(sessionUuid);
+            int total = publicQueryUtil.countQuestionsByThema(session.getThemaId(), ignoredNodeIds);
             
             // Berechne Progress-Prozent (0-100, ohne Nachkommastellen)
             int progressPercent = total > 0 ? (int) Math.round((answered * 100.0) / total) : 0;
@@ -565,7 +581,11 @@ public class PublicAccessController {
             ResponseEntity<?> ownDenied = AccessGuardUtil.guardSessionOwnership(assignment, session, themaCatalogService);
             if (ownDenied != null) return ownDenied;
 
-            var next = publicQueryUtil.findNextQuestion(session.getId(), session.getThemaId());
+            // Hole ignorierte Nodes für condition-aware Navigation
+            List<UUID> ignoredNodeIds = assessmentSessionService.getConditionIgnoredNodeIds(sessionUuid);
+            System.out.println("[NEXT] Session " + sessionUuid + " ignoredNodeIds from DB: " + ignoredNodeIds);
+            var next = publicQueryUtil.findNextQuestion(session.getId(), session.getThemaId(), ignoredNodeIds);
+            System.out.println("[NEXT] findNextQuestion returned: " + (next != null ? next.get("questionId") : "null"));
             AccessGuardUtil.touchLastAccess(workerCatalogService, assignment.getId());
 
             if (next == null) return new ResponseEntity<>(Map.of("done", true), HttpStatus.NO_CONTENT);
@@ -688,6 +708,9 @@ public class PublicAccessController {
             // Hole alle beantworteten Fragen
             List<Map<String, Object>> answeredQuestionsData = publicQueryUtil.getAnsweredQuestionsWithDetails(sessionUuid);
             
+            // Hole ignorierte Nodes für dynamische Berechnung
+            List<UUID> ignoredNodeIds = assessmentSessionService.getConditionIgnoredNodeIds(sessionUuid);
+            
             // Baue DTO
             SessionSummaryResponseDTO summary = new SessionSummaryResponseDTO();
             summary.setSessionId(session.getId());
@@ -699,8 +722,8 @@ public class PublicAccessController {
                 summary.setThemaName(thema.getName())
             );
             
-            // Progress
-            int totalQuestions = publicQueryUtil.countQuestionsByThema(session.getThemaId());
+            // Progress (mit Berücksichtigung der ignorierten Nodes)
+            int totalQuestions = publicQueryUtil.countQuestionsByThema(session.getThemaId(), ignoredNodeIds);
             int answeredCount = answeredQuestionsData.size();
             int progressPercent = totalQuestions > 0 ? (int) Math.round((answeredCount * 100.0) / totalQuestions) : 0;
             
@@ -713,8 +736,8 @@ public class PublicAccessController {
             
             
             // MaxPossibleScore = Alle required Fragen + beantwortete optionale Fragen (NUR wenn isScorable=true)
-            // 1. Basis: Alle required=true Fragen (isScorable wird in calculateMaxPossibleScoreForRequiredQuestions geprüft)
-            BigDecimal maxPossibleScore = publicQueryUtil.calculateMaxPossibleScoreForRequiredQuestions(session.getThemaId());
+            // 1. Basis: Alle required=true Fragen (mit Berücksichtigung der ignorierten Nodes)
+            BigDecimal maxPossibleScore = publicQueryUtil.calculateMaxPossibleScoreForRequiredQuestions(session.getThemaId(), ignoredNodeIds);
             
             // 2. Addiere MaxScore für beantwortete optionale Fragen (required=false) - NUR wenn isScorable=true
             for (Map<String, Object> data : answeredQuestionsData) {
@@ -868,6 +891,110 @@ public class PublicAccessController {
             return BigDecimal.valueOf(5); // Fallback
         }
     }
+    
+    /**
+     * Hilfsmethode: Prüft ob eine Frage Conditions hat und wertet diese aus.
+     * Wenn eine Condition zutrifft, werden die übersprungenen Nodes markiert
+     * und die Ziel-Frage zurückgegeben.
+     * 
+     * @param session Die aktuelle Session
+     * @param questionId Die beantwortete Frage
+     * @return ConditionResult mit targetNodeId und ggf. übersprungenen Nodes, oder null wenn keine Condition
+     */
+    private ConditionResult evaluateConditionAndUpdateIgnoredNodes(AssessmentSession session, UUID questionId) {
+        try {
+            // Prüfe ob die Frage Conditions hat
+            var conditions = questionConditionRepository.findAllBySourceQuestionIdOrderByCreatedAtAsc(questionId);
+            System.out.println("[CONDITION] Checking conditions for question: " + questionId + ", found: " + (conditions != null ? conditions.size() : 0));
+            if (conditions == null || conditions.isEmpty()) {
+                return null; // Keine Conditions -> normale Navigation
+            }
+            
+            // Evaluiere die Condition basierend auf der gegebenen Antwort
+            UUID targetNodeId = questionConditionService.handleQuestionByType(questionId, session.getId());
+            System.out.println("[CONDITION] handleQuestionByType returned targetNodeId: " + targetNodeId);
+            
+            if (targetNodeId == null) {
+                return null; // Keine passende Condition -> normale Navigation
+            }
+            
+            // Finde alle Nodes zwischen Source und Target die übersprungen werden
+            List<UUID> skippedNodeIds = publicQueryUtil.findNodesBetweenByCondition(
+                session.getThemaId(), 
+                questionId, 
+                targetNodeId
+            );
+            System.out.println("[CONDITION] findNodesBetweenByCondition returned skippedNodes: " + skippedNodeIds);
+            
+            // Aktualisiere die Session mit den ignorierten Nodes
+            if (skippedNodeIds != null && !skippedNodeIds.isEmpty()) {
+                assessmentSessionService.addConditionIgnoredNodes(session.getId(), skippedNodeIds);
+                System.out.println("[CONDITION] Added " + skippedNodeIds.size() + " nodes to ignored list");
+            }
+            
+            return new ConditionResult(targetNodeId, skippedNodeIds);
+            
+        } catch (Exception e) {
+            // Bei Fehler in Condition-Evaluation: normale Navigation fortsetzen
+            System.err.println("Condition evaluation failed for question " + questionId + ": " + e.getMessage());
+            e.printStackTrace();
+            return null;
+        }
+    }
+    
+    /**
+     * Hilfsklasse für Condition-Ergebnis
+     */
+    private static class ConditionResult {
+        final UUID targetNodeId;
+        final List<UUID> skippedNodeIds;
+        
+        ConditionResult(UUID targetNodeId, List<UUID> skippedNodeIds) {
+            this.targetNodeId = targetNodeId;
+            this.skippedNodeIds = skippedNodeIds != null ? skippedNodeIds : java.util.Collections.emptyList();
+        }
+    }
+    
+    /**
+     * Hilfsmethode: Enriched die SaveAnswerResponse mit aktuellen Score/Progress-Werten
+     * und optional mit Condition-basierter nächster Frage
+     */
+    private SaveAnswerResponseDTO enrichResponseWithConditionData(
+            SaveAnswerResponseDTO response, 
+            AssessmentSession session,
+            UUID questionId) {
+        
+        // Evaluiere Conditions
+        ConditionResult conditionResult = evaluateConditionAndUpdateIgnoredNodes(session, questionId);
+        
+        // Hole aktuelle ignorierte Nodes (inkl. gerade hinzugefügter)
+        List<UUID> ignoredNodeIds = assessmentSessionService.getConditionIgnoredNodeIds(session.getId());
+        System.out.println("[ENRICH] Session " + session.getId() + " ignoredNodeIds: " + ignoredNodeIds);
+        
+        // Aktualisiere max score und total questions
+        BigDecimal maxScore = publicQueryUtil.calculateMaxPossibleScoreForRequiredQuestions(
+            session.getThemaId(), 
+            ignoredNodeIds
+        );
+        int totalQuestions = publicQueryUtil.countQuestionsByThema(session.getThemaId(), ignoredNodeIds);
+        System.out.println("[ENRICH] maxScore: " + maxScore + ", totalQuestions: " + totalQuestions);
+        
+        response.setMaxPossibleScore(maxScore);
+        response.setTotalQuestions(totalQuestions);
+        
+        // Wenn Condition zutrifft, setze die nächste Frage
+        if (conditionResult != null && conditionResult.targetNodeId != null) {
+            // Hole die Frage-Details vom Ziel-Node
+            Map<String, Object> targetQuestion = publicQueryUtil.findQuestionByNodeId(conditionResult.targetNodeId);
+            if (targetQuestion != null) {
+                response.setNextNodeId(conditionResult.targetNodeId);
+                response.setNextQuestionId((UUID) targetQuestion.get("questionId"));
+                System.out.println("[ENRICH] Condition target: nodeId=" + conditionResult.targetNodeId + ", questionId=" + targetQuestion.get("questionId"));
+            }
+        }
+        
+        return response;
+    }
 
     /**
      * PUT /public/access/{accessToken}/sessions/{sessionId}/answers/{questionId}
@@ -950,6 +1077,11 @@ public class PublicAccessController {
                     null, // kein Score bei Skip
                     answered
                 );
+                
+                // Bei Skip keine Condition-Evaluierung (da kein echter Wert)
+                List<UUID> ignoredNodeIds = assessmentSessionService.getConditionIgnoredNodeIds(session.getId());
+                response.setMaxPossibleScore(publicQueryUtil.calculateMaxPossibleScoreForRequiredQuestions(session.getThemaId(), ignoredNodeIds));
+                response.setTotalQuestions(publicQueryUtil.countQuestionsByThema(session.getThemaId(), ignoredNodeIds));
 
                 return new ResponseEntity<>(response, HttpStatus.OK);
             }
@@ -974,6 +1106,9 @@ public class PublicAccessController {
                     scoreToSave,
                     answered
                 );
+                
+                // Enrich response mit Condition-Daten
+                enrichResponseWithConditionData(response, session, questionUuid);
 
                 return new ResponseEntity<>(response, HttpStatus.OK);
             }
@@ -1005,6 +1140,9 @@ public class PublicAccessController {
                     saved.getScore(),
                     answered
                 );
+                
+                // Enrich response mit Condition-Daten
+                enrichResponseWithConditionData(response, session, questionUuid);
 
                 return new ResponseEntity<>(response, HttpStatus.OK);
             }
@@ -1030,6 +1168,9 @@ public class PublicAccessController {
                 saved.getScore(),
                 answered
             );
+            
+            // Enrich response mit Condition-Daten
+            enrichResponseWithConditionData(response, session, questionUuid);
 
             return new ResponseEntity<>(response, HttpStatus.OK);
         } catch (Exception e) {
