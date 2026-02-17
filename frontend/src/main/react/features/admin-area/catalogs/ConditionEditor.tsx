@@ -5,7 +5,7 @@ import PageHeader from "./PageHeader";
 import ConfirmModal from "@/shared/components/ConfirmModal";
 
 // Icons
-import AdminLayout from "@/apps/app/AdminLayout";
+import AdminLayout from "@/shared/app/AdminLayout";
 import "@/styles/admin.css";
 import {
   ArrowLeft,
@@ -45,7 +45,7 @@ import {
   updateQuestionNodeRequired,
   moveRootNode,
   moveChildNode,
-} from "@/api/questionApi";
+} from "@/shared/service/api/questionApi";
 
 // 🧩 Drag & Drop Imports
 import { DndContext, closestCorners } from "@dnd-kit/core";

@@ -2,11 +2,11 @@ import * as React from "react";
 import { CalendarIcon, ChevronLeft, ChevronRight } from "lucide-react";
 import { format, subMonths, subYears, startOfMonth, endOfMonth, startOfWeek, endOfWeek, isAfter, isBefore, addMonths } from "date-fns";
 import { de } from "date-fns/locale";
-import { Button } from "@/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
+import { Button } from "@/shared/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/shared/components/ui/popover";
+import { Calendar } from "@/shared/components/ui/calendar";
 import { cn } from "@/lib/utils";
-import type { TimeBucket } from "@/api/types";
+import type { TimeBucket } from "@/shared/service/api/types";
 
 const BRAND = {
   navy: "#264555",

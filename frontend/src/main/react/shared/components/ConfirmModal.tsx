@@ -19,7 +19,6 @@ export type ConfirmModalProps = {
 
   icon?: ReactNode;
 
-  /** Optional: falls du mal per Klick auf den Hintergrund schließen willst */
   closeOnBackdropClick?: boolean;
 };
 
@@ -38,7 +37,7 @@ export default function ConfirmModal(props: ConfirmModalProps) {
     closeOnBackdropClick = false,
   } = props;
 
-  // === Body-Scroll sperren, solange das Modal offen ist ===
+  //  Body-Scroll sperren, solange das Modal offen ist 
   useEffect(() => {
     if (!open) return;
 

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import AdminLayout from "@/apps/app/AdminLayout";
+import AdminLayout from "@/shared/app/AdminLayout";
 import { useHasPermission } from "@/shared/hooks/useHasPermission";
 import { PermissionButton } from "@/shared/components/permission/PermissionButton";
 import { useScrollLock } from "@/shared/hooks/useScrollLock";
@@ -18,7 +18,7 @@ import {
   changeCompanyStatus,
   changeWorkerStatus,
   getWorkerAssignmentCount,
-} from "@/features/service/companyService";
+} from "@/shared/service/companyService";
 import {
   Pencil,
   Trash2,
@@ -50,7 +50,7 @@ const BRAND = {
   gold: "#E3BB62",
 };
 
-/* ---------- Typen + Mapper ---------- */
+/*  Typen + Mapper  */
 type CompanyDetailsT = {
   id: string;
   name: string;
@@ -169,9 +169,6 @@ function onStatusClick() {
   setConfirmStatusOpen(true);
 }
 
-
-
-
   const fmt = (iso?: string | null) =>
     iso ? new Date(iso).toLocaleDateString("de-DE") : "—";
 
@@ -187,7 +184,7 @@ function onStatusClick() {
     return "bg-[rgb(229,231,235)] text-[rgb(55,65,81)]"; // assigned
   };
 
-  /* ---------- Assignments laden ---------- */
+  /*  Assignments laden  */
   useEffect(() => {
     if (!id) return;
     let alive = true;
@@ -208,7 +205,7 @@ function onStatusClick() {
     };
   }, [id]);
 
-  /* ---------- Company laden ---------- */
+  /*  Company laden  */
   useEffect(() => {
     let alive = true;
     if (!id) {
@@ -232,7 +229,7 @@ function onStatusClick() {
     };
   }, [id]);
 
-  /* ---------- Workers laden ---------- */
+  /*  Workers laden  */
   useEffect(() => {
     if (!id) return;
     let alive = true;
@@ -316,11 +313,7 @@ function StatusToggle({
     </button>
   );
 }
-
-
-
-
-  /* ---------- Loading/Errors ---------- */
+  /*  Loading/Errors  */
   if (loading) {
     return (
       <AdminLayout>
@@ -353,7 +346,7 @@ function StatusToggle({
     );
   }
 
-  /* ---------- abgeleitete Werte ---------- */
+  /*  abgeleitete Werte  */
   const usersCount =
     typeof company.usersCount === "number"
       ? company.usersCount
@@ -367,7 +360,7 @@ function StatusToggle({
     return ids.size;
   })();
 
-  /* ---------- Invite ---------- */
+  /*  Invite  */
   function openInviteModal() {
     setInvName("");
     setInvEmail("");
@@ -403,7 +396,7 @@ function StatusToggle({
     }
   }
 
-  /* ---------- Edit ---------- */
+  /*  Edit  */
   function openEdit(w: WorkerApi) {
     setEditing(w);
     setFormName(w.name ?? "");
@@ -457,7 +450,7 @@ function StatusToggle({
     }
   }
 
-  /* ---------- Delete ---------- */
+  /*  Delete  */
   function askDelete(w: WorkerApi) {
     setToDelete(w);
     setDeleteError(null);
@@ -485,7 +478,7 @@ function StatusToggle({
     }
   }
 
-  /* ---------- Worker Status Toggle ---------- */
+  /*  Worker Status Toggle  */
   async function onWorkerStatusClick(worker: WorkerApi) {
     if (!worker || changingWorkerStatus) return;
     
@@ -515,7 +508,6 @@ function StatusToggle({
     
     try {
       const updated = await changeWorkerStatus(targetWorker.id);
-      
       // Update workers list
       setWorkers((prev) => 
         prev.map((w) => w.id === updated.id ? updated : w)
@@ -541,10 +533,9 @@ function StatusToggle({
     }
   }
 
-  /* ---------- Render ---------- */
+  /*  Render  */
   return (
     <AdminLayout>
-      {/* ===== Hero wie User-Seiten ===== */}
       <PageHeader
         title="Firmen-Verwaltung"
         subtitle="Verwalte Firmen, zugeordnete Worker und Katalog-Zuweisungen in CapConsulting."
@@ -554,8 +545,6 @@ function StatusToggle({
         showPattern={true}
         center={false}
       />
-
-      {/* ===== Außenbereich unter dem Hero ===== */}
       <main
         className="min-h-[calc(100vh-64px)] mt-0 px-6 pb-8 pt-20"
         style={{
@@ -567,9 +556,9 @@ function StatusToggle({
       >
 
         <div className="max-w-[1400px] xl:max-w-[1600px] mx-auto space-y-4">
-          {/* ==== Top-Bar: Breadcrumb-Pill + Zur Liste ==== */}
+          {/*  Top-Bar: Breadcrumb-Pill + Zur Liste  */}
           <div className="flex flex-wrap items-center justify-between gap-3">
-            {/* Breadcrumb-Pill (wie bei Users) */}
+            {/* Breadcrumb-Pill */}
             <nav className="flex items-center">
               <div
                 className="
@@ -650,7 +639,7 @@ function StatusToggle({
             </Link>
           </div>
 
-          {/* ===== 2-Spalten-Layout: Links Details, rechts Meta/Stats ===== */}
+          {/*  2-Spalten-Layout: Links Details, rechts Meta/Stats  */}
           <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,0.9fr)] gap-5 lg:gap-6">
             {/* Linke Spalte */}
             <div className="space-y-5">
@@ -862,11 +851,6 @@ function StatusToggle({
                   </div>
                 </div>
               </section>
-
-
-
-
-
               <section
                 className="rounded-[18px] border bg-white overflow-hidden shadow-[0_10px_26px_rgba(0,0,0,0.05)]"
                 style={{ borderColor: BRAND.sand }}
@@ -1285,7 +1269,6 @@ function StatusToggle({
 
             </div>
 
-            {/* Rechte Spalte: Meta + Actions (wie UserDetails Sidebar) */}
             <aside className="space-y-5">
               {/* Meta / Stats */}
               <section
@@ -1436,7 +1419,7 @@ function StatusToggle({
         </div>
       </main>
 
-      {/* ===== Invite Worker Modal – Style wie Create User ===== */}
+      {/*  Invite Worker Modal – Style wie Create User  */}
       {openInvite && (
         <div
           role="dialog"
@@ -1536,7 +1519,7 @@ function StatusToggle({
                       htmlFor="cw-ws"
                       className="block text-sm font-medium text-slate-700 mb-1"
                     >
-                      Workspace
+                      Workspace<span className="text-red-500">*</span>
                     </label>
                     <input
                       id="cw-ws"
@@ -1598,7 +1581,7 @@ function StatusToggle({
         </div>
       )}
 
-      {/* ===== Edit Worker Modal – wie Edit User ===== */}
+      {/*  Edit Worker Modal */}
       {editing && (
         <div
           role="dialog"
@@ -1754,7 +1737,7 @@ function StatusToggle({
         </div>
       )}
 
-      {/* ===== Delete Worker – mit ConfirmModal wie bei Users ===== */}
+      {/*  Delete Worker  */}
       <ConfirmModal
         open={!!toDelete}
         title="Worker löschen?"
@@ -1879,7 +1862,6 @@ function StatusToggle({
         }
         onCancel={cancelWorkerStatusChange}
         onConfirm={confirmWorkerStatusChange}
-        error={workerStatusError}
       />
 
 

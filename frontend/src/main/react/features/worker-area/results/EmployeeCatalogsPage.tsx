@@ -1,15 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import AdminLayout from "@/apps/app/AdminLayout";
+import AdminLayout from "@/shared/app/AdminLayout";
 import PageHeader from "@/features/admin-area/catalogs/PageHeader";
-import { getWorker, getAssignmentsByCompany, getWorkerCatalogScore } from "@/features/service/companyService";
-import { getCatalogsWithModels } from "@/features/service/catalogService";
-import { getReifegradModelById } from "@/api/reifegradModelApi";
+import { getWorker, getAssignmentsByCompany, getWorkerCatalogScore } from "@/shared/service/companyService";
+import { getCatalogsWithModels } from "@/shared/service/catalogService";
+import { getReifegradModelById } from "@/shared/service/api/reifegradModelApi";
 import PdfExportModal from "@/features/admin-area/components/PdfExportModal";
 import type { ExportOptions } from "@/features/admin-area/components/PdfExportModal";
-import { generateCatalogPdf } from "@/features/admin-area/services/pdfExportService";
-import type { PdfExportData } from "@/features/admin-area/services/pdfExportService";
-import { getQuestionsTimeline } from "@/api/scoringApi";
+import { generateCatalogPdf } from "@/features/admin-area/pdfService/pdfExportService";
+import type { PdfExportData } from "@/features/admin-area/pdfService/pdfExportService";
+import { getQuestionsTimeline } from "@/shared/service/api/scoringApi";
 
 import {
   ArrowLeft,

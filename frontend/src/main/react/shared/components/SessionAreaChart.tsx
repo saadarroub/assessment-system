@@ -10,7 +10,7 @@ import {
   ReferenceLine,
 } from "recharts";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
-import type { ThemeTimeSeries } from "@/api/types";
+import type { ThemeTimeSeries } from "@/shared/service/api/types";
 import { format, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
 

@@ -1,13 +1,13 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import AdminLayout from "@/apps/app/AdminLayout";
+import AdminLayout from "@/shared/app/AdminLayout";
 import PageHeader from "@/features/admin-area/catalogs/PageHeader";
 import {
   getManualScoringView,
   updateManualScore,
   getQuestionsTimeline,
-} from "@/api/scoringApi";
-import type { SessionQuestionsTimeline } from "@/api/scoringApi";
+} from "@/shared/service/api/scoringApi";
+import type { SessionQuestionsTimeline } from "@/shared/service/api/scoringApi";
 
 import {
   AlertTriangle,
