@@ -9,9 +9,9 @@ import {
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
 
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
-import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/shared/components/ui/popover";
+import { Calendar } from "@/shared/components/ui/calendar";
+import { Button } from "@/shared/components/ui/button";
 import { cn } from "@/lib/utils";
 
 type Props = {

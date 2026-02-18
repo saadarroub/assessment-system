@@ -1,4 +1,4 @@
-import type { SessionSummary } from "@/features/service/dashboardService";
+import type { SessionSummary } from "@/shared/service/dashboardService";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Clock, User, BookOpen, Building2, Award } from "lucide-react";
 import { formatDistanceToNow } from "../utils/dateUtils";

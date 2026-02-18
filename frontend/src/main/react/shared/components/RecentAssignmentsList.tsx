@@ -1,4 +1,4 @@
-import type { AssignmentSummary } from "@/features/service/dashboardService";
+import type { AssignmentSummary } from "@/shared/service/dashboardService";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Clock, User, Folder, Building2 } from "lucide-react";
 import { formatDistanceToNow } from "../utils/dateUtils";

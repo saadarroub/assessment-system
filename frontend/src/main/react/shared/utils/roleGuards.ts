@@ -1,4 +1,3 @@
-// src/main/react/shared/utils/roleGuards.ts
 
 function toPermissionList(input: unknown): string[] {
   if (!Array.isArray(input)) {

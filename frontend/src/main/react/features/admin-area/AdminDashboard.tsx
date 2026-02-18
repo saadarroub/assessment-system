@@ -2,7 +2,7 @@ import React from "react";
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import "@/styles/admin.css";
-import AdminLayout from "@/apps/app/AdminLayout";
+import AdminLayout from "@/shared/app/AdminLayout";
 import TopicCard from "./TopicCard";
 import { useToast } from "@/shared/contexts/ToastContext";
 
@@ -27,7 +27,7 @@ import {
   createThema,
   duplicateThema,
   changeThemaStatus,
-} from "@/api/questionApi";
+} from "@/shared/service/api/questionApi";
 
 // TYPES
 type Topic = {
@@ -72,7 +72,7 @@ export default function AdminDashboard() {
     icon: React.ReactNode;
     onClick?: () => void;
   }) {
-    // ✅ SICHTBARER, EDLER GLOW (wie DashboardPage)
+    // SICHTBARER, EDLER GLOW 
     const accentBg = `linear-gradient(135deg, ${color}40, ${color}10)`;
 
     return (
@@ -98,7 +98,7 @@ export default function AdminDashboard() {
             "#ffffff",
         }}
       >
-        {/* ✅ GLOW oben rechts (wie DashboardPage) */}
+        {/*  GLOW oben rechts  */}
         <div
           className="pointer-events-none absolute -right-6 -top-8 h-24 w-24 rounded-full opacity-70 blur-sm transition group-hover:opacity-100"
           style={{ background: accentBg }}
@@ -139,7 +139,7 @@ export default function AdminDashboard() {
   }
 
 
-  // Flash Animation für neue Themen (wie KatalogeZuweisen)
+  // Flash Animation für neue Themen 
   function flashNew(ids: string[], glowMs = 4000, badgeMs = 60000) {
     // HIGHLIGHT (grüner Glow)
     setHighlightIds((prev) => {
@@ -155,7 +155,7 @@ export default function AdminDashboard() {
       });
     }, glowMs);
 
-    // BADGE (NEU)
+    // BADGE 
     setBadgeIds((prev) => {
       const next = new Set(prev);
       ids.forEach((id) => next.add(id));
@@ -197,7 +197,7 @@ export default function AdminDashboard() {
         };
       });
 
-      // 🔥 NEU: Sortieren nach Datum (neuste zuerst)
+      // Sortieren nach Datum 
       grouped.sort(
         (a: any, b: any) =>
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
@@ -219,7 +219,7 @@ export default function AdminDashboard() {
   const filteredTopics = useMemo(() => {
     let result = topics;
 
-    // ⭐ Filter nach active / inactive
+    // Filter nach active / inactive
     if (topicFilter === "active") {
       result = result.filter((t) => t.status === "active");
     }
@@ -228,7 +228,7 @@ export default function AdminDashboard() {
       result = result.filter((t) => t.status === "inactive");
     }
 
-    // ⭐ Suche anwenden
+    // Suche anwenden
     if (searchTerm.trim()) {
       const term = searchTerm.toLowerCase();
       result = result.filter(
@@ -318,7 +318,7 @@ export default function AdminDashboard() {
         ...prev,
       ]);
 
-      // 🎉 Animation auslösen
+      //Animation auslösen
       flashNew([newThema.id], 4000, 60000);
 
       showSuccess("Thema erfolgreich dupliziert!");
@@ -353,7 +353,7 @@ export default function AdminDashboard() {
 
   return (
     <AdminLayout>
-      {/* CSS Animations (wie KatalogeZuweisen) */}
+      {/* CSS Animations */}
       <style>
         {`
           @keyframes blinkBg {
@@ -391,7 +391,7 @@ export default function AdminDashboard() {
         >
         {/* Top-Bar: Admin-Panel Button links + Neues Thema Button rechts */}
         <div className="max-w-[1400px] xl:max-w-[1600px] mx-auto mb-3 flex items-center justify-between">
-          {/* Admin-Panel Button links (wie Breadcrumb in UserList) */}
+          {/* Admin-Panel Button links  */}
           <nav className="flex items-center">
             <button
               onClick={() => navigate("/admin/adminPanel")}
@@ -424,7 +424,7 @@ export default function AdminDashboard() {
             </button>
           </nav>
 
-          {/* Neues Thema Button rechts (wie Add User in UserList) */}
+          {/* Neues Thema Button rechts  */}
           <button
             type="button"
             onClick={() => setIsAddModalOpen(true)}
@@ -657,7 +657,7 @@ export default function AdminDashboard() {
         </section>
       </main>
 
-      {/* === ADD MODAL === */}
+      {/* ADD MODAL  */}
       {isAddModalOpen && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex justify-center items-center z-[9999]">
           <div className="w-full max-w-xl px-4 sm:px-0">
@@ -695,7 +695,7 @@ export default function AdminDashboard() {
                       onChange={(e) => {
                         setNewThemaName(e.target.value);
 
-                        // ⭐ Auto-Resize
+                        //Auto-Resize
                         e.currentTarget.style.height = "auto";
                         e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
                       }}
@@ -793,7 +793,7 @@ export default function AdminDashboard() {
 
                     await fetchTopics();
 
-                    // Neu erstellte ID ermitteln und Animation auslösen
+                    // erstellte ID ermitteln und Animation auslösen
                     setTimeout(() => {
                       setTopics((currentTopics) => {
                         const newId = currentTopics.find(

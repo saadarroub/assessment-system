@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import AdminLayout from "@/apps/app/AdminLayout";
-import { getUser, changeUserStatus, type UserApi } from "@/features/service/userService";
+import AdminLayout from "@/shared/app/AdminLayout";
+import { getUser, changeUserStatus, type UserApi } from "@/shared/service/userService";
 import { Network, Users } from "lucide-react";
 import PageHeader from "@/features/admin-area/catalogs/PageHeader";
 import { Pencil } from "lucide-react";
@@ -32,7 +32,6 @@ function fmtDate(d?: string) {
   return isNaN(+dt) ? "—" : dt.toLocaleDateString("de-DE");
 }
 
-// exakt auf deinen Response zugeschnitten
 type RoleWithPerms = {
   id: string;
   name: string;
@@ -195,7 +194,6 @@ export default function UserDetailsPage() {
 
   return (
     <AdminLayout>
-      {/* ===== Hero wie in der Liste ===== */}
       <PageHeader
         title="Benutzer Administration"
         subtitle="Verwalte Benutzerkonten, Rollen und Berechtigungen in CapConsulting"
@@ -206,7 +204,7 @@ export default function UserDetailsPage() {
         center={false}
       />
 
-      {/* ===== Außenbereich unter dem Hero ===== */}
+      {/*  Außenbereich unter dem Hero  */}
       <main
         className="min-h-[calc(100vh-64px)] mt-0 px-6 pb-8 pt-20"
         style={{
@@ -219,7 +217,7 @@ export default function UserDetailsPage() {
         <div className="max-w-[1400px] xl:max-w-[1600px] mx-auto space-y-4">
           {/* Top-Bar: Breadcrumb-Pill + Back-Button */}
           <div className="flex flex-wrap items-center justify-between gap-3">
-            {/* Breadcrumb als Pill – analog UsersPage, aber mit Usernamen */}
+            {/* Breadcrumb als Pill */}
             <nav className="flex items-center">
               <div
                 className="
@@ -302,7 +300,7 @@ export default function UserDetailsPage() {
             </Link>
           </div>
 
-          {/* ===== 2 Spalten Content ===== */}
+          {/*  2 Spalten Content  */}
           <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,0.9fr)] gap-5 lg:gap-6">
             {/* Linke Spalte */}
             <div className="space-y-5">
@@ -585,7 +583,7 @@ export default function UserDetailsPage() {
         </div>
       </main>
 
-      {/* ===== ConfirmModal für Status-Change ===== */}
+      {/*  ConfirmModal für Status-Change  */}
       <ConfirmModal
         open={confirmStatusOpen}
         title={pendingStatus === "inactive" ? "Benutzer deaktivieren?" : "Benutzer aktivieren?"}

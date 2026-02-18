@@ -1,14 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import AdminLayout from "@/apps/app/AdminLayout";
-import { apiClient } from "@/api/client";
+import AdminLayout from "@/shared/app/AdminLayout";
+import { apiClient } from "@/shared/service/api/client";
 
 import { Search, Filter, ArrowUpDown } from "lucide-react";
 import { ShieldCheck } from "lucide-react";
 import PageHeader from "@/features/admin-area/catalogs/PageHeader";
 import { WithPermissionCheck } from "@/shared/components/WithPermissionCheck";
-
-/* ================= Types ================= */
 
 type OutcomeKey = "success" | "error";
 
@@ -25,7 +23,7 @@ type AuditRow = {
 
 type SortKey = "ts" | "actor" | "action" | "outcome";
 
-/* ============== Tokens wie bei CompanyList ============== */
+/* == Tokens wie bei CompanyList == */
 const CSS = {
   adminBg: "hsl(var(--admin-bg,0 0% 92%))",
   card: "hsl(var(--card,0 0% 98%))",
@@ -181,7 +179,7 @@ export default function AuditPage() {
 
   return (
     <AdminLayout>
-      {/* ===== Hero (wie CompanyList) ===== */}
+      {/*  Hero  */}
       <PageHeader
         title="Audit Logs"
         subtitle="Überwache System-Aktivitäten und Nutzeraktionen"
@@ -192,7 +190,7 @@ export default function AuditPage() {
         center={false}
       />
 
-      {/* ===== Außenbereich unter dem Hero ===== */}
+      {/*  Außenbereich unter dem Hero  */}
       <main
         className="min-h-[calc(100vh-64px)] mt-0 px-6 pb-8 pt-20"
         style={{
@@ -201,7 +199,7 @@ export default function AuditPage() {
             "linear-gradient(to bottom, #f3f4f7 0, #e6e9ef 240px, #f4f5f8 100%)",
         }}
       >
-        {/* ===== Breadcrumb Pill ===== */}
+        {/*  Breadcrumb Pill  */}
         <div className="max-w-[1400px] xl:max-w-[1600px] mx-auto mb-3 flex items-center justify-between">
           <nav className="flex items-center">
             <div
@@ -243,12 +241,10 @@ export default function AuditPage() {
               </span>
             </div>
           </nav>
-
-          {/* rechts optional frei lassen */}
           <div />
         </div>
 
-        {/* ===== Controls Card (Search + Filters + Count) ===== */}
+        {/*  Controls Card (Search + Filters + Count)  */}
         <div
           className="
             max-w-[1400px] xl:max-w-[1600px] mx-auto mb-4
@@ -372,7 +368,7 @@ export default function AuditPage() {
           </div>
         </div>
 
-        {/* ===== Tabelle Card ===== */}
+        {/*  Tabelle Card  */}
         <WithPermissionCheck error={error} loading={loading} minHeight="auto">
           <section
             className="
@@ -545,7 +541,7 @@ export default function AuditPage() {
           </section>
         </WithPermissionCheck>
 
-        {/* ===== Pagination (wie CompanyList) ===== */}
+        {/*  Pagination */}
         <div
           className="
             max-w-[1400px] xl:max-w-[1600px] mx-auto mt-4

@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import { Link } from "react-router-dom";
-import AdminLayout from "@/apps/app/AdminLayout";
+import AdminLayout from "@/shared/app/AdminLayout";
 import { Search, ArrowUpDown, Shield, Plus, Trash2, Pencil, Eye, X } from "lucide-react";
 import { useHasPermission } from "@/shared/hooks/useHasPermission";
 import { PermissionButton } from "@/shared/components/permission/PermissionButton";
@@ -15,7 +15,7 @@ import {
   revokePermissions,
   type RoleApi,
   type PermissionApi, getPermissionsForRole, type RolePermissionResponseDTO
-} from "@/features/service/roleService";
+} from "@/shared/service/roleService";
 import { WithPermissionCheck } from "@/shared/components/WithPermissionCheck";
 import { useToast } from "@/shared/contexts/ToastContext";
 import { Network } from "lucide-react";
@@ -23,7 +23,7 @@ import PageHeader from "@/features/admin-area/catalogs/PageHeader";
 import ConfirmModal from "@/shared/components/ConfirmModal";
 import { useScrollLock } from "@/shared/hooks/useScrollLock";
 
-/* ================= Types ================= */
+/*  Types  */
 type RoleRow = {
   id: string;
   name: string;
@@ -44,7 +44,7 @@ function mapApiToRole(r: RoleApi): RoleRow {
   };
 }
 
-/* ============== CSS Tokens wie UserList ============== */
+/*  CSS Tokens  */
 const CSS = {
   adminBg: "hsl(var(--admin-bg,0 0% 92%))",
   card: "hsl(var(--card,0 0% 98%))",
@@ -70,10 +70,10 @@ export default function RoleList() {
   const { showSuccess, showError } = useToast();
   const { has } = useHasPermission();
 
-const canCreateRole = has("roles.create");
-const canEditRole = has("roles.edit");
-const canDeleteRole = has("roles.delete");
-const canViewPerms = has("permissions.view"); // oder roles.view je nachdem was ihr wollt
+  const canCreateRole = has("roles.create");
+  const canEditRole = has("roles.edit");
+  const canDeleteRole = has("roles.delete");
+  const canViewPerms = has("permissions.view"); // oder roles.view je nachdem was ihr wollt
 
 
   const [items, setItems] = useState<RoleRow[]>([]);
@@ -156,8 +156,7 @@ const canViewPerms = has("permissions.view"); // oder roles.view je nachdem was 
     setViewError(null);
   };
 
-
-  /* ============== Data Load ============== */
+  /*  Data Load  */
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -200,7 +199,7 @@ const canViewPerms = has("permissions.view"); // oder roles.view je nachdem was 
     };
   }, [items]);
 
-  /* ============== Create Role Functions ============== */
+  /*  Create Role Functions  */
   const openCreateModal = async () => {
     setCName("");
     setCDesc("");
@@ -274,7 +273,7 @@ const canViewPerms = has("permissions.view"); // oder roles.view je nachdem was 
     }
   };
 
-  /* ============== Edit Role Functions ============== */
+  /*  Edit Role Functions  */
 
   const openEditModal = async (role: RoleRow) => {
     setEditingRole(role);
@@ -392,7 +391,7 @@ const canViewPerms = has("permissions.view"); // oder roles.view je nachdem was 
     }
   };
 
-  /* ============== Delete Role Functions ============== */
+  /*  Delete Role Functions  */
 
   const openDeleteModal = (role: RoleRow) => {
     setDeletingRole(role);
@@ -437,7 +436,7 @@ const canViewPerms = has("permissions.view"); // oder roles.view je nachdem was 
     }
   };
 
-  /* ============== Create-Modal Permissions ============== */
+  /*  Create-Modal Permissions  */
 
   const togglePermission = (permId: string) => {
     setSelectedPermissions((prev) =>
@@ -478,7 +477,7 @@ const canViewPerms = has("permissions.view"); // oder roles.view je nachdem was 
     return found ? found[1] : [];
   }, [groupedPermissions, activeCategory]);
 
-  /* ============== Filtering & Sorting ============== */
+  /*  Filtering & Sorting  */
 
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
@@ -533,9 +532,9 @@ const canViewPerms = has("permissions.view"); // oder roles.view je nachdem was 
     const d = new Date(iso);
     return isNaN(d.getTime()) ? "—" : d.toLocaleDateString("de-DE");
   };
-   const anyModalOpen = openCreate || openEdit || openDelete;
+  const anyModalOpen = openCreate || openEdit || openDelete;
   useScrollLock(anyModalOpen);
-  
+
 
   return (
     <AdminLayout>
@@ -557,12 +556,12 @@ const canViewPerms = has("permissions.view"); // oder roles.view je nachdem was 
           style={{
             background:
               "radial-gradient(circle at 0 0, rgba(227,187,98,0.13) 0, transparent 40%)," +
-              
+
               "linear-gradient(to bottom, #f3f4f7 0, #e6e9ef 240px, #f4f5f8 100%)",
           }}
         >
 
-          {/* ===== Top-Bar: Breadcrumb-Pill + Button (wie UsersPage) ===== */}
+          {/*  Top-Bar: Breadcrumb-Pill + Button */}
           <div className="max-w-[1400px] xl:max-w-[1600px] mx-auto mb-3 flex items-center justify-between">
             {/* Breadcrumb als Pill */}
             <nav className="flex items-center">
@@ -612,13 +611,13 @@ const canViewPerms = has("permissions.view"); // oder roles.view je nachdem was 
               </div>
             </nav>
 
-            {/* Button wie bei Users */}
-           <PermissionButton
-  type="button"
-  allowed={canCreateRole}
-  tooltip="Du brauchst: roles.create"
-  onClick={openCreateModal}
-  className="
+            {/* Button */}
+            <PermissionButton
+              type="button"
+              allowed={canCreateRole}
+              tooltip="Du brauchst: roles.create"
+              onClick={openCreateModal}
+              className="
     inline-flex items-center gap-2
     rounded-full
     px-5 py-2.5
@@ -629,21 +628,19 @@ const canViewPerms = has("permissions.view"); // oder roles.view je nachdem was 
     hover:-translate-y-[1px]
     hover:brightness-105
   "
-  style={{
-    background: "hsl(40,60%,63%)",
-    color: "hsl(200,32%,22%)",
-    border: "1px solid rgba(255,255,255,0.9)",
-  }}
-  aria-label="Add Role"
->
-  <Plus size={16} />
-  Neue Rolle
-</PermissionButton>
-
-
+              style={{
+                background: "hsl(40,60%,63%)",
+                color: "hsl(200,32%,22%)",
+                border: "1px solid rgba(255,255,255,0.9)",
+              }}
+              aria-label="Add Role"
+            >
+              <Plus size={16} />
+              Neue Rolle
+            </PermissionButton>
           </div>
 
-          {/* ===== Suche + Count – im Users-Stil ===== */}
+          {/*  Suche + Count*/}
           <div
             className="
             max-w-[1400px] xl:max-w-[1600px] mx-auto mb-4
@@ -729,7 +726,7 @@ const canViewPerms = has("permissions.view"); // oder roles.view je nachdem was 
             </div>
           </div>
 
-          {/* ===== Card + Tabelle (EXAKT UsersPage-Style) ===== */}
+          {/* = Card + Tabelle  */}
           <WithPermissionCheck error={error} loading={loading} minHeight="auto">
             <section
               className="
@@ -844,8 +841,8 @@ const canViewPerms = has("permissions.view"); // oder roles.view je nachdem was 
                             <span
                               className="inline-flex items-center justify-center rounded-md px-3 py-1 text-[12px] font-semibold"
                               style={{ background: CSS.muted, color: CSS.mutedFg }}
-                            >                             
-                             {permissionCounts[role.id] ?? 0}
+                            >
+                              {permissionCounts[role.id] ?? 0}
                             </span>
                           </td>
 
@@ -866,14 +863,14 @@ const canViewPerms = has("permissions.view"); // oder roles.view je nachdem was 
                             style={{ borderBottom: `1px solid ${CSS.border}` }}
                           >
                             <div className="inline-flex items-center justify-center gap-2">
-                            <PermissionButton
-  type="button"
-  allowed={canViewPerms}
-  tooltip="Du brauchst: permissions.view"
-  aria-label="View permissions"
-  title="Permissions anzeigen"
-  onClick={() => void openViewModal(role)}
-  className="
+                              <PermissionButton
+                                type="button"
+                                allowed={canViewPerms}
+                                tooltip="Du brauchst: permissions.view"
+                                aria-label="View permissions"
+                                title="Permissions anzeigen"
+                                onClick={() => void openViewModal(role)}
+                                className="
     inline-flex items-center gap-1.5
     rounded-full
     px-3 py-1.5
@@ -882,43 +879,43 @@ const canViewPerms = has("permissions.view"); // oder roles.view je nachdem was 
     transition
     hover:-translate-y-[0.5px]
   "
-  style={{
-    background: "hsl(40,60%,63%)",
-    color: "hsl(200,32%,22%)",
-    boxShadow: "0 4px 10px rgba(0,0,0,0.10)",
-    border: "1px solid rgba(255,255,255,0.9)",
-  }}
->
-  <Eye size={13} />
-  <span className="hidden sm:inline">View</span>
-</PermissionButton>
+                                style={{
+                                  background: "hsl(40,60%,63%)",
+                                  color: "hsl(200,32%,22%)",
+                                  boxShadow: "0 4px 10px rgba(0,0,0,0.10)",
+                                  border: "1px solid rgba(255,255,255,0.9)",
+                                }}
+                              >
+                                <Eye size={13} />
+                                <span className="hidden sm:inline">View</span>
+                              </PermissionButton>
 
 
-                           <PermissionButton
-  type="button"
-  allowed={canEditRole}
-  tooltip="Du brauchst: roles.edit"
-  onClick={() => void openEditModal(role)}
-  className="rounded-full border px-2.5 py-1.5 text-[11px] hover:bg-[#f5f0e4]"
-  style={{ borderColor: BRAND.sand }}
-  aria-label="Edit role"
-  title="Edit"
->
-  <Pencil size={13} />
-</PermissionButton>
+                              <PermissionButton
+                                type="button"
+                                allowed={canEditRole}
+                                tooltip="Du brauchst: roles.edit"
+                                onClick={() => void openEditModal(role)}
+                                className="rounded-full border px-2.5 py-1.5 text-[11px] hover:bg-[#f5f0e4]"
+                                style={{ borderColor: BRAND.sand }}
+                                aria-label="Edit role"
+                                title="Edit"
+                              >
+                                <Pencil size={13} />
+                              </PermissionButton>
 
-<PermissionButton
-  type="button"
-  allowed={canDeleteRole}
-  tooltip="Du brauchst: roles.delete"
-  onClick={() => openDeleteModal(role)}
-  className="rounded-full border px-2.5 py-1.5 text-[11px] hover:bg-[#fff1f1]"
-  style={{ borderColor: "rgba(248,113,113,0.8)", color: "rgb(185,28,28)" }}
-  aria-label="Delete role"
-  title="Löschen"
->
-  <Trash2 size={13} />
-</PermissionButton>
+                              <PermissionButton
+                                type="button"
+                                allowed={canDeleteRole}
+                                tooltip="Du brauchst: roles.delete"
+                                onClick={() => openDeleteModal(role)}
+                                className="rounded-full border px-2.5 py-1.5 text-[11px] hover:bg-[#fff1f1]"
+                                style={{ borderColor: "rgba(248,113,113,0.8)", color: "rgb(185,28,28)" }}
+                                aria-label="Delete role"
+                                title="Löschen"
+                              >
+                                <Trash2 size={13} />
+                              </PermissionButton>
 
                             </div>
                           </td>
@@ -931,10 +928,7 @@ const canViewPerms = has("permissions.view"); // oder roles.view je nachdem was 
             </section>
           </WithPermissionCheck>
 
-
-
-
-          {/* ===== Pagination im Users-Stil ===== */}
+          {/* = Pagination */}
           <div
             className="
             max-w-[1400px] xl:max-w-[1600px] mx-auto mt-4
@@ -1074,7 +1068,7 @@ const canViewPerms = has("permissions.view"); // oder roles.view je nachdem was 
         </main>
       </div>
 
-      {/* ========== Create Role Modal ========== */}
+      {/*  Create Role Modal  */}
       {openCreate && (
         <div
           role="dialog"
@@ -1085,7 +1079,7 @@ const canViewPerms = has("permissions.view"); // oder roles.view je nachdem was 
             className="w-full max-w-2xl px-4 sm:px-0"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Karten-Block mit Glow – wie Create User */}
+            {/* Karten-Block mit Glow  */}
             <div className="relative overflow-hidden rounded-3xl bg-white shadow-2xl border border-slate-200/80">
               {/* Deko-Glows */}
               <div
@@ -1343,10 +1337,10 @@ const canViewPerms = has("permissions.view"); // oder roles.view je nachdem was 
               </div>
             </div>
 
-            {/* kleiner Abstand wie bei User-Create */}
+            {/* kleiner Abstand */}
             <div className="h-3" />
 
-            {/* Footer-Buttons – gleich wie bei Create User */}
+            {/* Footer-Buttons  */}
             <div className="mt-1 flex gap-2">
               <button
                 type="button"
@@ -1367,12 +1361,12 @@ const canViewPerms = has("permissions.view"); // oder roles.view je nachdem was 
                 Abbrechen
               </button>
 
-            <PermissionButton
-  type="submit"
-  form="create-role-form"
-  allowed={canCreateRole}
-  tooltip="Du brauchst: roles.create"
-  className="
+              <PermissionButton
+                type="submit"
+                form="create-role-form"
+                allowed={canCreateRole}
+                tooltip="Du brauchst: roles.create"
+                className="
     flex-1 h-12 text-sm font-semibold rounded-xl
     bg-[#E3BB62] text-[#264555]
     hover:bg-[#d8ac55]
@@ -1380,10 +1374,10 @@ const canViewPerms = has("permissions.view"); // oder roles.view je nachdem was 
     transition hover:-translate-y-[1px]
     disabled:opacity-60
   "
-  disabled={creating || !cName.trim()}
->
-  {creating ? "Erstellt…" : "Erstellen"}
-</PermissionButton>
+                disabled={creating || !cName.trim()}
+              >
+                {creating ? "Erstellt…" : "Erstellen"}
+              </PermissionButton>
 
             </div>
           </div>
@@ -1391,7 +1385,7 @@ const canViewPerms = has("permissions.view"); // oder roles.view je nachdem was 
       )}
 
 
-      {/* ========== Edit Role Modal (neuer Style + Alle wählen) ========== */}
+      {/*  Edit Role Modal )  */}
       {openEdit && editingRole && (
         <div
           role="dialog"
@@ -1491,7 +1485,7 @@ const canViewPerms = has("permissions.view"); // oder roles.view je nachdem was 
                     />
                   </div>
 
-                  {/* ===== Berechtigungen mit "Alle wählen" ===== */}
+                  {/*  Berechtigungen mit "Alle wählen"  */}
                   <div>
                     <label className="block text-sm font-medium mb-2 text-slate-700">
                       Berechtigungen ({editSelectedPermissions.length} ausgewählt)
@@ -1506,8 +1500,7 @@ const canViewPerms = has("permissions.view"); // oder roles.view je nachdem was 
                         className="border rounded-2xl bg-slate-50/70"
                         style={{ borderColor: CSS.border }}
                       >
-                        {/* Kategorie-Tabs – flex-wrap, kein horizontaler Scroll */}
-                        {/* Kategorie-Tabs – flex-wrap, kein horizontaler Scroll */}
+                        {/* Kategorie-Tabs  */}
                         <div
                           className="flex flex-wrap gap-1 border-b px-3 pt-3 pb-2"
                           style={{ borderColor: CSS.border }}
@@ -1648,10 +1641,10 @@ const canViewPerms = has("permissions.view"); // oder roles.view je nachdem was 
               </div>
             </div>
 
-            {/* kleiner Abstand wie bei User-Modals */}
+            {/* kleiner Abstand  */}
             <div className="h-3" />
 
-            {/* Footer-Buttons – gleich wie Users (Abbrechen / Speichern) */}
+            {/* Footer-Buttons  */}
             <div className="mt-1 flex gap-2">
               <button
                 type="button"
@@ -1672,13 +1665,13 @@ const canViewPerms = has("permissions.view"); // oder roles.view je nachdem was 
                 Abbrechen
               </button>
 
-             <PermissionButton
-  type="submit"
-  form="edit-role-form"
-  allowed={canEditRole}
-  tooltip="Du brauchst: roles.edit"
-  disabled={updating || !eName.trim()}
-  className="
+              <PermissionButton
+                type="submit"
+                form="edit-role-form"
+                allowed={canEditRole}
+                tooltip="Du brauchst: roles.edit"
+                disabled={updating || !eName.trim()}
+                className="
     flex-1 h-12 text-sm font-semibold rounded-xl
     bg-[#E3BB62] text-[#264555]
     hover:bg-[#d8ac55]
@@ -1686,16 +1679,16 @@ const canViewPerms = has("permissions.view"); // oder roles.view je nachdem was 
     transition hover:-translate-y-[1px]
     disabled:opacity-60
   "
->
-  {updating ? "Speichere…" : "Speichern"}
-</PermissionButton>
+              >
+                {updating ? "Speichere…" : "Speichern"}
+              </PermissionButton>
 
             </div>
           </div>
         </div>
       )}
 
-      {/* ========== Delete Role – mit ConfirmModal im gleichen Style wie bei User ========= */}
+      {/*  Delete Role */}
       <ConfirmModal
         open={openDelete && !!deletingRole}
         title="Rolle löschen?"

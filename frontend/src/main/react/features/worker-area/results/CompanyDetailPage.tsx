@@ -2,13 +2,13 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import AdminLayout from "@/apps/app/AdminLayout";
+import AdminLayout from "@/shared/app/AdminLayout";
 
 import { Search, ArrowLeft, Building2 } from "lucide-react";
 import PageHeader from "@/features/admin-area/catalogs/PageHeader";
 import { Network } from "lucide-react";
 import { getCompanyOverallScore, getCompanyCatalogScoreWithWorkers, getWorkersByCompany }
-  from "@/features/service/companyService";
+  from "@/shared/service/companyService";
 
 
 /* ================= Types ================= */

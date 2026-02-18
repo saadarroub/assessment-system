@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import AdminLayout from "@/apps/app/AdminLayout";
+import AdminLayout from "@/shared/app/AdminLayout";
 import { Users, Building2, ClipboardList, Shield, ArrowRight, FileText } from "lucide-react";
 import PageHeader from "@/features/admin-area/catalogs/PageHeader";
 

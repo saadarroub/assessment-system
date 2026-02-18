@@ -1,10 +1,10 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useToast } from "@/shared/contexts/ToastContext";
 import { createPortal } from "react-dom";
-import { logoutApi } from "@/features/auth/logoutService";
+import { logoutApi } from "@/shared/service/logoutService";
 import { useScrollLock } from "@/shared/hooks/useScrollLock";
 
-import AdminLayout from "@/apps/app/AdminLayout";
+import AdminLayout from "@/shared/app/AdminLayout";
 import { User, MapPin, Phone, Mail, Lock, Trash2 } from "lucide-react";
 import {
   getUserProfile,
@@ -15,7 +15,7 @@ import {
   type UpdateProfileRequest,
   changePassword,
   type ChangePasswordRequest,
-} from "../service/profilePageService";
+} from "../../shared/service/profilePageService";
 
 
 const BRAND = {

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import AdminLayout from "@/apps/app/AdminLayout";
+import AdminLayout from "@/shared/app/AdminLayout";
 import companyLogo from "@/assets/comapy.png";
 import { useHasPermission } from "@/shared/hooks/useHasPermission";
 import { PermissionButton } from "@/shared/components/permission/PermissionButton";
@@ -27,13 +27,13 @@ import {
   type UpdateCompanyDto,
   getAssignmentsByCompany,
   type CompanyApi,
-} from "@/features/service/companyService";
+} from "@/shared/service/companyService";
 
 import { Network } from "lucide-react";
 import PageHeader from "@/features/admin-area/catalogs/PageHeader";
 import { useScrollLock } from "@/shared/hooks/useScrollLock";
 
-/* ================= Types ================= */
+/* === Types === */
 
 type Company = {
   id: string;
@@ -72,7 +72,6 @@ function mapApiToCompany(x: CompanyApi): Company {
 const formatDate = (iso?: string | null) =>
   iso ? new Date(iso).toLocaleDateString("de-DE") : "–";
 
-/* ============== Tokens wie bei Users/Zuweisungen ============== */
 const CSS = {
   adminBg: "hsl(var(--admin-bg,0 0% 92%))",
   card: "hsl(var(--card,0 0% 98%))",
@@ -101,7 +100,7 @@ export default function CompaniesList() {
   const canCreateCompany = has("companies.create");
   const canEditCompany = has("companies.edit");
   const canDeleteCompany = has("companies.delete");
-  /* ============== State ============== */
+  /*  State  */
   const [items, setItems] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -152,7 +151,7 @@ export default function CompaniesList() {
   // Highlight (neu angelegte Firma)
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
 
-  /* ============== Data load ============== */
+  /*  Data load  */
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -242,7 +241,7 @@ export default function CompaniesList() {
     };
   }, [items]);
 
-  /* ============== Filter + Sort ============== */
+  /*  Filter + Sort  */
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
     const base = term
@@ -276,7 +275,7 @@ export default function CompaniesList() {
     }
   };
 
-  /* ============== Pagination wie Users ============== */
+  /*  Pagination wie Users  */
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const PAGE_SIZE_OPTIONS = [5, 10, 25, 50];
@@ -295,7 +294,7 @@ export default function CompaniesList() {
     if (page > totalPages) setPage(totalPages);
   }, [totalPages, page]);
 
-  /* ============== Create ============== */
+  /*  Create  */
   async function onCreateCompany(e: React.FormEvent) {
     e.preventDefault();
 
@@ -371,7 +370,7 @@ export default function CompaniesList() {
     }
   }
 
-  /* ============== Delete ============== */
+  /*  Delete  */
   const askDelete = (c: Company) => {
     setTargetCompany(c);
     setDeleteError(null);
@@ -408,7 +407,7 @@ export default function CompaniesList() {
     }
   };
 
-  /* ============== Edit ============== */
+  /*  Edit  */
   const openEditFor = (c: Company) => {
     setEditCompany(c);
     setEName(c.name);
@@ -507,10 +506,10 @@ export default function CompaniesList() {
   useScrollLock(anyModalOpen);
 
 
-  /* ============== Render ============== */
+  /*  Render  */
   return (
     <AdminLayout>
-      {/* ===== Hero ===== */}
+      {/*  Hero  */}
       <PageHeader
         title="Firmen Administration"
         subtitle="Verwalte Firmenkonten, Mitarbeiter und zugehörige Kataloge"
@@ -521,7 +520,7 @@ export default function CompaniesList() {
         center={false}
       />
 
-      {/* ===== Außenbereich unter dem Hero ===== */}
+      {/*  Außenbereich unter dem Hero  */}
       <main
         className="min-h-[calc(100vh-64px)] mt-0 px-6 pb-8 pt-20"
         style={{
@@ -532,7 +531,7 @@ export default function CompaniesList() {
         }}
       >
 
-        {/* ===== Top-Bar: Breadcrumb als Pill + Button rechts ===== */}
+        {/*  Top-Bar: Breadcrumb als Pill + Button rechts  */}
         <div className="max-w-[1400px] xl:max-w-[1600px] mx-auto mb-3 flex items-center justify-between">
           <nav className="flex items-center">
             <div
@@ -582,7 +581,7 @@ export default function CompaniesList() {
             </div>
           </nav>
 
-          {/* New Company Button – wie Add User */}
+          {/* New Company Button */}
           <PermissionButton
             type="button"
             allowed={canCreateCompany}
@@ -614,7 +613,7 @@ export default function CompaniesList() {
 
         </div>
 
-        {/* ===== Suche + Count – gleicher Stil wie Users ===== */}
+        {/*  Suche + Count  */}
         <div
           className="
             max-w-[1400px] xl:max-w-[1600px] mx-auto mb-4
@@ -669,8 +668,6 @@ export default function CompaniesList() {
                 }}
               />
             </div>
-
-            {/* Zähler rechts – Badge wie bei Users */}
             <div className="flex items-center gap-3">
               <div
                 className="
@@ -698,7 +695,7 @@ export default function CompaniesList() {
           </div>
         </div>
 
-        {/* ===== Tabelle (mit WithPermissionCheck, gleiche Card wie Users) ===== */}
+        {/*  Tabelle  */}
         <WithPermissionCheck error={error} loading={loading} minHeight="auto">
           <section
             className="
@@ -997,8 +994,6 @@ export default function CompaniesList() {
                                 : "Inactive"}
                             </span>
                           </td>
-
-                          {/* Created */}
                           {/* Created */}
                           <td
                             className="px-4 py-4"
@@ -1286,7 +1281,7 @@ export default function CompaniesList() {
         </div>
       </main>
 
-      {/* ===== Delete Confirm Modal (wie Users) ===== */}
+      {/*  Delete Confirm Modal */}
       <ConfirmModal
         open={openDelete && !!targetCompany}
         title="Firma löschen?"
@@ -1325,7 +1320,7 @@ export default function CompaniesList() {
         icon={<Trash2 className="text-red-500" />}
       />
 
-      {/* ===== Create Company Modal – gleicher Style wie Create User ===== */}
+      {/*  Create Company Modal  */}
       {openCreate && (
         <div
           role="dialog"
@@ -1589,7 +1584,7 @@ export default function CompaniesList() {
               </div>
             </div>
 
-            {/* Fußleisten-Buttons wie bei Create User */}
+            {/* Fußleisten-Buttons  */}
             <div className="h-3" />
             <div className="mt-1 flex gap-2">
               <button
@@ -1636,7 +1631,7 @@ export default function CompaniesList() {
         </div>
       )}
 
-      {/* ===== Edit Company Modal – gleicher Style wie Edit User ===== */}
+      {/*  Edit Company Modal */}
       {openEdit && editCompany && (
         <div
           role="dialog"
@@ -1893,7 +1888,7 @@ export default function CompaniesList() {
               </div>
             </div>
 
-            {/* Buttons wie bei Edit User */}
+            {/* Buttons */}
             <div className="h-3" />
             <div className="mt-1 flex gap-2">
               <button
