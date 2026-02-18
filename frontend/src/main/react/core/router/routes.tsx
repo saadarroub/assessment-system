@@ -1,8 +1,8 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 
-import LandingPage from '@/apps/landing/LandingPage';
-import LoginPage from '@/features/auth/LoginPage';
-import KatalogThemenPublic from '@/features/worker-area/KatalogThemenPublic';
+import LandingPage from '@/features/landing/LandingPage';
+import LoginPage from '@/features/Login/LoginPage';
+import KatalogThemenPublic from '@/features/worker-area/workerDahboard/KatalogThemenPublic';
 import AdminDashboard from '@/features/admin-area/AdminDashboard';
 import ProtectedRoute from './ProtectedRoute';
 import ResultsPage from '@/features/worker-area/results/ResultsPage';
@@ -13,54 +13,43 @@ import CompaniesList from '@/features/admin-panel/companies/CompanyList';
 import RoleList from '@/features/admin-panel/roles/RoleList';
 import CompanyDetails from '@/features/admin-panel/companies/CompanyDetail';
 import AuditPage from '@/features/admin-panel/audit/AuditLogTable';
-import KatalogeZuweisen from '@/features/admin-area/KatalogeZuweisen';
-import AssessmentPage from '@/features/worker-area/AssessmentPage';
+import KatalogeZuweisen from '@/features/admin-area/KatalogZuweisen/KatalogeZuweisen';
+import AssessmentPage from '@/features/worker-area/assessment/AssessmentPage';
 import CompanyDetailPage from '@/features/worker-area/results/CompanyDetailPage';
 import CompanyListPage from '@/features/worker-area/results/CompanyListPage';
-import KatalogVerwaltung from '@/features/admin-area/KatalogVerwaltung';
-import Zuweisungen from '@/features/admin-panel/companies/zuweisungen';
-import InviteGate from '@/public/InviteGate';
-import ZugewiesenerKatalog from '@/public/ZugewiesenerKatalogPagePublic';
-import { DashboardPage } from '@/apps/app/DashboardPage';
-import AssessmentCompleted from '@/features/worker-area/AssessmentCompleted ';
-import HelpFaqPage from '@/features/worker-area/HelpFaqPage';
-// Topic-Seiten
-import EamPage from '@/features/admin-area/topics/eam/EamPage';
-import OperatingModelPage from '@/features/admin-area/topics/operating-model/OperatingModelPage';
-import SourcingPage from '@/features/admin-area/topics/sourcing/SourcingPage';
-import ProjectManagementPage from '@/features/admin-area/topics/project-management/ProjectManagementPage';
-import CompanyListtest from '@/features/admin-panel/companies/testcomplist';
+import KatalogVerwaltung from '@/features/admin-area/KatalogZuweisen/KatalogVerwaltung';
+import Zuweisungen from '@/features/admin-panel/Zuweisung.tsx/zuweisungen';
+import InviteGate from '@/features/public/InviteGate';
+import { DashboardPage } from '@/features/admin-area/dashboardAdmin/DashboardPage';
+import AssessmentCompleted from '@/features/worker-area/assessment/AssessmentCompleted ';
+import HelpFaqPage from '@/features/worker-area/HelpFaqPage/HelpFaqPage';
+
 import ConditionEditor from '@/features/admin-area/catalogs/ConditionEditor';
 import CatalogList from '@/features/admin-area/catalogs/CatalogList';
-import ReifegradPage from '@/features/admin-area/topics/reifegradmodelle/Reifegradmodelle';
+import ReifegradPage from '@/features/admin-area/reifegradmodelle/Reifegradmodelle';
 import EmployeeProfile from '@/features/profile/ProfilePage';
-import InviteInvalid from '@/public/InviteInvalid';
-import Ica3LandingPage from '@/apps/landing/Ica3LandingPage';
+import InviteInvalid from '@/features/public/InviteInvalid';
 import EmployeeCatalogsPage from '@/features/worker-area/results/EmployeeCatalogsPage';
-import ContactPagePublic from '@/features/worker-area/ContactPagePublic';
+import ContactPagePublic from '@/features/worker-area/ContactPage/ContactPagePublic';
 export default function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<Navigate to="/login" replace />} />
       <Route path="/startseite" element={<LandingPage />} />
       <Route path="/help-faq" element={<HelpFaqPage />} />
-            <Route path="/kontakt" element={<ContactPagePublic />} />
+      <Route path="/kontakt" element={<ContactPagePublic />} />
 
       <Route path="/login" element={<LoginPage />} />
       <Route path="/invite/:token" element={<InviteGate />} />
-      <Route path="/KatalogGate" element={<ZugewiesenerKatalog />} />
 
-      
       <Route
-	  path="/app/employee/:workerId"
-	  element={
-	    <ProtectedRoute>
-	      <EmployeeCatalogsPage />
-	    </ProtectedRoute>
-	  }
-	/>
-    
-	      
+        path="/app/employee/:workerId"
+        element={
+          <ProtectedRoute>
+            <EmployeeCatalogsPage />
+          </ProtectedRoute>
+        }
+      />
 
       <Route
         path="/admin/reifegradmodelle"
@@ -232,43 +221,6 @@ export default function AppRoutes() {
         }
       />
 
-      {/* Admin Topics */}
-      <Route
-        path="/admin/topics/eam"
-        element={
-          <ProtectedRoute>
-            <EamPage />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/admin/topics/operating-model"
-        element={
-          <ProtectedRoute>
-            <OperatingModelPage />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/admin/topics/sourcing"
-        element={
-          <ProtectedRoute>
-            <SourcingPage />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/admin/topics/project-management"
-        element={
-          <ProtectedRoute>
-            <ProjectManagementPage />
-          </ProtectedRoute>
-        }
-      />
-
       <Route
         path="/admin/catalogs/:id"
         element={
@@ -287,23 +239,6 @@ export default function AppRoutes() {
         }
       />
 
-      <Route
-        path="/testComp"
-        element={
-          <ProtectedRoute>
-            <CompanyListtest />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/tests"
-        element={
-          <ProtectedRoute>
-            <Ica3LandingPage />
-          </ProtectedRoute>
-        }
-      />
       <Route
         path="/public/assessment-completed"
         element={<AssessmentCompleted />}

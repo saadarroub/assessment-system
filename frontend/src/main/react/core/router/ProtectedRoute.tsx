@@ -1,9 +1,6 @@
-// src/main/react/core/router/ProtectedRoute.tsx
 import { Navigate, useLocation } from "react-router-dom";
 import { type ReactNode } from "react";
 import { useAuthCtx } from "@/core/auth/AuthContext";
-// import { hasPermission } from "@/shared/utils/roleGuards";
-// import { PermissionEventBus } from "@/core/auth/PermissionEventBus";
 
 type Props = {
   permission?: string | string[];

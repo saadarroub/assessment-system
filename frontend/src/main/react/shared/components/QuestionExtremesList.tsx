@@ -1,6 +1,6 @@
 import { TrendingDown, TrendingUp, MessageSquare, CheckCircle2, XCircle, Tag } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
-import type { ThemeQuestionExtremes, QuestionScoreExtreme } from "@/api/types";
+import type { ThemeQuestionExtremes, QuestionScoreExtreme } from "@/shared/service/api/types";
 import { cn } from "@/lib/utils";
 
 const BRAND = {

@@ -1,15 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import AdminLayout from "@/apps/app/AdminLayout";
+import AdminLayout from "@/shared/app/AdminLayout";
 import { useAuthCtx } from "@/core/auth/AuthContext";
 import { Search, ArrowUpDown, Eye, Plus, Trash2, Pencil, Users } from "lucide-react";
 import ConfirmModal from "@/shared/components/ConfirmModal";
-import UserLogo from "@/assets/blue-user-icon-transparent.png";
-import { getUserProfile, buildAvatarUrl } from "@/features/service/profilePageService";
+import { getUserProfile, buildAvatarUrl } from "@/shared/service/profilePageService";
 import { useScrollLock } from "@/shared/hooks/useScrollLock";
 import { useHasPermission } from "@/shared/hooks/useHasPermission";
 import { PermissionButton } from "@/shared/components/permission/PermissionButton";
-import { SoftSquaresBackground } from "@/shared/components/SoftSquaresBackground";
 
 
 import {
@@ -20,13 +18,12 @@ import {
   updateUser,
   deleteUserRole,
   assignUserRole,
-} from "@/features/service/userService";
-import { getRoles, type RoleApi } from "@/features/service/roleService";
+} from "@/shared/service/userService";
+import { getRoles, type RoleApi } from "@/shared/service/roleService";
 import { WithPermissionCheck } from "@/shared/components/WithPermissionCheck";
 import { useToast } from "@/shared/contexts/ToastContext";
 import { Network } from "lucide-react";
 import PageHeader from "@/features/admin-area/catalogs/PageHeader";
-// ---- Types ----
 export type UserRow = {
   id: string;
   name: string;
@@ -67,10 +64,6 @@ function mapApiToUser(u: UserApi): UserRow {
     status: (u.status as "active" | "invited" | "disabled") ?? "active",
   };
 }
-
-
-
-// HSL-Token-Fallbacks (wie in deiner CSS)
 const CSS = {
   adminBg: "hsl(var(--admin-bg,0 0% 92%))",
   card: "hsl(var(--card,0 0% 98%))",
@@ -89,8 +82,6 @@ const BRAND = {
   fog: "#ebebec",
   gold: "#E3BB62",
 };
-
-
 export default function UsersPage() {
   const { showSuccess, showError } = useToast();
   const { has } = useHasPermission();
@@ -174,12 +165,8 @@ export default function UsersPage() {
             const [id, url] = r.value;
             next[id] = url ?? null;
           } else {
-            // wenn Fehler: merken wir "kein avatar"
-            // (sonst würdest du immer wieder neu versuchen)
             const reason: any = r.reason;
             const idGuess = String(reason?.config?.url ?? "");
-            // fallback: setze nichts, wenn du willst – ich setze auf null, damit Ruhe ist
-            // (wir haben id nicht sicher, daher einfach ignorieren)
           }
         }
         return next;
@@ -229,8 +216,6 @@ export default function UsersPage() {
       setRemovingRole(false);
     }
   }
-
-
   // Get current user
   const { user: currentUser } = useAuthCtx();
 
@@ -395,7 +380,7 @@ export default function UsersPage() {
     }
   };
 
-  // === Edit flow ===
+  // == Edit flow 
   const openEditFor = (u: UserRow) => {
     setEditUser(u);
     setEName(u.name);
@@ -429,8 +414,8 @@ export default function UsersPage() {
     };
 
     // aktuelle & neue Rolle ermitteln
-    const oldRoleId = editUser.roles[0]?.id ?? null;   // aktuelle Rolle aus Tabelle/State
-    const newRoleId = eRoleId || null;                 // aus dem Select (kann "" sein)
+    const oldRoleId = editUser.roles[0]?.id ?? null;   
+    const newRoleId = eRoleId || null;                
 
     try {
       setUpdating(true);
@@ -467,9 +452,6 @@ export default function UsersPage() {
       setUpdating(false);
     }
   }
-
-
-
   //Pagination 
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10); // Start mit 10 Zeilen pro Seite
@@ -498,7 +480,6 @@ export default function UsersPage() {
 
   return (
     <AdminLayout>
-      {/* HEADER */}
       <PageHeader
 
         title=" Benutzer Administration"
@@ -509,8 +490,6 @@ export default function UsersPage() {
         showPattern={true}
         center={false}
       />
-
-      {/*  Außenbereich unter dem Hero  */}
       <main
         className="min-h-[calc(100vh-64px)] mt-0 px-6 pb-8 pt-20"
         style={{
@@ -521,8 +500,7 @@ export default function UsersPage() {
             "linear-gradient(to bottom, #f3f4f7 0, #e6e9ef 240px, #f4f5f8 100%)",
         }}
       >
-
-        {/* ===== Top-Bar: Breadcrumb + Add-Button (eine Zeile) ===== */}
+        {/*  Top-Bar: Breadcrumb + Add-Button (eine Zeile)  */}
         <div className="max-w-[1400px] xl:max-w-[1600px] mx-auto mb-3 flex items-center justify-between">
           {/* Breadcrumb links – als hübscher Pill */}
           <nav className="flex items-center">
@@ -603,9 +581,7 @@ export default function UsersPage() {
 
 
         </div>
-
-
-        {/*  Suche + Count – Cap Farbwelt */}
+        {/*  Suche + Count  */}
         <div
           className="
     max-w-[1400px] xl:max-w-[1600px] mx-auto mb-4
@@ -691,10 +667,7 @@ export default function UsersPage() {
             </div>
           </div>
         </div>
-
-
-
-        {/* ===== Card (um die Tabelle) ===== */}
+        {/*  Card (um die Tabelle)  */}
         <WithPermissionCheck error={error} loading={loading} minHeight="auto">
           <section
             className="
@@ -836,7 +809,7 @@ export default function UsersPage() {
                         style={
                           highlightedId === u.id
                             ? {
-                              borderLeftColor: "rgb(34 197 94)", // grün links
+                              borderLeftColor: "rgb(34 197 94)", 
                               boxShadow: "0 0 0 2px rgba(34,197,94,0.25)",
                               background:
                                 "linear-gradient(to right, rgba(34,197,94,0.08), rgba(255,255,255,1))",
@@ -935,9 +908,7 @@ export default function UsersPage() {
                               <Eye size={13} />
                               <span className="hidden sm:inline">View</span>
                             </Link>
-
-
-                            {/* Edit Icon-Button (öffnet Edit-Modal) */}
+                            {/* Edit Icon-Button  */}
                             <PermissionButton
                               type="button"
                               allowed={canEditUser}
@@ -964,7 +935,7 @@ export default function UsersPage() {
                             </PermissionButton>
 
 
-                            {/* Delete (wie bisher) */}
+                            {/* Delete  */}
                             <PermissionButton
                               type="button"
                               allowed={canDeleteUser}
@@ -1001,7 +972,7 @@ export default function UsersPage() {
             </div>
           </section>
         </WithPermissionCheck>
-        {/* === Pagination (mit Rows per page + Page X of Y) === */}
+        {/*  Pagination (mit Rows per page + Page X of Y)  */}
         <div
           className="
     max-w-[1400px] xl:max-w-[1600px] mx-auto mt-4
@@ -1136,7 +1107,7 @@ export default function UsersPage() {
         </div>
       </main>
 
-      {/* ===== Create User Modal ===== */}
+      {/*  Create User Modal  */}
       {openCreate && (
         <div
           role="dialog"
@@ -1302,10 +1273,10 @@ export default function UsersPage() {
               </div>
             </div>
 
-            {/* kleiner Abstand wie bei den anderen Modals */}
+            {/* kleiner Abstand  */}
             <div className="h-3" />
 
-            {/* Button-Leiste – gleich wie Confirm/Edit */}
+            {/* Button-Leiste  */}
             <div className="mt-1 flex gap-2">
               <button
                 type="button"
@@ -1350,9 +1321,7 @@ export default function UsersPage() {
           </div>
         </div>
       )}
-
-
-      {/* ===== Delete Confirm Modal ===== */}
+      {/*  Delete Confirm Modal  */}
       <ConfirmModal
         open={openDelete && !!targetUser}
         title="User löschen?"
@@ -1392,7 +1361,7 @@ export default function UsersPage() {
       />
 
 
-      {/* ===== Edit User Modal (im gleichen Style wie ConfirmModal) ===== */}
+      {/*  Edit User Modal   */}
       {openEdit && editUser && (
         <div
           role="dialog"
@@ -1404,7 +1373,7 @@ export default function UsersPage() {
             className="w-full max-w-xl px-4 sm:px-0"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Karten-Block mit Glow – analog ConfirmModal */}
+            {/* Karten-Block mit Glow  */}
             <div className="relative overflow-hidden rounded-3xl bg-white shadow-2xl border border-slate-200/80">
               {/* Deko-Glows */}
               <div
@@ -1470,7 +1439,7 @@ export default function UsersPage() {
                     </label>
 
                     {editUser.roles.length > 0 ? (
-                      // ===== Schritt 1: Aktuelle Rolle anzeigen + Entfernen-Button =====
+                      //  Schritt 1: Aktuelle Rolle anzeigen + Entfernen-Button 
                       <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 space-y-2">
                         <p className="text-xs text-slate-600">
                           Aktuelle Rolle:
@@ -1514,7 +1483,7 @@ export default function UsersPage() {
                         </p>
                       </div>
                     ) : (
-                      // ===== Schritt 2: Keine Rolle → Select anzeigen =====
+                      //  Schritt 2: Keine Rolle → Select anzeigen 
                       <>
                         <select
                           id="e-role"
@@ -1552,11 +1521,9 @@ export default function UsersPage() {
                 </form>
               </div>
             </div>
-
-            {/* kleiner Abstand wie beim ConfirmModal */}
             <div className="h-3" />
 
-            {/* Button-Leiste – gleicher Style wie ConfirmModal */}
+            {/* Button-Leiste  */}
             <div className="mt-1 flex gap-2">
               <button
                 type="button"

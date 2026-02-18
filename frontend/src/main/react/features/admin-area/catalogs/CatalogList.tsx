@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import AdminLayout from "@/apps/app/AdminLayout";
+import AdminLayout from "@/shared/app/AdminLayout";
 import "@/styles/admin.css";
 
 import {
@@ -28,7 +28,7 @@ import {
   getQuestionTypes,
   createQuestion,
   createQuestionNode,
-} from "@/api/questionApi";
+} from "@/shared/service/api/questionApi";
 
 import PageHeader from "./PageHeader";
 

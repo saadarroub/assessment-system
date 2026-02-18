@@ -1,8 +1,8 @@
 import * as React from "react";
 import { Check, ChevronsUpDown, X, Users } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import type { ThemeOption } from "@/api/types";
+import { Button } from "@/shared/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/shared/components/ui/popover";
+import type { ThemeOption } from "@/shared/service/api/types";
 import { cn } from "@/lib/utils";
 
 const BRAND = {

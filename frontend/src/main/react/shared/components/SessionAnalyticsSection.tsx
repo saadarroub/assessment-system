@@ -6,14 +6,14 @@ import { ThemeSelector } from "./ThemeSelector";
 import { AnalyticsDateRangePicker } from "./AnalyticsDateRangePicker";
 import { ThemeAreaChart } from "./SessionAreaChart";
 import { QuestionExtremesList } from "./QuestionExtremesList";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/shared/components/ui/button";
 
 import type {
   ThemeOption,
   ThemeTimeSeriesResponse,
   ThemeQuestionExtremes,
   TimeBucket,
-} from "@/api/types";
+} from "@/shared/service/api/types";
 
 import {
   getMockThemes,
@@ -22,7 +22,7 @@ import {
   fetchThemes,
   fetchThemeTimeSeries,
   fetchThemeQuestionExtremes,
-} from "@/api/themeAnalyticsApi";
+} from "@/shared/service/api/themeAnalyticsApi";
 
 const BRAND = {
   navy: "#264555",

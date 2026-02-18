@@ -2,7 +2,7 @@ import React from "react";
 import { Layers, Edit3, Trash2, ArrowRight, Copy, Info } from "lucide-react";
 import ConfirmModal from "@/shared/components/ConfirmModal";
 import { useToast } from "@/shared/contexts/ToastContext";
-import { deleteThema, updateThema } from "@/api/questionApi";
+import { deleteThema, updateThema } from "@/shared/service/api/questionApi";
 
 type Topic = {
   id: string;
@@ -89,7 +89,7 @@ const TopicCard = ({
     return () => observer.disconnect();
   }, []);
 
-  /* ============== Delete ============== */
+  /*  Delete  */
   const askDelete = () => {
     setOpenDelete(true);
   };
@@ -114,7 +114,7 @@ const TopicCard = ({
     }
   };
 
-  /* ============== Edit ============== */
+  /*  Edit  */
   const askEdit = () => {
     setEditTitle(t.title);
     setEditSubtitle(t.subtitle);
@@ -167,7 +167,7 @@ const TopicCard = ({
           border: "1px solid #e9ebe5ff",
         }}
       >
-        {/* ✨ HOVER GLOW LAYER */}
+        {/* HOVER GLOW LAYER */}
         <div
           className="
     pointer-events-none
@@ -215,9 +215,7 @@ const TopicCard = ({
                 strokeWidth={2}
               />
             </div>
-
-            {/* ⭐ Status Badge + Toggle */}
-            {/* ⭐ Status Badge + Toggle */}
+            {/* Status Badge + Toggle */}
             <div className="flex items-center gap-2 -mt-6">
               {/* Status Badge */}
               <span
@@ -255,7 +253,6 @@ const TopicCard = ({
           </div>
           {/* TITLE */}
           <div className="flex flex-col gap-2 min-h-[80px]">
-            {/* TITLE + INFO ICON */}
             <div className="flex items-start justify-between relative">
               <h4
                 ref={titleRef}
@@ -274,7 +271,7 @@ const TopicCard = ({
                   onMouseEnter={() => {
                     hoverTimeout.current = setTimeout(() => {
                       setShowTooltipFull(true);
-                    }, 350); // ⏳ 350ms Delay bevor Tooltip öffnet
+                    }, 350); 
                   }}
                   onMouseLeave={() => {
                     clearTimeout(hoverTimeout.current);
@@ -369,10 +366,10 @@ const TopicCard = ({
     w-11 h-10 rounded-xl
     flex items-center justify-center
     transition-colors duration-200
-    bg-[#f7f3ea]                       /* Hintergrund wie Fragenanzahl */
+    bg-[#f7f3ea]                      
     border border-[#f7cfcf] 
-     hover:border-[#e88a8a]         /* helleres Rot für Rahmen */
-    hover:bg-[#fde8e8]                 /* Hover bleibt rot (sanft) */
+     hover:border-[#e88a8a]         
+    hover:bg-[#fde8e8]                 
   "
             >
               <Trash2 size={18} color="#e74c3c" strokeWidth={2.2} />
@@ -439,7 +436,7 @@ const TopicCard = ({
         </div>
       </div>
 
-      {/* ===== Edit Modal ===== */}
+      {/*  Edit Modal  */}
       {openEdit && (
         <div
           role="dialog"
@@ -591,7 +588,7 @@ const TopicCard = ({
         </div>
       )}
 
-      {/* ===== Delete Confirm Modal ===== */}
+      {/*  Delete Confirm Modal  */}
       <ConfirmModal
         open={openDelete}
         title="Thema löschen?"
